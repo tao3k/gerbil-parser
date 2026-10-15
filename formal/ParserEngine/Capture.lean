@@ -432,6 +432,19 @@ theorem prepared_capture_arguments_saved (nodes : Nat) :
   unfold formerCaptureArguments preparedCaptureArguments
   omega
 
+/-- Only canonical transitions enter this cache. The compiled grammar's goto
+mapping is immutable for this runtime/production/entry; arbitrary direct
+executors create uncached descriptors and cannot violate these premises. -/
+theorem canonical_context_admission (wanted cached : TransitionContext Runtime Executor)
+    (canonical : Executor) (target : Nat)
+    (coordinates : cached.runtime = wanted.runtime ∧ cached.production = wanted.production ∧
+      cached.entry = wanted.entry)
+    (cachedExecutor : cached.executor = canonical) (wantedExecutor : wanted.executor = canonical)
+    (cachedTarget : cached.target = target) (wantedTarget : wanted.target = target)
+    (kind : cached.lookaheadKind = wanted.lookaheadKind) : cached = wanted := by
+  apply cached_context_admission wanted cached coordinates
+  exact ⟨cachedExecutor.trans wantedExecutor.symm, cachedTarget.trans wantedTarget.symm, kind⟩
+
 /-- Logical data slots only. Cold descriptor objects and the bounded directory
 are charged; object headers, lookup work, allocator and GC are separate costs. -/
 def flatCaptureSlots (nodes : Nat) := 13 * nodes

@@ -15,7 +15,8 @@
          (ids (iota (vector-length widths)))
          (unary (find (lambda (id) (= (vector-ref widths id) 1)) ids))
          (nullable (find (lambda (id) (= (vector-ref widths id) 0)) ids))
-         (combinations 0))
+         (combinations 0)
+         (executor (lambda _ #f)))
     (def (observe-children! piece)
       (cond ((lr-recognition-view? piece) (observe-children! (lr-recognition-view-base piece)))
             ((lr-recognition-fragment? piece)
@@ -26,7 +27,7 @@
              (empty? (memq kind '(empty-fragment moved-empty nested-empty)))
              (fragment? (or empty? (memq kind '(fragment moved-fragment nested-fragment))))
              (piece (if fragment?
-                      (car (reference-capture-reduction runtime #f (if empty? nullable unary)
+                      (car (reference-capture-reduction runtime executor (if empty? nullable unary)
                              (if empty? '(0) '(0 0)) (if empty? '() (list token))
                              '() (* i 2) '(value) 1)) token)))
         (cond ((memq kind '(moved-token moved-fragment moved-empty))
@@ -46,12 +47,12 @@
                       (suffix (list (make-token 'identifier "tail" 100 104)))
                       (stack (append (reverse prefix) suffix))
                       (states (iota (+ width 1)))
-                      (args (list runtime #f production states stack rest 7 '(value) 1))
+                      (args (list runtime executor production states stack rest 7 '(value) 1))
                       (reference (apply reference-capture-reduction args))
-                      (candidate (capture-reduction (vector-ref plans production) #f (list-ref states width) stack
+                      (candidate (capture-reduction (vector-ref plans production) executor (list-ref states width) stack
                                    (and (pair? rest) (car rest)) 7 '(value) 1)))
                  (let* ((uncached (make-lr-capture-plan runtime production width #f))
-                        (fast (capture-reduction uncached #f (list-ref states width) stack
+                        (fast (capture-reduction uncached executor (list-ref states width) stack
                                 (and (pair? rest) (car rest)) 7 '(value) 1)))
                    (lr-recognition-fragment-terminal-yield (car fast))
                    (observe-children! (car reference)) (observe-children! (car fast))

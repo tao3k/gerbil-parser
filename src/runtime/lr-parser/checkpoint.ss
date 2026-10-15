@@ -250,7 +250,7 @@
                                   rest (fx+ actions 1) shifts
                                   (lr-stack-policy-value policy (and remaining-budget (fx- remaining-budget 1)) #f)
                                   (and recognition-stack
-                                       (capture-reduction (vector-ref capture-plans production-id) direct-step
+                                       (capture-reduction (vector-ref capture-plans production-id) #f
                                          (lr-stack-current policy remaining-states state-storage) recognition-stack (and (not (lr-input-empty? scalar? rest)) (lr-input-token scalar? rest)) offset value target)))
                                  (fallback
                                   states semantic-values rest

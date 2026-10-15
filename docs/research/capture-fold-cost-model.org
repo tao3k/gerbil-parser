@@ -505,3 +505,66 @@ control in 35.762327 seconds. The candidate percentile alone is not accepted.
 The observed 64-record root has a false executor, confirming that it uses the
 canonical LR path; no assumption about arbitrary custom executors is needed.
 Independent Ubuntu qualification must evaluate the plan/staging revision.
+
+
+** Canonical goto ownership and custom executor isolation
+
+Ubuntu run =38760634859= at =a6b6b38= passed generation, corpus, diagnostics,
+semantics and FFI. Capture CPU qualification failed: candidate P10/P50/P90 was
+0.921400/0.936945/0.959359, and following-control P90 was 1.101842. The
+49.830187-second rejection is retained; the second trial did not execute.
+Neither the candidate threshold nor the reference stability gate was met.
+
+The next model separates canonical goto ownership from a caller-supplied executor.
+For a prepared immutable grammar, runtime, production and entry determine the
+canonical target. Only canonical transitions may publish in a prepared plan's
+context row. Under these producer premises, =canonical_context_admission= proves
+that the remaining live kind comparison admits the exact six-field context.
+Quint checks eight directed histories and 1000 seeded invariant traces, including
+custom executor isolation and rejection of a changed canonical target premise.
+These checks establish an abstract admission protocol, not a native CPU result.
+
+The engine now keeps custom executor contexts uncached. They retain their actual
+executor and target, cannot replace a canonical row entry, and do not retain a
+borrowed callback globally through that row. Canonical hits compare the live
+kind; immutable prepared goto ownership supplies the target. Live symbolic-kind
+and string-lexeme validation still precedes publication. Each boundary snapshot
+retains the observed lexeme, including when the caller later mutates its token.
+
+The unused diagnostic cache wrapper is removed. The historical oracle constructs
+its private context directly, independently of the candidate cache. Synthetic
+capture geometry uses the same custom executor sentinel in both oracle and
+candidate; actual parser requests exercise canonical goto caching. A native
+control obtains a real prepared goto entry, checks canonical reuse before and
+after custom calls with changed targets, and checks runtime isolation. Oversized
+plans remain uncached. The original 64-record CPU gate and all budgets are kept.
+
+
+Native qualification passed 90 Cases across eight modules in 7.520843 seconds
+and all 198 geometry combinations in 9.524587 seconds. An initial control failed
+because it assumed augmented production zero had a goto; the corrected control
+selects a real nonempty prepared column. That failed run remains retained.
+
+Two consecutive unchanged complete-request CPU trials passed:
+
+| Trial | Reference before P10/P50/P90 | Candidate P10/P50/P90 | Reference after P10/P50/P90 | Seconds |
+|-------+-----------------------------+----------------------+----------------------------+---------|
+| First | 0.947586 / 0.999273 / 1.055947 | 0.914600 / 0.923168 / 0.944132 | 0.904643 / 1.001789 / 1.050335 | 30.102411 |
+| Repeat | 0.957353 / 1.000648 / 1.024456 | 0.915619 / 0.918091 / 0.940139 | 0.950028 / 0.998975 / 1.055404 | 30.129078 |
+
+The complete 64-record ASCII request has local median CPU reductions of 7.68%
+and 8.19% against the frozen =459ec36= reference, with valid reference controls.
+These compare the accumulated capture implementation against the frozen baseline;
+they do not isolate the incremental contribution of canonical cache admission.
+The scope includes scanning, LR, capture, publication and full artifact/source
+validation. Both trials retain the original sample counts, natural GC and budgets.
+Independent exact-head Ubuntu qualification remains required. Custom executor
+correctness is covered, but its CPU performance is not qualified by this workload;
+its descriptors deliberately allocate independently rather than retaining callbacks
+in the canonical cache.
+
+The seven-scope allocation/GC diagnostic passed in 10.667238 seconds. Every whole
+request sample in this run collected, so the diagnostic correctly reports no
+admissible allocation-byte estimate for those samples. No additional allocation
+reduction is claimed from removing the redundant canonical checks. The earlier
+23.47% no-GC allocation reduction and the matched CPU evidence remain separate.

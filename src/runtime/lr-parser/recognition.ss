@@ -11,7 +11,7 @@
                  lr-capture-plan make-lr-capture-plan lr-runtime-capture-plans lr-runtime-capture-plans-set! lr-runtime-actions make-lr-capture-context lr-capture-context lr-capture-context-executor lr-capture-context-exit-state lr-runtime-table lr-runtime-reduction-widths make-lr-recognition-fragment lr-recognition-fragment lr-recognition-fragment? lr-recognition-fragment-runtime lr-recognition-fragment-production-id lr-recognition-fragment-children lr-recognition-fragment-start lr-recognition-fragment-end lr-recognition-fragment-token-count lr-recognition-fragment-offset lr-recognition-fragment-yield-cache lr-recognition-fragment-yield-cache-set! make-lr-recognition-view lr-recognition-view? lr-recognition-view-base lr-recognition-view-delta make-lr-terminal-yield-branch make-lr-terminal-yield-view lr-terminal-yield-view? lr-terminal-yield-view-base lr-terminal-yield-view-delta)
         (only-in "./reduction.ss"
                  reduce-value))
-(export prepare-capture-plans capture-context-from-plan capture-context-for
+(export prepare-capture-plans capture-context-from-plan
         lr-recognition-fragment-terminal-yield
         lr-recognition-relocate
         terminal-yield-append
@@ -129,26 +129,15 @@
       cached)))
 
 (definline (capture-context-from-plan (plan : lr-capture-plan) executor entry target kind) => :t
-  (let* ((row plan.contexts) (context (and row (vector-ref row entry))))
-    (if context
-      (using (context : lr-capture-context)
-        (if (and (eq? executor context.executor) (eqv? target context.exit-state) (eq? kind context.lookahead-kind))
-          context
-          (let (next (make-lr-capture-context plan.runtime executor plan.production-id entry target kind))
-            (vector-set! row entry next) next)))
-      (let (next (make-lr-capture-context plan.runtime executor plan.production-id entry target kind))
-        (when row (vector-set! row entry next)) next))))
-
-;;; Direct diagnostics retain checked coordinate admission. Canonical drivers
-;;; already own the production plan and validate the entry through LR lookup.
-(def (capture-context-for runtime executor production entry target kind)
-  (let (plans (prepare-capture-plans runtime))
-    (if (and (exact-integer? entry) (<= 0 entry)
-             (exact-integer? production) (<= 0 production)
-             (< production (vector-length plans))
-             (< entry (vector-length (lr-runtime-actions runtime))))
-      (capture-context-from-plan (vector-ref plans production) executor entry target kind)
-      (make-lr-capture-context runtime executor production entry target kind))))
+  ;; Only canonical goto transitions enter the prepared row. A custom executor
+  ;; owns its target and remains exact and uncached, including borrowed closures.
+  (if executor
+    (make-lr-capture-context plan.runtime executor plan.production-id entry target kind)
+    (let* ((row plan.contexts) (context (and row (vector-ref row entry))))
+      (if (and context (using (context : lr-capture-context) (eq? kind context.lookahead-kind)))
+        context
+        (let (next (make-lr-capture-context plan.runtime #f plan.production-id entry target kind))
+          (when row (vector-set! row entry next)) next)))))
 
 (definline (capture-reduction plan executor entry-state stack input offset value target) => :t
   (if (not stack) #f

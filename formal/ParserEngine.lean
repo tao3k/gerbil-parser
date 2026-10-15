@@ -129,3 +129,5 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 
 #print axioms ParserEngine.Capture.prepared_capture_prefix_exact
 #print axioms ParserEngine.Capture.prepared_capture_arguments_saved
+
+#print axioms ParserEngine.Capture.canonical_context_admission

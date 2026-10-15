@@ -1,9 +1,9 @@
 (import (only-in :gerbil-parser/src/runtime/lr-parser/state
-                 lr-runtime-reduction-widths)
+                 lr-runtime-reduction-widths make-lr-capture-context)
         (rename-in (only-in :gerbil-parser/src/runtime/lr-parser/state make-lr-recognition-fragment)
                    (make-lr-recognition-fragment make-current-capture-fragment))
         (only-in :gerbil-parser/src/runtime/lr-parser/recognition
-                 capture-context-for recognition-piece-start recognition-piece-end recognition-piece-token-count
+                 recognition-piece-start recognition-piece-end recognition-piece-token-count
                  recognition-piece-terminal-yield terminal-yield-append)
         (only-in :gerbil-parser/src/runtime/token token-kind token-lexeme))
 (export reference-capture-reduction)
@@ -11,7 +11,7 @@
 ;;; representation. This adapter exists only in the frozen test oracle.
 (def (make-lr-recognition-fragment runtime executor production entry target children
                                   lookahead value start end count offset yield)
-  (make-current-capture-fragment (capture-context-for runtime executor production entry target (and lookahead (car lookahead)))
+  (make-current-capture-fragment (make-lr-capture-context runtime executor production entry target (and lookahead (car lookahead)))
                                 (if (and (pair? children) (null? (cdr children)))
                                   (car children) children)
                                 (and lookahead (cdr lookahead)) value start end count offset yield))

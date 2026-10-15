@@ -16,7 +16,7 @@
         (only-in ../token
                  token-end token-kind token-lexeme token-start)
         (only-in "./state.ss"
-                 lr-runtime-productions lr-runtime-table lr-runtime-reduction-widths lr-runtime-actions lr-runtime-action-index lr-runtime-goto-index lr-runtime-case-insensitive? lr-runtime-layout? lr-runtime-reduction-plans lr-runtime-action-selector current-lr-branch-budget)
+                 lr-runtime-productions lr-runtime-table lr-runtime-reduction-widths lr-runtime-actions lr-runtime-action-index lr-runtime-goto-index lr-runtime-goto-columns lr-runtime-case-insensitive? lr-runtime-layout? lr-runtime-reduction-plans lr-runtime-action-selector current-lr-branch-budget)
         (only-in "./prepare.ss"
                  lr-prepare goto-target)
         (only-in "./reduction.ss"
@@ -52,6 +52,7 @@
          (action-index (lr-runtime-action-index runtime))
          (select-action (lr-runtime-action-selector runtime))
          (goto-index (lr-runtime-goto-index runtime))
+         (goto-columns (lr-runtime-goto-columns runtime))
          (case-insensitive? (lr-runtime-case-insensitive? runtime))
          (layout? (lr-runtime-layout? runtime))
          (input-end-offset
@@ -211,8 +212,9 @@
                    score))
                 (target
                  (and (pair? remaining-states)
-                      (goto-target goto-index (car remaining-states)
-                                   (production-lhs production)))))
+                      (if goto-columns
+                        (vector-ref (vector-ref goto-columns production-id) (car remaining-states))
+                        (goto-target goto-index (car remaining-states) (production-lhs production))))))
            (and target
                 (if (layout-end-action? (production-action production))
                   (alet (frames (layout-after-end (and (pair? rest) (car rest))
@@ -295,7 +297,7 @@
                     (fuel deterministic-memo-fuel))
       (if (positive? fuel)
         (let (action-row
-              (select-action (car states) rest))
+              (select-action (car states) (and (pair? rest) (car rest))))
           (cond
            ((not action-row)
             (record-failure! (car states) rest)
@@ -333,7 +335,7 @@
           (let (memo (cons configuration-result-visiting #f))
             (configuration-bucket-set! results state bucket key memo)
             (let* ((action-row
-                    (select-action state rest))
+                    (select-action state (and (pair? rest) (car rest))))
                    (result
                     (if action-row
                       (try-action (cdr action-row) (car action-row)

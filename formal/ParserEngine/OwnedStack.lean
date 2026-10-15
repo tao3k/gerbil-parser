@@ -71,4 +71,21 @@ theorem unary_chain_keeps_tail (steps : List (α → α)) (head : α) (tail : Li
   | cons step rest ih =>
     simpa only [List.foldl_cons, unaryStackStep] using ih (step head)
 
+/-- Captured execution may pop private storage while retaining the same frozen
+immutable frontier. The active prefix must fit; inactive cells are irrelevant. -/
+theorem freeze_stack_pop (storage : Array α) (depth width : Nat)
+    (fits : depth ≤ storage.size) :
+    freezeStack storage (depth - width) = (freezeStack storage depth).drop width := by
+  simp only [freezeStack, List.drop_reverse, List.length_take, Array.length_toList,
+             Nat.min_eq_left fits, List.take_take]
+  congr 1
+  congr 1
+  omega
+
+theorem captured_entry_after_pop (storage : Array Nat) (depth width : Nat)
+    (fits : depth ≤ storage.size) :
+    (freezeStack storage (depth - width)).head? =
+      ((freezeStack storage depth).drop width).head? := by
+  rw [freeze_stack_pop storage depth width fits]
+
 end ParserEngine

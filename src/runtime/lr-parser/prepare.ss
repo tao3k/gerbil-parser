@@ -10,7 +10,7 @@
         (only-in :core/poo-clos/interface
                  .defgeneric .defmethod)
         (only-in ../../compiler/lr
-                 lr-spec-ref production-action validate-production-semantics production-precedence production-rhs production-table)
+                 lr-spec-ref production-action validate-production-semantics production-precedence production-rhs production-table production-lhs)
         (only-in ../funcs
                  association-row-vector->index vector-intern-map)
         (only-in ../lr-action-index
@@ -20,7 +20,7 @@
         (only-in ../token
                  token-kind token-lexeme)
         (only-in "./state.ss"
-                 make-lr-runtime lr-runtime? lr-runtime-productions lr-runtime-table lr-runtime-reduction-widths lr-runtime-actions lr-runtime-action-index lr-runtime-gotos lr-runtime-goto-index lr-runtime-case-insensitive? lr-runtime-dynamic? lr-runtime-layout? lr-runtime-lexical-modes lr-runtime-lexical-mode-catalog lr-runtime-direct-step lr-runtime-direct-step-set! lr-runtime-semantic-reducer lr-runtime-event-reducer lr-runtime-event-step lr-runtime-event-step-set! lr-runtime-event-runtime lr-runtime-event-runtime-set! lr-runtime-reduction-plans lr-runtime-action-selector lr-runtime-owned-stack?-set! current-lr-event-program-enabled? make-lr-lexical-mode)
+                 make-lr-runtime lr-runtime? lr-runtime-productions lr-runtime-table lr-runtime-reduction-widths lr-runtime-actions lr-runtime-action-index lr-runtime-gotos lr-runtime-goto-index lr-runtime-goto-columns lr-runtime-case-insensitive? lr-runtime-dynamic? lr-runtime-layout? lr-runtime-lexical-modes lr-runtime-lexical-mode-catalog lr-runtime-direct-step lr-runtime-direct-step-set! lr-runtime-semantic-reducer lr-runtime-event-reducer lr-runtime-event-step lr-runtime-event-step-set! lr-runtime-event-runtime lr-runtime-event-runtime-set! lr-runtime-reduction-plans lr-runtime-action-selector lr-runtime-owned-stack?-set! current-lr-event-program-enabled? make-lr-lexical-mode)
         (only-in "./reduction.ss"
                  reduce-value reduce-value/events))
 (export install-lr-runtime-direct-step!
@@ -33,6 +33,7 @@
         prepare-token-action-lookup
         make-lr-action-selector
         lr-runtime-with-action-selector
+        prepare-lr-goto-columns
         goto-target)
 
 ;;; Install a generated reduction step once, before the runtime is shared.
@@ -107,7 +108,7 @@
            (lr-runtime-lexical-mode-catalog runtime)
            (lr-runtime-event-step runtime) (lr-runtime-event-reducer runtime) #f #f #f
            (prepare-lr-reduction-plans 'event (lr-runtime-table runtime))
-           (lr-runtime-action-selector runtime) #f))
+           (lr-runtime-action-selector runtime) #f (lr-runtime-goto-columns runtime)))
       (lr-runtime-event-runtime-set! runtime selected)
       selected))))
 
@@ -132,7 +133,8 @@
              (plans (prepare-lr-reduction-plans 'recognition table))
              (capability (lr-semantic-capability table actions dynamic? layout?))
              (case-insensitive? (lr-spec-ref spec 'case-insensitive?))
-             (action-index (index-action-rows actions case-insensitive?)))
+             (action-index (index-action-rows actions case-insensitive?))
+             (goto-index (association-row-vector->index gotos)))
         (make-lr-runtime
          productions
          table
@@ -142,7 +144,7 @@
          actions
          action-index
          gotos
-         (association-row-vector->index gotos)
+         goto-index
          (lr-spec-ref spec 'case-insensitive?)
          dynamic?
          layout?
@@ -151,7 +153,7 @@
          #f (select-lr-semantic-reducer 'recognition capability)
          (select-lr-semantic-reducer 'event capability) #f #f plans
          (make-lr-action-selector actions action-index case-insensitive? layout?)
-         (not layout?))))))
+         (not layout?) (prepare-lr-goto-columns table goto-index))))))
 
 ;;; Token terminals are admitted symbols. Specialize the owned row shape once;
 ;;; first duplicate entries and exact action-pair identity remain unchanged.
@@ -174,15 +176,15 @@
              (let ((eof (lr-action-row-eof row)) (lookup-token (prepare-token-action-lookup (lr-action-row-tokens row))))
                (if (lr-action-row-has-literals? row)
                  (lambda (input)
-                   (if (null? input) eof
-                     (let (token (car input))
+                   (if (not input) eof
+                     (let (token input)
                        (or (lookup-literal-action-entry row (token-lexeme token))
                            (and case-insensitive?
                              (lookup-casefolded-literal-action-entry row (token-lexeme token)))
                            (lookup-token (token-kind token))))))
                  (lambda (input)
-                   (if (null? input) eof
-                     (lookup-token (token-kind (car input)))))))) index))
+                   (if (not input) eof
+                     (lookup-token (token-kind input))))))) index))
       (lambda (state input) ((vector-ref selectors state) input)))))
 
 ;;; Qualification/extension preparation replaces only the action lookup
@@ -202,7 +204,8 @@
      #f (lr-runtime-semantic-reducer runtime) (lr-runtime-event-reducer runtime) #f #f
      (lr-runtime-reduction-plans runtime) selector
      (and (not (lr-runtime-layout? runtime))
-          (not (lr-runtime-event-program? runtime))))))
+          (not (lr-runtime-event-program? runtime)))
+     (lr-runtime-goto-columns runtime))))
 
 ;; goto-target
 ;; : (-> (Vector (Or (List Pair) HashTable)) Fixnum Symbol (OrFalse Fixnum))
@@ -217,3 +220,27 @@
                   (assq lhs index) (hash-get index lhs))))
     (and entry (cdr entry))))
 
+
+;;; Preparation owns these columns. Share each LHS column across productions;
+;;; cap retained cells before allocation and keep sparse rows above the budget.
+(def (prepare-lr-goto-columns table gotos (cell-budget 65536))
+  (unless (and (exact-integer? cell-budget) (>= cell-budget 0))
+    (error "goto column cell budget must be a nonnegative integer"))
+  (let ((by-lhs (make-table test: eq?)) (keys '()))
+    (vector-for-each
+      (lambda (production)
+        (let (lhs (production-lhs production))
+          (unless (table-ref by-lhs lhs #f)
+            (table-set! by-lhs lhs #t)
+            (set! keys (cons lhs keys))))) table)
+    (and (<= (* (length keys) (vector-length gotos)) cell-budget)
+      (begin
+        (for-each
+          (lambda (lhs)
+            (let (column (make-vector (vector-length gotos) #f))
+              (let loop ((state 0))
+                (when (< state (vector-length gotos))
+                  (vector-set! column state (goto-target gotos state lhs))
+                  (loop (+ state 1))))
+              (table-set! by-lhs lhs column))) keys)
+        (vector-map/index (lambda (_id production) (table-ref by-lhs (production-lhs production))) table)))))

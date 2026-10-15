@@ -39,10 +39,11 @@
                (let* ((prefix (map (lambda (i) (make-piece kind i)) (iota width)))
                       (suffix (list (make-token 'identifier "tail" 100 104)))
                       (stack (append (reverse prefix) suffix))
-                      (states (make-list (+ width 1) 0))
+                      (states (iota (+ width 1)))
                       (args (list runtime #f production states stack rest 7 '(value) 1))
                       (reference (apply reference-capture-reduction args))
-                      (candidate (apply capture-reduction args)))
+                      (candidate (capture-reduction runtime #f production (list-ref states width) stack
+                                   (and (pair? rest) (car rest)) 7 '(value) 1)))
                  (require! (equal? reference candidate) "capture fields or yield association changed")
                  (require! (eq? (cdr candidate) suffix) "capture copied or changed the remaining stack")
                  (require! (equal? (lr-recognition-fragment-children (car candidate)) prefix)

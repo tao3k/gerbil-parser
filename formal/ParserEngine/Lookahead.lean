@@ -1,3 +1,5 @@
+import LeanPoo.Prototype.DictionaryBridge
+
 namespace ParserEngine.Lookahead
 
 /-- Logical request-local scope, not implemented hashes or pointer equality.
@@ -245,5 +247,52 @@ theorem request_transport_regresses (work : SharedWork) (admissions extraQueries
 
 -- Counterexample with nonempty queries: not a measured action trace.
 example : listInputCells 192 < scalarInputCells (192 + 322) 0 := by decide
+
+/-- The streaming domain is empty or one admitted token. Borrowed multi-token
+suffixes keep their separate identity-preserving list representation. -/
+abbrev SingleInput (Token : Type) := { xs : List Token // xs.length ≤ 1 }
+
+def encodeInput (input : Option Token) : SingleInput Token :=
+  ⟨input.toList, by cases input <;> simp⟩
+
+def decodeInput (input : SingleInput Token) : Option Token := input.val.head?
+
+def inputBridge (Token : Type) :
+    LeanPoo.Prototype.DictionaryBridge (Option Token) (SingleInput Token) where
+  toFields := encodeInput
+  fromFields := decodeInput
+  from_to := by intro input; cases input <;> rfl
+  to_from := by
+    intro input
+    apply Subtype.ext
+    rcases input with ⟨values, bounded⟩
+    cases values with
+    | nil => rfl
+    | cons token tail =>
+      have empty : tail = [] := by
+        have lengthZero : tail.length = 0 := by simp only [List.length_cons] at bounded; omega
+        cases tail with
+        | nil => rfl
+        | cons _ _ => simp at lengthZero
+      subst tail
+      rfl
+
+/-- Reuse the upstream inverse-bearing representation contract for every
+state-specific selector, including EOF and effect-free literal precedence. -/
+theorem selector_transport_exact (selector : Nat → SingleInput Token → Row)
+    (state : Nat) (input : SingleInput Token) :
+    selector state ((inputBridge Token).toFields ((inputBridge Token).fromFields input)) =
+      selector state input := by rw [(inputBridge Token).to_from]
+
+/-- Rejected flat-selector experiment: token-fallback queries transfer through
+three procedures; EOF and literal hits have separate costs. Flattening those
+queries would remove two procedure transfers each. Private-row branches and body work are independent charged costs. -/
+def nestedSelectorCalls (queries : Nat) := 3 * queries
+def directSelectorCalls (queries : Nat) := queries
+
+theorem direct_dispatch_transfers (queries : Nat) :
+    nestedSelectorCalls queries = directSelectorCalls queries + 2 * queries := by
+  unfold nestedSelectorCalls directSelectorCalls
+  omega
 
 end ParserEngine.Lookahead

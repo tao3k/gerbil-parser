@@ -252,3 +252,10 @@ histories include reductions changing lexical mode before shift and a fork with
 unconsumed lookahead. The first control used =enabled=, which the pinned
 TypeScript backend cannot execute; the executable shared admission guard now
 owns that check. This is bounded protocol evidence, not an LR grammar oracle.
+
+* Implemented selector input and captured ownership
+
+[[file:selector-input-model-first.org][The implementation study]] records the upstream LeanPoo update, exact input
+transport, physical executor admission, bounded goto preparation and additional
+complete-request CPU qualification. The earlier per-query conversion warning
+remains an implementation constraint for generated steps.

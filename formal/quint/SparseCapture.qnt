@@ -29,6 +29,12 @@ module SparseCapture {
     and (q.output implies not(q.pending))
     and q.admitted.length() == q.cursor and q.emitted.length() == q.tokens
     and q.emitted == q.admitted.slice(0,q.tokens)
+  // Counterfactual implementation: exporting an aliased buffer rewrites a
+  // retained frame when a later reduction updates that private storage.
+  action AliasedSnapshotWrite = all {q.active,q.pending,q.sparse.length() > 1,
+    q' = {...q,sparse:q.sparse.foldl(List(), (frames,frame) => frames.append(if (frame.shift == 0) frame else {...frame,version:q.version}))}}
+  run aliasedBufferMustBeRejectedTest = init.then(Scan).then(Shift).then(Scan).then(Shift)
+    .then(Scan).then(Reduce).then(AliasedSnapshotWrite).expect(not(SparseSafety))
   run reducedModeDoesNotRewriteAdmissionTest = init.then(Scan).then(Reduce).then(Reduce).then(Shift)
     .expect(SparseSafety and q.mode == 2 and q.emitted == List(0))
   run triviaWaitsForPendingShiftTest = init.then(Scan)

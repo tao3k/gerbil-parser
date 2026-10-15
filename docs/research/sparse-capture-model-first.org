@@ -149,8 +149,10 @@ This establishes the measured fresh capture-enabled Scheme request benefit;
 Tokio/FFI, ordinary capture-disabled requests and edited workloads need their
 own matched CPU qualification.
 
-Reproduce with the repository's matching SDK/GCC environment and native
-qualification products prepared:
+The following historical reproduction commands apply to revision =9103314=.
+Current recipes freeze the full selector protocol; see
+[[file:selector-input-model-first.org][the subsequent input protocol study]]. Use the matching SDK/GCC environment
+and native qualification products for the chosen revision:
 
 #+begin_src sh
 just prepare-capture-reference 54746a3b1617639fac05805f6ac9aae4a1861555 .data/capture-stream/reference source-driver

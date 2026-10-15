@@ -679,8 +679,7 @@ jobs:
           - tokio
           - module-generation
           - module-preload
-          - capture-prefix
-          - capture-stream
+          - selector-input
     env:
       GERBIL_RELEASE_ROOT: ${{ github.workspace }}/.ci/gerbil-release/${{ inputs.gerbil-label }}
       GERBIL_SDK_SHA256: ${{ inputs.release-sha256 }}
@@ -791,26 +790,16 @@ jobs:
             --log .data/ffi-utf8-records-cpu.log --require ABI-UTF8-CPU-REGRESSION-OK \
             -- gxi t/benchmarks/language-abi/utf8-proof.ss 20 256 64 records false regression
         if: matrix.lane == 'utf8'
-      - name: Prepare frozen capture control through the SDK
-        if: matrix.lane == 'capture-prefix'
+      - name: Prepare exact-head selector input reference
+        if: matrix.lane == 'selector-input'
         run: |
-          git fetch --depth=1 origin 76d6cc6c946cb8ca7692d8911e43801b951e340f
-          just prepare-capture-reference 76d6cc6c946cb8ca7692d8911e43801b951e340f
-      - name: Prove complete captured 64-record request CPU improvement
-        if: matrix.lane == 'capture-prefix'
+          git fetch --depth=1 origin 7c184acd77b9fcdfec0537be11129b3a8df6616b
+          just prepare-capture-reference 7c184acd77b9fcdfec0537be11129b3a8df6616b
+      - name: Prove additional full request selector CPU improvement
+        if: matrix.lane == 'selector-input'
         run: |
           taskset -pc "$CPU_PROOF_PROCESSOR" "$$"
           just benchmark-capture-prefix
-      - name: Prepare exact-head sparse capture reference
-        if: matrix.lane == 'capture-stream'
-        run: |
-          git fetch --depth=1 origin 54746a3b1617639fac05805f6ac9aae4a1861555
-          just prepare-capture-reference 54746a3b1617639fac05805f6ac9aae4a1861555 .data/capture-stream/reference source-driver
-      - name: Prove sparse captured 64-record request CPU improvement
-        if: matrix.lane == 'capture-stream'
-        run: |
-          taskset -pc "$CPU_PROOF_PROCESSOR" "$$"
-          just benchmark-capture-prefix .data/capture-stream/reference/lib source-driver
       - name: Prove complete Rust generation CPU improvement
         if: matrix.lane == 'module-generation'
         run: |

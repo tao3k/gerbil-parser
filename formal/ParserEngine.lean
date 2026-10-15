@@ -73,3 +73,11 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Lookahead.per_query_conversion_regresses
 
 #print axioms ParserEngine.Lookahead.request_transport_regresses
+
+#print axioms ParserEngine.Lookahead.selector_transport_exact
+
+#print axioms ParserEngine.goto_column_exact
+#print axioms ParserEngine.goto_plan_within_budget
+
+#print axioms ParserEngine.freeze_stack_pop
+#print axioms ParserEngine.captured_entry_after_pop

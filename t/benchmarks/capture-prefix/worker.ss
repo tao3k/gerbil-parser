@@ -1,8 +1,8 @@
 ;;; One prepared runtime per actual native image; no runtime binding replacement.
 (load "t/fixtures/tla-sany-differential/preload.ss")
 (prefer-compiled-interfaces!)
-(def (main image (scope "recognition"))
-  (unless (member scope '("recognition" "source-driver")) (error "unknown native experiment scope" scope))
+(def (main image (scope "selector-input"))
+  (unless (member scope '("selector-input")) (error "unknown native experiment scope" scope))
   (unless (equal? image "candidate") (add-load-path! image))
   (parameterize ((current-output-port (current-error-port)))
   (preload-module "gerbil-parser/t/support/qualification/benchmark-qos")
@@ -72,10 +72,10 @@
       (unless (and entry (string? (cdr entry))) (error "missing native image" module))
       (cdr entry)))
   (def selected-modules
-    (if (equal? scope "recognition") '("gerbil-parser/src/runtime/lr-parser/recognition~0")
-      '("gerbil-parser/src/runtime/lr-parser/checkpoint~0"
-        "gerbil-parser/src/runtime/lr-parser/transfer~0"
-        "gerbil-parser/src/runtime/parser~0")))
+    '("gerbil-parser/src/runtime/lr-parser/state~0" "gerbil-parser/src/runtime/layout~0" "gerbil-parser/src/runtime/lr-parser/prepare~0"
+      "gerbil-parser/src/runtime/lr-parser/recognition~0" "gerbil-parser/src/runtime/lr-parser/batch~0"
+      "gerbil-parser/src/runtime/lr-parser/checkpoint~0" "gerbil-parser/src/runtime/lr-parser/transfer~0"
+      "gerbil-parser/src/runtime/parser~0"))
   (for-each
     (lambda (module)
       (let* ((file (image-file module))
@@ -88,7 +88,8 @@
   (def shared-images
     (map (lambda (module) (list module (image-digest module)))
       (filter (lambda (module) (not (member module selected-modules)))
-        '("gerbil-parser/src/runtime/lr-parser/state~0"
+        '("gerbil-parser/src/runtime/lr-stack-storage~0"
+          "gerbil-parser/src/runtime/lr-parser/state~0"
           "gerbil-parser/src/runtime/lr-parser/recognition~0"
           "gerbil-parser/src/runtime/lr-parser/checkpoint~0"
           "gerbil-parser/src/runtime/lr-parser/transfer~0"

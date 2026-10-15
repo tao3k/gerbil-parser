@@ -596,11 +596,16 @@ test-history-commit: build-qualification
     gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/history-commit-controls.log --require HISTORY-COMMIT-CONTROLS-OK -- gxi scripts/tests/history-commit-test.ss
 
 # Frozen Git source, normal SDK compiler, shared immutable request dependencies.
-prepare-capture-reference revision output=".data/capture-prefix/reference" scope="recognition":
+prepare-capture-reference revision output=".data/selector-input/reference" scope="selector-input":
     mkdir -p {{quote(output)}}/project
     git archive {{quote(revision)}} gerbil.pkg src | tar -x -C {{quote(output)}}/project
     cmp gerbil.pkg {{quote(output)}}/project/gerbil.pkg
     gerbil env gxi t/benchmarks/capture-prefix/build-reference.ss {{quote(output)}}/project/src/runtime/lr-parser/recognition.ss {{quote(output)}}/lib {{quote(scope)}}
 
-benchmark-capture-prefix reference=".data/capture-prefix/reference/lib" scope="recognition": build-qualification
+benchmark-capture-prefix reference=".data/selector-input/reference/lib" scope="selector-input": build-qualification
     gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/capture-prefix-cpu.log --require '^CAPTURE-COMPLETE-CPU-PROOF-OK$' -- gxi t/benchmarks/capture-prefix/benchmark.ss {{quote(reference)}} {{quote(scope)}}
+
+# Inclusive diagnosis is separate from the matched complete-request CPU gate.
+diagnose-capture-input: build-qualification
+    gerbil env gerbil compile -O t/benchmarks/capture-prefix/profile.ss
+    gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/capture-input-stages.log --require SELECTOR-STAGE-DIAGNOSIS-OK -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-module "gerbil-parser/t/benchmarks/capture-prefix/profile") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process") (eval (quote (import :gerbil-parser/t/benchmarks/capture-prefix/profile :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process))) (eval (quote (main))) (eval (quote (test-child-process-exit! 0)))'

@@ -26,7 +26,7 @@
              (ratio (/ (total 'b) (total 'a))))
         (write (list 'CAPTURE-CPU-GROUP name group ratio)) (newline) (force-output)
         (loop (+ group 1) (cons ratio ratios))))))
-(def (main reference-image (scope "recognition"))
+(def (main reference-image (scope "selector-input"))
  (let ((reference (worker reference-image scope)) (candidate (worker "candidate" scope)))
   (try
    (let ((left (read reference)) (right (read candidate)))

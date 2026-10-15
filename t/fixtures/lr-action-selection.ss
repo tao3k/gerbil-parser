@@ -59,10 +59,10 @@
         (reference-layout-ordinary-entry start-entry #f))))
 
 (def (reference-lr-action-selector _rows index case-insensitive? layout?)
-  (lambda (state tokens)
+  (lambda (state input)
     (let (row (vector-ref index state))
-      (if (null? tokens) (lr-action-row-eof row)
-        (let (token (car tokens))
+      (if (not input) (lr-action-row-eof row)
+        (let (token input)
           (if (and layout? (current-layout-columns))
             (reference-layout-current-action-row row token case-insensitive?)
             (or (lookup-literal-action-entry row (token-lexeme token))

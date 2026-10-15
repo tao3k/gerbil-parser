@@ -39,18 +39,42 @@
     (map (lambda (form)
            (if (capture-definition? form 'capture-reduction) (car old) form)) actual)))
 (def (admit-stream-deltas original actual)
-  ;; These three changed definitions are qualified by sparse/dense capture
-  ;; controls. Keep historical forms and every other owner definition pinned.
-  (let (names '(define-lr-driver lr-run-checkpoint lr-checkpoint-drive))
+  ;; Only these reviewed execution definitions differ. Other split forms keep
+  ;; exact historical correspondence; independent controls own semantics.
+  (let ((names '(define-lr-driver lr-run-checkpoint lr-checkpoint-drive
+                 make-lr-action-selector lr-parse/prepared/receipt/materialized
+                 lr-prepare lr-runtime-for-current-semantic-backend lr-runtime-with-action-selector))
+        (inputs '(lr-input-start lr-input-empty? lr-input-token lr-input-tail lr-input-admit lr-input-list)))
     (def (named? form name)
       (and (pair? form) (memq (car form) '(def defrule))
            (pair? (cadr form)) (eq? (caadr form) name)))
+    (def (driver? form) (eq? (car form) 'define-lr-driver))
+    (def (input-form? form) (and (eq? (car form) 'defrules) (memq (cadr form) inputs)))
+    (def (runtime-form? form) (and (eq? (car form) 'defstruct) (eq? (cadr form) 'lr-runtime)))
+    (def (introduced? form) (or (input-form? form) (driver? form) (named? form 'prepare-lr-goto-columns)))
     (for-each (lambda (name)
                 (check (length (filter (lambda (form) (named? form name)) original)) => 1)
                 (check (length (filter (lambda (form) (named? form name)) actual)) => 1)) names)
-    (map (lambda (form)
-           (let (name (find (lambda (name) (named? form name)) names))
-             (if name (find (lambda (old) (named? old name)) original) form))) actual)))
+    (for-each (lambda (name)
+                (check (length (filter (lambda (form) (and (input-form? form) (eq? (cadr form) name))) actual)) => 1)) inputs)
+    (check (length (filter (lambda (form) (named? form 'prepare-lr-goto-columns)) actual)) => 1)
+    (check (filter driver? actual) =>
+           '((define-lr-driver #f #f lr-run-persistent-checkpoint)
+             (define-lr-driver #f #t lr-run-stream-checkpoint)
+             (define-lr-driver #t #f lr-run-owned-checkpoint)
+             (define-lr-driver #t #t lr-run-owned-stream-checkpoint)))
+    (let ((old (filter runtime-form? original)) (new (filter runtime-form? actual)))
+      (check (length old) => 1)
+      (check (length new) => 1)
+      (check (car new) => (cons 'defstruct (cons 'lr-runtime
+                            (cons (append (caddar old) '(goto-columns)) (cdddar old)))))
+      (append (filter driver? original)
+        (map (lambda (form)
+               (let (name (find (lambda (name) (named? form name)) names))
+                 (cond (name (find (lambda (old) (named? old name)) original))
+                       ((runtime-form? form) (car old))
+                       (else form))))
+             (filter (lambda (form) (not (introduced? form))) actual))))))
 (def (check-family family)
   (let* ((facade (string-append "src/runtime/" family ".ss"))
          (directory (string-append "src/runtime/" family))

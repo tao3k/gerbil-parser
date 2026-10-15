@@ -67,22 +67,21 @@
         ((token? piece) 1)
         (else (lr-recognition-fragment-token-count piece))))
 
-(def (capture-reduction runtime executor production-id states stack rest offset value target)
+(def (capture-reduction runtime executor production-id entry-state stack input offset value target)
   (if (not stack) #f
     (let* ((count (vector-ref (lr-runtime-reduction-widths runtime) production-id))
-           (lookahead (if (pair? rest)
-                        (cons (token-kind (car rest)) (token-lexeme (car rest))) #f)))
+           (lookahead (and input (cons (token-kind input) (token-lexeme input)))))
       ;; Nullable/unary productions dominate wrapper grammars. Their exact
       ;; capture has no general list split or terminal-yield fold to execute.
       (case count
         ((0)
          (cons (make-lr-recognition-fragment
-                runtime executor production-id (car states) target '() lookahead value
+                runtime executor production-id entry-state target '() lookahead value
                 offset offset 0 offset #f) stack))
         ((1)
          (let (piece (car stack))
            (cons (make-lr-recognition-fragment
-                  runtime executor production-id (cadr states) target (list piece) lookahead value
+                  runtime executor production-id entry-state target (list piece) lookahead value
                   (recognition-piece-start piece) (recognition-piece-end piece)
                   (recognition-piece-token-count piece) offset
                   (recognition-piece-terminal-yield piece)) (cdr stack))))
@@ -93,7 +92,7 @@
          (let split ((left count) (remaining stack) (children '()) (tokens 0) (oldest #f))
            (if (zero? left)
              (cons (make-lr-recognition-fragment
-                    runtime executor production-id (list-ref states count) target children lookahead value
+                    runtime executor production-id entry-state target children lookahead value
                     (recognition-piece-start oldest) (recognition-piece-end (car stack)) tokens offset
                     (foldl (lambda (piece yield)
                              (terminal-yield-append yield (recognition-piece-terminal-yield piece)))

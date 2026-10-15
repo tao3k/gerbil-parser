@@ -17,6 +17,7 @@
         lr-runtime-gotos
         lr-runtime-gotos-set!
         lr-runtime-goto-index
+        lr-runtime-goto-columns
         lr-runtime-goto-index-set!
         lr-runtime-case-insensitive?
         lr-runtime-case-insensitive?-set!
@@ -159,7 +160,7 @@
   (productions table reduction-widths actions action-index gotos goto-index
                case-insensitive? dynamic? layout?
                lexical-modes lexical-mode-catalog direct-step semantic-reducer event-reducer event-step event-runtime
-               reduction-plans action-selector owned-stack?)
+               reduction-plans action-selector owned-stack? goto-columns)
   transparent: #t final: #t)
 
 (def current-lr-event-program-enabled? (make-parameter #f))

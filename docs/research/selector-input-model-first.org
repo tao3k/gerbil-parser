@@ -1,0 +1,232 @@
+#+title: Token input, captured owned stacks and prepared LR transition selection
+
+* Baseline and completion criterion
+
+This study starts at =7c184acd77b9fcdfec0537be11129b3a8df6616b=, after the
+previous sparse-source capture improvement. Its complete 64-record reference
+already contains that earlier improvement. The additional CPU result below is
+relative to this starting point. Earlier =54746a3= results remain separate.
+
+The workload is 64 ASCII =a=1= records, 256 source tokens, 192 significant
+shifts and 322 captured reductions. Every measured request creates a fresh
+capture-enabled incremental session, completes scanning and LR execution,
+publishes the artifact, and checks complete artifact equality and source validity.
+The independently replayed recognition projection is checked before timing.
+No language grammar or Rust/C event format is specialized for these records.
+
+The unchanged gate runs five groups of 32 alternating legs, 256 requests per
+leg: 122,880 timed requests, with 256 startup requests in each worker. Before
+and after reference/reference controls must remain in 0.90 through 1.10;
+production P90 must be below 0.95. The fences remain 90 seconds total and five
+seconds idle. CPU is worker user plus system time, including natural GC. There
+is no forced GC, timed process startup, runtime binding replacement, adjusted
+threshold or added warmup after an unsuccessful observation.
+
+* Papers, upstream functions and existing implementation
+
+Sperber and Thiemann's [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]] motivates deliberate
+representation and binding-time choices, constructor/selector elimination and
+preserving ordered computations. Wagner and Graham's
+[[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Efficient and Flexible Incremental Parsing]] motivates retaining sufficient
+context for reuse and accounting for its maintenance. These sources motivate
+the study; their performance results do not establish this implementation's CPU.
+
+LeanPoo is pinned to its current open PR #13 revision
+=8561a3ef8120101f956855d128d44ff9507c6703= in both Lake inputs. The review used
+[[https://github.com/tao3k/lean-poo/blob/8561a3ef8120101f956855d128d44ff9507c6703/Examples/PrototypeFunctions.lean][PrototypeFunctions]],
+[[https://github.com/tao3k/lean-poo/blob/8561a3ef8120101f956855d128d44ff9507c6703/docs/contracts/generalized-prototypes.org][the generalized Raw/Cooked protocol]], and
+[[https://github.com/tao3k/lean-poo/blob/8561a3ef8120101f956855d128d44ff9507c6703/LeanPoo/Prototype/DictionaryBridge.lean][DictionaryBridge]]. Functions can be first-class prototype results, while
+inverse-bearing representation conversion preserves their typed consumers.
+Our model now reuses =DictionaryBridge= for token/EOF versus empty/singleton
+input and proves state-specific selector transport. The runtime keeps its
+existing Scheme POO preparation boundaries and retained functions; LeanPoo
+supplies checked model contracts. No POO lookup is added per token or reduction.
+The Lean toolchain remains 4.34.0, and model/library versions are unchanged.
+
+The latest upstream revision also adds
+[[https://github.com/tao3k/lean-poo/blob/8561a3ef8120101f956855d128d44ff9507c6703/docs/contracts/closure-lifecycle.org][closure lifecycle costs]] and
+[[https://github.com/tao3k/lean-poo/blob/8561a3ef8120101f956855d128d44ff9507c6703/Examples/LifecycleAccess.lean][LifecycleAccess]]. These distinguish cold construction, optional selector
+preparation, retained metadata and repeated solves. Minimum declared operation
+ceilings do not establish minimum CPU time, and future reuse must not be assumed
+to repay preparation. Here the goto plan has an explicit allocation ceiling;
+its preparation belongs to runtime construction, while the measured complete
+request includes scanning, LR execution, artifact publication and verification.
+The CPU result below is therefore a prepared-runtime request result, not a
+cold-construction or lifecycle amortization claim. Grammar replacement must
+construct a new admitted plan; this change does not introduce cross-source reuse.
+The latest library revision rebuilt all 56 model jobs successfully.
+
+The code audit identified three boundaries:
+
+- The selector consumed a transport list although it observes only token/EOF.
+- Captured execution forced immutable state/value stack spines, despite existing
+  private owned-buffer algorithms and sparse immutable snapshot publication.
+- Each ordinary reduction read its production LHS and searched a goto row even
+  though production identity and grammar transitions are prepared constants.
+
+* Four-layer contract
+
+| Layer | Responsibility | Evidence boundary |
+|-------+----------------+-------------------|
+| Papers and code | Identify the actual representation, paid work and retained observations | No inferred speedup from an operation count |
+| [[file:../../formal/ParserEngine/Lookahead.lean][Lean input]] | Pending token/mode preservation, representation inverses and selector transport | Uses upstream =DictionaryBridge= and actual producer premises |
+| [[file:../../formal/ParserEngine/OwnedStack.lean][Lean stack]] | Freeze/pop equivalence, post-pop entry state and capacity arithmetic | Scheme must establish active-prefix fit and implement copying correctly |
+| [[file:../../formal/ParserEngine/Preparation.lean][Lean preparation]] | Goto column indexing, source-cell provenance and preallocation budget | Stable admitted grammar tables are required throughout runtime lifetime |
+| [[file:../../formal/quint/SparseCapture.qnt][Quint lifecycle]] | Ordered admission/consumption, pending modes, sparse frames and alias refusal | Bounded histories; semantic LR tables remain outside this protocol model |
+| Scheme controls and CPU | Establish actual dispatch, ownership, complete outputs and measured benefit | Native compiler and runtime behavior require executable checks |
+
+The buffer model proves that freezing the remaining active prefix after a pop
+matches dropping the same width from the immutable frontier. Its entry-state
+observation therefore remains exact. The new Quint counterexample deliberately
+rewrites a retained snapshot as if it shared later-mutated buffer storage;
+=SparseSafety= rejects that implementation. Model input identity binds the
+real stack helper, source owner, selector, batch executor and their controls.
+
+* Implemented engine changes
+
+** Token/EOF selector protocol
+
+The ordinary and layout selectors now take =(state, token-or-false)=. Literal
+priority, Unicode case folding, first duplicates, EOF, rejected layout shifts
+and original action-pair identity are retained. Batch/GLR callers project the
+head of their borrowed suffix; streaming execution holds the token directly.
+Capture reduction receives token/EOF and the already known post-pop entry-state.
+It continues reading lookahead metadata at each existing capture operation.
+
+One LR transition macro has two compile-time axes: stack storage and input
+storage. Each of the four generated executors has a direct static call site.
+Generated reduction steps retain their borrowed list-tail contract. The input
+policy checks this capability once at entry so those steps can reuse one tail
+across reductions, instead of constructing a list for every query.
+Arbitrary five-argument shift observers retain immutable list frontiers.
+Language declarations acquire no new worker, scanner or input-policy option.
+
+** Captured owned state/value buffers
+
+Capture-enabled execution can use the existing request-private state/value
+buffers. Its recognition stack remains persistent. Only selected snapshot
+boundaries copy the active buffer prefixes into immutable checkpoint lists.
+Fork/failure/public checkpoint boundaries also freeze their state and values.
+Owned arrays never become snapshot fields or observer arguments.
+
+The capture owner receives the post-pop entry-state directly; it does not walk
+a second state-list prefix. The physical-frontier control verifies that frozen
+state spines are distinct after all later buffer writes, while their values,
+complete grammar tree, modes, callbacks and artifacts equal the persistent
+reference. This checks actual admission into the owned path.
+
+** Bounded goto preparation
+
+Preparation transposes each distinct LHS into a state-indexed target column.
+Productions sharing an LHS share that column. Reduction then indexes by
+production and remaining state. The original sparse row primitive constructs
+each cell, preserving first-key and missing-target behavior.
+
+Before allocating columns, preparation checks =states * distinct-LHS <= 65536=.
+Above that budget it retains the sparse algorithm. The bound covers column
+cells; production references and other existing grammar data remain separate.
+The original goto index is built once and remains available to generated steps.
+Runtime clones and semantic-backend preparation retain the same admitted plan.
+
+* Generated-code finding and rejected measurements
+
+The first procedure-valued dispatcher computed an =execute= binding. On the
+selected SDK/GCC build, inspection of its emitted Scheme showed an unused
+selector followed by a direct persistent-executor call. A physical state-spine
+control then failed even though value comparisons passed. The generated-code
+observation is scoped to this build; compiler-version coverage remains open.
+
+Explicit static branches now emit all four intended executor calls. The physical
+spine control passes. This is an executable admission condition, not an inference
+from the presence of source branches or a successful artifact comparison.
+
+All observations used the same =7c184ac= baseline and gate:
+
+| Experiment | Production P50 | Production P90 | Admission |
+|------------+----------------+----------------+-----------|
+| Input protocol with procedure-valued dispatcher | 0.9938555499 | 1.0103229144 | Rejected; new executor not admitted |
+| Flat private selector-row plan | 0.9819386307 | 1.0288044933 | Rejected; representation removed |
+| Goto columns before dispatch correction | 0.9727722440 | 1.0375286922 | Rejected as a CPU result |
+| Owned capture before dispatch correction | 0.9600650761 | 1.0429698349 | Rejected; physical admission failed |
+| Owned capture with direct static calls | 0.9201990201 | 0.9609368122 | Rejected by unchanged P90 gate |
+| Static input/owned capture plus bounded goto | 0.8910579899 | 0.9095538302 | Passed before final generated-step boundary control |
+
+The last observation exited 0 in 54.396 seconds with the success marker and
+no supervisor reason or missing receipt. It is retained separately from final
+qualification after the generated-step policy refinement.
+
+The native stage diagnostic used 256 complete requests. Inclusive checkpoint
+execution was 55.695 ms out of 72.501 ms, while benchmark-only output verification
+was 8.870 ms. Instrumentation contributes overhead and inclusive stages overlap;
+these values guided investigation rather than establishing a speedup.
+Verification remains inside the matched CPU interval. Reference/candidate request
+ages differ after the before phase; the existing warmup and controls are retained,
+and these observations do not establish a platform-independent latency bound.
+
+Early local setup failures are retained: a native admission terminated with
+SIGSEGV before successful rebuilding of affected consumers; malformed Scheme
+bindings and a typed-let form rejected by the SDK were corrected before their
+controls executed; the diagnostic initially referenced an unavailable sorting
+predicate; the alias model initially used set mapping operators before switching to the
+list =foldl= API documented by the pinned Quint package.
+A printed success or a model-only result was never admitted as process success.
+
+* Reproduction and current ownership
+
+The reference builder freezes all eight protocol owners, including runtime state,
+layout, prepare, recognition, batch, checkpoint, transfer and source parser.
+Each worker must load those native files from its requested image. Shared stack
+storage helpers, incremental-session code and the records grammar must match.
+The package lock, SDK and GCC are shared. Startup and IPC remain outside worker
+CPU; complete artifact checks and natural GC remain inside.
+
+#+begin_src sh
+just prepare-capture-reference 7c184acd77b9fcdfec0537be11129b3a8df6616b
+just benchmark-capture-prefix
+just diagnose-capture-input
+#+end_src
+
+The manual Linux CPU matrix has one =selector-input= lane for this full protocol.
+Older partial-image recipes require their historical source revision. Current
+CI prepares the complete reference protocol and uses the same CPU fence and gate.
+
+* Final qualification
+
+After the generated-step input policy was refined, the final implementation
+passed the same complete-request CPU gate against =7c184ac=:
+
+| Phase | P10 | P50 | P90 |
+|-------+-----+-----+-----|
+| Before reference/reference | 0.9671396763 | 0.9935065896 | 1.0422630225 |
+| Production/reference | 0.8641645833 | 0.9100194177 | 0.9267669752 |
+| After reference/reference | 0.9560683972 | 0.9802815477 | 1.0059877730 |
+
+=CAPTURE-COMPLETE-CPU-PROOF-OK= was present; exit 0, no supervisor reason,
+no missing receipt, elapsed 48.776 seconds. The additional complete-request
+P90 CPU reduction is 7.32% relative to the already optimized starting point.
+The result qualifies the combined input/owned-capture/goto implementation on
+this SDK and host. Component-isolated percentages, Rust/Tokio performance and
+other language/workload CPU results remain separate qualification work.
+
+Both images retained artifact digest
+=sha256:c42a4b2281ad7f1921dcd426606db0a2ccb5cbd9925078e67cd479aea27bf24c=
+and frontier/mode fingerprint
+=sha256:da526271ffa70150686180d18eab518fcb9e346d4faafc43d3b247cf6b0eb63c=.
+The final semantic batch passed 94 cases in 11 Suite owners, including layout,
+contextual/deferred scanning, GLR, incremental snapshots, generated steps,
+physical ownership and the bounded goto plan. It exited 0 in 21.903 seconds.
+The independent capture control passed 198 combinations, exit 0 in 10.989
+seconds. Lean completed 56 jobs; Quint passed 111 directed histories and 11
+sampled invariant runs. The source-input invalidation control also passed.
+
+A preceding final-image CPU attempt is retained as a total-timeout result at
+90.349 seconds with no success marker. It completed 292 batches including
+startup, and four production groups were 0.8743 through 0.9124; the after
+control was incomplete, so the attempt was rejected. Read-only host inspection
+identified a concurrent lean-poo =tools/check_atoms.py --jobs 14= run consuming
+about five CPU cores. After that independent check ended, the unchanged
+90-second budget and unchanged benchmark admitted the final result above.
+No other task was interrupted and the timeout was not extended.
+
+The baseline parser CI for =7c184ac= completed successfully on Ubuntu and macOS
+before this submission. A new pushed revision requires its own CI observation.

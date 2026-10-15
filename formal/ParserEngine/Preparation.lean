@@ -92,4 +92,30 @@ theorem retained_selections_zero {actions : List Action} (plan : Plan actions) :
 theorem singleton_prepend_equivalent {α : Type} (child : α) (suffix : List α) :
     [child] ++ suffix = child :: suffix := rfl
 
+variable {Key Target State : Type}
+
+/-- Transpose admitted goto rows once per distinct LHS. The source row remains
+first-match authoritative, represented here as an already admitted function. -/
+def gotoColumn (rows : List (Key → Option Target)) (key : Key) : List (Option Target) :=
+  rows.map (fun row => row key)
+
+theorem goto_column_exact (rows : List (Key → Option Target)) (key : Key) (state : Nat) :
+    (gotoColumn rows key)[state]? = (rows[state]?).map (fun row => row key) := by
+  simp [gotoColumn, List.getElem?_map]
+
+/-- Reject dense preparation before allocating columns when the product exceeds
+its fixed cell budget. A rejected plan retains the original sparse lookup. -/
+def admitGotoColumns (states distinctKeys budget : Nat) : Bool :=
+  states * distinctKeys ≤ budget
+
+theorem goto_plan_within_budget (states keys budget : Nat)
+    (accepted : admitGotoColumns states keys budget = true) : states * keys ≤ budget := by
+  simpa [admitGotoColumns] using accepted
+
+/-- Scalar matrix reads replace dynamic key search only under the actual
+producer premise. A matching grammar key alone does not establish the cell. -/
+theorem retained_goto_cell (source retained : State → Key → Option Target)
+    (producer : ∀ state key, retained state key = source state key) (state : State) (key : Key) :
+    retained state key = source state key := producer state key
+
 end ParserEngine

@@ -201,10 +201,10 @@
             (unless (eq? negative entry) (table-set! blocked entry negative))))
           (vector-ref rows state))
         (loop (+ state 1))))
-    (lambda (state tokens)
+    (lambda (state token)
       (let (row (vector-ref original state))
-        (if (null? tokens) (lr-action-row-eof row)
-          (let ((columns (current-layout-columns)) (token (car tokens)))
+        (if (not token) (lr-action-row-eof row)
+          (let ((columns (current-layout-columns)))
             (if columns
               (prepared-layout-current-action-row row allowed blocked token case-insensitive?
                                                    columns (current-layout-frames))

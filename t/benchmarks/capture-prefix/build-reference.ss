@@ -1,7 +1,7 @@
 ;;; Normal SDK compiler for an exact Git snapshot and its selected owner set.
 (import (only-in :gerbil/compiler compile-module))
-(def (main source output (scope "recognition"))
-  (unless (member scope '("recognition" "source-driver"))
+(def (main source output (scope "selector-input"))
+  (unless (member scope '("selector-input"))
     (error "unknown native reference scope" scope))
   (let ((output (path-expand output))
         (runtime (path-normalize (path-expand "../" (path-directory (path-expand source))))))
@@ -12,6 +12,6 @@
        (displayln "REFERENCE-COMPILE " path) (force-output)
        (compile-module path
          (list output-dir: output optimize: #t generate-ssxi: #t invoke-gsc: #t)))
-     (if (equal? scope "recognition") (list source)
-       (map (lambda (name) (path-expand (string-append name ".ss") runtime))
-            '("lr-parser/checkpoint" "lr-parser/transfer" "parser"))))))
+     (map (lambda (name) (path-expand (string-append name ".ss") runtime))
+          '("lr-parser/state" "layout" "lr-parser/prepare" "lr-parser/recognition" "lr-parser/batch"
+            "lr-parser/checkpoint" "lr-parser/transfer" "parser")))))

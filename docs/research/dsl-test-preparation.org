@@ -16,8 +16,9 @@ The repository runner accepts an explicit =--workers N= argument before its
 source roots and =--remaining-conformance= option. This is repository scheduling,
 not a Gerbil configuration: official =gxtest= and =TestConfig= have no Worker
 count option or =GERBIL_TEST_CORES= environment variable. Without this argument,
-the repository runner uses one Worker. Linux CI supplies =nproc=, bounded again
-by the number of admitted modules. The two-Worker negative controls explicitly
+the repository runner queries Gambit's =##core-count= directly, bounded again
+by the number of admitted modules. CI uses this same portable default on Linux
+and macOS; it does not launch another interpreter or depend on shell =nproc=. The two-Worker negative controls explicitly
 request two to exercise their rendezvous contract, not to set CI capacity.
 
 The runtime shares a 3 GiB heap budget. Loading the full source suite exceeded

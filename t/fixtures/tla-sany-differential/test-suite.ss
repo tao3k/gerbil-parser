@@ -143,7 +143,7 @@
          (capacity
            (let (value (if workers?
                          (if (pair? (cdr arguments)) (string->number (cadr arguments)) #f)
-                         1))
+                         (##core-count)))
              (unless (and (integer? value) (exact? value) (> value 0))
                (error "--workers requires a positive integer"))
              value))

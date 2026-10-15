@@ -38,6 +38,19 @@
              => (car old)))
     (map (lambda (form)
            (if (capture-definition? form 'capture-reduction) (car old) form)) actual)))
+(def (admit-stream-deltas original actual)
+  ;; These three changed definitions are qualified by sparse/dense capture
+  ;; controls. Keep historical forms and every other owner definition pinned.
+  (let (names '(define-lr-driver lr-run-checkpoint lr-checkpoint-drive))
+    (def (named? form name)
+      (and (pair? form) (memq (car form) '(def defrule))
+           (pair? (cadr form)) (eq? (caadr form) name)))
+    (for-each (lambda (name)
+                (check (length (filter (lambda (form) (named? form name)) original)) => 1)
+                (check (length (filter (lambda (form) (named? form name)) actual)) => 1)) names)
+    (map (lambda (form)
+           (let (name (find (lambda (name) (named? form name)) names))
+             (if name (find (lambda (old) (named? old name)) original) form))) actual)))
 (def (check-family family)
   (let* ((facade (string-append "src/runtime/" family ".ss"))
          (directory (string-append "src/runtime/" family))
@@ -54,7 +67,7 @@
     (let (actual (apply append (map behavior owners)))
       (check (same-forms? (behavior original)
                          (if (equal? family "lr-parser")
-                           (admit-capture-delta (behavior original) actual) actual)) => #t))))
+                           (admit-stream-deltas (behavior original) (admit-capture-delta (behavior original) actual)) actual)) => #t))))
 (def runtime-module-organization-test
   (test-suite "Runtime module organization correspondence"
     (test-case "LR facade and private owners retain every execution form exactly once"

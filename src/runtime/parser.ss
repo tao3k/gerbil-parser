@@ -291,10 +291,10 @@
    observability))
 
 ;;; A fresh parse keeps one LR execution loop open while the scanner supplies
-;;; tokens under the current LR mode. The ordinary checkpoint path below still
-;;; owns sparse incremental captures and observed phase boundaries.
+;;; tokens under the current LR mode and freezes selected fresh captures. The
+;;; ordinary checkpoint path still owns resumed, reused and observed requests.
 (def (parse-source/directed/stream machine grammar-digest source initial
-                                   (use-generated? #t))
+                                   (use-generated? #t) (capture #f) (spacing #f))
   (let ((direct-drive (and use-generated? (parser-machine-direct-drive machine)))
         (source-length (string-length source))
         (trivia? (parser-machine-trivia machine))
@@ -302,7 +302,8 @@
         (byte-offset 0)
         (pending-character #f)
         (pending-byte #f)
-        (tokens-reversed '()))
+        (tokens-reversed '()) (modes-reversed '()) (token-count 0) (pending-mode #f)
+        (source-observer (and capture (current-source-stream-observer))))
     (def (next-input mode)
       (if (= character-offset source-length)
         #f
@@ -314,30 +315,40 @@
                 (start-byte byte-offset))
             (set! character-offset next-character)
             (set! byte-offset (token-end input-token))
+            (when source-observer (source-observer input-token (lr-lexical-mode-id mode) #f))
             (if (trivia? input-token)
               (begin
                 (set! tokens-reversed
                       (cons input-token tokens-reversed))
+                (when capture
+                  (set! modes-reversed (cons (lr-lexical-mode-id mode) modes-reversed))
+                  (set! token-count (+ token-count 1)))
                 (next-input mode))
               (begin
+                (when capture (set! pending-mode (lr-lexical-mode-id mode)))
                 (set! pending-character start-character)
                 (set! pending-byte start-byte)
                 input-token))))))
     (defrule (record-shift! input-token)
       (begin
         (set! tokens-reversed (cons input-token tokens-reversed))
+        (when capture
+          (set! modes-reversed (cons pending-mode modes-reversed))
+          (set! token-count (+ token-count 1)))
         (set! pending-character #f)
         (set! pending-byte #f)))
     (def after-shift
       (if direct-drive
         (lambda (input-token _states _values _actions _shifts) (record-shift! input-token))
         (make-lr-token-observer (lambda (input-token) (record-shift! input-token)))))
-    (def (publish tokens root rest)
+    (def (publish tokens root rest (modes (and capture (reverse modes-reversed))))
       (unless (null? rest)
         (error "unexpected trailing token" (token-lexeme (car rest))))
+      (when capture (capture #f tokens modes 0 0))
       (with-parser-cost-stage 'artifact-materialization
         (make-success-parse-artifact
          grammar-digest source tokens root trivia?)))
+    (when capture (capture initial #f #f 0 0))
     ;; Scanning and LR are interleaved; retain the selected driver and measure
     ;; its whole recognition interval rather than instrumenting every token.
     (let-values (((status payload)
@@ -349,7 +360,10 @@
                            next-input after-shift))
                         (with-parser-cost-stage 'prepared-checkpoint-execution
                           (lr-checkpoint-drive
-                           initial next-input after-shift))))))
+                           initial next-input after-shift #f 'installed spacing
+                           (and capture
+                                (lambda (checkpoint)
+                                  (capture checkpoint #f #f token-count byte-offset)))))))))
       (case status
         ((accepted)
          (unless (and (= character-offset source-length)
@@ -365,6 +379,7 @@
          (parse-source/directed/stream
           machine grammar-digest source initial #f))
         ((fork)
+         (when capture (capture #f #f (reverse modes-reversed) token-count (or pending-byte byte-offset)))
          (let* ((suffix
                  (with-parser-cost-stage 'fallback-lexical-analysis
                    (lex-source-from
@@ -379,7 +394,7 @@
                            (with-parser-cost-stage 'fallback-lr-execution
                              (lr-checkpoint-resume-suffix
                               payload significant remaining))))
-               (publish tokens root rest)))))
+               (publish tokens root rest #f)))))
         (else (error "streamed LR parse did not terminate" status))))))
 
 ;;; Deterministic source driver for the sole generated scanner and LR executor.
@@ -510,15 +525,17 @@
 (def (parse-source/with-capture machine source observability capture
                                 (checkpoint #f) (prefix-tokens '())
                                 (prefix-modes '()) (start-character 0)
-                                (start-byte 0) (reuse-token #f) (reuse-fragment #f))
+                                (start-byte 0) (reuse-token #f) (reuse-fragment #f)
+                                (capture-spacing #f))
  (call-with-parser-machine-source machine source
   (lambda () (parse-source/with-prepared-capture machine source observability capture
-   checkpoint prefix-tokens prefix-modes start-character start-byte reuse-token reuse-fragment))))
+   checkpoint prefix-tokens prefix-modes start-character start-byte reuse-token reuse-fragment capture-spacing))))
 
 (def (parse-source/with-prepared-capture machine source observability capture
                                 (checkpoint #f) (prefix-tokens '())
                                 (prefix-modes '()) (start-character 0)
-                                (start-byte 0) (reuse-token #f) (reuse-fragment #f))
+                                (start-byte 0) (reuse-token #f) (reuse-fragment #f)
+                                (capture-spacing #f))
   (unless (string? source)
     (error "parse source must be a string" source))
   (let (grammar-digest (parser-machine-grammar-digest machine))
@@ -548,11 +565,12 @@
                (failure-artifact
                 machine grammar-digest source tokens condition)))))))
      (lambda ()
-       (let* ((fresh?
-               (and (not observability) (not capture)
-                    (not checkpoint) (null? prefix-tokens)
+       (let* ((fresh-base?
+               (and (not observability) (not checkpoint) (null? prefix-tokens)
                     (zero? start-character) (zero? start-byte)
                     (not reuse-token) (not reuse-fragment)))
+              (fresh? (and fresh-base? (not capture)))
+              (captured-fresh? (and fresh-base? capture capture-spacing))
               (direct-source
                (and fresh? (parser-machine-direct-source machine)))
               (candidate
@@ -568,9 +586,10 @@
                  (or checkpoint
                      (lr-initial-checkpoint
                       (parser-machine-runtime machine) '())))
-             (if fresh?
+             (if (or fresh? captured-fresh?)
                (parse-source/directed/stream
-                machine grammar-digest source initial)
+                machine grammar-digest source initial (not captured-fresh?)
+                (and captured-fresh? capture) capture-spacing)
                (parse-source/directed
                 machine grammar-digest source observability capture initial
                 prefix-tokens prefix-modes start-character start-byte
@@ -620,7 +639,7 @@
                  (when modes (set! source-modes modes)))
                 (modes (set! source-modes modes))))
              checkpoint prefix-tokens prefix-modes
-             start-character start-byte reuse-token reuse-fragment))
+             start-character start-byte reuse-token reuse-fragment spacing))
            (records
             (if (parse-artifact-success? artifact)
               (list->vector (reverse snapshots))

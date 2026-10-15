@@ -1,0 +1,162 @@
+#+title: Model-first sparse capture in the complete LR source request
+
+* Paper and current-code foundation
+
+Sperber and Thiemann's [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]], section 3.1.3,
+examines constructor/selector work and preservation of evaluation order.
+Wagner and Graham's [[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Efficient and Flexible Incremental Parsing]] motivates
+retaining sufficient context for valid reuse and accounting for its maintenance.
+Neither establishes a CPU result for this engine. We derive the following
+obligation from current code before selecting an implementation.
+
+At =54746a3b1617639fac05805f6ac9aae4a1861555=, a fresh capture-enabled source
+request enters the LR executor once per significant token. Every successful
+shift constructs an immutable checkpoint; the source owner retains only those
+whose shift count is a multiple of the requested spacing. Trivia advances the
+source position without adding a significant shift. Reductions may occur
+between shifts, and the lexical mode follows the current LR state.
+
+The opportunity is therefore to keep the ordered scanner/LR execution open and
+construct checkpoints only at selected post-shift boundaries. It requires exact
+retained state, values, recognition stack, action and shift counts, lexical modes,
+source token counts and byte offsets. It cannot change scanning, reduction order,
+semantic callbacks, fork handling or admission of resumed/reused input.
+
+The earlier [[file:capture-metadata-model-first.org][unary metadata experiment]] failed the complete CPU gate and was
+reverted. Its model and negative observation remain separate from this result.
+
+* Four layers and their evidence boundaries
+
+| Layer | Responsibility | Evidence and boundary |
+|-------+----------------+-----------------------|
+| Papers/current Scheme | Identify paid work and retained semantics | Per-token LR entry and discarded checkpoint construction are concrete code costs |
+| [[file:../../formal/ParserEngine/Capture.lean][Lean Capture]] | Pure ordered execution and selected immutable frontiers | =fused_driver_order= preserves ordered transitions; =sparse_frontiers_exact= preserves selected frames; =sparse_frontiers_not_more= bounds retained frame count |
+| [[file:../../formal/quint/SparseCapture.qnt][Quint SparseCapture]] | Source/shift lifecycle around trivia, reductions, completion, fork and failure | Seven directed histories and 1,000 sampled 20-step histories with seed 1; =SparseSafety= compares sparse publication with dense selection |
+| Scheme implementation/Benchmark | Establish representation equivalence and actual whole-request CPU | Exact dense-control comparisons and matched native-image CPU qualification |
+
+Lean frames are abstract immutable values; Scheme must establish the complete
+post-shift frontier and callback order. The fusion theorem assumes the same
+ordered transitions, rather than proving the scanner or LR table correct.
+Quint does not replace that pure theorem, implement an LR oracle or establish
+unbounded liveness. The evidence collector binds the model observations to the
+actual source owners and controls; this binding is traceability, not refinement.
+
+For 64 ASCII =a=1= records at spacing 32, the workload has 192 significant
+shifts, 256 source tokens and 322 reductions. The old driver enters LR 193 times
+including final EOF completion, and constructs the initial checkpoint plus 192
+post-shift checkpoints. The new source driver enters LR once and constructs the
+initial checkpoint plus six selected checkpoints: 193 becomes 7. These are
+logical execution counts, not CPU instructions or an independent speedup claim.
+
+* Engine implementation
+
+[[file:../../src/runtime/lr-parser/checkpoint.ss][The shared LR driver]] invokes sparse capture after the shift observer has
+published the consumed token, using the same states, values, action count,
+shift count and recognition stack as the old returned checkpoint. Persistent
+stack ownership retains immutable captured prefixes. Ordinary shifts do not
+construct a checkpoint. [[file:../../src/runtime/lr-parser/transfer.ss][The existing drive interface]] validates positive
+capture spacing and forwards this capability.
+
+[[file:../../src/runtime/parser.ss][The source owner]] records trivia immediately and significant tokens on shift;
+the capture callback then sees their exact token count and byte end. Scanner
+observations keep their original lexical mode and order. Completion publishes
+the complete source tokens and modes. Selective GLR keeps the deterministic
+prefix and existing suffix completion; resumed, reused, observed and layout
+requests retain their existing admission paths. No language grammar, FFI event
+encoding or token mutation protocol changes.
+
+* Semantic qualification
+
+[[file:../../t/sparse-capture-test.ss][Sparse capture controls]] compare fresh streamed capture with dense resume from
+an explicit initial checkpoint. The latter exercises the existing per-token
+source driver without rebinding runtime functions or adding a runtime flag.
+Comparison includes all four return values, every retained checkpoint field,
+the grammar recognition root, lexical modes and the scan callback sequence.
+
+The four cases cover all 64 records at spacing 1, 2, 32 and 1,024, including
+the existing =2.0= integer-valued spacing contract; empty and
+trivia-only input; Unicode strings, mixed trivia and CRLF; incomplete EOF and
+invalid suffixes. The snapshot, fragment-transfer and runtime-organization
+Suites add 32 existing cases, giving 36 passing cases in this focused batch.
+Expanded unary metadata controls separately compare 198 combinations across
+11 productions, nine piece representations and two lookaheads.
+
+The first focused process printed all successful assertions and =OK= but did
+not terminate on this SDK: the original five-second idle fence rejected it,
+with exit 143 after 14.674 seconds. The repeat invoked the existing disposable
+child exit helper only after =main= returned successfully, and exited 0 in
+11.772 seconds with no supervisor reason or missing receipt. Final native
+requalification with four explicit Workers passed in 12.304 seconds. Two local
+startup attempts were rejected by the unchanged idle fence before test admission;
+actual import start/completion tracing exposed loading progress for the final
+run, without a timer heartbeat. An intervening local command used an incorrect
+exit-helper module path and was rejected before assertions; its log is retained.
+Worker CLI controls initially used an unsuitable outer supervisor that treated
+expected errors or child silence as a harness failure. Their final run follows
+the existing negative-control contract: child owners retain their original
+watchdogs and the parent checks their expected exits. All seven controls passed. A printed =OK= alone was not admitted as process success. Initial local syntax errors in the
+new controls were corrected before assertions were executed.
+
+* Complete native-image CPU qualification
+
+The reference is the exact =54746a3b1617639fac05805f6ac9aae4a1861555= source
+archive with matching package pins. Both workers use the same SDK and GCC.
+The selected native image contains checkpoint, transfer and parser modules,
+compiled in dependency order with their own interfaces. The first reproduction
+helper check exposed a repeated =lr-parser/= directory: Gerbil =path-directory=
+retains an already trailing directory separator. Explicit parent expansion
+corrected the source root before the helper was admitted. A local check also
+incorrectly applied the request idle fence to native compilation and was
+rejected. Under the existing reference-build contract (a 90-second total fence,
+without a request idle fence), all three frozen modules compiled and exited 0
+in 14.012 seconds. The complete request CPU fence remains unchanged.
+The worker checks that
+all three load from the requested image. Shared grammar, runtime state,
+recognition and incremental session modules must have identical digests.
+No runtime binding substitution or process launch occurs inside a timed call.
+
+Every timed call creates a fresh capture-enabled incremental session over all
+64 ASCII records, completes scanning and LR parsing, publishes the artifact and
+checks full artifact equality and source validity. An independent recognition
+projection is also checked before timing. Startup, IPC and diagnostic inventory
+are outside the worker user-plus-system CPU interval. Natural GC remains inside
+request CPU; no forced collection is used.
+
+The existing protocol is unchanged: five groups per phase, 32 alternating legs,
+256 requests per leg, 122,880 timed requests overall. Reference/reference phases
+bracket the production/reference phase. Their accepted ratios are 0.90 through
+1.10, and production P90 must be below 0.95. The total fence stays 90 seconds
+and the idle fence stays five seconds. CPU phases run sequentially.
+
+| Phase | P10 CPU ratio | P50 CPU ratio | P90 CPU ratio |
+|-------+---------------+---------------+---------------|
+| Before reference/reference | 0.9588554399 | 0.9982012347 | 1.0583280689 |
+| Production/reference | 0.8422888301 | 0.8751071600 | 0.8929960704 |
+| After reference/reference | 0.9505736618 | 0.9922527778 | 1.0440429463 |
+
+The complete request gate passed with =CAPTURE-COMPLETE-CPU-PROOF-OK=,
+exit 0, no supervisor reason and no missing receipt, in 53.933 seconds.
+Production P90 CPU was 10.70% lower than this baseline in the final measurement.
+The earlier native measurement also passed in 46.159 seconds with production
+ratios 0.8203157773 / 0.8563192248 / 0.8745932190 (P10/P50/P90); its 12.54%
+P90 reduction is retained as a distinct observation, not substituted for the
+final result.
+Both workers matched artifact digest
+=sha256:c42a4b2281ad7f1921dcd426606db0a2ccb5cbd9925078e67cd479aea27bf24c=
+and frontier/mode fingerprint
+=sha256:da526271ffa70150686180d18eab518fcb9e346d4faafc43d3b247cf6b0eb63c=.
+This establishes the measured fresh capture-enabled Scheme request benefit;
+Tokio/FFI, ordinary capture-disabled requests and edited workloads need their
+own matched CPU qualification.
+
+Reproduce with the repository's matching SDK/GCC environment and native
+qualification products prepared:
+
+#+begin_src sh
+just prepare-capture-reference 54746a3b1617639fac05805f6ac9aae4a1861555 .data/capture-stream/reference source-driver
+just benchmark-capture-prefix .data/capture-stream/reference/lib source-driver
+#+end_src
+
+The manual Linux CPU matrix includes =capture-stream= for this exact baseline.
+The prior baseline's CI success does not qualify a later pushed head; new-head
+CI remains a separate observation.

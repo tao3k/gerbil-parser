@@ -21,10 +21,9 @@
            ("failure" 1 "negative control")
            ("timeout" 70 "CONFORMANCE-GROUP-TIMEOUT timeout"))))
    ((equal? profile "workers")
-    (setenv "GERBIL_TEST_CORES" "2")
     (map (lambda (row)
            (process-case (car row)
-             (append ["gxi" "t/fixtures/tla-sany-differential/test-suite.ss"]
+             (append ["gxi" "t/fixtures/tla-sany-differential/test-suite.ss" "--workers" "2"]
                (map (lambda (name)
                       (string-append "t/fixtures/tla-sany-differential/" name ".ss"))
                     (cadr row)))

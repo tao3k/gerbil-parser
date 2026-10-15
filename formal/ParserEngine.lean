@@ -59,3 +59,11 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 
 #print axioms ParserEngine.Reuse.failed_source_retries_original
 #print axioms ParserEngine.Reuse.successful_source_reuses
+
+#print axioms ParserEngine.Capture.classified_metadata_exact
+#print axioms ParserEngine.Capture.classified_consumer_exact
+#print axioms ParserEngine.Capture.classification_break_even
+
+#print axioms ParserEngine.Capture.sparse_frontiers_exact
+#print axioms ParserEngine.Capture.first_shift_skipped
+#print axioms ParserEngine.Capture.fused_driver_order

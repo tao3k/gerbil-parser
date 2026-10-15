@@ -12,10 +12,17 @@ Suite executes. Its loaded-module and interface caches survive the whole run.
 The runtime must finish module initialization before Worker execution; runtime
 loading and source expansion are not concurrent test jobs.
 
-=GERBIL_TEST_CORES= configures the bounded Scheme Worker queue. CI selects two
-Workers with a shared 3 GiB heap budget. Loading the full source suite exceeded
+The repository runner accepts an explicit =--workers N= argument before its
+source roots and =--remaining-conformance= option. This is repository scheduling,
+not a Gerbil configuration: official =gxtest= and =TestConfig= have no Worker
+count option or =GERBIL_TEST_CORES= environment variable. Without this argument,
+the repository runner uses one Worker. Linux CI supplies =nproc=, bounded again
+by the number of admitted modules. The two-Worker negative controls explicitly
+request two to exercise their rendezvous contract, not to set CI capacity.
+
+The runtime shares a 3 GiB heap budget. Loading the full source suite exceeded
 the previous 1 GiB budget before execution; this budget covers all loaded modules
-and both Workers. The inherited POO Case profile uses the same absolute heap
+and Workers. The inherited POO Case profile uses the same absolute heap
 cap because its sampler measures process-wide memory; its growth, sampling,
 failure, and duration policies remain inherited unchanged. Each module owns its
 =std/test= harness and thread-local test parameters;

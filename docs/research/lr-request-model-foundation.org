@@ -195,3 +195,9 @@ Local validation passed Lean (43 jobs), the complete locked Quint package
 source-input binding. The scope module contributes 23 directed tests and 1,000
 sampled histories of at most 20 steps, seed 1. No runtime optimization or new
 CPU claim accompanies this model extension.
+
+* Follow-up implementation qualification
+
+[[file:sparse-capture-model-first.org][Sparse capture]] applies the paper/code-first sequence to retained LR frontiers,
+with separate Lean, Quint, semantic and complete-request CPU evidence. The
+[[file:capture-metadata-model-first.org][metadata classification experiment]] retains its rejected CPU observation.

@@ -141,10 +141,14 @@
 ;;; indexed baseline without mutating the installed language machine.
 (def (lr-checkpoint-drive checkpoint next-input after-shift
                           (observability #f)
-                          (direct-step-override 'installed))
+                          (direct-step-override 'installed)
+                          (snapshot-spacing #f) (capture-snapshot #f))
+  (when capture-snapshot
+    (unless (and (procedure? capture-snapshot) (integer? snapshot-spacing) (> snapshot-spacing 0))
+      (error "streamed checkpoint capture requires positive spacing")))
   (lr-run-checkpoint
    checkpoint #f observability #f #f #t #f
-   next-input after-shift direct-step-override))
+   next-input after-shift direct-step-override #f #f snapshot-spacing capture-snapshot))
 
 ;;; Contextual scanning needs the exact LR state as its syntactic position
 ;;; axis. Existing lexer drivers keep the one-argument callback contract.

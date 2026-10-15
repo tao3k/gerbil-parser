@@ -33,6 +33,12 @@ module CapturePlan {
     .expect(CaptureSafety and q.work == 0 and q.output)
   run mutationInvalidatesTest = init.then(Begin).then(Prefix).then(Invalidate)
     .expect(CaptureSafety and not(q.output))
+  run unaryInvalidationTest = initUnary.then(Begin).then(Prefix).then(Invalidate)
+    .expect(CaptureSafety and not(q.output))
+  run publishedUnaryInvalidationTest = initUnary.then(Begin).then(Prefix).then(PublishUnary).then(Invalidate)
+    .expect(CaptureSafety and not(q.output))
+  run nullableInvalidationTest = initEmpty.then(Begin).then(Invalidate)
+    .expect(CaptureSafety and not(q.output))
   run incompleteMutationTest = init.then(Begin).then(Prefix)
     .expect(not({...q,output:true,phase:"published"}.work == 2 * q.width))
 }

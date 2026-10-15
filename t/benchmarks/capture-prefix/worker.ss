@@ -1,7 +1,8 @@
 ;;; One prepared runtime per actual native image; no runtime binding replacement.
 (load "t/fixtures/tla-sany-differential/preload.ss")
 (prefer-compiled-interfaces!)
-(def (main image)
+(def (main image (scope "recognition"))
+  (unless (member scope '("recognition" "source-driver")) (error "unknown native experiment scope" scope))
   (unless (equal? image "candidate") (add-load-path! image))
   (parameterize ((current-output-port (current-error-port)))
   (preload-module "gerbil-parser/t/support/qualification/benchmark-qos")
@@ -13,8 +14,11 @@
     (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/grammar records-parser)
     (only-in :gerbil-parser/src/runtime/parser parse-source)
     (only-in :gerbil-parser/src/runtime/lr-parser/state lr-runtime-reduction-widths)
-    (only-in :gerbil-parser/src/runtime/lr-parser lr-recognition-fragment?
+    (only-in :gerbil-parser/src/runtime/token token?)
+    (only-in :gerbil-parser/src/runtime/lr-parser lr-recognition-view? lr-recognition-fragment?
              lr-recognition-fragment-runtime lr-recognition-fragment-production-id lr-recognition-fragment-children)
+    (only-in :gerbil-parser/src/runtime/incremental/state incremental-session-state-checkpoints incremental-session-state-modes)
+    (only-in :gerbil-parser/src/runtime/lr-parser/state lr-prefix-snapshot-states lr-prefix-snapshot-deterministic-actions lr-prefix-snapshot-deterministic-shifts)
     (only-in :gerbil-parser/src/runtime/incremental make-incremental-session incremental-session-artifact
              incremental-session-project-artifact incremental-session-recognition-root)
     (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid-for-source? parse-artifact-ref sha256-text)
@@ -48,26 +52,63 @@
                 (loop (append (lr-recognition-fragment-children piece) (cdr pending))))
               (loop (cdr pending))))))
       (list-sort (lambda (a b) (< (car a) (car b))) (table->list counts)))))
+  (eval '(def capture-metadata-counts
+    (let ((counts (make-table test: eq?)))
+      (let loop ((pending (list (incremental-session-recognition-root (capture-request)))))
+        (unless (null? pending)
+          (let (piece (car pending))
+            (if (lr-recognition-fragment? piece)
+              (let (children (lr-recognition-fragment-children piece))
+                (when (and (pair? children) (null? (cdr children)))
+                  (let (kind (cond ((lr-recognition-view? (car children)) 'view)
+                                  ((token? (car children)) 'token) (else 'fragment)))
+                    (table-set! counts kind (+ 1 (table-ref counts kind 0)))))
+                (loop (append children (cdr pending))))
+              (loop (cdr pending))))))
+      (list-sort (lambda (a b) (string<? (symbol->string (car a)) (symbol->string (car b))))
+                 (table->list counts)))))
   (def (image-file module)
     (let (entry (assoc module (list-modules)))
       (unless (and entry (string? (cdr entry))) (error "missing native image" module))
       (cdr entry)))
-  (let* ((module "gerbil-parser/src/runtime/lr-parser/recognition~0")
-         (file (image-file module))
-         (root (path-normalize (path-expand (if (equal? image "candidate") ".gerbil/lib" image)))))
-    (unless (and (string-prefix? root file) (string-prefix? ".o" (path-extension file)))
-      (error "capture did not load its selected native image" image file)))
+  (def selected-modules
+    (if (equal? scope "recognition") '("gerbil-parser/src/runtime/lr-parser/recognition~0")
+      '("gerbil-parser/src/runtime/lr-parser/checkpoint~0"
+        "gerbil-parser/src/runtime/lr-parser/transfer~0"
+        "gerbil-parser/src/runtime/parser~0")))
+  (for-each
+    (lambda (module)
+      (let* ((file (image-file module))
+             (root (path-normalize (path-expand (if (equal? image "candidate") ".gerbil/lib" image)))))
+        (unless (and (string-prefix? root (path-normalize (path-expand file)))
+                     (not (equal? (path-extension file) ".scm")))
+          (error "selected runtime is not the requested native image" module file root)))) selected-modules)
   (def (image-digest module)
     ((eval 'sha256-bytes) (call-with-input-file (image-file module) (eval 'read-all-as-u8vector))))
   (def shared-images
     (map (lambda (module) (list module (image-digest module)))
-      '("gerbil-parser/src/runtime/lr-parser/state~0"
-        "gerbil-parser/src/runtime/lr-parser/checkpoint~0"
-        "gerbil-parser/src/runtime/parser~0"
-        "gerbil-parser/src/runtime/incremental/session~0"
-        "gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/grammar~0")))
-  (write (list 'CAPTURE-READY (eval '(sha256-text (object->string capture-expected))) (eval 'capture-width-counts)
-               (image-digest "gerbil-parser/src/runtime/lr-parser/recognition~0") shared-images))
+      (filter (lambda (module) (not (member module selected-modules)))
+        '("gerbil-parser/src/runtime/lr-parser/state~0"
+          "gerbil-parser/src/runtime/lr-parser/recognition~0"
+          "gerbil-parser/src/runtime/lr-parser/checkpoint~0"
+          "gerbil-parser/src/runtime/lr-parser/transfer~0"
+          "gerbil-parser/src/runtime/parser~0"
+          "gerbil-parser/src/runtime/incremental/session~0"
+          "gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/grammar~0"))))
+  (eval '(def capture-frontier-fingerprint
+    (let (session (capture-request))
+      (sha256-text
+       (object->string
+        (list (incremental-session-state-modes session)
+          (map (lambda (row)
+                 (let (snapshot (vector-ref row 1))
+                   (list (vector-ref row 0) (lr-prefix-snapshot-states snapshot)
+                         (lr-prefix-snapshot-deterministic-actions snapshot)
+                         (lr-prefix-snapshot-deterministic-shifts snapshot)
+                         (vector-ref row 2) (vector-ref row 3))))
+               (vector->list (incremental-session-state-checkpoints session)))))))))
+  (write (list 'CAPTURE-READY (eval '(sha256-text (object->string capture-expected))) (list (eval 'capture-width-counts) (eval 'capture-metadata-counts) (eval 'capture-frontier-fingerprint))
+               (map (lambda (module) (list module (image-digest module))) selected-modules) shared-images))
   (newline) (force-output)
   (let (request (eval 'capture-request))
   (let loop ()

@@ -139,7 +139,16 @@
 (def (main . arguments)
   ;; CI reaches this mode only after the compiled conformance gate succeeds.
   ;; Direct source qualification remains complete by default.
-  (let* ((remaining? (and (pair? arguments) (equal? (car arguments) "--remaining-conformance")))
+  (let* ((workers? (and (pair? arguments) (equal? (car arguments) "--workers")))
+         (capacity
+           (let (value (if workers?
+                         (if (pair? (cdr arguments)) (string->number (cadr arguments)) #f)
+                         1))
+             (unless (and (integer? value) (exact? value) (> value 0))
+               (error "--workers requires a positive integer"))
+             value))
+         (arguments (if (and workers? (pair? (cdr arguments))) (cddr arguments) arguments))
+         (remaining? (and (pair? arguments) (equal? (car arguments) "--remaining-conformance")))
          (roots (if remaining? (cdr arguments) arguments))
          (all-files (apply append (map test-files roots)))
          (covered-files (if remaining? (conformance-covered-test-files) '()))
@@ -149,7 +158,6 @@
          (files (filter (lambda (file)
                           (let (path (path-normalize (path-expand file)))
                             (or (not (member path covered)) (member path partial)))) all-files))
-         (capacity (string->number (getenv "GERBIL_TEST_CORES" "1")))
          (lock (make-mutex)) (pending '()) (failures '())
          (seen-suites (make-table test: eq?)))
     (when remaining?
@@ -160,8 +168,6 @@
     (unless (= (length all-files) (length (unique-test-files all-files)))
       (error "Scheme test suite has duplicate module owners"))
     (when (null? files) (error "Scheme test suite has no modules" roots))
-    (unless (and (integer? capacity) (exact? capacity) (> capacity 0))
-      (error "GERBIL_TEST_CORES must be a positive integer"))
     (def (covered-suite-names file)
       (let (path (path-normalize (path-expand file)))
         (if (and remaining? (member path partial))

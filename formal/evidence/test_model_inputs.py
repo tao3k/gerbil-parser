@@ -27,6 +27,7 @@ class ModelInputControls(unittest.TestCase):
             self.assertIn("formal/ParserEngine/Lookahead.lean", lean.inputs)
             self.assertIn("formal/quint/LookaheadScope.qnt", quint.inputs)
             self.assertIn("formal/quint/ModuleAdmission.qnt", quint.inputs)
+            self.assertIn("formal/quint/SparseCapture.qnt", quint.inputs)
             self.assertIn("formal/quint/ReuseAdmission.qnt", quint.inputs)
             self.assertIn("formal/quint/HistoryCommit.qnt", quint.inputs)
             self.assertIn("formal/quint/CapturePlan.qnt", quint.inputs)

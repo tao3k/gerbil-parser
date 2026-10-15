@@ -45,7 +45,8 @@
                           (stop-at-fork? #f) (feed-token #f)
                           (next-input #f) (after-shift #f)
                           (direct-step-override 'installed)
-                          (next-input-state? #f) (stop-before-shift? #f))
+                          (next-input-state? #f) (stop-before-shift? #f)
+                        (snapshot-spacing #f) (capture-snapshot #f))
     (let* ((runtime (lr-checkpoint-runtime checkpoint))
            (selected-observer (lr-stack-shift-observer policy after-shift))
            (direct-step
@@ -160,11 +161,21 @@
                          (when selected-observer
                            (lr-stack-notify-shift policy selected-observer (car rest) next-states next-values
                                                next-actions next-shifts))
-                         (loop next-states next-values (cdr rest)
-                               next-actions next-shifts
-                               (lr-stack-policy-value policy (and remaining-budget (fx- remaining-budget 1)) #f)
-                               (and recognition-stack
-                                    (cons (car rest) recognition-stack))))
+                         (let (next-recognition
+                                (and recognition-stack (cons (car rest) recognition-stack)))
+                           ;; Sparse captures freeze exactly the same post-shift
+                           ;; frontier; other shifts allocate no checkpoint.
+                           (when (lr-stack-policy-value policy
+                                   (and capture-snapshot (zero? (modulo next-shifts snapshot-spacing))) #f)
+                             (capture-snapshot
+                              (make-lr-checkpoint runtime tokens input-end-offset
+                                (lr-stack-freeze-states policy next-states state-storage)
+                                (lr-stack-freeze-values policy next-values next-states value-storage)
+                                (cdr rest) next-actions next-shifts next-recognition)))
+                           (loop next-states next-values (cdr rest)
+                                 next-actions next-shifts
+                                 (lr-stack-policy-value policy (and remaining-budget (fx- remaining-budget 1)) #f)
+                                 next-recognition)))
                        (fallback states semantic-values rest actions shifts))))
                     ((reduce)
                      (let (production-id (cadr action))
@@ -258,17 +269,20 @@
                         (stop-at-fork? #f) (feed-token #f)
                         (next-input #f) (after-shift #f)
                         (direct-step-override 'installed)
-                        (next-input-state? #f) (stop-before-shift? #f))
+                        (next-input-state? #f) (stop-before-shift? #f)
+                        (snapshot-spacing #f) (capture-snapshot #f))
   (let (runtime (lr-checkpoint-runtime checkpoint))
     (if (and (lr-runtime-owned-stack? runtime) (not action-budget) (not shift-target)
-             (not observability) (not stop-before-shift?) (not (current-lr-recognition-observer))
+             (not observability) (not stop-before-shift?) (not capture-snapshot) (not (current-lr-recognition-observer))
              (not (lr-checkpoint-recognition-stack checkpoint))
              (or (eq? direct-step-override 'installed) (not direct-step-override))
              (or (not after-shift) (lr-token-observer? after-shift)))
       (lr-run-owned-checkpoint checkpoint action-budget observability stop-at-failure? shift-target
-        stop-at-fork? feed-token next-input after-shift direct-step-override next-input-state? stop-before-shift?)
+        stop-at-fork? feed-token next-input after-shift direct-step-override next-input-state? stop-before-shift?
+        snapshot-spacing capture-snapshot)
       (lr-run-persistent-checkpoint checkpoint action-budget observability stop-at-failure? shift-target
-        stop-at-fork? feed-token next-input after-shift direct-step-override next-input-state? stop-before-shift?))))
+        stop-at-fork? feed-token next-input after-shift direct-step-override next-input-state? stop-before-shift?
+        snapshot-spacing capture-snapshot))))
 
 ;;; Advances through the same executor and materializes one checkpoint only at
 ;;; the requested deterministic action boundary.

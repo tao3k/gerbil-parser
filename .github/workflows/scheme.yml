@@ -253,8 +253,8 @@ jobs:
         timeout-minutes: 15
         run: |
           GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
-            GERBIL_TEST_CORES=2 GAMBOPT=max-heap=3G,debug=q GERBIL_PARSER_LR_TRACE=1 \
-            gerbil env gxi t/fixtures/tla-sany-differential/test-suite.ss --remaining-conformance t languages
+            GAMBOPT=max-heap=3G,debug=q GERBIL_PARSER_LR_TRACE=1 \
+            gerbil env gxi t/fixtures/tla-sany-differential/test-suite.ss --workers "$(nproc)" --remaining-conformance t languages
       - name: Verify native command
         run: |
           gerbil env gparse help
@@ -680,6 +680,7 @@ jobs:
           - module-generation
           - module-preload
           - capture-prefix
+          - capture-stream
     env:
       GERBIL_RELEASE_ROOT: ${{ github.workspace }}/.ci/gerbil-release/${{ inputs.gerbil-label }}
       GERBIL_SDK_SHA256: ${{ inputs.release-sha256 }}
@@ -800,6 +801,16 @@ jobs:
         run: |
           taskset -pc "$CPU_PROOF_PROCESSOR" "$$"
           just benchmark-capture-prefix
+      - name: Prepare exact-head sparse capture reference
+        if: matrix.lane == 'capture-stream'
+        run: |
+          git fetch --depth=1 origin 54746a3b1617639fac05805f6ac9aae4a1861555
+          just prepare-capture-reference 54746a3b1617639fac05805f6ac9aae4a1861555 .data/capture-stream/reference source-driver
+      - name: Prove sparse captured 64-record request CPU improvement
+        if: matrix.lane == 'capture-stream'
+        run: |
+          taskset -pc "$CPU_PROOF_PROCESSOR" "$$"
+          just benchmark-capture-prefix .data/capture-stream/reference/lib source-driver
       - name: Prove complete Rust generation CPU improvement
         if: matrix.lane == 'module-generation'
         run: |

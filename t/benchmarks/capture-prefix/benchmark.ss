@@ -1,8 +1,8 @@
 ;;; Two persistent SDK processes admit two real native images; request CPU is
 ;;; measured inside each worker, excluding startup and protocol exchange.
 (displayln "CAPTURE-CPU-START") (force-output)
-(def (worker image)
-  (open-process (list path: "gxi" arguments: (list "t/benchmarks/capture-prefix/worker.ss" image)
+(def (worker image scope)
+  (open-process (list path: "gxi" arguments: (list "t/benchmarks/capture-prefix/worker.ss" image scope)
                       stdin-redirection: #t stdout-redirection: #t stderr-redirection: #f)))
 (def (batch process calls)
   (write calls process) (newline process) (force-output process)
@@ -26,8 +26,8 @@
              (ratio (/ (total 'b) (total 'a))))
         (write (list 'CAPTURE-CPU-GROUP name group ratio)) (newline) (force-output)
         (loop (+ group 1) (cons ratio ratios))))))
-(def (main reference-image)
- (let ((reference (worker reference-image)) (candidate (worker "candidate")))
+(def (main reference-image (scope "recognition"))
+ (let ((reference (worker reference-image scope)) (candidate (worker "candidate" scope)))
   (try
    (let ((left (read reference)) (right (read candidate)))
     (unless (and (list? left) (list? right) (= (length left) 5) (= (length right) 5)

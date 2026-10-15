@@ -190,7 +190,7 @@
                           (let (path (path-normalize (path-expand file)))
                             (or (not (member path covered)) (member path partial)))) all-files))
          (lock (make-mutex)) (pending '()) (failures '())
-         (seen-suites (make-table test: eq?)))
+         (seen-suites (make-table test: eq?)) (logger #f))
     (when remaining?
       (unless (andmap (lambda (file) (member file (map (lambda (path) (path-normalize (path-expand path))) all-files))) covered)
         (error "remaining test roots omit conformance owners"))
@@ -209,7 +209,19 @@
       (mutex-lock! lock)
       (try (thunk) (finally (mutex-unlock! lock))))
     (def (emit . values)
-      (locked (lambda () (apply displayln values) (force-output))))
+      ;; Readers must ingest actual owner progress independently of global
+      ;; console throughput. Fatal watchdog receipts flush synchronously before
+      ;; native exit; ordinary messages preserve mailbox order.
+      (if (and logger (not (member (car values)
+                              '("MODULE-BATCH-TIMEOUT " "MODULE-BATCH-READER-FAILED "))))
+        (thread-send logger values)
+        (locked (lambda () (apply displayln values) (force-output)))))
+    (def (stop-logger!)
+      (when logger
+        (let (active logger)
+          (set! logger #f)
+          (thread-send active (void))
+          (thread-join! active))))
     (def (next-owner index)
       (locked
         (lambda ()
@@ -234,23 +246,45 @@
                 (emit "MODULE-BATCH-FAILED " (test-owner-file owner)))
               (lambda () (run-test-owner owner emit)))
             (loop)))))
-    ;; Dynamic module admission completes before any test Worker runs. The
-    ;; runtime loader/expander is a shared preparation owner, not a worker job.
-    (set! pending
-      (map (lambda (file)
-             (emit "MODULE-PREPARE-START " file)
-             (let (started (##current-time-point))
-               (let-values (((harness _)
-                              (call-with-owner-budget file emit
-                                (lambda () (prepare-test-owner file (covered-suite-names file) seen-suites)))))
-                 (emit "MODULE-PREPARE-OK " file)
-                 (make-test-owner file (car harness) (- (##current-time-point) started) (cdr harness))))) files))
-    (emit "TEST-SUITE-WORKERS " (min capacity (length files)))
-    (let (workers (map (lambda (index) (spawn (lambda () (worker index)))) (iota (min capacity (length files)))))
-      (for-each thread-join! workers))
-    (unless (null? failures) (raise (cdar failures)))
-    (emit "TEST-SUITE-OK modules=" (length files))
-    (emit "OK")
+    ;; One console owner flushes bounded batches of real messages. No timer
+    ;; writes progress and no per-line acknowledgement blocks the pipe reader.
+    (set! logger
+      (spawn
+       (lambda ()
+         (let loop ((message (thread-receive)))
+           (let (stop?
+                 (locked
+                  (lambda ()
+                    (let (stop?
+                          (let drain ((message message) (remaining 128))
+                            (cond ((void? message) #t)
+                                  ((not message) #f)
+                                  (else
+                                   (apply displayln message)
+                                   (if (= remaining 1) #f
+                                     (drain (thread-receive 0 #f) (- remaining 1)))))))
+                      (force-output) stop?))))
+             (unless stop? (loop (thread-receive))))))))
+    (try
+      ;; Dynamic module admission completes before any test Worker runs. The
+      ;; runtime loader/expander is a shared preparation owner, not a worker job.
+      (set! pending
+        (map (lambda (file)
+               (emit "MODULE-PREPARE-START " file)
+               (let (started (##current-time-point))
+                 (let-values (((harness _)
+                                (call-with-owner-budget file emit
+                                  (lambda () (prepare-test-owner file (covered-suite-names file) seen-suites)))))
+                   (emit "MODULE-PREPARE-OK " file)
+                   (make-test-owner file (car harness) (- (##current-time-point) started) (cdr harness))))) files))
+      (emit "TEST-SUITE-WORKERS " (min capacity (length files)))
+      (let (workers (map (lambda (index) (spawn (lambda () (worker index)))) (iota (min capacity (length files)))))
+        (for-each thread-join! workers))
+      (stop-logger!)
+      (unless (null? failures) (raise (cdar failures)))
+      (emit "TEST-SUITE-OK modules=" (length files))
+      (emit "OK")
+    (finally (stop-logger!)))
     ;; All workers joined and every owner passed. The test child must release
     ;; its process now; SDK finalizers are outside the harness contract.
     (native-test-exit! 0)))

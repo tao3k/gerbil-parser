@@ -45,10 +45,18 @@
 
 ;;; Preserve the canonical writer while emitting digest input directly in UTF-8.
 ;;; Implicit port encoding is not part of the canonical identity contract.
-(def (canonical-digest value)
+(def (canonical-digest/raw value)
   (sha256-bytes
    (call-with-output-u8vector '(char-encoding: UTF-8 eol-encoding: lf)
      (lambda (port) (write value port)))))
+
+;;; Most declaration rows have no references. Retain this immutable datum's
+;;; digest once, while returning an independent mutable string to every caller.
+;;; Nonempty declarations keep the exact canonical byte writer and hash path.
+(def +empty-reference-digest+ (canonical-digest/raw '()))
+(def (canonical-digest value)
+  (if (null? value) (string-copy +empty-reference-digest+)
+    (canonical-digest/raw value)))
 
 ;;; Binding identity is structured package data.  Native grammar names are not
 ;;; rewritten into a second slash-delimited namespace.

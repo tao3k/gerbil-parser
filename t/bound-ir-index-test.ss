@@ -24,6 +24,19 @@
 
 (def bound-ir-index-test
   (test-suite "Bound IR indexed admission"
+    (test-case "empty reference digest reuse keeps independent caller-owned strings"
+      (let* ((grammar (grammar-ir '((Left node ()) (Right node ())) '()))
+             (result (bind-grammar-ir grammar "empty-reference-copy" '()))
+             (left (bound-grammar-ir-ref (bound-grammar-ir-binding result 'syntax-kind 'Left) 'referenceDigest))
+             (right (bound-grammar-ir-ref (bound-grammar-ir-binding result 'syntax-kind 'Right) 'referenceDigest))
+             (expected (text-digest '())))
+        (check left => expected) (check right => expected)
+        (check (eq? left right) => #f)
+        (string-set! left 0 (if (char=? (string-ref left 0) #\0) #\1 #\0))
+        (check right => expected)
+        (let (again (bind-grammar-ir grammar "empty-reference-copy" '()))
+          (check (bound-grammar-ir-ref (bound-grammar-ir-binding again 'syntax-kind 'Left) 'referenceDigest)
+                 => expected))))
     (test-case "byte publication preserves Unicode and every canonical digest"
       (let* ((grammar (grammar-ir '((|根| node (|值|)) (Word token ()))
                                  '((word Word))))

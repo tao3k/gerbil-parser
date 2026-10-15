@@ -200,7 +200,7 @@ jobs:
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/capture-prefix-controls.log --require '^CAPTURE-PREFIX-CONTROLS-OK productions=11$' \
-            -- gxi t/benchmarks/capture-prefix/controls.ss
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-module "gerbil-parser/t/benchmarks/capture-prefix/controls") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process") (eval (quote (import :gerbil-parser/t/benchmarks/capture-prefix/controls :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process))) (eval (quote (verify-capture-prefix!))) (eval (quote (test-child-process-exit! 0)))'
       - name: Verify callback history commit admission
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \

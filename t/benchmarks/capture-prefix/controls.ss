@@ -7,6 +7,8 @@
         (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/grammar records-parser)
         (only-in :gerbil-parser/t/benchmarks/lr-request-stack/capture-reference reference-capture-reduction))
 (def (require! value message) (unless value (error message)))
+(export verify-capture-prefix!)
+(def (verify-capture-prefix!)
 (let* ((runtime (parser-machine-runtime records-parser))
        (widths (lr-runtime-reduction-widths runtime)) (seen '()))
  (for-each
@@ -34,3 +36,6 @@
   (iota (vector-length widths)))
  (require! (and (memv 0 seen) (memv 1 seen)) "nullable and unary productions not exercised")
  (displayln "CAPTURE-PREFIX-CONTROLS-OK productions=" (vector-length widths)) (force-output))
+)
+
+(def (main . _) (verify-capture-prefix!))

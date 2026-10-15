@@ -221,3 +221,22 @@ Local repair qualification passed all three organization cases in 2.955 seconds
 and all 44 capture combinations (11 productions times four input variants).
 No new CPU gain is claimed by these gate repairs; the preceding complete-request
 CPU result retains its original measurement scope.
+
+* Cold admission qualification repair
+
+At =70844f3=, macOS capture controls exceeded the 5-second silence budget
+before producing any receipt. The CI process result was =elapsed 5.514 seconds,
+exit 137, reason idle-timeout= with the success marker missing. This differs
+from a failed assertion or a verified-complete child stalled during shutdown.
+
+The controls now export =verify-capture-prefix!=, and CI explicitly invokes it
+after the existing official-module preloader admits the compiled closure.
+Dependency starts/completions report real work; there is no periodic heartbeat.
+All 44 comparisons still run before the anchored success receipt. Only after
+that call returns does the existing disposable-child exit interface run.
+Exceptions stop this sequence and remain nonzero qualification failures.
+The 90-second total and 5-second silence budgets are unchanged.
+
+Local execution of the exact CI command passed in 5.826 seconds with exit zero.
+The original direct script entry still invokes the same verification procedure.
+This repairs test admission and completion, with no new parser CPU claim.

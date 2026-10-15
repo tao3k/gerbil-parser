@@ -633,3 +633,12 @@ that invalid control. Consequently the guarded final revision has one admitted
 local complete-request trial, not two consecutively admitted trials. Independent
 Ubuntu qualification must decide the remaining gate. No local outlier is dropped
 and no workload, compiler, sample count, budget or threshold is changed.
+
+
+Independent Ubuntu run =38766566952= at =a2937dc= rejected the first CPU trial
+in 49.947361 seconds. Reference before P10/P50/P90 was
+0.967146/1.008946/1.066613, candidate was 0.910949/0.924071/0.950277,
+and after was 0.980494/1.002177/1.048464. Both controls are valid; candidate
+P90 exceeds 0.95. The second trial did not execute. This is an unresolved CPU
+qualification failure, even though its median improves. No rounding, workload
+change or discarded percentile can close that gate.

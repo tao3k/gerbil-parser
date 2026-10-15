@@ -97,3 +97,27 @@ no Cases of its own and re-exported language leaf Suites already discovered from
 =languages=. Source admission now requires each test binding to belong to its
 module and each Suite object to have one owner. Re-exporting leaf Suites or
 admitting one Suite object twice fails instead of multiplying execution costs.
+
+
+* Failure visibility and historical Darwin startup qualification
+
+Regular run =38760618212= failed its Darwin DSL research semantic process with
+an idle timeout before any Suite receipt. The preceding conformance failure
+control was expected and its step passed. That negative assertion is not the CI
+root cause. Its exact native artifact's ranked subcommand exited successfully in
+1.398711 seconds locally, and in 1.395143 seconds with the CI default heap policy.
+These historical subcommand diagnostics do not reproduce or repair the full CI
+semantic timeout. Full local replay is relocation-sensitive because diagnostic
+tests retain the original compiler source locations. It is not counted as current
+native semantic acceptance.
+
+The run published product archives but no qualification-log artifacts. The
+artifact uploader defaults omit the hidden =.data= directory. All existing
+=.data/**/*.log= uploads now explicitly include hidden files, keeping their
+existing file glob and retention. Unexpected process exits also publish status,
+reason, acknowledged native phase, elapsed time and the final 8192 characters of
+real child output before raising. This adds no heartbeat, extends no deadline,
+and does not accept a failed exit. A controlled child exiting 3 retained its
+failure status while exposing its native phase and output tail; all four
+conformance process controls still passed. The historical Darwin runtime timeout
+remains unresolved pending reproducible stack or child-stage evidence.

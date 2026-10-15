@@ -59,6 +59,16 @@
         (status (process-result-status result)) (expected (process-case-exit case)))
   (unless (and (not (process-result-reason result))
                (if (eq? expected 'nonzero) (> status 0) (= status expected)))
+   ;; Preserve the last real child output in the job log as well as its artifact.
+   ;; Hidden-directory upload defaults must never hide the failing native stage.
+   (let* ((text (utf8->string (process-result-output result)))
+          (end (string-length text)))
+     (displayln "PROCESS-FAILURE " name " status=" status
+                " reason=" (process-result-reason result)
+                " phase=" (process-result-phase result) " elapsed=" (process-result-elapsed result))
+     (displayln "PROCESS-FAILURE-TAIL " name)
+     (display (substring text (max 0 (- end 8192)) end))
+     (newline) (force-output))
    (error "unexpected process exit" name status (process-result-reason result)))
   (let (marker (process-case-marker case))
    (when (and marker (not (string-contains (utf8->string (process-result-output result)) marker)))

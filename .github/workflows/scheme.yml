@@ -170,6 +170,7 @@ jobs:
         with:
           name: logs-${{ inputs.release-os }}-prepare-${{ github.sha }}
           path: .data/**/*.log
+          include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7
   semantics:
@@ -271,6 +272,7 @@ jobs:
         with:
           name: logs-${{ inputs.release-os }}-semantics-suite-${{ github.sha }}
           path: .data/**/*.log
+          include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7
   generation:
@@ -461,6 +463,7 @@ jobs:
         with:
           name: logs-${{ inputs.release-os }}-generation-suite-${{ github.sha }}
           path: .data/**/*.log
+          include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7
   ffi:
@@ -548,6 +551,7 @@ jobs:
         with:
           name: logs-${{ inputs.release-os }}-ffi-suite-${{ github.sha }}
           path: .data/**/*.log
+          include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7
   corpus:
@@ -607,6 +611,7 @@ jobs:
         with:
           name: logs-${{ inputs.release-os }}-corpus-suite-${{ github.sha }}
           path: .data/**/*.log
+          include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7
     if: inputs.release-os == 'linux'
@@ -664,6 +669,7 @@ jobs:
         with:
           name: logs-${{ inputs.release-os }}-diagnostics-suite-${{ github.sha }}
           path: .data/**/*.log
+          include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7
     if: github.event_name == 'workflow_dispatch'
@@ -840,5 +846,6 @@ jobs:
         with:
           name: logs-${{ inputs.release-os }}-cpu-${{ matrix.lane }}-${{ github.sha }}
           path: .data/**/*.log
+          include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7

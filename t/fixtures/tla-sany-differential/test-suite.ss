@@ -6,6 +6,8 @@
 (load "t/fixtures/tla-sany-differential/preload.ss")
 (load "scripts/test-plan.ss")
 (prefer-compiled-interfaces!)
+(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process
+                 test-child-process-exit!))
 (import (only-in :clan/poo/object .o)
         (only-in :core/observability/testing-case
                  poo-flow-default-testing-case-profile
@@ -96,19 +98,42 @@
            (monitor
              (spawn
                (lambda ()
-                 (let loop ((cases 0))
-                   (let* ((reader (spawn (lambda () (read-line input))))
-                          (line (thread-join! reader
-                                  (max 0.001 (min 5 (- budget (- (##current-time-point) started)))) 'quiet)))
-                     (cond
-                       ((or (eq? line 'quiet) (> (- (##current-time-point) started) budget))
-                        (emit "MODULE-BATCH-TIMEOUT " file " reason="
-                              (if (>= (- (##current-time-point) started) budget) 'total-budget 'idle-timeout))
-                        (exit 70))
-                       ((eof-object? line) cases)
-                       (else
-                        (emit "MODULE-OUTPUT " file " " line)
-                        (loop (+ cases (if (string-prefix? "CASE-OK " line) 1 0)))))))))))
+                 (let* ((last-progress started)
+                        ;; One reader owns the pipe for the entire owner. It
+                        ;; reports real output directly; no per-line threads,
+                        ;; mailbox copies or acknowledgement round trips.
+                        (reader
+                         (spawn
+                           (lambda ()
+                             (let read-output ((cases 0))
+                               (let (line (read-line input))
+                                 (set! last-progress (##current-time-point))
+                                 (if (eof-object? line) cases
+                                   (begin
+                                     (emit "MODULE-OUTPUT " file " " line)
+                                     (read-output (+ cases (if (string-prefix? "CASE-OK " line) 1 0)))))))))))
+                   (let watch ()
+                     (let* ((now (##current-time-point))
+                            (remaining (min (- budget (- now started))
+                                            (- 5 (- now last-progress))))
+                            (result
+                             (with-catch
+                               (lambda (e)
+                                 (emit "MODULE-BATCH-READER-FAILED " file)
+                                 (display-exception e)
+                                 (test-child-process-exit! 70))
+                               (lambda () (thread-join! reader (max 0.001 remaining) 'quiet)))))
+                       (if (eq? result 'quiet)
+                         (let (now (##current-time-point))
+                           (cond
+                            ((>= (- now started) budget)
+                             (emit "MODULE-BATCH-TIMEOUT " file " reason=total-budget")
+                             (test-child-process-exit! 70))
+                            ((>= (- now last-progress) 5)
+                             (emit "MODULE-BATCH-TIMEOUT " file " reason=idle-timeout")
+                             (test-child-process-exit! 70))
+                            (else (watch))))
+                         result))))))))
       (try
        (let (result
               (parameterize ((current-output-port output) (current-error-port output))
@@ -219,4 +244,7 @@
       (for-each thread-join! workers))
     (unless (null? failures) (raise (cdar failures)))
     (emit "TEST-SUITE-OK modules=" (length files))
-    (emit "OK")))
+    (emit "OK")
+    ;; All workers joined and every owner passed. The test child must release
+    ;; its process now; SDK finalizers are outside the harness contract.
+    (test-child-process-exit! 0)))

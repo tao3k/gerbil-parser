@@ -292,10 +292,12 @@
                             (iota (vector-length predecessors))))
                          (lambda (groups nodes examined)
                            (set! actual-calls (+ actual-calls examined))))))
-            (check actual => expected)
-            (check actual-count => expected-count)
-            (check (vector->list initial) => saved)
-            (check (<= actual-calls expected-calls) => #t)
+            ;; One graph comparison carries all four facts. Keep full vector,
+            ;; count, input immutability and examined-work checks, without four
+            ;; separately synchronized progress transactions per tiny graph.
+            (check (list actual actual-count (vector->list initial)
+                         (<= actual-calls expected-calls))
+                   => (list expected expected-count saved #t))
             (values actual-calls expected-calls))))
       (let graphs ((graph 0))
         (when (< graph 512)

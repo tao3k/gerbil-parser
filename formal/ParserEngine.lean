@@ -67,3 +67,9 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Capture.sparse_frontiers_exact
 #print axioms ParserEngine.Capture.first_shift_skipped
 #print axioms ParserEngine.Capture.fused_driver_order
+
+#print axioms ParserEngine.Lookahead.reductions_preserve_pending
+#print axioms ParserEngine.Lookahead.reduced_shift_preserves_admission
+#print axioms ParserEngine.Lookahead.per_query_conversion_regresses
+
+#print axioms ParserEngine.Lookahead.request_transport_regresses

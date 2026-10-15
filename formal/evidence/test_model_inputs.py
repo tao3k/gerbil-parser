@@ -34,6 +34,7 @@ class ModelInputControls(unittest.TestCase):
             for check in (lean, quint):
                 self.assertIn("src/ffi/language-handles.ss", check.inputs)
                 self.assertIn("src/runtime/lr-parser/checkpoint.ss", check.inputs)
+                self.assertIn("src/runtime/lr-parser/prepare.ss", check.inputs)
                 self.assertIn("src/runtime/token.ss", check.inputs)
                 self.assertIn("src/language/module-input.ss", check.inputs)
                 self.assertIn("t/fixtures/tla-sany-differential/preload.ss", check.inputs)

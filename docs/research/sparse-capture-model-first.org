@@ -31,7 +31,7 @@ reverted. Its model and negative observation remain separate from this result.
 |-------+----------------+-----------------------|
 | Papers/current Scheme | Identify paid work and retained semantics | Per-token LR entry and discarded checkpoint construction are concrete code costs |
 | [[file:../../formal/ParserEngine/Capture.lean][Lean Capture]] | Pure ordered execution and selected immutable frontiers | =fused_driver_order= preserves ordered transitions; =sparse_frontiers_exact= preserves selected frames; =sparse_frontiers_not_more= bounds retained frame count |
-| [[file:../../formal/quint/SparseCapture.qnt][Quint SparseCapture]] | Source/shift lifecycle around trivia, reductions, completion, fork and failure | Seven directed histories and 1,000 sampled 20-step histories with seed 1; =SparseSafety= compares sparse publication with dense selection |
+| [[file:../../formal/quint/SparseCapture.qnt][Quint SparseCapture]] | Source/shift lifecycle around trivia, reductions, completion, fork and failure | Ten directed histories and 1,000 sampled 20-step histories with seed 1; =SparseSafety= compares sparse publication with dense selection |
 | Scheme implementation/Benchmark | Establish representation equivalence and actual whole-request CPU | Exact dense-control comparisons and matched native-image CPU qualification |
 
 Lean frames are abstract immutable values; Scheme must establish the complete
@@ -160,3 +160,24 @@ just benchmark-capture-prefix .data/capture-stream/reference/lib source-driver
 The manual Linux CPU matrix includes =capture-stream= for this exact baseline.
 The prior baseline's CI success does not qualify a later pushed head; new-head
 CI remains a separate observation.
+
+* Requalification after the pending-input model study
+
+The pending-input model extension does not modify the native engine. The
+accepted source-driver algorithm at =91033141244b5e1c1d48dfc3e95d5dc527c483ac=
+was independently requalified against the same =54746a3= reference, with the
+same complete 64-record request, matching artifacts/frontiers, CPU protocol and
+90-second total / five-second idle fences:
+
+| Phase | P10 | P50 | P90 |
+|-------+-----+-----+-----|
+| Before reference/reference | 0.9371027388 | 0.9702582529 | 1.0163476848 |
+| Production/reference | 0.8216117437 | 0.8643581977 | 0.8703403824 |
+| After reference/reference | 0.9839937099 | 0.9990015724 | 1.0429723472 |
+
+The success marker was present; exit 0, no supervisor reason, no missing
+receipt, elapsed 58.205 seconds. P90 CPU was 12.97% lower in this independent
+observation. This confirms the existing complete-request engine improvement;
+the new scalar-input direction has no implementation or CPU claim yet.
+The expanded model gate passes 43 Lean jobs, 110 Quint directed histories and
+11 sampled invariant runs, plus the source-input invalidation control.

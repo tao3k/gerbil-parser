@@ -201,3 +201,54 @@ CPU claim accompanies this model extension.
 [[file:sparse-capture-model-first.org][Sparse capture]] applies the paper/code-first sequence to retained LR frontiers,
 with separate Lean, Quint, semantic and complete-request CPU evidence. The
 [[file:capture-metadata-model-first.org][metadata classification experiment]] retains its rejected CPU observation.
+
+* Pending input transport and the next selector boundary
+
+The current [[file:../../src/runtime/lr-parser/checkpoint.ss][driver]] creates a singleton input list at admission, retains
+it across reductions, and consumes it on shift. The [[file:../../src/runtime/lr-parser/prepare.ss][action selector]] takes
+that list on every query, checks EOF, and projects its first token. Lexical mode
+belongs to scanner admission; a later reduction can change LR state before the
+same pending token is consumed. The source owner already retains that admitted
+mode for post-shift publication.
+
+The functional representations in Sperber and Thiemann motivate studying this
+transport boundary; they do not justify replacing a list with a scalar while
+silently recreating the list at every action query. Lean Lookahead now proves
+that arbitrary ordered reductions preserve the pending token/mode pair and its
+shifted publication. The representation must also retain unconsumed lookahead
+on fork, failure and pause. No token-field caching or mutation epoch is admitted.
+
+Count transport list cells with =A= actual admissions, =Q= converted nonempty
+action queries and =E= escapes needing conversion:
+
+| Representation | Transport cells |
+|----------------+-----------------|
+| Existing list input | A |
+| Scalar with list conversion at each query/escape | Q + E |
+| Scalar with native selector input | E, plus independent selector/guard costs |
+
+=scalar_input_break_even= charges all conversions. =request_transport_regresses=
+lifts the comparison to complete logical request work only under equality of
+every shared term; this does not establish a physical CPU cost. The stronger
+=per_query_conversion_regresses= rejects the adapter when queries exceed
+admissions. For the logical 64-record action inventory, 192 shifts and 322
+reductions already imply 514 nonempty queries when those reductions precede
+nonempty lookahead; EOF queries themselves allocate no singleton and must not
+be counted as nonempty conversions. The actual EOF/nonempty distribution needs
+an execution trace before a numeric cell saving is admitted. The Lean example
+with 514 conversions assumes those reductions have nonempty lookahead and is
+explicitly a counterexample, not a measured trace.
+
+The next candidate therefore needs an engine-level selector accepting token/EOF
+directly, with list materialization only at existing external frontiers. It must
+cover literal precedence, case folding, layout, generated direct steps, failure
+and selective GLR before implementation. Current list-based selectors and
+extension factories remain the semantic authority during this study.
+
+Quint SparseCapture now independently tracks admitted modes and emitted modes,
+requires the emitted sequence to be the exact consumed admission prefix, and
+rejects another scan or trivia admission while lookahead is pending. Ten directed
+histories include reductions changing lexical mode before shift and a fork with
+unconsumed lookahead. The first control used =enabled=, which the pinned
+TypeScript backend cannot execute; the executable shared admission guard now
+owns that check. This is bounded protocol evidence, not an LR grammar oracle.

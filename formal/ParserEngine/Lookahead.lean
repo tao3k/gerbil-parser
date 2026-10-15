@@ -181,4 +181,69 @@ example : repeatedMetadata 1 4 < scopedMetadata 1 4 1 1 := by decide
 example : repeatedMetadata 8 0 < scopedMetadata 8 0 1 0 := by decide
 example : scopedMetadata 0 4 1 1 < 4 + 1 := by decide
 
+/-- A pending scanner admission owns its mode, even when reductions change
+LR state before consumption. This is input transport, not metadata reuse. -/
+structure PendingInput (Token Mode : Type) where
+  token : Token
+  mode : Mode
+  deriving DecidableEq
+
+structure InputFrontier (Token Mode : Type) where
+  state : Nat
+  pending : Option (PendingInput Token Mode)
+  emitted : List (PendingInput Token Mode)
+
+def reduceFrontier (nextState : Nat) (frontier : InputFrontier Token Mode) :=
+  { frontier with state := nextState }
+
+def shiftFrontier (frontier : InputFrontier Token Mode) :=
+  { frontier with pending := none, emitted := frontier.emitted ++ frontier.pending.toList }
+
+/-- Capture the admitted token/mode, not the lexical mode of the reduced state. -/
+theorem reductions_preserve_pending (states : List Nat) (frontier : InputFrontier Token Mode) :
+    (states.foldl (fun current next => reduceFrontier next current) frontier).pending =
+      frontier.pending := by
+  induction states generalizing frontier with
+  | nil => rfl
+  | cons head tail ih => exact ih (reduceFrontier head frontier)
+
+theorem reduced_shift_preserves_admission (states : List Nat)
+    (frontier : InputFrontier Token Mode) :
+    (shiftFrontier (states.foldl (fun current next => reduceFrontier next current) frontier)).emitted =
+      frontier.emitted ++ frontier.pending.toList := by
+  have unchanged : (states.foldl (fun current next => reduceFrontier next current) frontier).emitted =
+      frontier.emitted := by
+    induction states generalizing frontier with
+    | nil => rfl
+    | cons head tail ih => exact ih (reduceFrontier head frontier)
+  simp only [shiftFrontier, unchanged, reductions_preserve_pending]
+
+/-- List-cell transport counts only. A scalar input saves the admission cell
+only if action queries accept it directly. Converting back on each query pays
+again for reductions and escapes; neither term may be omitted. -/
+def listInputCells (admissions : Nat) := admissions
+def scalarInputCells (convertedQueries escapes : Nat) := convertedQueries + escapes
+
+theorem scalar_input_break_even (admissions queries escapes : Nat) :
+    scalarInputCells queries escapes ≤ listInputCells admissions ↔
+      queries + escapes ≤ admissions := by rfl
+
+theorem per_query_conversion_regresses (admissions extraQueries escapes : Nat)
+    (more : 0 < extraQueries + escapes) :
+    listInputCells admissions < scalarInputCells (admissions + extraQueries) escapes := by
+  unfold listInputCells scalarInputCells
+  omega
+
+/-- Lift transport regression to complete logical work only when every other
+request term is identical. This is not a physical CPU-cost assumption. -/
+theorem request_transport_regresses (work : SharedWork) (admissions extraQueries escapes : Nat)
+    (more : 0 < extraQueries + escapes) :
+    shared work + listInputCells admissions <
+      shared work + scalarInputCells (admissions + extraQueries) escapes := by
+  exact Nat.add_lt_add_left
+    (per_query_conversion_regresses admissions extraQueries escapes more) (shared work)
+
+-- Counterexample with nonempty queries: not a measured action trace.
+example : listInputCells 192 < scalarInputCells (192 + 322) 0 := by decide
+
 end ParserEngine.Lookahead

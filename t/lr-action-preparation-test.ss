@@ -1,5 +1,8 @@
 ;;; Prepared layout projections preserve the former pure action decision.
 (import :std/test
+        (only-in :gerbil-parser/t/benchmarks/lr-request-stack/lookahead profile-lr-lookahead)
+        (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/grammar records-parser)
+        (only-in :gerbil-parser/src/runtime/parser parse-source)
         (only-in :gerbil-parser/src/runtime/layout
                  prepare-layout-action-selector make-layout-columns
                  current-layout-columns current-layout-frames)
@@ -12,6 +15,13 @@
         (only-in :gerbil-parser/src/runtime/lr-parser/prepare make-lr-action-selector))
 (def lr-action-preparation-test
   (test-suite "prepared layout action projections"
+    (test-case "lookahead diagnostics preserve complete products with scalar inputs and EOF"
+      (let* ((source "a=1\nb=2\n") (expected (parse-source records-parser source))
+             (receipt (profile-lr-lookahead records-parser source expected)))
+        (check (> (cdr (assq 'actionObservations receipt)) 0) => #t)
+        (check (> (cdr (assq 'eofObservations receipt)) 0) => #t)
+        (check (>= (cdr (assq 'actionObservations receipt))
+                   (cdr (assq 'lookaheads receipt))) => #t)))
     (test-case "closed engine record access retains checked rejection"
       (let* ((entry '((terminal eof) accept))
              (row (vector-ref (index-action-rows (vector (list entry)) #f) 0)))

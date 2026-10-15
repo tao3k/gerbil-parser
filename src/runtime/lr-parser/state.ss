@@ -1,7 +1,9 @@
 ;;; -*- Gerbil -*-
 ;;; lr-parser: state owner. Private execution state and named algorithms.
 
-(export lr-capture-context make-lr-capture-context
+(export lr-capture-plan make-lr-capture-plan
+        lr-capture-plan-runtime lr-capture-plan-production-id lr-capture-plan-width lr-capture-plan-contexts
+        lr-capture-context make-lr-capture-context
         lr-capture-context-runtime lr-capture-context-executor
         lr-capture-context-production-id lr-capture-context-entry-state lr-capture-context-exit-state lr-capture-context-lookahead-kind
         lr-runtime
@@ -21,8 +23,8 @@
         lr-runtime-gotos-set!
         lr-runtime-goto-index
         lr-runtime-goto-columns
-        lr-runtime-capture-contexts
-        lr-runtime-capture-contexts-set!
+        lr-runtime-capture-plans
+        lr-runtime-capture-plans-set!
         lr-runtime-goto-index-set!
         lr-runtime-case-insensitive?
         lr-runtime-case-insensitive?-set!
@@ -160,7 +162,7 @@
   (productions table reduction-widths actions action-index gotos goto-index
                case-insensitive? dynamic? layout?
                lexical-modes lexical-mode-catalog direct-step semantic-reducer event-reducer event-step event-runtime
-               reduction-plans action-selector owned-stack? goto-columns capture-contexts)
+               reduction-plans action-selector owned-stack? goto-columns capture-plans)
   transparent: #t final: #t)
 
 (def current-lr-event-program-enabled? (make-parameter #f))
@@ -187,6 +189,8 @@
 ;;; This is execution metadata, never a second published parse authority.
 ;;; Immutable prepared transition identity is shared; request-local payloads
 ;;; remain separate in each fragment. No context mutator is exported.
+(defstruct lr-capture-plan (runtime production-id width contexts)
+  transparent: #t final: #t)
 (defstruct lr-capture-context (runtime executor production-id entry-state exit-state lookahead-kind)
   transparent: #t final: #t)
 (defstruct lr-recognition-fragment

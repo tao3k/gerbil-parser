@@ -8,10 +8,10 @@
         (only-in ../token
                  make-token token? token-end token-kind token-lexeme token-start)
         (only-in "./state.ss"
-                 lr-runtime-capture-contexts lr-runtime-capture-contexts-set! lr-runtime-actions make-lr-capture-context lr-capture-context lr-capture-context-executor lr-capture-context-exit-state lr-runtime-table lr-runtime-reduction-widths make-lr-recognition-fragment lr-recognition-fragment lr-recognition-fragment? lr-recognition-fragment-runtime lr-recognition-fragment-production-id lr-recognition-fragment-children lr-recognition-fragment-start lr-recognition-fragment-end lr-recognition-fragment-token-count lr-recognition-fragment-offset lr-recognition-fragment-yield-cache lr-recognition-fragment-yield-cache-set! make-lr-recognition-view lr-recognition-view? lr-recognition-view-base lr-recognition-view-delta make-lr-terminal-yield-branch make-lr-terminal-yield-view lr-terminal-yield-view? lr-terminal-yield-view-base lr-terminal-yield-view-delta)
+                 lr-capture-plan make-lr-capture-plan lr-runtime-capture-plans lr-runtime-capture-plans-set! lr-runtime-actions make-lr-capture-context lr-capture-context lr-capture-context-executor lr-capture-context-exit-state lr-runtime-table lr-runtime-reduction-widths make-lr-recognition-fragment lr-recognition-fragment lr-recognition-fragment? lr-recognition-fragment-runtime lr-recognition-fragment-production-id lr-recognition-fragment-children lr-recognition-fragment-start lr-recognition-fragment-end lr-recognition-fragment-token-count lr-recognition-fragment-offset lr-recognition-fragment-yield-cache lr-recognition-fragment-yield-cache-set! make-lr-recognition-view lr-recognition-view? lr-recognition-view-base lr-recognition-view-delta make-lr-terminal-yield-branch make-lr-terminal-yield-view lr-terminal-yield-view? lr-terminal-yield-view-base lr-terminal-yield-view-delta)
         (only-in "./reduction.ss"
                  reduce-value))
-(export prepare-capture-contexts capture-context-from-row capture-context-for
+(export prepare-capture-plans capture-context-from-plan capture-context-for
         lr-recognition-fragment-terminal-yield
         lr-recognition-relocate
         terminal-yield-append
@@ -111,76 +111,80 @@
       (using (piece : lr-recognition-fragment)
         (let ((start piece.start) (end piece.end) (tokens piece.token-count)) body ...))))))
 
-;;; Canonical drivers prepare the bounded directory once, before reductions.
-;;; A row capability is private to that runtime and production. Direct callers
-;;; retain checked coordinate admission through capture-context-for.
-(def (prepare-capture-contexts runtime)
-  (let (cached (lr-runtime-capture-contexts runtime))
+;;; A prepared immutable production plan carries static capture input once.
+;;; Only the bounded row cells mutate. Uncaptured execution prepares nothing.
+(def (prepare-capture-plans runtime)
+  (let (cached (lr-runtime-capture-plans runtime))
     (if (void? cached)
       (let* ((width (vector-length (lr-runtime-table runtime)))
              (states (vector-length (lr-runtime-actions runtime)))
-             (next (and (<= (* width states) 65536)
-                        (list->vector (map (lambda (_) (make-vector states #f)) (iota width))))))
-        (lr-runtime-capture-contexts-set! runtime next) next)
+             (widths (lr-runtime-reduction-widths runtime))
+             (indexed? (<= (* width states) 65536))
+             (plans (list->vector
+                     (map (lambda (production)
+                            (make-lr-capture-plan runtime production (vector-ref widths production)
+                              (and indexed? (make-vector states #f))))
+                          (iota width)))))
+        (lr-runtime-capture-plans-set! runtime plans) plans)
       cached)))
 
-(definline (capture-context-from-row row runtime executor production entry target kind) => :t
-  (let (context (vector-ref row entry))
+(definline (capture-context-from-plan (plan : lr-capture-plan) executor entry target kind) => :t
+  (let* ((row plan.contexts) (context (and row (vector-ref row entry))))
     (if context
       (using (context : lr-capture-context)
         (if (and (eq? executor context.executor) (eqv? target context.exit-state) (eq? kind context.lookahead-kind))
           context
-          (let (next (make-lr-capture-context runtime executor production entry target kind))
+          (let (next (make-lr-capture-context plan.runtime executor plan.production-id entry target kind))
             (vector-set! row entry next) next)))
-      (let (next (make-lr-capture-context runtime executor production entry target kind))
-        (vector-set! row entry next) next))))
+      (let (next (make-lr-capture-context plan.runtime executor plan.production-id entry target kind))
+        (when row (vector-set! row entry next)) next))))
 
+;;; Direct diagnostics retain checked coordinate admission. Canonical drivers
+;;; already own the production plan and validate the entry through LR lookup.
 (def (capture-context-for runtime executor production entry target kind)
-  (let (directory (prepare-capture-contexts runtime))
-    (if (and directory (exact-integer? entry) (<= 0 entry)
+  (let (plans (prepare-capture-plans runtime))
+    (if (and (exact-integer? entry) (<= 0 entry)
              (exact-integer? production) (<= 0 production)
-             (< production (vector-length directory))
-             (< entry (vector-length (vector-ref directory production))))
-      (capture-context-from-row (vector-ref directory production) runtime executor production entry target kind)
+             (< production (vector-length plans))
+             (< entry (vector-length (lr-runtime-actions runtime))))
+      (capture-context-from-plan (vector-ref plans production) executor entry target kind)
       (make-lr-capture-context runtime executor production entry target kind))))
 
-(def (capture-reduction runtime executor production-id entry-state stack input offset value target context-row)
+(definline (capture-reduction plan executor entry-state stack input offset value target) => :t
   (if (not stack) #f
-    (let* ((count (vector-ref (lr-runtime-reduction-widths runtime) production-id))
-           (kind (and input (token-kind input)))
-           (lookahead (and input (token-lexeme input))))
-      ;; The pending boundary representation reserves false for EOF and pairs
-      ;; for a published signature. Admit its live token values before storage.
-      (when (and input (not (and (symbol? kind) (string? lookahead))))
-        (error "capture lookahead requires symbolic kind and string lexeme" input))
-      (let (context
-            (if context-row
-              (capture-context-from-row context-row runtime executor production-id entry-state target kind)
-              (capture-context-for runtime executor production-id entry-state target kind)))
-        (case count
-          ((0)
-           (cons (make-lr-recognition-fragment
-                  context '() lookahead value
-                  offset offset 0 offset #f) stack))
-          ((1)
-           (let (piece (car stack))
-             (with-capture-bounds piece (start end tokens)
-               (cons (make-lr-recognition-fragment
-                      context piece lookahead value
-                      start end tokens offset (void)) (cdr stack)))))
-          (else
-           ;; No terminal-index demand occurs in this bounds/count traversal.
-           (let split ((left count) (remaining stack) (children '())
-                       (tokens 0) (start offset) (end offset))
-             (if (zero? left)
-               (cons (make-lr-recognition-fragment
-                      context children lookahead value
-                      start end tokens offset (void)) remaining)
-               (let (piece (car remaining))
-                 (with-capture-bounds piece (piece-start piece-end piece-count)
-                   (split (- left 1) (cdr remaining) (cons piece children)
-                          (+ tokens piece-count) piece-start
-                          (if (= left count) piece-end end))))))))))))
+    (using (plan : lr-capture-plan)
+      (let* ((count plan.width)
+             (kind (and input (token-kind input)))
+             (lookahead (and input (token-lexeme input))))
+        ;; The pending boundary representation reserves false for EOF and pairs
+        ;; for a published signature. Admit its live token values before storage.
+        (when (and input (not (and (symbol? kind) (string? lookahead))))
+          (error "capture lookahead requires symbolic kind and string lexeme" input))
+        (let (context (capture-context-from-plan plan executor entry-state target kind))
+          (case count
+            ((0)
+             (cons (make-lr-recognition-fragment
+                    context '() lookahead value
+                    offset offset 0 offset #f) stack))
+            ((1)
+             (let (piece (car stack))
+               (with-capture-bounds piece (start end tokens)
+                 (cons (make-lr-recognition-fragment
+                        context piece lookahead value
+                        start end tokens offset (void)) (cdr stack)))))
+            (else
+             ;; No terminal-index demand occurs in this bounds/count traversal.
+             (let split ((left count) (remaining stack) (children '())
+                         (tokens 0) (start offset) (end offset))
+               (if (zero? left)
+                 (cons (make-lr-recognition-fragment
+                        context children lookahead value
+                        start end tokens offset (void)) remaining)
+                 (let (piece (car remaining))
+                   (with-capture-bounds piece (piece-start piece-end piece-count)
+                     (split (- left 1) (cdr remaining) (cons piece children)
+                            (+ tokens piece-count) piece-start
+                            (if (= left count) piece-end end)))))))))))))
 
 ;;; Iterative postorder projection reevaluates semantic actions from retained
 ;;; productions and token leaves. It deliberately does not trust cached values.

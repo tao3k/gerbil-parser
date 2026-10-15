@@ -38,7 +38,7 @@ def model_checks(root: Path):
     if not dependency.is_dir():
         raise RuntimeError("prepare the locked Lean dependency with just formal first")
     # Bind actual owners and controls for traceability, not checked refinement.
-    bridge_inputs = ("t/core-observability-test.ss", "t/language-abi-benchmark-test.ss",
+    bridge_inputs = ("t/benchmarks/lr-request-stack/lookahead.ss", "t/core-observability-test.ss", "t/language-abi-benchmark-test.ss",
                      "t/selective-glr-benchmark-test.ss", "t/lalr-fixed-point-benchmark-test.ss",
                      "t/recovery-frontier-benchmark-test.ss", "t/versioned-language-benchmark-test.ss",
                      "t/incremental-suffix-benchmark-test.ss", "t/gql/runtime-benchmark-test.ss",

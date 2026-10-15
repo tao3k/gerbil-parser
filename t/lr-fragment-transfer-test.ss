@@ -14,9 +14,9 @@
                  lr-recognition-fragment? lr-recognition-fragment-children lr-recognition-fragment-token-count
                  lr-recognition-view? lr-recognition-view-base lr-recognition-view-delta
                  lr-recognition-project lr-recognition-relocate))
-(import (only-in :gerbil-parser/src/runtime/lr-parser/state lr-recognition-fragment-lookahead lr-recognition-fragment-lookahead-cache lr-capture-context-lookahead-kind lr-recognition-fragment-yield-cache lr-recognition-fragment-children-cache lr-capture-context-runtime lr-capture-context-executor
-                 lr-capture-context-exit-state lr-runtime-actions-set! lr-runtime-capture-contexts)
-        (only-in :gerbil-parser/src/runtime/lr-parser/recognition lr-recognition-fragment-terminal-yield capture-context-for capture-reduction))
+(import (only-in :gerbil-parser/src/runtime/lr-parser/state lr-capture-plan-runtime lr-capture-plan-production-id lr-capture-plan-width lr-capture-plan-contexts lr-runtime-reduction-widths lr-recognition-fragment-lookahead lr-recognition-fragment-lookahead-cache lr-capture-context-lookahead-kind lr-recognition-fragment-yield-cache lr-recognition-fragment-children-cache lr-capture-context-runtime lr-capture-context-executor
+                 lr-capture-context-exit-state lr-runtime-actions-set! lr-runtime-capture-plans)
+        (only-in :gerbil-parser/src/runtime/lr-parser/recognition lr-recognition-fragment-terminal-yield capture-context-for prepare-capture-plans capture-reduction))
 (export lr-fragment-transfer-test)
 ;;; Frozen f21204f grammar-tree yield traversal: matched admission reference.
 (def (reference-transfer-yield fragment delta tokens)
@@ -61,6 +61,17 @@
 
 (def lr-fragment-transfer-test
   (test-suite "LR fragment transfer admission"
+    (test-case "prepared capture plans own exact immutable runtime production and width input"
+      (let* ((runtime (lr-prepare (compile-lr-spec '((source-file (sequence (token identifier) (token identifier)))) 'source-file)))
+             (widths (lr-runtime-reduction-widths runtime)) (plans (prepare-capture-plans runtime)))
+        (check (vector-length plans) => (vector-length widths))
+        (for-each (lambda (production)
+                    (let (plan (vector-ref plans production))
+                      (check (eq? (lr-capture-plan-runtime plan) runtime) => #t)
+                      (check (lr-capture-plan-production-id plan) => production)
+                      (check (lr-capture-plan-width plan) => (vector-ref widths production))))
+                  (iota (vector-length plans)))
+        (check (eq? plans (prepare-capture-plans runtime)) => #t)))
     (test-case "shared capture contexts replace changed executors and targets without rewriting old nodes"
       (let* ((grammar '((source-file (alias SourceFile (token identifier)))))
              (runtime (lr-prepare (compile-lr-spec grammar 'source-file)))
@@ -82,27 +93,28 @@
         (lr-runtime-actions-set! runtime (make-vector 65537 #f))
         (let ((first (capture-context-for runtime #f 0 0 1 'identifier))
               (second (capture-context-for runtime #f 0 0 1 'identifier)))
-          (check (lr-runtime-capture-contexts runtime) => #f)
+          (check (lr-capture-plan-contexts (vector-ref (lr-runtime-capture-plans runtime) 0)) => #f)
           (check (eq? first second) => #f)
           (check (lr-capture-context-exit-state first) => 1)
           (check (eq? (lr-capture-context-runtime second) runtime) => #t))))
     (test-case "malformed live boundary values cannot masquerade as EOF or a ready pair"
       (let* ((runtime (lr-prepare (compile-lr-spec '((source-file (token identifier))) 'source-file)))
+             (plan (vector-ref (prepare-capture-plans runtime) 0))
              (stack (list (make-token 'identifier "a" 0 1))))
         (for-each
          (lambda (boundary)
            (check-exception
-            (capture-reduction runtime #f 0 0 stack (vector (car boundary) (cdr boundary) 2 3) 2 'value 1 #f) true))
+            (capture-reduction plan #f 0 stack (vector (car boundary) (cdr boundary) 2 3) 2 'value 1) true))
          (list (cons 'identifier #f) (cons 'identifier '(not a lexeme)) (cons 17 "text")))
-        (check (void? (lr-runtime-capture-contexts runtime)) => #t)))
+        (check (andmap not (vector->list (lr-capture-plan-contexts plan))) => #t)))
     (test-case "boundary snapshots survive token mutation and materialize stable pairs"
       (let* ((runtime (lr-prepare (compile-lr-spec '((source-file (token identifier))) 'source-file)))
              (kind 'identifier) (lexeme "next")
              (input (make-token kind lexeme 2 6))
              (first (capture-context-for runtime #f 0 0 1 kind))
              (changed (capture-context-for runtime #f 0 0 1 'integer))
-             (fragment (car (capture-reduction runtime #f 0 0
-                             (list (make-token 'identifier "a" 0 1)) input 2 'value 1 #f))))
+             (fragment (car (capture-reduction (vector-ref (prepare-capture-plans runtime) 0) #f 0
+                             (list (make-token 'identifier "a" 0 1)) input 2 'value 1))))
         (check (eq? first changed) => #f)
         (check (lr-capture-context-lookahead-kind first) => kind)
         (check (lr-capture-context-lookahead-kind changed) => 'integer)

@@ -126,3 +126,6 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Capture.unary_children_warm
 
 #print axioms ParserEngine.Capture.boundary_snapshot_exact
+
+#print axioms ParserEngine.Capture.prepared_capture_prefix_exact
+#print axioms ParserEngine.Capture.prepared_capture_arguments_saved

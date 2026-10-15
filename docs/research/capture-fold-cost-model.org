@@ -440,3 +440,68 @@ The final allocation replay passed in 10.163615 seconds after the admission-orde
 change. Three no-GC captured-LR samples independently reported the same
 50393424 counter-byte delta per 256 requests; the 23.47 percent counter reduction
 therefore survives the final source-consistency check.
+
+
+* Independent Ubuntu result and prepared capture transport
+
+The isolated =9200000= Ubuntu trial at
+[[https://github.com/tao3k/gerbil-parser/actions/runs/38751817673/job/116487759485][CPU capture]] retained stable reference controls but failed the original gate:
+
+| Phase | P10 | P50 | P90 |
+|-------+-----+-----+-----|
+| Before | 0.950996 | 0.999049 | 1.051565 |
+| Candidate | 0.923874 | 0.929773 | 0.951840 |
+| After | 0.978136 | 1.001067 | 1.048638 |
+
+It completed in 35.855021 seconds. The 0.951840 ratio is not rounded into a pass;
+the second trial did not run after the first failed. Ubuntu semantics, FFI and
+generation passed separately. The diagnostic matrix exposed an older observer
+still interpreting the scalar selector input as a list. Its wrapper now accepts
+the token or false directly; complete-product equality remains mandatory. A new
+native regression requires real token and EOF observations. The original complete
+matrix, with 20 samples/groups, passed locally in 29.403846 seconds.
+
+The next cost hypothesis changes input transport rather than the terminal
+observations. An immutable four-slot =lr-capture-plan= retains runtime,
+production, width and bounded row storage. The driver owns one plan per
+production and passes that capability into capture. The capture call drops from
+ten arguments to eight; its context lookup drops from eight arguments to five.
+Width is read from the plan instead of resolving runtime metadata and indexing
+the width vector again on every reduction. Uncaptured requests prepare no plans.
+Oversized row grids still produce exact uncached descriptors; plan objects and
+the directory remain charged preparation/retention costs.
+
+The grammar table and widths are immutable producer inputs for a prepared
+runtime, unlike caller-owned mutable token vectors. Native controls check every
+plan's runtime identity, production ordinal and width against those inputs.
+Cloned runtimes start with their own pending plan directory. Entry ownership and
+live executor/target/kind checks remain required. Cache-free plans are compared
+with the same frozen oracle, not admitted through a compatibility mode.
+
+=prepared_capture_prefix_exact= requires the producer's width equality before
+preserving children and suffix. =prepared_capture_arguments_saved= counts logical
+call words, not native stack allocation or CPU. The revised slot break-even
+condition also charges four slots for every prepared plan. Quint adds a wrong-width
+negative history; all six directed histories and 1000 seeded invariant traces
+passed. The native batch passed 90 Cases in 19.647147 seconds and 198 frozen
+combinations in 18.372885 seconds. CPU qualification remains a separate gate.
+
+
+The first eight-argument trial had candidate P10/P50/P90
+0.918514/0.922365/0.945011, but following-control P10 was 0.896861. The gate
+rejected it in 31.930211 seconds. The passing candidate percentile does not
+override the invalid control. The next staging hypothesis uses the SDK's checked
+=definline= contract for the same capture body, preserving validation and ordered
+state effects while exposing it to the driver compiler. The existing
+=fused_driver_order= obligation retains callback/error state; native controls and
+complete-request measurements remain necessary. No workload or gate is changed.
+
+
+The checked inline variant passed the same 90 native Cases in 20.580977 seconds
+and 198 frozen combinations in 13.986023 seconds. Its local CPU ratios were
+before 0.966366/0.998073/1.046040, candidate 0.871885/0.925930/0.949430,
+and after 0.899453/0.989380/1.115945. The unchanged gate rejected the following
+control in 35.762327 seconds. The candidate percentile alone is not accepted.
+The observed 64-record root has a false executor, confirming that it uses the
+canonical LR path; no assumption about arbitrary custom executors is needed.
+Independent Ubuntu qualification must evaluate the plan/staging revision.

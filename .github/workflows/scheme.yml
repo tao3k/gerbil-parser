@@ -122,6 +122,7 @@ jobs:
             t/abi-datum-support.ss \
             t/line-structure-assertions.ss \
             t/benchmarks/lr-request-stack/derivation.ss \
+            t/benchmarks/lr-request-stack/lookahead.ss \
             t/scenarios/performance/selective-glr/scenario.ss \
             t/benchmarks/lr-request-stack/benchmark.ss \
             t/benchmarks/gql/runtime/actors.ss \

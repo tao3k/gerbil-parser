@@ -18,7 +18,7 @@
         (only-in "./state.ss"
                  lr-runtime-table lr-runtime-reduction-widths lr-runtime-actions lr-runtime-goto-index lr-runtime-goto-columns lr-runtime-lexical-modes lr-runtime-direct-step lr-runtime-semantic-reducer lr-runtime-reduction-plans lr-runtime-action-selector lr-runtime-owned-stack? lr-checkpoint make-lr-checkpoint lr-checkpoint-runtime lr-checkpoint-tokens lr-checkpoint-input-end-offset lr-checkpoint-states lr-checkpoint-semantic-values lr-checkpoint-rest lr-checkpoint-deterministic-actions lr-checkpoint-deterministic-shifts lr-checkpoint-recognition-stack current-lr-recognition-observer make-lr-failure-frontier current-lr-branch-budget)
         (only-in "./recognition.ss"
-                 prepare-capture-contexts capture-reduction)
+                 prepare-capture-plans capture-reduction)
         (only-in "./reduction.ss"
                  reduce-value/events reduce-prepared-plan with-pop-runtime-reduction)
         (only-in "./prepare.ss"
@@ -74,9 +74,9 @@
             (if (eq? direct-step-override 'installed)
               (lr-runtime-direct-step runtime)
               direct-step-override))
-           (capture-contexts
-            (and (lr-checkpoint-recognition-stack checkpoint) (not direct-step)
-                 (prepare-capture-contexts runtime)))
+           (capture-plans
+            (and (lr-checkpoint-recognition-stack checkpoint)
+                 (prepare-capture-plans runtime)))
            (event-semantics? (lr-stack-policy-value policy
                                (eq? (lr-runtime-semantic-reducer runtime) reduce-value/events) #f))
            (table (lr-runtime-table runtime))
@@ -214,13 +214,13 @@
                                    (lr-stack-policy-value policy (and remaining-budget (fx- remaining-budget 1)) #f)
                                    (and recognition-stack
                                         (capture-reduction
-                                         runtime direct-step production-id
+                                         (vector-ref capture-plans production-id) direct-step
                                          (lr-stack-policy-value policy
                                            (list-ref states (vector-ref widths production-id))
                                            (vector-ref state-storage (fx- states (vector-ref widths production-id))))
                                          recognition-stack (and (not (lr-input-empty? scalar? rest)) (lr-input-token scalar? rest))
                                          (if (not (lr-input-empty? scalar? rest)) (token-start (lr-input-token scalar? rest)) input-end-offset)
-                                         (lr-stack-value policy next-values next-states value-storage) target #f)))
+                                         (lr-stack-value policy next-values next-states value-storage) target)))
                              (fallback states semantic-values rest
                                        actions shifts)))
                          (let* ((production (vector-ref table production-id))
@@ -250,9 +250,8 @@
                                   rest (fx+ actions 1) shifts
                                   (lr-stack-policy-value policy (and remaining-budget (fx- remaining-budget 1)) #f)
                                   (and recognition-stack
-                                       (capture-reduction runtime direct-step production-id
-                                         (lr-stack-current policy remaining-states state-storage) recognition-stack (and (not (lr-input-empty? scalar? rest)) (lr-input-token scalar? rest)) offset value target
-                                         (and capture-contexts (vector-ref capture-contexts production-id)))))
+                                       (capture-reduction (vector-ref capture-plans production-id) direct-step
+                                         (lr-stack-current policy remaining-states state-storage) recognition-stack (and (not (lr-input-empty? scalar? rest)) (lr-input-token scalar? rest)) offset value target)))
                                  (fallback
                                   states semantic-values rest
                                   actions shifts))))))))

@@ -405,14 +405,41 @@ def expandBoundary (kind : Nat) (lexeme : Lexeme) : BoundarySnapshot Lexeme := �
 theorem boundary_snapshot_exact (snapshot : BoundarySnapshot Lexeme) :
     expandBoundary snapshot.kind snapshot.lexeme = snapshot := by cases snapshot; rfl
 
+/-- Static capture input is prepared with the runtime's immutable grammar.
+The row and every context retain the same runtime/production coordinate. -/
+structure CapturePlan (Runtime : Type) where
+  runtime : Runtime
+  production : Nat
+  width : Nat
+
+def preparedCapturePrefix (plan : CapturePlan Runtime) (stack : List α) :=
+  splitPrefix plan.width stack []
+
+theorem prepared_capture_prefix_exact (plan : CapturePlan Runtime) (width : Nat)
+    (ready : plan.width = width) (stack : List α) :
+    preparedCapturePrefix plan stack = ((stack.take width).reverse, stack.drop width) := by
+  unfold preparedCapturePrefix
+  rw [ready, split_prefix_exact]
+  simp
+
+/-- Explicit call-word accounting only. Compiler registers, continuation
+frames, plan headers and native CPU require separate Scheme measurements. -/
+def formerCaptureArguments (nodes : Nat) := 10 * nodes
+def preparedCaptureArguments (nodes : Nat) := 8 * nodes
+
+theorem prepared_capture_arguments_saved (nodes : Nat) :
+    formerCaptureArguments nodes = preparedCaptureArguments nodes + 2 * nodes := by
+  unfold formerCaptureArguments preparedCaptureArguments
+  omega
+
 /-- Logical data slots only. Cold descriptor objects and the bounded directory
 are charged; object headers, lookup work, allocator and GC are separate costs. -/
 def flatCaptureSlots (nodes : Nat) := 13 * nodes
-def sharedCaptureSlots (nodes contexts cells : Nat) := 9 * nodes + 6 * contexts + cells
+def sharedCaptureSlots (nodes contexts plans cells : Nat) := 9 * nodes + 6 * contexts + 4 * plans + cells
 
-theorem shared_context_slot_break_even (nodes contexts cells : Nat) :
-    sharedCaptureSlots nodes contexts cells < flatCaptureSlots nodes ↔
-      6 * contexts + cells < 4 * nodes := by
+theorem shared_context_slot_break_even (nodes contexts plans cells : Nat) :
+    sharedCaptureSlots nodes contexts plans cells < flatCaptureSlots nodes ↔
+      6 * contexts + 4 * plans + cells < 4 * nodes := by
   unfold sharedCaptureSlots flatCaptureSlots
   omega
 

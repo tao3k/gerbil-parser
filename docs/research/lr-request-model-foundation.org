@@ -259,3 +259,7 @@ owns that check. This is bounded protocol evidence, not an LR grammar oracle.
 transport, physical executor admission, bounded goto preparation and additional
 complete-request CPU qualification. The earlier per-query conversion warning
 remains an implementation constraint for generated steps.
+
+The [[file:singleton-scanner-model-first.org][prepared scanner-start follow-up]] records rejected representation experiments,
+product-start producer premises and the bounded CI supervision repair before
+claiming any additional complete-request CPU benefit.

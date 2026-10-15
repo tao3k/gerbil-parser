@@ -38,11 +38,12 @@ def model_checks(root: Path):
     if not dependency.is_dir():
         raise RuntimeError("prepare the locked Lean dependency with just formal first")
     # Bind actual owners and controls for traceability, not checked refinement.
-    bridge_inputs = ("src/ffi/language-handles.ss", "scripts/tests/history-commit-test.ss",
+    bridge_inputs = ("src/runtime/scan/lexical.ss", "src/runtime/scan/literal.ss", "src/runtime/scan/regular.ss", "t/ranked-regular-scanner-test.ss",
+                     "t/canonical-lr1-reference-test.ss", "src/ffi/language-handles.ss", "scripts/tests/history-commit-test.ss",
                      "src/runtime/lr-parser/recognition.ss", "src/runtime/lr-parser/checkpoint.ss",
                      "src/runtime/lr-parser/transfer.ss", "src/runtime/lr-parser/prepare.ss", "src/runtime/parser.ss",
                      "src/runtime/lr-parser/batch.ss", "src/runtime/layout.ss", "src/runtime/lr-stack-storage.ss",
-                     "t/lr-input-protocol-test.ss", "t/lr-goto-plan-test.ss",
+                     "t/fixtures/tla-sany-differential/test-suite.ss", "t/lr-input-protocol-test.ss", "t/lr-goto-plan-test.ss",
                      "t/lr-action-preparation-test.ss", "t/fixtures/lr-action-selection.ss",
                      "t/sparse-capture-test.ss", "t/runtime-module-organization-test.ss",
                      "src/runtime/lr-parser/state.ss", "src/runtime/token.ss",
@@ -53,6 +54,7 @@ def model_checks(root: Path):
                      "t/benchmarks/capture-prefix/controls.ss", "t/benchmarks/capture-prefix/worker.ss",
                      "t/benchmarks/capture-prefix/benchmark.ss", "t/support/qualification/benchmark-qos.ss",
                      "t/benchmarks/capture-prefix/build-reference.ss",
+                     "t/benchmarks/capture-prefix/phase-cost.ss", "t/benchmarks/parser-stage-cost/benchmark.ss",
                      "t/benchmarks/lr-request-stack/capture-reference.ss")
     policy_inputs = ("formal/evidence/parser_evidence.py", "formal/evidence/collect_models.py",
                      "formal/evidence/pyproject.toml", "formal/evidence/uv.lock")
@@ -60,7 +62,7 @@ def model_checks(root: Path):
         Check("lean-model", ("lake", "build"), lean_inputs + bridge_inputs + policy_inputs,
               ("Build completed successfully",), cwd="formal"),
         Check("quint-protocol", ("npm", "test"),
-              ("formal/quint/SparseCapture.qnt", "formal/quint/ModuleAdmission.qnt", "formal/quint/LookaheadScope.qnt", "formal/quint/CapturePlan.qnt", "formal/quint/HistoryCommit.qnt", "formal/quint/ReuseAdmission.qnt", "formal/quint/Publication.qnt", "formal/quint/TapeOwner.qnt", "formal/quint/FoldPlan.qnt", "formal/quint/IdlePlan.qnt", "formal/quint/RunPlan.qnt", "formal/quint/ConsumerScope.qnt", "formal/quint/package.json",
+              ("formal/quint/OwnedTerminal.qnt", "formal/quint/SparseCapture.qnt", "formal/quint/ModuleAdmission.qnt", "formal/quint/LookaheadScope.qnt", "formal/quint/CapturePlan.qnt", "formal/quint/HistoryCommit.qnt", "formal/quint/ReuseAdmission.qnt", "formal/quint/Publication.qnt", "formal/quint/TapeOwner.qnt", "formal/quint/FoldPlan.qnt", "formal/quint/IdlePlan.qnt", "formal/quint/RunPlan.qnt", "formal/quint/ConsumerScope.qnt", "formal/quint/package.json",
                "formal/quint/package-lock.json", "formal/quint/node_modules/@informalsystems/quint/package.json") + bridge_inputs + policy_inputs,
               ("11 passing", "16 passing", "23 passing", "8 passing", "7 passing", "12 passing", "4 passing", "5 passing", "6 passing", "No violation found"), cwd="formal/quint"),
     )

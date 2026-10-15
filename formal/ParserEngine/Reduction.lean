@@ -64,4 +64,25 @@ theorem complete_publication_lower_bound (bytes : Nat) (events : List α) :
     bytes ≤ publicationWork bytes events ∧ events.length ≤ publicationWork bytes events := by
   simp [publicationWork]
 
+/-- Fixed-arity semantic kernels retain the same right-to-left operand fold.
+The accumulator is part of the step contract, including nullable anchors;
+this does not assume commutativity or erase operand effects. -/
+def kernelFold (step : Kernel → Value → Value) : List Kernel → Value → Value
+  | [], value => value
+  | kernel :: rest, value => kernelFold step rest (step kernel value)
+
+theorem kernel_unroll_two (step : Kernel → Value → Value) (a b : Kernel) (initial : Value) :
+    kernelFold step [a,b] initial = step b (step a initial) := rfl
+
+theorem kernel_unroll_four (step : Kernel → Value → Value) (a b c d : Kernel) (initial : Value) :
+    kernelFold step [a,b,c,d] initial = step d (step c (step b (step a initial))) := rfl
+
+/-- Preparing a retained executor is semantically the same fold for every
+request accumulator. Preparation and native closure cost need separate evidence. -/
+def prepareKernel (step : Kernel → Value → Value) (kernels : List Kernel) : Value → Value :=
+  fun value => kernelFold step kernels value
+
+theorem prepared_kernel_exact (step : Kernel → Value → Value) (kernels : List Kernel) (initial : Value) :
+    prepareKernel step kernels initial = kernelFold step kernels initial := rfl
+
 end ParserEngine

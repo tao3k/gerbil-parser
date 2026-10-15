@@ -605,6 +605,11 @@ prepare-capture-reference revision output=".data/selector-input/reference" scope
 benchmark-capture-prefix reference=".data/selector-input/reference/lib" scope="selector-input": build-qualification
     gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/capture-prefix-cpu.log --require '^CAPTURE-COMPLETE-CPU-PROOF-OK$' -- gxi t/benchmarks/capture-prefix/benchmark.ss {{quote(reference)}} {{quote(scope)}}
 
+# Recorded lexical queries and LR replays diagnose costs; this is not a speedup gate.
+diagnose-capture-cost: build-qualification
+    gerbil env gerbil compile -O t/benchmarks/capture-prefix/phase-cost.ss
+    gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/capture-phase-cost.log --require '^CAPTURE-COST-REPLAY-OK tokens=256 significant=256$' -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-module "gerbil-parser/t/benchmarks/capture-prefix/phase-cost") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process") (eval (quote (import :gerbil-parser/t/benchmarks/capture-prefix/phase-cost :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process))) (eval (quote (main))) (eval (quote (test-child-process-exit! 0)))'
+
 # Inclusive diagnosis is separate from the matched complete-request CPU gate.
 diagnose-capture-input: build-qualification
     gerbil env gerbil compile -O t/benchmarks/capture-prefix/profile.ss

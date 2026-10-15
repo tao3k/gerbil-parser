@@ -102,4 +102,33 @@ theorem compact_child_roundtrip (child : Child) :
   rcases child with ⟨name, value⟩
   cases name <;> rfl
 
+/-- Request-owned semantic slots can retain a shifted terminal without its
+otherwise immediately discarded unfielded wrapper. Public boundaries restore
+that wrapper; reduced nonterminal values remain canonical child sequences. -/
+inductive OwnedSemantic where
+  | terminal (value : Tree)
+  | canonical (children : Children)
+
+def restoreOwnedSemantic : OwnedSemantic → Children
+  | .terminal token => [(none, token)]
+  | .canonical children => children
+
+def fieldOwnedTerminal (name : String) (token : Tree) : Children := [(some name, token)]
+
+theorem deferred_terminal_field_exact (name : String) (token : Tree) (offset : Nat) :
+    fieldOwnedTerminal name token = field name (restoreOwnedSemantic (.terminal token)) offset := by
+  rfl
+
+theorem restored_owned_snapshot (slots : List OwnedSemantic) :
+    slots.map restoreOwnedSemantic = slots.map (fun slot => match slot with
+      | .terminal token => [(none,token)]
+      | .canonical children => children) := rfl
+
+/-- A following alias/field chain observes exactly the same first-field value;
+no idempotence, shared mutable wrapper or changed action order is assumed. -/
+theorem deferred_terminal_chain_exact (consume : Children → α) (name : String)
+    (token : Tree) (offset : Nat) :
+    consume (fieldOwnedTerminal name token) =
+      consume (field name (restoreOwnedSemantic (.terminal token)) offset) := rfl
+
 end ParserEngine

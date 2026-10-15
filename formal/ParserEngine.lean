@@ -81,3 +81,20 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 
 #print axioms ParserEngine.freeze_stack_pop
 #print axioms ParserEngine.captured_entry_after_pop
+
+#print axioms ParserEngine.certified_fallback_loses
+#print axioms ParserEngine.omitted_fallback_has_witness
+
+#print axioms ParserEngine.kernel_unroll_two
+#print axioms ParserEngine.kernel_unroll_four
+#print axioms ParserEngine.prepared_kernel_exact
+
+#print axioms ParserEngine.deferred_terminal_field_exact
+#print axioms ParserEngine.restored_owned_snapshot
+#print axioms ParserEngine.deferred_terminal_chain_exact
+
+#print axioms ParserEngine.singleton_state_elimination
+#print axioms ParserEngine.prepared_class_membership
+
+#print axioms ParserEngine.prepared_start_query_exact
+#print axioms ParserEngine.absent_literal_probe

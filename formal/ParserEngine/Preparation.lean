@@ -118,4 +118,89 @@ theorem retained_goto_cell (source retained : State → Key → Option Target)
     (producer : ∀ state key, retained state key = source state key) (state : State) (key : Key) :
     retained state key = source state key := producer state key
 
+/-- Lexical matches are ordered by exclusive end, precedence and declaration.
+A pure fallback consumes one character; a certificate guarantees an admitted
+nonfallback match of at least that width. No scanner callback is speculated. -/
+structure RankedMatch where
+  finish : Nat
+  rank : Int
+  ordinal : Nat
+  deriving DecidableEq, Repr
+
+def rankedBeats (winner loser : RankedMatch) : Prop :=
+  loser.finish < winner.finish ∨
+  (loser.finish = winner.finish ∧
+    (loser.rank < winner.rank ∨
+      (loser.rank = winner.rank ∧ winner.ordinal < loser.ordinal)))
+
+theorem certified_fallback_loses (start : Nat) (winner fallback : RankedMatch)
+    (fallbackWidth : fallback.finish = start + 1)
+    (guaranteed : start + 1 ≤ winner.finish)
+    (priority : fallback.rank < winner.rank ∨
+      (fallback.rank = winner.rank ∧ winner.ordinal < fallback.ordinal)) :
+    rankedBeats winner fallback := by
+  unfold rankedBeats
+  by_cases longer : fallback.finish < winner.finish
+  · exact Or.inl longer
+  · exact Or.inr ⟨by omega, priority⟩
+
+/-- Selecting a subset preserves the winner only with an actual admitted
+witness for each omitted candidate, not a first-character hint alone. -/
+theorem omitted_fallback_has_witness (retained : List RankedMatch) (winner fallback : RankedMatch)
+    (admitted : winner ∈ retained) (beats : rankedBeats winner fallback) :
+    ∃ candidate ∈ retained, rankedBeats candidate fallback := ⟨winner, admitted, beats⟩
+
+/-- In a singleton monotone DFA, every successful transition retains the
+same state. Prepare the continuation predicate and winning rule once; only
+source position remains dynamic. Numeric rollback states are excluded. -/
+def singletonRun (accept : Char → Bool) : List Char → Nat
+  | [] => 0
+  | ch :: rest => if accept ch then 1 + singletonRun accept rest else 0
+
+def monotoneSingletonRun (accept : Char → Bool) (active : Bool) : List Char → Nat
+  | [] => 0
+  | ch :: rest =>
+    if active && accept ch then 1 + monotoneSingletonRun accept true rest else 0
+
+theorem singleton_state_elimination (accept : Char → Bool) (source : List Char) :
+    monotoneSingletonRun accept true source = singletonRun accept source := by
+  induction source with
+  | nil => rfl
+  | cons ch rest ih =>
+    simp only [monotoneSingletonRun, Bool.true_and, singletonRun]
+    split <;> simp_all
+
+/-- A prepared ASCII class may replace the generic predicate only with exact
+per-character membership. Unknown characters keep the original predicate. -/
+theorem prepared_class_membership (original prepared : Char → Bool)
+    (producer : ∀ ch, prepared ch = original ch) (source : List Char) :
+    singletonRun prepared source = singletonRun original source := by
+  have same : prepared = original := funext producer
+  rw [same]
+
+/-- Prepared initial product metadata stores candidate identities, not a cached
+priority result. The query may read live candidate payloads through `consume`. -/
+structure ScanStart (Node Candidate : Type) where
+  node : Option Node
+  active : Nat
+  literal : Option Candidate
+  regular : Option Candidate
+
+def prepareScanStart (classify : Char → ScanStart Node Candidate) (ch : Char) :
+    (ScanStart Node Candidate → Query → Value) → Query → Value :=
+  fun consume query => consume (classify ch) query
+
+theorem prepared_start_query_exact (classify : Char → ScanStart Node Candidate)
+    (ch : Char) (consume : ScanStart Node Candidate → Query → Value) (query : Query) :
+    prepareScanStart classify ch consume query = consume (classify ch) query := rfl
+
+/-- Eliminating an impossible literal probe needs a source-topology premise.
+A missing first trie edge is stronger than losing a priority comparison. -/
+theorem absent_literal_probe (regular literal : Query → Option Candidate)
+    (choose : Option Candidate → Option Candidate → Option Candidate)
+    (leftOnly : ∀ value, choose value none = value)
+    (impossible : ∀ query, literal query = none) (query : Query) :
+    choose (regular query) (literal query) = regular query := by
+  rw [impossible, leftOnly]
+
 end ParserEngine

@@ -7,11 +7,15 @@ previous sparse-source capture improvement. Its complete 64-record reference
 already contains that earlier improvement. The additional CPU result below is
 relative to this starting point. Earlier =54746a3= results remain separate.
 
-The workload is 64 ASCII =a=1= records, 256 source tokens, 192 significant
+The workload is 64 ASCII =a=1= records, 256 source tokens, 256 significant
 shifts and 322 captured reductions. Every measured request creates a fresh
 capture-enabled incremental session, completes scanning and LR execution,
 publishes the artifact, and checks complete artifact equality and source validity.
 The independently replayed recognition projection is checked before timing.
+A later recorded-query replay corrected the earlier descriptive count of 192
+significant shifts: each of the 64 optional newline tokens is present and shifted,
+so the count is 256. The 322 reductions, artifact/frontier fingerprints, timed
+requests and recorded CPU observations are unchanged by this count correction.
 No language grammar or Rust/C event format is specialized for these records.
 
 The unchanged gate runs five groups of 32 alternating legs, 256 requests per

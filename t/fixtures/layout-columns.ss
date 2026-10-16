@@ -1,5 +1,5 @@
 ;;; Boxed-vector oracle, independent of packed storage and lookup dispatch.
-(export cache-copy-flonum-values host-boxing-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors closure-frame-roots wide-frame-roots reference-layout-columns reference-packed-layout-columns layout-column-sources)
+(export cache-copy-flonum-values host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors mutual-closure-frame-roots closure-frame-roots wide-frame-roots reference-layout-columns reference-packed-layout-columns layout-column-sources)
 
 (def (reference-layout-columns source)
   (let* ((bytes (string->utf8 source)) (size (u8vector-length bytes))
@@ -69,12 +69,22 @@
     (collect)
     (cons read-left read-right)))
 
+;;; Both escaping closures capture the other closure and their own heap value.
+(def (mutual-closure-frame-roots seed collect)
+  (let ((left-value (cons 'left seed)) (right-value (cons 'right seed)))
+    (letrec ((left (lambda (depth)
+                     (if (zero? depth) left-value (right (- depth 1)))))
+             (right (lambda (depth)
+                      (if (zero? depth) right-value (left (- depth 1))))))
+      (collect)
+      (cons left right))))
+
 ;;; Host macro controls execute in the same compiled fixture as the GC controls.
 ;;; The OS waiter touches only C-owned words, never Scheme values or a VM.
-(extern host-boxing-control host-contended-control host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
+(extern host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-contended-control host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
 (begin-foreign
  (namespace ("gerbil-parser/t/fixtures/layout-columns#"
-             host-boxing-control host-contended-control host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors))
+             host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-contended-control host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors))
  (c-declare #<<END-C
 #include <stdlib.h>
 #include <string.h>
@@ -221,6 +231,15 @@ static int parser_host_spin_backend(void) {
 }
 END-C
  )
+ (define host-set-f64-bits
+   (c-lambda (scheme-object int unsigned-long-long) void
+     "___U64 bits = ___arg3; memcpy(___CAST(___U64*,___BODY_AS(___arg1,___tF64VECTOR)) + ___arg2, &bits, sizeof bits);"))
+ (define host-flonum-bits
+   (c-lambda (scheme-object) unsigned-long-long
+     "___U64 bits; memcpy(&bits, ___FLONUM_TO_BODY(___arg1), sizeof bits); ___result = bits;"))
+ (define host-flonum-address
+   (c-lambda (scheme-object) unsigned-long-long
+     "___result = ___CAST(___U64,___FLONUM_TO_BODY(___arg1));"))
  (define host-boxing-control (c-lambda () int "parser_host_boxing_control"))
  (define host-contended-control (c-lambda () int "parser_host_contended_control"))
  (define host-ticket-control (c-lambda () int "parser_host_ticket_control"))

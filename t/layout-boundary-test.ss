@@ -3,8 +3,8 @@
 ;;; -*- Gerbil -*-
 ;;; Explicit closing boundaries belong to the declaring language grammar.
 
-(import (only-in :gerbil-parser/t/fixtures/layout-columns wide-frame-roots closure-frame-roots
-                 cache-copy-flonum-values host-boxing-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
+(import (only-in :gerbil-parser/t/fixtures/layout-columns wide-frame-roots mutual-closure-frame-roots closure-frame-roots
+                 cache-copy-flonum-values host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
         :std/test
         :gerbil-parser/src/grammar/algebra
         (only-in :gerbil-parser/src/language/grammar deflanguage)
@@ -272,6 +272,35 @@
            (check actual => (if select-right? '(-8.5 -8.5) '(-4.25 -8.5)))
            (check (> after before) => #t)))
        '(#f #t)))
+    (test-case "actual moving collections retain exact flonum bits and shared aliases"
+      (let* ((patterns '(#x0 #x8000000000000000 #x3ff0000000000000
+                         #xbff0000000000000 #x1 #x7ff0000000000000
+                         #xfff0000000000000 #x7ff8000000000042 #x7fefffffffffffff))
+             (source (make-f64vector (length patterns))))
+        (let fill ((rest patterns) (index 0))
+          (unless (null? rest)
+            (host-set-f64-bits source index (car rest))
+            (fill (cdr rest) (+ index 1))))
+        (let* ((roots (let loop ((index 0))
+                        (if (= index (length patterns)) '()
+                          (let (value (f64vector-ref source index))
+                            (cons (vector value value) (loop (+ index 1)))))))
+               (moved? #f))
+          (let collect ((cycle 0))
+            (when (< cycle 4)
+              (let ((addresses (map (lambda (pair) (host-flonum-address (vector-ref pair 0))) roots))
+                    (before (f64vector-ref (##process-statistics) 6)))
+                (##gc)
+                (check (> (f64vector-ref (##process-statistics) 6) before) => #t)
+                (let verify ((rest roots) (expected patterns) (old addresses))
+                  (unless (null? rest)
+                    (let* ((pair (car rest)) (value (vector-ref pair 0)))
+                      (check (host-flonum-bits value) => (car expected))
+                      (check (##eq? value (vector-ref pair 1)) => #t)
+                      (when (not (= (host-flonum-address value) (car old))) (set! moved? #t)))
+                    (verify (cdr rest) (cdr expected) (cdr old)))))
+              (collect (+ cycle 1))))
+          (check moved? => #t))))
     (test-case "native ticket CAS distinguishes success, busy and unlock"
       (check (host-ticket-control) => 0))
     (test-case "compiled flonum cache writes retain values across opaque collection"
@@ -290,6 +319,16 @@
         (when (= backend 0) (check processors => 1))))
     (test-case "compiled closure environments retain future uses across collection"
       (closure-frame-gc-case))
+    (test-case "mutually recursive escaping closure environments survive repeated collections"
+      (let (roots (mutual-closure-frame-roots 37 (lambda () (##gc))))
+        (let collect ((cycle 0))
+          (when (< cycle 4)
+            (##gc)
+            (check ((car roots) 8) => '(left . 37))
+            (check ((car roots) 9) => '(right . 37))
+            (check ((cdr roots) 8) => '(right . 37))
+            (check ((cdr roots) 9) => '(left . 37))
+            (collect (+ cycle 1))))))
     (test-case "generated wide live frames retain every slot across worker collections"
       (wide-frame-gc-case))
     (test-case "actual layout continuations survive GC and repeated dynamic reentry"

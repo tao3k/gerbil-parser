@@ -1,9 +1,11 @@
 #!/usr/bin/env gxi
 ;;; -*- Gerbil -*-
 ;;; One runtime shares imported dependencies; worker-local harnesses own test state.
+(displayln "SUITE-IMPORT expander-and-test-base") (force-output)
 (import :gerbil/expander
         (only-in :std/sync/barrier Barrier? make-barrier barrier-post! barrier-wait!)
         (only-in :std/test/base TestSuite? TestModule TestHarness TestConfig test-run! test-result-ok?))
+(displayln "SUITE-IMPORTED expander-and-test-base") (force-output)
 (load "t/fixtures/tla-sany-differential/preload.ss")
 (load "scripts/test-plan.ss")
 (prefer-compiled-interfaces!)
@@ -15,10 +17,13 @@
            (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process
                             test-child-process-exit!))
            test-child-process-exit!)))
+(displayln "SUITE-IMPORT case-profile") (force-output)
 (import (only-in :clan/poo/object .o)
         (only-in :core/observability/testing-case
                  poo-flow-default-testing-case-profile
                  poo-flow-current-testing-case-profile))
+
+(displayln "SUITE-IMPORTED case-profile") (force-output)
 
 ;; The Case sampler measures the shared process heap, including every loaded
 ;; Suite. Align its absolute cap with the full runner budget; retain its growth,

@@ -601,3 +601,19 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 
 #print axioms ParserEngine.Host.CheckEmission.materialize_corresponds
 #print axioms ParserEngine.Host.CheckEmission.flush_and_check_complete
+
+#print axioms ParserEngine.Host.ClosureEmission.complete_emission
+
+#print axioms ParserEngine.Host.ClosureEmission.event_count
+
+#print axioms ParserEngine.Host.ClosureEmission.high_water_bounds
+
+#print axioms ParserEngine.Host.CollectorCopy.exact_words
+
+#print axioms ParserEngine.Host.CollectorCopy.moved_payload
+
+#print axioms ParserEngine.Host.CollectorCopy.moved_headers
+
+#print axioms ParserEngine.Host.JumpEmission.local_fallthrough_exact
+
+#print axioms ParserEngine.Host.Contended.ordinary_handoff_safe_iff

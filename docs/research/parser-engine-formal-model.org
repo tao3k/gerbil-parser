@@ -50,8 +50,8 @@ before selecting another runtime optimization.
 | Lowest-dead-slot register spilling | Gambit =lowest-dead-slot=, =live-slots= and =save-regs-to-stk= | =Spill.chosen_dead= and =saved_read= derive destination validity; =live_read_preserved= and =all_live_retained= cover arbitrary repeated saves with growth | Decode selected register reads and live variables, metadata updates and return-address movement; connect the actual instruction emitter to the derived copy sequence |
 | Dirty cache materialization and invalidation | Active =targ-fp-cache-*= and =targ-loc-no-invalidate= in the C target | =Cache.trace_unique=, =trace_bound= and =new_stamp_fresh= derive lifecycle invariants; =history_dirty_read= and =dirty_spill_signed= connect first dirty writeback to physical slots and signed root scanning | =CacheExecution.decodeEntry= extracts the active F64V stamp payload; =dirty_copy= composes first writeback, allocation, read, destination store and invalidation; =copy_collection= retains exact payload bits under relocation; primitive scalar extraction, nested closure-target effects, compiler reservation and native GC implementation remain interfaces |
 | Ticket CAS versus post-poll acquire | =TICKETLOCK_TRYLOCK2=, =TICKETLOCK_UNLOCK2= and normal wait macro | =Ticket.stale_cas_success_safe= covers arbitrary past current observations under no-wrap; failed stale CAS leaves state unchanged; =unlock_valid= admits ownerless handoff with queued waiters | GCC/ISA atomic implementation and no-wrap admission remain interfaces; Contended.ordinary_poll_not_universal exhibits a stale-read history and =early_fence_does_not_import_later_release= admits the allocation RMW while rejecting import of a later release; a universal native acquire proof is still absent |
-| Native operand decoding and copy denotation | Gambit =gsc/_gvmadt.scm= constructors, =enter-opnd=, =put-copy= and =targ-gen-copy= | =Operand.encode_decode= and =intern_preserves= cover all six tags and arbitrary tables; =destination_read= and =closure_aliases= resolve nested bases; =decoded_copy_readback= connects decoding, reads, writes and unrelated-place retention | =Table.extract_read= connects every observed prefix row to a physical pair; =append_snapshot= covers actual capacity growth and new-row writes; native tagged-datum/eqv? extraction, recursive fuel sufficiency, complete instruction emission, frame extension and return metadata sequencing remain |
-| Heap flonum allocation | =MEM_ALLOCATED_FLONUM_ALLOC=, =FLONUM_FROM_END= and =FLONUM_TO_BODY= | =Boxing.allocation_identity= derives header/payload writes; =trace_fresh= preserves ownership across arbitrary allocation histories; =cache_allocation_root= composes a dirty entry with fresh bounded storage and the emitted signed frame map | =Boxing.trace_retains= covers allocation and lower-address section selection under local ownership; =HeapCheck= follows the strict check/limit/collection short circuit and exact-bit relocation; =HeapCheck.completion_counts= and =rooted_cycles_preserve= cover returning retries and repeated rooted relocation; free-list validity, complete heap-limit effects, collector byte copying and pointer bounds remain |
+| Native operand decoding and copy denotation | Gambit =gsc/_gvmadt.scm= constructors, =enter-opnd=, =put-copy= and =targ-gen-copy= | =Operand.encode_decode= and =intern_preserves= cover all six tags and arbitrary tables; =destination_read= and =closure_aliases= resolve nested bases; =decoded_copy_readback= connects decoding, reads, writes and unrelated-place retention | =Table.extract_read= connects every observed prefix row to a physical pair; =append_snapshot= covers actual capacity growth and new-row writes; native tagged-datum/eqv? extraction, recursive fuel sufficiency, closure allocation/setup and noninlined local-transfer components are now explicit in =ClosureEmission= and =JumpEmission=; remaining GVM family emission, frame extension and return metadata sequencing remain |
+| Heap flonum allocation | =MEM_ALLOCATED_FLONUM_ALLOC=, =FLONUM_FROM_END= and =FLONUM_TO_BODY= | =Boxing.allocation_identity= derives header/payload writes; =trace_fresh= preserves ownership across arbitrary allocation histories; =cache_allocation_root= composes a dirty entry with fresh bounded storage and the emitted signed frame map | =Boxing.trace_retains= covers allocation and lower-address section selection under local ownership; =HeapCheck= follows the strict check/limit/collection short circuit and exact-bit relocation; =HeapCheck.completion_counts= and =rooted_cycles_preserve= cover returning retries and repeated rooted relocation; =CollectorCopy= derives the physical movable-body copy loop and header retention; free-list validity, complete heap-limit effects, full native collector refinement and pointer bounds remain |
 | Reported cache size, occupancy and heap reservation | Gambit =targ-fp-cache-enter=, =targ-heap-reserve-and-check=, =prepare_mem_pstate= and =lib/mem.h= | =Reservation.trace_shape= derives capacity from reported size; =batch_potential= conserves writeback potential; =qualified_no_check_safe= distinguishes six charged words from two actual words; =prepared_accounted_reads= and =triggering_dirty_reads= compose allocation traces and retained cells | =CheckEmission= now composes writeback events with complete heap-check blocks and arbitrary check sequences. Qualified 64-bit heap branch only; other primitive size bounds, remaining GVM opcode emission, selected live-frame production, native free-list/physical pointer validity and collector implementation |
 | Atomic old-value results and bounded tickets | Gambit =FETCH_AND_ADD_WORD=, =COMPARE_AND_SWAP_WORD= and ticket macros | =Atomic.compare_swap_success=, =compare_swap_failed= and =bounded_tickets_unique= separate old-value tests from physical wrap | GCC/backend code generation; logical operation linearization; fixnum scaling, overflow and maximum outstanding tickets |
 | Closure and captured continuation retention | =mark_continuation=, =mark_captured_continuation= and =scan= | =captured_frame_reached= and =path_reached= cover arbitrary-depth pointer paths; =discovered_path_relocated= composes them with relocation | Host copying, frame-link interpretation, physical registers and SMP synchronization |
@@ -63,6 +63,139 @@ before selecting another runtime optimization.
 | Rehash preserves entries, not positions | Gambit =process_gc_hash_tables= and =gc_hash_table_rehash_in_situ= | =rehash_lookup= derives query preservation from entry membership and functional key/value ownership across arbitrary slot reordering | Prove the host rehash produces those retained entries; weak tables are excluded |
 | Splits invalidate every reader | [[file:../../src/compiler/lr-follow-automaton.ss][backward dependency builder]] | =built_reverse_member= models successive reverse-row writes; =metadata_edge_member= and =metadata_reader_notified= connect metadata reads to notifications | Decode native metadata and admitted vector bounds, including admitted source-core presence |
 | Core-level invalidation safely approximates vertex dependencies | The same backward scheduler and final-index publication | =projected_notification= and =clean_outgoing_transport= preserve inactive successor-signature equivalence under arbitrary ID renumbering | Every changed target core must be reported; partition groups must remain inside one core |
+
+*** Closure opcodes, local transfers and physical GC copying
+
+This extension continues the shared source/proof/control ledger. It does not
+replace remaining native imports with a successful finite test. The reported
+Gambit source baseline and qualified 64-bit non-handle ABI remain the same as
+in the source reading boundary below.
+
+**** GVM family coverage
+
+The actual =targ-gen-gvm-instr= dispatcher has seven families. The following
+inventory prevents a proof of one selected producer from being reported as
+complete instruction generation for the dispatcher.
+
+| GVM family | Connected result | Remaining producer obligation |
+|------------+------------------+-------------------------------|
+| =label= | Slot/layout, root-map and internal-return/check proofs already in the ledger | Simple, entry with optional/keyword/rest arguments, ordinary return, task entry and task return must each connect their complete emitted sequence and frame mutation. |
+| =apply= | Common post-primitive heap check has a model | Every selected primitive inliner, its resource effects and the apply/ifjump fusion predicate require correspondence. An arbitrary callback would not establish it. |
+| =copy= | Operand decoding, dirty writebacks, copy denotation and heap-check blocks are connected | General nested destination evaluation, frame mutation and exact emitted target-form extraction remain open. |
+| =close= | =ClosureEmission.unwind_exact= and =complete_emission= prove arbitrary-group allocation/setup order; =high_water_bounds= derives stack demand | Native operand/table extraction, closure-size arithmetic, actual preallocation check expansion and closure body layout still need their imports. |
+| =ifjump= | Common block checks and local transfer selection have models | Test-specific generators, result assignment, branch inversion, fallthrough and two-instruction fusion must compose. |
+| =switch= | No complete family correspondence is claimed | Fixnum/character/symbol/keyword/other partitioning, default routing and emitted case order remain explicit obligations. |
+| =jump= | =JumpEmission= covers noninlined local label/register tails; numeric zero arguments remain a call | Return-address alias repair, primitive/global procedure selection, argument checks and jump inliners remain separate. |
+
+The closure worker receives reversed declarations, recurses before emitting
+setup, allocates every destination at the recursion base, then unwinds in the
+original declaration order. Thus every captured mutually recursive destination
+has already been allocated. =complete_emission= proves that exact protocol for
+arbitrary lists and operand lengths; it does not just compare a few groups.
+=reserve= and =finalCheck= in this event model are generator calls, not
+unconditional target instructions. =event_count= includes those two events.
+Their actual check expansion belongs to =CheckEmission=. With both checks
+untaken, native code has =sum(arity)+3*closure_count= instructions.
+
+The installed compiler control checks 25 groups with closure counts and arities
+from ={0,1,2,4,8}=. It inspects every actual =ALLOC_CLO=, =BEGIN_SETUP_CLO=,
+=ADD_CLO_ELEM= and =END_SETUP_CLO= form, reservation count, destination,
+label-cell identity and capture index. Captures include other members of the
+same group. The initial control had a local variable shadowing Scheme =begin=;
+its exit-70 receipt remains a failed harness run, not a compiler failure.
+
+Another 32 installed-compiler cases execute real =targ-gen-jump= with local
+labels/registers, absent/zero argument counts, both safe flags, fallthrough and
+poll choices. They inspect the transfer tail after real frame writeback and
+block-check generation. =numeric_zero_is_call=, =no_arguments_is_return= and
+=local_fallthrough_exact= prove the selected branch rules for arbitrary IDs.
+Procedure/global and return-address-repair paths are not inferred from these
+controls.
+
+**** Deriving the physical GC body-copy component
+
+In the 64-bit movable-object branch of =mark_array=, the native code writes the
+new header, installs the old header's forwarding pointer, updates the root,
+then performs =*alloc++ = *body++; words--=. The nonpointer flonum scan branch
+has no recursive fields. =CollectorCopy.copyWords= models those individual
+reads, writes and cursor advances on word-addressed memory.
+
+=exact_words= derives each destination word from its original source word for
+arbitrary lengths, source/target addresses and all 64-bit payloads. =outside=
+derives retention outside the destination range. =moved_payload= and
+=moved_headers= compose the prior header writes with the loop, retaining the
+forwarding header, destination header and exact body bits. This component no
+longer assumes =Collection.Relocation.copied= as its conclusion. The negative
+Quint overlap control shows why unread-source preservation needs disjointness.
+
+Native pointer validity, room/section selection, header decoding and source
+immutability still have to establish those premises. This component does not
+cover 32-bit padding, handles, CAS-loser rollback, pointer-bearing recursive or
+tail marking, STILL/PERM/weak objects, forwarding reuse, or global collector
+termination. It does not yet construct the full =Relocation= contract for all
+reachable objects. Those are architecture obligations, not optional tests.
+
+The new GCC fixture uses managed flonums read from a runtime f64vector. It
+checks positive/negative zero, finite values, a subnormal, infinities, a NaN
+payload and the largest finite value across four actual moving collections.
+Raw body reads compare all bits; duplicated roots retain object identity.
+Collection counters advance and at least one rooted object changes address.
+Addresses are compared locally and are not published. This tests the installed
+collector, rather than a copied C loop or an arena-only allocation control.
+
+Escaping mutually recursive Scheme closures additionally execute through four
+collections and call each other at both parity depths, retaining their distinct
+captured heap values. This connects the closure construction and real GC paths;
+it does not turn the remaining opcode/collector imports into universal proofs.
+
+**** Ordinary contended acquire
+
+Fresh GCC ARM64 output still has =ldaddal= for ticket allocation, ordinary =ldr=
+for the matching ticket poll, an ordinary payload =ldr= and =ldaddal= on unlock.
+There is no post-poll acquire load or barrier in the inspected waiter. GCC's
+[[https://gcc.gnu.org/onlinedocs/gcc/Volatiles.html][volatile contract]] does not order ordinary memory through a volatile access;
+the earlier full-barrier RMW described by the
+[[https://gcc.gnu.org/onlinedocs/gcc/_005f_005fsync-Builtins.html][legacy atomic contract]] cannot import a release that follows it.
+=early_fence_does_not_import_later_release= already admits the earlier view
+import and exposes precisely that missing later edge.
+=ordinary_handoff_safe_iff= states the exact remaining universal admission
+condition: every protected location must already be visible to the entering
+worker. Ticket equality alone is not a premise that establishes it.
+
+The [[https://www.cl.cam.ac.uk/~pes20/armv8-mca/][ARM concurrency paper and executable model]] distinguish ordering and
+speculative satisfaction; its full compiler/ISA theorem is not imported here.
+The current analysis is a source/disassembly-backed obstruction to the proposed
+universal acquire import, not a claim that the local C handoff failed. SMP
+forwarding-pointer publication and subsequent chunk scanning must also connect
+their actual ownership/publication history. Single-thread GC controls do not
+certify that SMP history. No mutex substitution or runtime ordering change is
+made in this extension.
+
+**** Qualification
+
+- Lean: complete package, 72 jobs; standard logical axioms only, no =sorry=,
+  custom host axiom or =native_decide= in the added proof owner.
+- Quint: 97 directed tests pass. Seven new controls cover closure order, both
+  copy directions, zero length, overlap rejection, header retention and local
+  zero-argument transfer selection.
+- Installed GSC: 4,093 cache producer events, 134 cache observations, 144 check
+  blocks, the actual triggering flush, 25 closure groups and 32 local transfers
+  pass in one process, exit zero in 0.4236 seconds under unchanged 30/5 budgets.
+- Updated GCC fixture and test controls: 25 layout/host cases plus six style
+  cases pass with two workers, normal exit zero in 13.0241 seconds under
+  unchanged 90/5 budgets. An earlier attempt hit the idle gate before any
+  module output. The failure is retained. Direct fixture import/execution
+  passed in 1.6366 seconds; a staged startup probe passed in 5.5114 seconds.
+  The runner now reports actual core import entry/return boundaries; it does
+  not emit periodic progress or widen either budget. The passing staged run
+  does not identify a deterministic cause for the earlier silent interval.
+- Five source/evidence controls pass. Both model input manifests already bind
+  the modified fixture and test owners. Both platform semantics CI jobs require
+  the new closure and local-transfer receipts within the same GSC invocation.
+
+The complete opcode dispatcher and native collector refinement remain open in
+the family inventory above. Model closure is not declared, and no runtime
+performance optimization or CPU gain is claimed.
 
 *** Check emission, GC retry and contended handoff correspondence
 

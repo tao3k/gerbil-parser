@@ -1019,4 +1019,59 @@ module GrammarPipeline {
       not(slowAttempt(11,10,true,true).foldl(false,(seen,event) => seen or event == "resume"))
   })
 
+  pure def reversedInts(values:List[int]):List[int] = values.foldl(List(),(result,value) => List(value).concat(result))
+  pure def closureProtocol(identities:List[int]):List[int] = {
+    val allocations = identities.foldl(List(),(result,identity) => result.append(identity))
+    // Recursive calls consume reverse parameters; unwind consumes that stack
+    // in reverse again. Negative IDs denote setup events in this control.
+    val work = reversedInts(identities)
+    allocations.concat(work.foldl(List(),(result,identity) => List(-identity).concat(result)))
+  }
+  run recursiveClosureGroupsAllocateBeforeAnyCaptureSetupTest = init.expect({
+    val declarations = List(1,2,3)
+    val protocol = closureProtocol(declarations)
+    protocol == List(1,2,3,-1,-2,-3) and
+      protocol.foldl({setupSeen:false,valid:true},(s,event) =>
+        {setupSeen:s.setupSeen or event < 0,valid:s.valid and (event < 0 or not(s.setupSeen))}).valid
+  })
+  run closureUnwindingMustPreserveOriginalDeclarationOrderTest = init.expect(
+    closureProtocol(List()) == List() and closureProtocol(List(1)) == List(1,-1) and
+      closureProtocol(List(1,2,3)) != List(1,2,3,-3,-2,-1) and
+      closureProtocol(List(1,2)) != List(1,-1,2,-2))
+  pure val copyIndices = List(0,1,2,3,4,5,6,7)
+  pure val copyMemory = List(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31)
+  pure def physicalCopy(memory:List[int],source:int,target:int,count:int):List[int] =
+    copyIndices.slice(0,count).foldl(memory,(current,index) => current.replaceAt(target + index,current.nth(source + index)))
+  pure def bodyRangesDisjoint(source:int,target:int,count:int):bool =
+    source + count <= target or target + count <= source
+  run nativeWordCopiesRetainSourceAndUnrelatedCellsForBothDirectionsTest = init.expect(
+    List(0,1,2,4,8).foldl(true,(countsOK,count) => countsOK and List(true,false).foldl(true,(directionsOK,forward) => directionsOK and {
+      val source = if(forward) 1 else 16
+      val target = if(forward) 16 else 1
+      val copied = physicalCopy(copyMemory,source,target,count)
+      bodyRangesDisjoint(source,target,count) and copyIndices.slice(0,count).foldl(true,(wordsOK,index) =>
+        wordsOK and copied.nth(target + index) == copyMemory.nth(source + index)) and
+        copied.nth(0) == copyMemory.nth(0) and copied.nth(31) == copyMemory.nth(31)
+    })))
+  run overlappingForwardCopyCannotSupplyOriginalPayloadContractTest = init.expect({
+    val copied = physicalCopy(copyMemory,1,2,4)
+    not(bodyRangesDisjoint(1,2,4)) and copied.slice(2,6) == List(1,1,1,1) and
+      copied.slice(2,6) != copyMemory.slice(1,5)
+  })
+  run forwardingAndNewHeadersSurviveTheActualWordLoopTest = init.expect({
+    val prepared = copyMemory.replaceAt(16,12345).replaceAt(0,777)
+    val copied = physicalCopy(prepared,1,17,8)
+    copied.nth(0) == 777 and copied.nth(16) == 12345 and
+      copied.slice(17,25) == copyMemory.slice(1,9) and copied.nth(25) == copyMemory.nth(25)
+  })
+  run zeroLengthCollectionCopyDoesNotTouchEitherBodyTest = init.expect(
+    physicalCopy(copyMemory,1,17,0) == copyMemory)
+  pure def localTransfer(label:bool,arguments:int,safe:bool,fallthrough:bool):str =
+    if(label) (if(fallthrough) "fallthrough" else "goto") else
+      if(arguments < 0) "return" else if(safe) "safe-call" else "call"
+  run localZeroArgumentCallsMustNotBecomeReturnsOrEraseSafetyTest = init.expect(
+    localTransfer(false,0,true,false) == "safe-call" and
+      localTransfer(false,0,false,true) == "call" and localTransfer(false,-1,true,false) == "return" and
+      localTransfer(true,-1,false,true) == "fallthrough" and localTransfer(true,0,true,false) == "goto")
+
 }

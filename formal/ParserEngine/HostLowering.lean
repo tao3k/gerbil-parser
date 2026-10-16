@@ -1596,6 +1596,202 @@ theorem rooted_cycles_preserve {bits : BitVec 64} {before after : Operational.He
       collection.copied _ (.atom bits) (Operational.Collection.Reachable.root held) (ih read)
 end HeapCheck
 
+namespace ClosureEmission
+/-- Typed closure-parms projection. Operands are evaluated during setup, after
+all destinations have received their allocated closures. -/
+structure Closure where
+  destination : Nat
+  label : Nat
+  operands : List Operand.Value
+  stackNeed : Nat
+  deriving DecidableEq, Repr
+inductive Event where
+  | reserve (stack : Nat)
+  | allocate (destination arity : Nat)
+  | beginSetup (destination label arity : Nat)
+  | element (index : Nat) (operand : Operand.Value)
+  | endSetup (arity : Nat)
+  | finalCheck
+  deriving DecidableEq, Repr
+
+def setup (closure : Closure) : List Event :=
+  [.beginSetup closure.destination closure.label closure.operands.length] ++
+  closure.operands.mapIdx (fun index operand => .element index operand) ++
+  [.endSetup closure.operands.length]
+
+def prelude (closures : List Closure) (stack : Nat) : List Event :=
+  [.reserve stack] ++ closures.map (fun closure => .allocate closure.destination closure.operands.length)
+
+/-- Direct control-flow transcription of targ-gen-close's recursive worker:
+recurse first; allocate at the base; emit setup while unwinding. -/
+def nativeWalk (original : List Closure) : List Closure → Nat → List Event
+  | [], stack => prelude original stack
+  | closure :: rest, stack => nativeWalk original rest (max stack closure.stackNeed) ++ setup closure
+
+def highWater (closures : List Closure) (stack : Nat) : Nat :=
+  closures.foldl (fun current closure => max current closure.stackNeed) stack
+
+theorem unwind_exact (original closures : List Closure) (stack : Nat) :
+    nativeWalk original closures stack =
+      prelude original (highWater closures stack) ++ closures.reverse.flatMap setup := by
+  induction closures generalizing stack with
+  | nil => simp [nativeWalk, highWater]
+  | cons closure rest ih =>
+    simp [nativeWalk, ih, highWater, List.flatMap_append, List.append_assoc]
+
+def generate (closures : List Closure) (stack : Nat) : List Event :=
+  nativeWalk closures closures.reverse stack ++ [.finalCheck]
+
+/-- The actual double reversal preserves declaration order, and every ALLOC_CLO
+precedes every BEGIN_SETUP_CLO, including mutually recursive environments. -/
+theorem complete_emission (closures : List Closure) (stack : Nat) :
+    generate closures stack = prelude closures (highWater closures.reverse stack) ++
+      closures.flatMap setup ++ [.finalCheck] := by
+  simp [generate, unwind_exact, List.append_assoc]
+
+theorem setup_length (closure : Closure) : (setup closure).length = closure.operands.length + 2 := by
+  simp [setup]
+
+def operandCount (closures : List Closure) : Nat :=
+  closures.foldr (fun closure total => closure.operands.length + total) 0
+
+theorem setup_total (closures : List Closure) :
+    (closures.flatMap setup).length = operandCount closures + 2 * closures.length := by
+  induction closures with
+  | nil => simp [operandCount]
+  | cons closure rest ih => simp [List.flatMap_cons, setup_length, ih, operandCount]; omega
+
+theorem event_count (closures : List Closure) (stack : Nat) :
+    (generate closures stack).length = operandCount closures + 3 * closures.length + 2 := by
+  rw [complete_emission]
+  simp only [List.length_append, List.length_singleton]
+  rw [setup_total]
+  simp [prelude]; omega
+
+theorem high_water_bounds (closures : List Closure) (stack : Nat) :
+    stack ≤ highWater closures stack ∧ ∀ closure ∈ closures, closure.stackNeed ≤ highWater closures stack := by
+  induction closures generalizing stack with
+  | nil => simp [highWater]
+  | cons closure rest ih =>
+    have tailBounds := ih (max stack closure.stackNeed)
+    constructor
+    · exact Nat.le_trans (Nat.le_max_left _ _) tailBounds.1
+    · intro chosen member
+      rcases List.mem_cons.mp member with same | inside
+      · subst chosen; exact Nat.le_trans (Nat.le_max_right _ _) tailBounds.1
+      · exact tailBounds.2 chosen inside
+end ClosureEmission
+
+namespace JumpEmission
+/-- Noninlined local transfers after frame writeback and end-of-block checks.
+An absent ret argument selects this path; procedure/global/inliner paths are
+separate obligations, not represented by an arbitrary callback here. -/
+inductive Target where | label (identity : Nat) | register (index : Nat)
+  deriving DecidableEq, Repr
+inductive Transfer where
+  | fallthrough (arguments : Option Nat)
+  | goTo (label : Nat) (arguments : Option Nat)
+  | returnTo (register : Nat)
+  | general (register arguments : Nat) (safe : Bool)
+  deriving DecidableEq, Repr
+
+def lower (target : Target) (arguments : Option Nat) (safe : Bool) (nextLabel : Option Nat) : Transfer :=
+  match target with
+  | .label label => if nextLabel = some label then .fallthrough arguments else .goTo label arguments
+  | .register register => match arguments with
+    | none => .returnTo register
+    | some count => .general register count safe
+
+theorem numeric_zero_is_call (register : Nat) (safe : Bool) (nextLabel : Option Nat) :
+    lower (.register register) (some 0) safe nextLabel = .general register 0 safe := by rfl
+
+theorem no_arguments_is_return (register : Nat) (safe : Bool) (nextLabel : Option Nat) :
+    lower (.register register) none safe nextLabel = .returnTo register := by rfl
+
+theorem local_fallthrough_exact (label : Nat) (arguments : Option Nat) (safe : Bool) (nextLabel : Option Nat) :
+    lower (.label label) arguments safe nextLabel = .fallthrough arguments ↔ nextLabel = some label := by
+  simp [lower]
+end JumpEmission
+
+namespace CollectorCopy
+/-- Exact word-addressed projection of the qualified 64-bit, non-handle
+mark_array loop. C pointer validity, section selection and source immutability
+must be admitted separately. This is not a model of SMP publication. -/
+abbrev Memory := Nat → Option (BitVec 64)
+def write (memory : Memory) (address : Nat) (value : Option (BitVec 64)) : Memory :=
+  fun other => if other = address then value else memory other
+
+def copyWords : Nat → Memory → Nat → Nat → Memory
+  | 0, memory, _, _ => memory
+  | count + 1, memory, source, target =>
+    copyWords count (write memory target (memory source)) (source + 1) (target + 1)
+
+def Disjoint (source target count : Nat) : Prop :=
+  source + count ≤ target ∨ target + count ≤ source
+
+theorem outside (count : Nat) (memory : Memory) (source target address : Nat)
+    (apart : address < target ∨ target + count ≤ address) :
+    copyWords count memory source target address = memory address := by
+  induction count generalizing memory source target with
+  | zero => rfl
+  | succ count ih =>
+    simp only [copyWords]
+    rw [ih _ _ _ (by omega)]
+    simp [write, show address ≠ target by omega]
+
+/-- Derives exact payload copying from individual reads/writes, rather than
+assuming Collection.Relocation.copied. Zero length and all 64-bit patterns are
+included. Disjointness protects unread source words from destination writes. -/
+theorem exact_words (count : Nat) (memory : Memory) (source target : Nat)
+    (separate : Disjoint source target count) (index : Nat) (inside : index < count) :
+    copyWords count memory source target (target + index) = memory (source + index) := by
+  induction count generalizing memory source target index with
+  | zero => omega
+  | succ count ih =>
+    cases index with
+    | zero =>
+      simp only [copyWords, Nat.add_zero]
+      rw [outside _ _ _ _ _ (Or.inl (by omega))]
+      simp [write]
+    | succ index =>
+      have tailSeparate : Disjoint (source + 1) (target + 1) count := by unfold Disjoint at *; omega
+      have tailRead := ih (write memory target (memory source)) (source + 1) (target + 1)
+        tailSeparate index (by omega)
+      have offsetTarget : target + (index + 1) = target + 1 + index := by omega
+      have offsetSource : source + 1 + index = source + (index + 1) := by omega
+      have sourceApart : source + (index + 1) ≠ target := by unfold Disjoint at separate; omega
+      simpa [copyWords, offsetTarget, offsetSource, write, sourceApart] using tailRead
+
+/-- Forwarding is installed in the old header before copying. Header addresses
+are kept out of both body ranges. The target header is retained by the loop. -/
+def move (memory : Memory) (oldHeader newHeader : Nat) (header forwarding : BitVec 64) (count : Nat) : Memory :=
+  copyWords count (write (write memory newHeader (some header)) oldHeader (some forwarding))
+    (oldHeader + 1) (newHeader + 1)
+
+theorem moved_payload (memory : Memory) (oldHeader newHeader count : Nat)
+    (header forwarding : BitVec 64)
+    (separate : oldHeader + count + 1 ≤ newHeader ∨ newHeader + count + 1 ≤ oldHeader)
+    (index : Nat) (inside : index < count) :
+    move memory oldHeader newHeader header forwarding count (newHeader + 1 + index) =
+      memory (oldHeader + 1 + index) := by
+  unfold move
+  rw [exact_words _ _ _ _ (by unfold Disjoint; omega) index inside]
+  simp [write, show oldHeader + 1 + index ≠ oldHeader by omega,
+    show oldHeader + 1 + index ≠ newHeader by omega]
+
+theorem moved_headers (memory : Memory) (oldHeader newHeader count : Nat)
+    (header forwarding : BitVec 64)
+    (separate : oldHeader + count + 1 ≤ newHeader ∨ newHeader + count + 1 ≤ oldHeader) :
+    move memory oldHeader newHeader header forwarding count newHeader = some header ∧
+    move memory oldHeader newHeader header forwarding count oldHeader = some forwarding := by
+  unfold move
+  constructor
+  · rw [outside _ _ _ _ _ (Or.inl (by omega))]
+    simp [write, show newHeader ≠ oldHeader by omega]
+  · rw [outside _ _ _ _ _ (by omega)]
+    simp [write]
+end CollectorCopy
+
 namespace Contended
 /-- Separate payload-read satisfaction from the later ticket observation. This
 projection admits speculative stale payloads; it is not the full ARM model. -/
@@ -1692,5 +1888,13 @@ theorem early_fence_does_not_import_later_release (epoch location : Nat) :
   have sees := safe.2 1 rfl location
   rw [current, observed] at sees
   omega
+
+/-- Exact outstanding admission obligation for an ordinary poll: ownership
+alone is safe precisely when every protected location is already visible to
+this worker. Matching a ticket does not establish this quantified condition. -/
+theorem ordinary_handoff_safe_iff (state : Acquire.State) (worker : Nat) :
+    Acquire.Safe (Acquire.plainEnter state worker) ↔
+      ∀ location, state.current location ≤ state.views worker location := by
+  simp [Acquire.Safe, Acquire.plainEnter]
 end Contended
 end ParserEngine.Host

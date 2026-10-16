@@ -165,4 +165,97 @@
    "triggered frame flush, check or reset mismatch")
   (display "COMPILER-TRIGGER-OK flush=1 instructions=4") (newline))
 
+;;; Native close generation: all allocations precede environment setup, so
+;;; captures may refer to any closure in the same mutually recursive group.
+(let ((cases 0))
+  (for-each
+   (lambda (count)
+     (for-each
+      (lambda (arity)
+        (set! c#targ-proc-code (c#make-stretchable-vector #f))
+        (set! c#targ-proc-code-length 0)
+        (set! c#targ-proc-fp 1)
+        (set! c#targ-proc-heap-reserved 0)
+        (set! c#targ-proc-flo-reserved 0)
+        (c#targ-fp-cache-init)
+        (let* ((indices (let loop ((i 1)) (if (> i count) '() (cons i (loop (+ i 1))))))
+               (parms
+                (map (lambda (i)
+                       (c#make-closure-parms (c#make-stk i) (+ 100 i)
+                         (let loop ((j 0))
+                           (if (= j arity) '()
+                             (cons (c#make-stk (+ 1 (modulo (+ i j) count))) (loop (+ j 1))))))) indices)))
+          (c#targ-gen-close parms 1)
+          (compiler-reservation-check
+           (and (= c#targ-proc-code-length (* count (+ arity 3)))
+                (= c#targ-proc-heap-reserved (* count (c#targ-closure-space arity)))
+                (= c#targ-proc-flo-reserved 0))
+           "closure emission count or reservation mismatch")
+          (for-each
+           (lambda (i)
+             (compiler-reservation-check
+              (equal? (c#stretchable-vector-ref c#targ-proc-code (- i 1))
+                      (list "SET_STK" (- i 1) (list "ALLOC_CLO" (c#targ-c-unsigned-long arity))))
+              "closure allocation order mismatch")
+             (let* ((offset (+ count (* (- i 1) (+ arity 2))))
+                    (setup-instruction (c#stretchable-vector-ref c#targ-proc-code offset)))
+               (compiler-reservation-check
+                (and (equal? (car setup-instruction) "BEGIN_SETUP_CLO") (= (cadr setup-instruction) arity)
+                     (equal? (caddr setup-instruction) (list "STK" (- i 1)))
+                     (eq? (cadddr setup-instruction) (c#targ-ref-lbl-val (+ 100 i)))
+                     (equal? (c#stretchable-vector-ref c#targ-proc-code (+ offset arity 1))
+                             (list "END_SETUP_CLO" arity)))
+                "closure setup order, destination or label mismatch")
+               (let loop ((j 0))
+                 (if (< j arity)
+                   (begin
+                     (compiler-reservation-check
+                      (equal? (c#stretchable-vector-ref c#targ-proc-code (+ offset j 1))
+                              (list "ADD_CLO_ELEM" j (list "STK" (modulo (+ i j) count))))
+                      "closure capture index or operand mismatch")
+                     (loop (+ j 1))))))) indices))
+        (set! cases (+ cases 1))) '(0 1 2 4 8))) '(0 1 2 4 8))
+  (compiler-reservation-check (= cases 25) "incomplete native closure control")
+  (display "COMPILER-CLOSURE-OK cases=25") (newline))
+
+;;; Noninlined local jump tails, with the real frame and block-check producers.
+(let ((cases 0))
+  (for-each (lambda (label?)
+   (for-each (lambda (arguments)
+    (for-each (lambda (safe?)
+     (for-each (lambda (falls?)
+      (for-each (lambda (poll?)
+       (set! c#targ-proc-code (c#make-stretchable-vector #f))
+       (set! c#targ-proc-code-length 0)
+       (set! c#targ-proc-fp 1)
+       (set! c#targ-proc-heap-reserved 0)
+       (set! c#targ-proc-flo-reserved 0)
+       (set! c#targ-proc-ssb-reserved 0)
+       (set! c#targ-proc-unique-name "local-transfer-control")
+       (set! c#targ-proc-entry-frame (c#make-frame 1 (list c#ret-var) '() '() c#ret-var-set))
+       (set! c#targ-proc-exit-frame c#targ-proc-entry-frame)
+       (c#targ-fp-cache-init)
+       (c#targ-gen-jump (if label? (c#make-lbl 700) (c#make-reg 4)) #f arguments poll? safe? (if falls? 700 #f))
+       (let* ((offset (if poll? 3 0))
+              (tail (c#stretchable-vector-ref c#targ-proc-code (+ offset 1)))
+              (nargs (if arguments (list "SET_NARGS" arguments) #f))
+              (expected
+               (if label?
+                 (if falls? nargs
+                   (list 'seq nargs (list "GOTO" (c#targ-ref-lbl-goto 700))))
+                 (if arguments
+                   (list (if safe? "JUMPGENSAFE" "JUMPGENNOTSAFE") nargs (cons 'r 4))
+                   (list "JUMPRET" (cons 'r 4))))))
+         (compiler-reservation-check
+          (and (= c#targ-proc-code-length (+ offset 2))
+               (not (c#stretchable-vector-ref c#targ-proc-code offset))
+               (equal? tail expected)
+               (or (not poll?)
+                   (and (equal? (car (c#stretchable-vector-ref c#targ-proc-code 1)) "POLL")
+                        (eq? (car (c#stretchable-vector-ref c#targ-proc-code 2)) 'label))))
+          "local transfer or block poll mismatch"))
+       (set! cases (+ cases 1))) '(#f #t))) '(#f #t))) '(#f #t))) '(#f 0))) '(#f #t))
+  (compiler-reservation-check (= cases 32) "incomplete local jump control")
+  (display "COMPILER-JUMP-OK cases=32") (newline))
+
 (c#env.end!)

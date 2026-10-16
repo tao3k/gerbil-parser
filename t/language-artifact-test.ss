@@ -352,6 +352,7 @@
         (check (cdr (assq 'name declaration)) => 'gerbil-parser/language-declaration-generator)
         (check (cdr parser) => (cdr declaration))
         (check (cdr (assq 'repetition-owner parser)) => 'exclusive)
+        (check (cdr (assq 'partition-conflict-origin parser)) => 'surviving-member)
         (check-exception (compiler-generator-metadata 'unknown) exception?))
       (call-with-temporary-directory
        (lambda (root)
@@ -371,10 +372,26 @@
              (write-raw-file path
                (serialize (map (lambda (row)
                                  (if (eq? (car row) 'generator)
-                                   '(generator (name . gerbil-parser/lalr-generator)
-                                               (entry-root . authored-alias) (repetition-owner . shared)) row)) receipt)))
+                                   (cons 'generator
+                                     (map (lambda (feature)
+                                            (if (eq? (car feature) 'repetition-owner)
+                                              '(repetition-owner . shared) feature)) (cdr row))) row)) receipt)))
              (check-exception
                (compile-language-parser-artifact/output-dirs grammar compile (list root)) exception?)
+             (check calls => 1)
+             ;; A pre-repair packing revision cannot qualify a warm artifact.
+             (write-raw-file path
+               (serialize (map (lambda (row)
+                 (if (eq? (car row) 'generator)
+                   (cons 'generator (filter (lambda (feature)
+                     (not (eq? (car feature) 'partition-conflict-origin))) (cdr row))) row)) receipt)))
+             (check-exception
+               (compile-language-parser-artifact/output-dirs grammar compile (list root)) exception?)
+             (check calls => 1)
+             (write-raw-file path (serialize receipt))
+             (let-values (((_parser _path reuse)
+                            (compile-language-parser-artifact/output-dirs grammar compile (list root))))
+               (check reuse => 'hit))
              (check calls => 1))))))
     (test-case "pre-isolation generator receipts cannot bypass the repaired lowering"
       (call-with-temporary-directory

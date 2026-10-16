@@ -10,7 +10,7 @@
         (only-in ./lr terminal-symbol?)
         (only-in ./lr-automaton core-item-production-id)
         (only-in ./lr-lookahead build-states-via-canonical-lr1))
-(export build-states-via-partitioned-lr1)
+(export build-states-via-partitioned-lr1 refine-canonical-partition)
 
 ;; One bit names each raw parser action. Shift destinations are tested by the
 ;; transition-congruence pass; states with the same LR(0) core have identical
@@ -83,7 +83,7 @@
     (vector members
             (vector-copy (vector-ref action-masks state)))))
 
-(def (pack-canonical-states states action-masks state-count terminal-count)
+(def (pack-canonical-states group-key action-masks state-count terminal-count)
   (let ((groups (list->ExtensibleVector '()))
         (core-groups (make-table test: equal?))
         (ids (make-vector state-count 0)))
@@ -91,7 +91,7 @@
       (when (< state state-count)
         (let* ((candidates
                 (hash-ensure-ref
-                 core-groups (vector-ref states state)
+                 core-groups (group-key state)
                  (lambda () (list->ExtensibleVector '()))))
                (admitted #f))
           (let candidate-loop ((index 0))
@@ -146,25 +146,14 @@
 
 ;; Refine by transition targets until every quotient edge has one destination.
 ;; The lookup table and ExtensibleVector handle grouping without list copying.
-(def (refine-partition ids rows state-count)
-  (let ((next (list->ExtensibleVector '()))
-        (next-ids (make-vector state-count 0))
-        (index (make-table test: equal?)))
-    (let state-loop ((state 0))
-      (when (< state state-count)
-        (let* ((key (cons (vector-ref ids state)
-                          (transition-signature rows state ids)))
-               (group-id (table-ref index key #f)))
-          (unless group-id
-            (set! group-id
-                  (ExtensibleVector-push!
-                   next (list->ExtensibleVector '())))
-            (table-set! index key group-id))
-          (ExtensibleVector-push!
-           (ExtensibleVector-ref next group-id) state)
-          (vector-set! next-ids state group-id))
-        (state-loop (+ state 1))))
-    (values next next-ids)))
+(def (refine-canonical-partition ids rows action-masks state-count terminal-count)
+  ;; A transition split can remove the canonical member that witnessed an
+  ;; earlier conflict union. Re-admit each new bucket against its own members;
+  ;; retaining the old group in the key prevents any cross-group merge.
+  (pack-canonical-states
+   (lambda (state)
+     (cons (vector-ref ids state) (transition-signature rows state ids)))
+   action-masks state-count terminal-count))
 
 (def (materialize-partition groups ids states lookaheads offsets rows
                             terminal-values layout core-symbols
@@ -176,7 +165,7 @@
          (node-count 0))
     (let group-loop ((group-id 0))
       (when (< group-id count)
-        (let* ((members (ExtensibleVector-ref groups group-id))
+        (let* ((members (vector-ref (ExtensibleVector-ref groups group-id) 0))
                (first (ExtensibleVector-ref members 0))
                (cores (vector-ref states first)))
           (vector-set! merged-states group-id cores)
@@ -194,7 +183,7 @@
     (let (merged-lookaheads (make-vector node-count 0))
       (let group-loop ((group-id 0))
         (when (< group-id count)
-          (let* ((members (ExtensibleVector-ref groups group-id))
+          (let* ((members (vector-ref (ExtensibleVector-ref groups group-id) 0))
                  (first (ExtensibleVector-ref members 0))
                  (item-count (length (vector-ref states first))))
             (let item-loop ((item 0))
@@ -239,11 +228,12 @@
              terminal-index layout core-symbols))
         (let-values (((initial-groups initial-ids)
                       (pack-canonical-states
-                       states action-masks state-count
+                       (lambda (state) (vector-ref states state)) action-masks state-count
                        (vector-length terminal-values))))
           (let refine ((groups initial-groups) (ids initial-ids))
             (let-values (((next next-ids)
-                          (refine-partition ids rows state-count)))
+                          (refine-canonical-partition ids rows action-masks state-count
+                                                      (vector-length terminal-values))))
               (if (= (ExtensibleVector-fill-pointer groups)
                      (ExtensibleVector-fill-pointer next))
                 (materialize-partition

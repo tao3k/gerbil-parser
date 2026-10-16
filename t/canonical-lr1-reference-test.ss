@@ -35,6 +35,27 @@
                  unreachable-repeated-context-family-rules
                  inactive-core-conflict-rules))
 
+(import (only-in :gerbil-parser/src/compiler/lr-partition refine-canonical-partition)
+        (only-in :std/vector/extensible ExtensibleVector-fill-pointer ExtensibleVector-ref))
+
+(def (refined-conflict-origin-case)
+  ;; All three members were initially packable because state 0 witnessed reduction mask
+  ;; 56. Transition refinement separates it; states 1 and 2 cannot then retain
+  ;; their unwitnessed conflicting union 24 in the remaining bucket.
+  (let ((ids '#(0 0 0 1))
+        (rows '#((((terminal literal "x") . 3))
+                 (((terminal literal "x") . 0))
+                 (((terminal literal "x") . 0)) ()))
+        (actions '#(#(56 1) #(8 1) #(16 1) #(0 0))))
+    (let-values (((groups refined)
+                   (refine-canonical-partition ids rows actions 4 2)))
+      (check (ExtensibleVector-fill-pointer groups) => 4)
+      (check (= (vector-ref refined 1) (vector-ref refined 2)) => #f)
+      (for-each (lambda (left)
+        (for-each (lambda (right)
+          (when (= (vector-ref refined left) (vector-ref refined right))
+            (check (vector-ref ids left) => (vector-ref ids right)))) (iota 4))) (iota 4)))))
+
 (def (character-tokens text (base 0))
   (let loop ((index 0) (found '()))
     (if (= index (string-length text))
@@ -252,6 +273,8 @@
 
 (def canonical-lr1-reference-test
   (test-suite "canonical LR(1) reference"
+    (poo-flow-test-case "transition splits retain a surviving canonical conflict witness"
+      (refined-conflict-origin-case))
     (poo-flow-test-case "prepared corpus readers preserve fresh rejection and recovery"
       (let* ((spec (compile-lr-spec lr1-not-lalr-rules 'source-file 'reject #f 'canonical-lr1))
              (parse (prepared-result-parser spec)))

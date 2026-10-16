@@ -1,3 +1,4 @@
+import ParserEngine.Construction
 import ParserEngine.Names
 import ParserEngine.Encoding
 import ParserEngine.Lowering
@@ -271,3 +272,16 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Viable.lr1_trace_exact
 #print axioms ParserEngine.Viable.lr1_goto_kernel_exact
 #print axioms ParserEngine.Viable.lr1_construction_traces_supported
+
+#print axioms ParserEngine.Construction.intern_decodes
+#print axioms ParserEngine.Construction.intern_unique
+#print axioms ParserEngine.Construction.interned_identity_injective
+#print axioms ParserEngine.Construction.positive_kernel_identity
+#print axioms ParserEngine.Construction.refinement_never_merges
+#print axioms ParserEngine.Construction.active_signature_agrees
+#print axioms ParserEngine.Construction.packed_conflict_has_origin
+#print axioms ParserEngine.Construction.packed_bits_exact
+#print axioms ParserEngine.Construction.published_table_supported
+#print axioms ParserEngine.Construction.install_choice_origin
+#print axioms ParserEngine.Construction.admitted_event_supported
+#print axioms ParserEngine.Construction.install_preserves_cell_trace

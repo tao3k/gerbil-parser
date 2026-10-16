@@ -19,10 +19,14 @@
       (let (form (read port))
         (unless (eof-object? form)
           (when (and (pair? form) (eq? (car form) 'def) (pair? (cadr form))
-                     (memq (caadr form) '(test-object-source? test-initialization-options)))
+                     (memq (caadr form) '(test-object-source? test-initialization-options static-translation-command)))
             (eval form))
           (loop))))))
 
+;; Same compiler-side expression used by the link owner; the command protocol
+;; test below verifies generated-code options precede this evaluation boundary.
+(def compiler-progress-expression
+  "(begin (port-settings-set! (current-output-port) (list buffering: #f)) (gc-report-set! #t))")
 (def (main mode . _)
   (let* ((owner (current-thread))
          (good (test-suite "control" (test-case "caller ownership" (check (current-thread) => owner)))))
@@ -31,6 +35,9 @@
        (for-each (lambda (source)
          (let (options (test-initialization-options source))
            (check (list (car options) (caddr options)) => '("-prelude" "-postlude"))
+           (check (static-translation-command "gsc" "output.c" source options)
+             => (append (list "gsc" "-verbose" "-c" "-o" "output.c") options
+                        (list "-e" compiler-progress-expression source)))
            (check (call-with-output-string
                     (lambda (port)
                       (parameterize ((current-output-port port))

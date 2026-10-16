@@ -49,6 +49,11 @@
              '(("-prelude" . "CONFORMANCE-MODULE-START ")
                ("-postlude" . "CONFORMANCE-MODULE-READY ")))))
     '()))
+(def (static-translation-command gsc target source initialization)
+  ;; GSC stops admitting compiler options once -e begins evaluation. Keep the
+  ;; generated-code options before it; expressions must never become filenames.
+  [gsc "-verbose" "-c" "-o" target initialization ...
+       "-e" compiler-progress-expression source])
 (def (test-object-options source options)
   ;; Keep the SDK's optimizer and trusted tail-host contract. Split large test
   ;; modules into Gambit's per-procedure C hosts instead of one giant function;
@@ -171,8 +176,7 @@
                 (displayln "STATIC-TRANSLATE " source) (force-output)
                 (when (and translation-stamp (file-exists? translation-stamp))
                   (delete-file translation-stamp))
-                (run-compiler [gsc "-verbose" "-c" "-o" c-file
-                                    "-e" compiler-progress-expression initialization ... source])
+                (run-compiler (static-translation-command gsc c-file source initialization))
                 (when translation-stamp
                   (call-with-output-file translation-stamp
                     (lambda (port) (write translation-identity port))))

@@ -23,7 +23,8 @@
 ;; a feature invalidates their keys without renaming an API or format schema.
 (def +compiler-generator-revision+
   '((entry-root . authored-alias)
-    (repetition-owner . exclusive)))
+    (repetition-owner . exclusive)
+    (partition-conflict-origin . surviving-member)))
 
 (def (compiler-generator-metadata kind)
   (let (name (case kind

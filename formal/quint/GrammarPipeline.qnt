@@ -146,4 +146,17 @@ module GrammarPipeline {
     loopUnroll(false).root.contains(List(1,1,1)) and loopUnroll(false).root.contains(List(2))
       and not(loopUnroll(false).root.contains(List(2,1))))
   run sharedRepetitionOwnerWitnessTest = init.expect(loopUnroll(true).root.contains(List(2,1)))
+  // Lifecycle falsifier: transition refinement can discard the member that
+  // witnessed an earlier packed conflict. Re-admission uses surviving members.
+  pure def conflictOrigin(members:List[Set[int]]):bool = {
+    val combined = members.foldl(Set(),(acc,cell) => acc.union(cell))
+    combined.size() <= 1 or members.foldl(false,(found,cell) => found or cell == combined)
+  }
+  run splitLosesConflictOriginTest = init.expect(
+    conflictOrigin(List(Set(3,4,5),Set(3),Set(4))) and
+      not(conflictOrigin(List(Set(3),Set(4)))))
+  run splitReadmissionPreservesOriginTest = init.expect(
+    List(List(Set(3)),List(Set(4))).foldl(true,(valid,group) => valid and conflictOrigin(group)) and
+      Set(3).union(Set(4)) == Set(3,4))
+
 }

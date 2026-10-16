@@ -1249,3 +1249,72 @@ and publishes its identity only after successful translation. The five
 conformance controls and a real native GSC probe verify those boundaries;
 there is no timer heartbeat or deadline increase. A new remote run remains
 required before calling the macOS red item repaired.
+
+* Interning, partition splitting and action publication
+
+=Construction.lean= extends the LR construction boundary from the paper basis
+with separate contracts. =intern_decodes= and =intern_unique= prove dense key
+allocation and retention for arbitrary lawful equality keys; state zero is a
+successful lookup. Equal interned IDs recover equal keys without assuming
+collision-free hashes. =positive_kernel_identity= recovers positive goto
+kernels from closure, since prediction only introduces dot-zero items. The
+augmented initial kernel remains separate as in =build-lr0-automaton=.
+
+Refinement keys contain the old group and an optional successor signature.
+=refinement_never_merges= covers inactive groups as well as active splits;
+=active_signature_agrees= proves agreement for affected groups. The dirty
+schedule still needs a proof that every affected signature is marked, and
+termination needs the dense physical group/index correspondence.
+
+Conflict packing exposed a phase-level counterexample. Reduction bits 8, 16
+and 32 form canonical witness 56. Cells 56, 8 and 16 pass initial packing.
+A transition split can remove member 56 and leave 8 and 16 together, whose
+conflicting union 24 has no surviving witness. The previous native refinement
+reproduces this result on a four-state/two-terminal phase input. This alone
+does not exhibit a rejected or overaccepted source-language request.
+
+The repaired =refine-canonical-partition= reuses conflict-preserving packing
+inside each old-group/transition-signature bucket. Every round re-admits using
+its own surviving members. Groups consistently retain the member vector and
+accumulated masks; materialization projects members explicitly. Keeping the
+old group in the key prevents merging previously separated groups. =Packing=
+models arbitrary successful admission histories; =packed_bits_exact= proves
+exact action-bit union and =packed_conflict_has_origin= proves the surviving
+witness property using the exact native conflict predicate. The historical and
+repaired native probe binds the correction to actual phase code. Quint adds
+split/removal and re-admission falsifiers using action sets.
+
+The shared schema metadata records =partition-conflict-origin: surviving-member=.
+Parser and declaration cache identities change through this structured value.
+Missing-feature and changed-feature receipts are rejected; restoring the exact
+receipt admits reuse without another compile. No file, namespace, function or
+format schema is renamed.
+
+Action construction has its own origin boundary. =admitEvent= checks actual
+item membership, after-dot terminal and goto for shifts; completion, lookahead
+and grammar membership for reductions; and augmented-root/EOF identity for
+acceptance. =admitted_event_supported= derives =CellSupported= from these
+checks. Static shift/reduce and reduce/reduce decisions model rank,
+association, absent precedence and dynamic/fork policy. Every choice and
+arbitrary fork/installation history retains origins, including rejection and
+failure. =published_table_supported= composes histories with the existing
+table/request soundness boundary.
+
+Policy pruning preserving canonical accepted language, native event admission
+for arbitrary host executions, physical interning/vector growth, optimized
+closure batches, the dirty scheduler, quotient lookahead transport and final
+native publication still require composition. Native tests and checked
+examples control those bridges; they are not universal host proofs. No local
+performance optimization is included.
+
+** CI command protocol correction
+
+The preceding commit's initialization diagnostics failed preparation on Ubuntu
+and macOS: GSC interpreted the prelude expression as a filename because the
+options followed =-e=. The production =static-translation-command= now places
+all compiler options before evaluation. The conformance control checks this
+actual argv producer. A native probe uses it to translate Scheme, links the C,
+and verifies start/body/completion output. The earlier simplified probe omitted
+=-e=. Deadlines and compiler selection are unchanged. The original cold-start
+failure remains distinct from this regression; exact-head macOS semantic
+success is required for closure.

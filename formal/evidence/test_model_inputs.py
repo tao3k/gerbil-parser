@@ -23,7 +23,7 @@ class ModelInputControls(unittest.TestCase):
             request = root / "formal/ParserEngine/Request.lean"
             request.write_text("namespace Request\nend Request\n")
             (root / "formal/ParserEngine/Grammar.lean").write_text("namespace Grammar\nend Grammar\n")
-            for module in ("Viable", "RawRequest", "Completion", "NativeFacts", "Lowering", "Worklist", "Solver", "Encoding", "Names"):
+            for module in ("Viable", "RawRequest", "Completion", "NativeFacts", "Lowering", "Worklist", "Solver", "Encoding", "Names", "Construction"):
                 (root / f"formal/ParserEngine/{module}.lean").write_text(f"namespace {module}\nend {module}\n")
             lean, quint = model_checks(root)
             self.assertEqual((lean.claim, quint.claim), ("lean-model", "quint-protocol"))
@@ -32,6 +32,7 @@ class ModelInputControls(unittest.TestCase):
             self.assertIn("formal/ParserEngine/NativeFacts.lean", lean.inputs)
             self.assertIn("formal/quint/Completion.qnt", quint.inputs)
             self.assertIn("formal/ParserEngine/Viable.lean", lean.inputs)
+            self.assertIn("formal/ParserEngine/Construction.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/RawRequest.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Grammar.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Request.lean", lean.inputs)
@@ -61,6 +62,7 @@ class ModelInputControls(unittest.TestCase):
                 self.assertIn("t/canonical-lr1-reference-test.ss", check.inputs)
                 self.assertIn("t/resolved-grammar-test.ss", check.inputs)
                 self.assertIn("src/compiler/lr-table.ss", check.inputs)
+                self.assertIn("src/compiler/lr-partition.ss", check.inputs)
                 self.assertIn("src/compiler/lr-compiler.ss", check.inputs)
                 self.assertIn("src/runtime/lr-action-index.ss", check.inputs)
                 self.assertIn("src/runtime/lr-stack-storage.ss", check.inputs)

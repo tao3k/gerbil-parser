@@ -1,5 +1,5 @@
 ;;; Boxed-vector oracle, independent of packed storage and lookup dispatch.
-(export host-boxing-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors closure-frame-roots wide-frame-roots reference-layout-columns reference-packed-layout-columns layout-column-sources)
+(export cache-copy-flonum-values host-boxing-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors closure-frame-roots wide-frame-roots reference-layout-columns reference-packed-layout-columns layout-column-sources)
 
 (def (reference-layout-columns source)
   (let* ((bytes (string->utf8 source)) (size (u8vector-length bytes))
@@ -235,3 +235,11 @@ END-C
          (difference (##fl- right seed)))
     (collect)
     (list left right difference)))
+
+;;; A runtime branch forces the backend to reconcile copied flonum locations.
+;;; The callback allocates/collects after those values have been materialized.
+(def (cache-copy-flonum-values seed select-right? collect)
+  (let* ((left (##fl+ seed 0.25)) (right (##fl* left 2.0)))
+    (set! left (if select-right? right left))
+    (collect)
+    (list left right)))

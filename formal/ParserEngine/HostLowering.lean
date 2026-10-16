@@ -84,6 +84,160 @@ theorem encode_decode (table : List Row) (value : Value) :
     decode (encode table value).1 (encode table value).2 = some value := by
   cases value <;> simp [encode, decode, tag_decode, index_decode, intern_read]
 
+namespace Table
+/-- Observed Scheme scalar classes. Keys name canonical eqv? classes of other
+objects; their extraction from the host heap is an explicit boundary. -/
+inductive Atom where
+  | boolean (value : Bool)
+  | number (value : Nat)
+  | key (identity : Nat)
+  deriving DecidableEq, Repr
+
+structure Pair where
+  first : Atom
+  second : Atom
+  deriving DecidableEq, Repr
+
+def identity : Atom → Nat
+  | .boolean false => 0
+  | .boolean true => 1
+  | .number value => value * 4 + 2
+  | .key value => value * 4 + 3
+
+/-- car/cdr extraction, retaining #t/#f versus numeric field indices. -/
+def observe (pair : Pair) : Option Row :=
+  match pair.second with
+  | .boolean true => some (.global (identity pair.first))
+  | .boolean false => some (.constant (identity pair.first))
+  | .number index => match pair.first with
+      | .number base => some (.closure base index)
+      | _ => none
+  | .key _ => none
+
+/-- Only the allocated vector prefix is observed. Capacity cells are not rows. -/
+def extract : Nat → List (Option Pair) → Option (List Row)
+  | 0, _ => some []
+  | _ + 1, [] => none
+  | _ + 1, none :: _ => none
+  | count + 1, some pair :: rest => do
+      let row ← observe pair
+      let rows ← extract count rest
+      some (row :: rows)
+
+theorem extract_size {count : Nat} {slots : List (Option Pair)} {rows : List Row}
+    (snapshot : extract count slots = some rows) : rows.length = count ∧ count ≤ slots.length := by
+  induction count generalizing slots rows with
+  | zero => simp [extract] at snapshot; subst rows; simp
+  | succ count ih =>
+    cases slots with
+    | nil => simp [extract] at snapshot
+    | cons slot rest =>
+      cases slot with
+      | none => simp [extract] at snapshot
+      | some pair =>
+        cases decoded : observe pair with
+        | none => simp [extract, decoded] at snapshot
+        | some row =>
+          cases extracted : extract count rest with
+          | none => simp [extract, decoded, extracted] at snapshot
+          | some tailRows =>
+            simp [extract, decoded, extracted] at snapshot
+            subst rows
+            obtain ⟨length, bound⟩ := ih extracted
+            simp only [List.length_cons]; omega
+
+theorem extract_read {count : Nat} {slots : List (Option Pair)} {rows : List Row}
+    (snapshot : extract count slots = some rows) {index : Nat} {row : Row}
+    (selected : rows[index]? = some row) :
+    ∃ pair, slots[index]? = some (some pair) ∧ observe pair = some row := by
+  induction count generalizing slots rows index with
+  | zero => simp [extract] at snapshot; subst rows; simp at selected
+  | succ count ih =>
+    cases slots with
+    | nil => simp [extract] at snapshot
+    | cons slot rest =>
+      cases slot with
+      | none => simp [extract] at snapshot
+      | some pair =>
+        cases decoded : observe pair with
+        | none => simp [extract, decoded] at snapshot
+        | some first =>
+          cases extracted : extract count rest with
+          | none => simp [extract, decoded, extracted] at snapshot
+          | some tailRows =>
+            simp [extract, decoded, extracted] at snapshot
+            subst rows
+            cases index with
+            | zero => simp at selected; subst row; exact ⟨pair, rfl, decoded⟩
+            | succ index =>
+              obtain ⟨pair, read, observation⟩ := ih extracted selected
+              exact ⟨pair, read, observation⟩
+
+theorem extract_suffix (count : Nat) (slots suffix : List (Option Pair))
+    (bound : count ≤ slots.length) : extract count (slots ++ suffix) = extract count slots := by
+  induction count generalizing slots with
+  | zero => rfl
+  | succ count ih =>
+    cases slots with
+    | nil => simp at bound
+    | cons slot rest =>
+      cases slot with
+      | none => rfl
+      | some pair => simp [extract, ih rest (by simpa using bound)]
+
+/-- extend-opnd-table! uses floor(3*n/2)+1 and copies every existing cell. -/
+def grow (slots : List (Option Pair)) : List (Option Pair) :=
+  slots ++ List.replicate (slots.length / 2 + 1) none
+
+theorem grow_size (slots : List (Option Pair)) :
+    (grow slots).length = 3 * slots.length / 2 + 1 := by simp [grow]; omega
+
+theorem grow_snapshot {count : Nat} {slots : List (Option Pair)} {rows : List Row}
+    (snapshot : extract count slots = some rows) : extract count (grow slots) = some rows := by
+  rw [grow, extract_suffix count slots _ (extract_size snapshot).2, snapshot]
+
+theorem write_next {count : Nat} {slots : List (Option Pair)} {rows : List Row}
+    (snapshot : extract count slots = some rows) (capacity : count < slots.length)
+    (pair : Pair) {row : Row} (observed : observe pair = some row) :
+    extract (count + 1) (slots.set count (some pair)) = some (rows ++ [row]) := by
+  induction count generalizing slots rows with
+  | zero =>
+    simp [extract] at snapshot; subst rows
+    cases slots with
+    | nil => simp at capacity
+    | cons slot rest => simp [extract, observed]
+  | succ count ih =>
+    cases slots with
+    | nil => simp at capacity
+    | cons slot rest =>
+      cases slot with
+      | none => simp [extract] at snapshot
+      | some first =>
+        cases decoded : observe first with
+        | none => simp [extract, decoded] at snapshot
+        | some head =>
+          cases extracted : extract count rest with
+          | none => simp [extract, decoded, extracted] at snapshot
+          | some tailRows =>
+            simp [extract, decoded, extracted] at snapshot
+            subst rows
+            simp [extract, decoded, ih extracted (by simpa using capacity)]
+
+/-- Native alloc increment, optional growth and vector-set! at the old count. -/
+def append (count : Nat) (slots : List (Option Pair)) (pair : Pair) : List (Option Pair) :=
+  (if count < slots.length then slots else grow slots).set count (some pair)
+
+theorem append_snapshot {count : Nat} {slots : List (Option Pair)} {rows : List Row}
+    (snapshot : extract count slots = some rows) (pair : Pair) {row : Row}
+    (observed : observe pair = some row) :
+    extract (count + 1) (append count slots pair) = some (rows ++ [row]) := by
+  by_cases spare : count < slots.length
+  · simpa [append, spare] using write_next snapshot spare pair observed
+  · have bound := (extract_size snapshot).2
+    have grown : count < (grow slots).length := by simp [grow]; omega
+    simpa [append, spare] using write_next (grow_snapshot snapshot) grown pair observed
+end Table
+
 /-- Resolved register/STK/global/CLO destinations. A closure base is a decoded
 pointer address; recursive operand evaluation and typed base validation follow
 below. A raw base code is never used directly as a physical closure address. -/
@@ -289,6 +443,7 @@ structure ABI where
 structure Heap where
   hp : Nat
   limit : Nat
+  extent : Nat
   cells : Nat → Option Cell
 
 def store (cells : Nat → Option Cell) (address : Nat) (value : Cell) : Nat → Option Cell :=
@@ -297,7 +452,7 @@ def store (cells : Nat → Option Cell) (address : Nat) (value : Cell) : Nat →
 /-- ALLOC_ALIGN64(2) advances hp, then the macro writes hp[-2] and hp[-1]. -/
 def allocate (abi : ABI) (heap : Heap) (bits : BitVec 64) : Heap :=
   let advanced := heap.hp + 2
-  ⟨advanced, heap.limit, store (store heap.cells (advanced - 2) (.header abi.header)) (advanced - 1) (.bits bits)⟩
+  ⟨advanced, heap.limit, max heap.extent advanced, store (store heap.cells (advanced - 2) (.header abi.header)) (advanced - 1) (.bits bits)⟩
 
 def tagged (abi : ABI) (heap : Heap) : Nat := heap.hp * 8 + abi.tag
 
@@ -305,7 +460,9 @@ def body (abi : ABI) (pointer : Nat) : Nat := (pointer - abi.tag) / 8 + 1
 
 def Ready (heap : Heap) : Prop := heap.hp + 2 ≤ heap.limit
 
-def Fresh (heap : Heap) : Prop := ∀ address, heap.hp ≤ address → heap.cells address = none
+/-- Ownership of the current section tail only. Other sections may contain live
+objects at either lower or higher addresses. -/
+def Fresh (heap : Heap) : Prop := ∀ address, heap.hp ≤ address → address < heap.limit → heap.cells address = none
 
 theorem allocated_header (abi : ABI) (heap : Heap) (bits : BitVec 64) :
     (allocate abi heap bits).cells heap.hp = some (.header abi.header) := by simp [allocate, store]
@@ -325,33 +482,81 @@ theorem old_cell_retained (abi : ABI) (heap : Heap) (bits : BitVec 64) {address 
 
 theorem allocated_fresh (abi : ABI) {heap : Heap} (fresh : Fresh heap) (bits : BitVec 64) :
     Fresh (allocate abi heap bits) := by
-  intro address later
+  intro address later inside
   have headerDifferent : address ≠ heap.hp := by simp only [allocate] at later; omega
   have payloadDifferent : address ≠ heap.hp + 1 := by simp only [allocate] at later; omega
-  simpa [allocate, store, headerDifferent, payloadDifferent] using fresh address (by simp only [allocate] at later; omega)
+  simpa [allocate, store, headerDifferent, payloadDifferent] using fresh address (by simp only [allocate] at later; omega) inside
 
 theorem allocation_within_segment (abi : ABI) {heap : Heap} (ready : Ready heap) (bits : BitVec 64) :
     (allocate abi heap bits).hp ≤ heap.limit := ready
 
-theorem allocation_identity (abi : ABI) {heap : Heap} (fresh : Fresh heap) (bits : BitVec 64) :
+/-- Local section ownership preserves every existing cell, including live
+objects in a different section above the current hp. -/
+theorem allocated_cell_retained (abi : ABI) {heap : Heap} (ready : Ready heap) (fresh : Fresh heap)
+    (bits : BitVec 64) {address : Nat} {cell : Cell} (read : heap.cells address = some cell) :
+    (allocate abi heap bits).cells address = some cell := by
+  have headerDifferent : address ≠ heap.hp := by
+    intro equal
+    have vacant := fresh address (by omega) (by unfold Ready at ready; omega)
+    rw [vacant] at read; cases read
+  have payloadDifferent : address ≠ heap.hp + 1 := by
+    intro equal
+    have vacant := fresh address (by omega) (by unfold Ready at ready; omega)
+    rw [vacant] at read; cases read
+  simp [allocate, store, headerDifferent, payloadDifferent, read]
+
+theorem allocation_identity (abi : ABI) {heap : Heap} (ready : Ready heap) (fresh : Fresh heap) (bits : BitVec 64) :
     heap.cells heap.hp = none ∧ (allocate abi heap bits).cells heap.hp = some (.header abi.header) ∧
       (allocate abi heap bits).cells (heap.hp + 1) = some (.bits bits) := by
-  refine ⟨fresh _ (Nat.le_refl _), allocated_header abi heap bits, ?_⟩
+  refine ⟨fresh _ (Nat.le_refl _) (by unfold Ready at ready; omega), allocated_header abi heap bits, ?_⟩
   simpa [body, tagged] using allocated_payload abi heap bits
 
-def initial (capacity : Nat) : Heap := ⟨0, capacity, fun _ => none⟩
+def initial (capacity : Nat) : Heap := ⟨0, capacity, capacity, fun _ => none⟩
 
-theorem initial_fresh (capacity : Nat) : Fresh (initial capacity) := by intro address later; rfl
+theorem initial_fresh (capacity : Nat) : Fresh (initial capacity) := by intro address later inside; rfl
+
+/-- Native msection selection changes the active allocation interval, not the
+addresses or contents of existing objects. Free-list ownership supplies the
+vacant new interval; it need not lie above the previous hp. -/
+def selectSection (heap : Heap) (start stop : Nat) : Heap := ⟨start, stop, max heap.extent stop, heap.cells⟩
+
+def SectionFree (heap : Heap) (start stop : Nat) : Prop :=
+  ∀ address, start ≤ address → address < stop → heap.cells address = none
+
+theorem selected_fresh (heap : Heap) (start stop : Nat) (free : SectionFree heap start stop) :
+    Fresh (selectSection heap start stop) := free
+
+theorem selected_retains (heap : Heap) (start stop address : Nat) :
+    (selectSection heap start stop).cells address = heap.cells address := rfl
 
 inductive Trace (abi : ABI) : Heap → Heap → Prop where
   | refl (heap) : Trace abi heap heap
   | box {before after} : Trace abi before after → Ready after → (bits : BitVec 64) → Trace abi before (allocate abi after bits)
+  | switchSection {before after} : Trace abi before after → (start stop : Nat) → SectionFree after start stop →
+      Trace abi before (selectSection after start stop)
 
 theorem trace_fresh {abi : ABI} {before after : Heap} (fresh : Fresh before)
     (history : Trace abi before after) : Fresh after := by
   induction history with
   | refl => exact fresh
   | box _ ready bits ih => exact allocated_fresh abi ih bits
+  | switchSection _ start stop free _ => exact selected_fresh _ start stop free
+
+/-- The active cursor can move backwards; the whole-heap snapshot extent cannot. -/
+theorem trace_extent {abi : ABI} {before after : Heap} (history : Trace abi before after) :
+    before.extent ≤ after.extent := by
+  induction history with
+  | refl => exact Nat.le_refl _
+  | box earlier ready bits ih => simp only [allocate]; omega
+  | switchSection earlier start stop free ih => simp only [selectSection]; omega
+
+theorem trace_retains {abi : ABI} {before after : Heap} (fresh : Fresh before)
+    (history : Trace abi before after) {address : Nat} {cell : Cell}
+    (read : before.cells address = some cell) : after.cells address = some cell := by
+  induction history with
+  | refl => exact read
+  | box earlier ready bits ih => exact allocated_cell_retained abi ready (trace_fresh fresh earlier) bits ih
+  | switchSection _ start stop free ih => exact ih
 
 theorem tagged_fits {abi : ABI} {heap : Heap} (ready : Ready heap)
     (capacity : heap.limit * 8 + abi.tag < 2 ^ 64) : tagged abi heap < 2 ^ 64 := by
@@ -376,12 +581,331 @@ theorem cache_allocation_root {rows : List (Option Cache.Entry)} {counter locati
       (allocate abi heap bits).cells (heap.hp + 1) = some (.bits bits) ∧
       heap.hp ∈ Roots.frame (FrameMaps.generate 1 0 flags) 0 (Slots.scanWords written base size) := by
   dsimp
-  refine ⟨fresh _ (Nat.le_refl _), allocation_within_segment abi ready _, ?_, ?_⟩
+  refine ⟨fresh _ (Nat.le_refl _) (by unfold Ready at ready; omega), allocation_within_segment abi ready _, ?_, ?_⟩
   · simpa [body, tagged] using allocated_payload abi heap (BitVec.ofNat 64 entry.payload)
   · simpa [pointer_header] using
       (Cache.dirty_spill_signed history selected dirty (fun _ => Roots.Word.reference heap.hp) rfl
         memory stack base fp positive live inside).2
 end Boxing
+
+namespace HeapCheck
+/-- C returns 0 after reuse/growth; nonzero requests collection. Overflow is
+reported only if collection also returns nonzero. The collector itself remains
+an explicit relation, not an assumed success flag. -/
+inductive Result where | resume | overflow
+  deriving DecidableEq, Repr
+
+def dispatch (hp threshold : Nat) (limitRequestsGC collectionOverflows : Bool) : Result :=
+  if hp > threshold then
+    if limitRequestsGC && collectionOverflows then .overflow else .resume
+  else .resume
+
+def invokesCollection (hp threshold : Nat) (limitRequestsGC : Bool) : Bool :=
+  decide (hp > threshold) && limitRequestsGC
+
+theorem overflow_exact (hp threshold : Nat) (limitRequestsGC collectionOverflows : Bool) :
+    dispatch hp threshold limitRequestsGC collectionOverflows = .overflow ↔
+      hp > threshold ∧ limitRequestsGC = true ∧ collectionOverflows = true := by
+  unfold dispatch
+  split <;> cases limitRequestsGC <;> cases collectionOverflows <;> simp_all
+
+theorem no_gc_on_reuse (hp threshold : Nat) : invokesCollection hp threshold false = false := by
+  simp [invokesCollection]
+
+theorem equality_does_not_trip (threshold : Nat) (limitRequestsGC collectionOverflows : Bool) :
+    dispatch threshold threshold limitRequestsGC collectionOverflows = .resume ∧
+      invokesCollection threshold threshold limitRequestsGC = false := by simp [dispatch, invokesCollection]
+
+/-- The native heap handler saves every GVM register, not just the entries
+selected by the caller's ordinary liveness map. Return metadata is separate. -/
+def savedRoots (registers stack : List Roots.Word) : List Nat := Roots.references (registers ++ stack)
+
+theorem saved_register {registers stack : List Roots.Word} {index address : Nat}
+    (read : registers[index]? = some (.reference address)) : address ∈ savedRoots registers stack := by
+  apply (Roots.reference_member _ _).mpr
+  exact List.mem_append_left _ (List.mem_iff_getElem?.mpr ⟨index, read⟩)
+
+/-- Unlike Roots.decode's pointer-only projection, this snapshot retains all
+64 payload bits in atom cells. Non-object/interior locations have no fields. -/
+def objectAt (heap : Boxing.Heap) (address : Nat) : Operational.Heap.Cell (BitVec 64) :=
+  match heap.cells address, heap.cells (address + 1) with
+  | some (.header _), some (.bits bits) => .atom bits
+  | _, _ => .vector []
+
+def snapshot (heap : Boxing.Heap) : Operational.Heap.Store (BitVec 64) :=
+  (List.range heap.extent).map (objectAt heap)
+
+/-- Switching to a lower section must not truncate higher-address live objects
+out of the collector's snapshot. -/
+theorem selected_snapshot_retains (heap : Boxing.Heap) (start stop address : Nat)
+    (inside : address < heap.extent) :
+    (snapshot (Boxing.selectSection heap start stop))[address]? = (snapshot heap)[address]? := by
+  have afterInside : address < (Boxing.selectSection heap start stop).extent := by
+    simp only [Boxing.selectSection]; omega
+  unfold snapshot
+  rw [List.getElem?_map, List.getElem?_map, List.getElem?_range afterInside, List.getElem?_range inside]
+  rfl
+
+theorem allocated_object (abi : Boxing.ABI) (heap : Boxing.Heap) (bits : BitVec 64) :
+    (snapshot (Boxing.allocate abi heap bits))[heap.hp]? = some (.atom bits) := by
+  have inside : heap.hp < (Boxing.allocate abi heap bits).extent := by simp [Boxing.allocate]; omega
+  have payload : (Boxing.allocate abi heap bits).cells (heap.hp + 1) = some (.bits bits) := by
+    simpa [Boxing.body, Boxing.tagged] using Boxing.allocated_payload abi heap bits
+  simp [snapshot, List.getElem?_map, List.getElem?_range inside, objectAt,
+    Boxing.allocated_header, payload]
+
+/-- Conditional native slow-path composition: allocation derives the object
+contents; root saving derives admission; the existing relocation contract
+preserves its exact bits. No native GC byte-copy correctness is asserted. -/
+theorem boxed_register_survives (abi : Boxing.ABI) (heap : Boxing.Heap) (bits : BitVec 64)
+    (registers stack : List Roots.Word) {index : Nat}
+    (held : registers[index]? = some (.reference heap.hp))
+    {after : Operational.Heap.Store (BitVec 64)}
+    (collection : Operational.Collection.Relocation (snapshot (Boxing.allocate abi heap bits)) after
+      (savedRoots registers stack)) :
+    after[collection.address heap.hp]? = some (.atom bits) := by
+  simpa [Operational.Collection.renameCell] using collection.copied heap.hp (.atom bits)
+    (Operational.Collection.Reachable.root (saved_register held)) (allocated_object abi heap bits)
+end HeapCheck
+
+namespace CacheExecution
+/-- The actual cache vector stores only location, dirty flag and stamp. Payload
+bits live in F64V<stamp> in the active fresh-variable target mode. The
+inactive reused-register/stack mode requires a different index adapter. -/
+def decodeEntry (unboxed : Nat → Nat) : List Operand.Table.Atom → Option Cache.Entry
+  | [.number location, .boolean dirty, .number stamp] =>
+      some ⟨location, dirty, stamp, unboxed stamp⟩
+  | _ => none
+
+theorem decoded_payload (unboxed : Nat → Nat) (location stamp : Nat) (dirty : Bool) :
+    decodeEntry unboxed [.number location, .boolean dirty, .number stamp] =
+      some ⟨location, dirty, stamp, unboxed stamp⟩ := rfl
+
+/-- False capacity slots stay false; each actual entry must have all three
+native fields before it can enter an execution snapshot. -/
+def decodeRows (unboxed : Nat → Nat) : List (Option (List Operand.Table.Atom)) → Option (List (Option Cache.Entry))
+  | [] => some []
+  | none :: rest => do let rows ← decodeRows unboxed rest; some (none :: rows)
+  | some atoms :: rest => do
+      let entry ← decodeEntry unboxed atoms
+      let rows ← decodeRows unboxed rest
+      some (some entry :: rows)
+
+theorem decoded_shape (unboxed : Nat → Nat) {atoms : List Operand.Table.Atom} {entry : Cache.Entry}
+    (decoded : decodeEntry unboxed atoms = some entry) :
+    ∃ location dirty stamp, atoms = [.number location, .boolean dirty, .number stamp] ∧
+      entry = ⟨location, dirty, stamp, unboxed stamp⟩ := by
+  unfold decodeEntry at decoded
+  split at decoded
+  next location dirty stamp => exact ⟨location, dirty, stamp, rfl, Option.some.inj decoded.symm⟩
+  next => cases decoded
+
+/-- Exact physical dirty-field mutation and early return of the native loop. -/
+def flushRows (location : Nat) : List (Option (List Operand.Table.Atom)) →
+    List (Option (List Operand.Table.Atom)) × Option (List Operand.Table.Atom)
+  | [] => ([], none)
+  | some [.number key, .boolean true, .number stamp] :: rest =>
+      if key = location then
+        (some [.number key, .boolean false, .number stamp] :: rest,
+          some [.number key, .boolean true, .number stamp])
+      else let (rows, event) := flushRows location rest
+           (some [.number key, .boolean true, .number stamp] :: rows, event)
+  | first :: rest => let (rows, event) := flushRows location rest; (first :: rows, event)
+
+theorem physical_flush (unboxed : Nat → Nat) (location : Nat)
+    {physical : List (Option (List Operand.Table.Atom))} {rows : List (Option Cache.Entry)}
+    (snapshot : decodeRows unboxed physical = some rows) :
+    decodeRows unboxed (flushRows location physical).1 = some (Cache.flush location rows).1 ∧
+      (flushRows location physical).2.bind (decodeEntry unboxed) = (Cache.flush location rows).2 := by
+  induction physical generalizing rows with
+  | nil => simp [decodeRows] at snapshot; subst rows; simp [flushRows, decodeRows, Cache.flush]
+  | cons first rest ih =>
+    cases first with
+    | none =>
+      cases tailSnapshot : decodeRows unboxed rest with
+      | none => simp [decodeRows, tailSnapshot] at snapshot
+      | some tailRows =>
+        simp [decodeRows, tailSnapshot] at snapshot; subst rows
+        obtain ⟨updated, event⟩ := ih tailSnapshot
+        simp [flushRows, decodeRows, Cache.flush, updated, event]
+    | some atoms =>
+      cases entryDecoded : decodeEntry unboxed atoms with
+      | none => simp [decodeRows, entryDecoded] at snapshot
+      | some entry =>
+        cases tailSnapshot : decodeRows unboxed rest with
+        | none => simp [decodeRows, entryDecoded, tailSnapshot] at snapshot
+        | some tailRows =>
+          simp [decodeRows, entryDecoded, tailSnapshot] at snapshot; subst rows
+          obtain ⟨key, dirty, stamp, shape, payload⟩ := decoded_shape unboxed entryDecoded
+          subst atoms; subst entry
+          obtain ⟨updated, event⟩ := ih tailSnapshot
+          cases dirty with
+          | false => simp [flushRows, decodeRows, decodeEntry, Cache.flush, updated, event]
+          | true =>
+            by_cases hit : key = location
+            · simp [flushRows, decodeRows, decodeEntry, Cache.flush, hit, Cache.clean, tailSnapshot]
+            · simp [flushRows, decodeRows, decodeEntry, Cache.flush, hit, updated, event]
+
+def invalidateRows (location : Nat) : List (Option (List Operand.Table.Atom)) →
+    List (Option (List Operand.Table.Atom))
+  | [] => []
+  | some (.number key :: fields) :: rest =>
+      (if key = location then none else some (.number key :: fields)) :: invalidateRows location rest
+  | first :: rest => first :: invalidateRows location rest
+
+theorem physical_invalidate (unboxed : Nat → Nat) (location : Nat)
+    {physical : List (Option (List Operand.Table.Atom))} {rows : List (Option Cache.Entry)}
+    (snapshot : decodeRows unboxed physical = some rows) :
+    decodeRows unboxed (invalidateRows location physical) = some (Cache.invalidate location rows) := by
+  induction physical generalizing rows with
+  | nil => simp [decodeRows] at snapshot; subst rows; rfl
+  | cons first rest ih =>
+    cases first with
+    | none =>
+      cases tailSnapshot : decodeRows unboxed rest with
+      | none => simp [decodeRows, tailSnapshot] at snapshot
+      | some tailRows =>
+        simp [decodeRows, tailSnapshot] at snapshot; subst rows
+        simp [invalidateRows, decodeRows, Cache.invalidate, ih tailSnapshot]
+    | some atoms =>
+      cases entryDecoded : decodeEntry unboxed atoms with
+      | none => simp [decodeRows, entryDecoded] at snapshot
+      | some entry =>
+        cases tailSnapshot : decodeRows unboxed rest with
+        | none => simp [decodeRows, entryDecoded, tailSnapshot] at snapshot
+        | some tailRows =>
+          simp [decodeRows, entryDecoded, tailSnapshot] at snapshot; subst rows
+          obtain ⟨key, dirty, stamp, shape, payload⟩ := decoded_shape unboxed entryDecoded
+          subst atoms; subst entry
+          by_cases hit : key = location <;>
+            simp [invalidateRows, decodeRows, decodeEntry, Cache.invalidate, hit, ih tailSnapshot]
+
+/-- The record's reported size is updated only on physical vector growth in
+this native producer. Hole reuse does not increment it. Do not identify it
+with live occupancy when importing heap-reservation bounds. -/
+def enterReported (state : Nat × List (Option Cache.Entry)) (entry : Cache.Entry) :
+    Nat × List (Option Cache.Entry) :=
+  (if none ∈ state.2 then state.1 else state.2.length + 1,
+    Cache.insert state.2.length entry state.2)
+
+theorem reported_size_is_not_occupancy_bound :
+    let first := enterReported (0, []) ⟨0, true, 1, 11⟩
+    let second := enterReported first ⟨8, true, 2, 22⟩
+    let third := enterReported second ⟨16, true, 3, 33⟩
+    third.1 = 2 ∧ (third.2.filterMap id).length = 3 := by decide
+
+structure State where
+  rows : List (Option Cache.Entry)
+  memory : Nat → Roots.Word
+  heap : Boxing.Heap
+
+def put (memory : Nat → Roots.Word) (location : Nat) (value : Roots.Word) : Nat → Roots.Word :=
+  fun query => if query = location then value else memory query
+
+/-- Runtime denotation of emitted dirty writeback before targ-opnd's read. -/
+def read (abi : Boxing.ABI) (state : State) (location : Nat) : State :=
+  let (rows, event) := Cache.flush location state.rows
+  match event with
+  | none => { state with rows := rows }
+  | some entry =>
+      { rows := rows
+        memory := put state.memory entry.location (.reference state.heap.hp)
+        heap := Boxing.allocate abi state.heap (BitVec.ofNat 64 entry.payload) }
+
+/-- Only emitted backend copies execute here; frontend self-copy elision is a
+separate step. The destination invalidation follows the materialized source. -/
+def copy (abi : Boxing.ABI) (state : State) (source target : Nat) : State :=
+  let fetched := read abi state source
+  { fetched with rows := Cache.invalidate target fetched.rows
+                 memory := put fetched.memory target (fetched.memory source) }
+
+theorem read_rows (abi : Boxing.ABI) (state : State) (location : Nat) :
+    (read abi state location).rows = (Cache.flush location state.rows).1 := by
+  cases flushed : Cache.flush location state.rows with
+  | mk rows event => cases event <;> simp [read, flushed]
+
+theorem physical_copy_rows (abi : Boxing.ABI) (unboxed : Nat → Nat) (state : State)
+    (source target : Nat) {physical : List (Option (List Operand.Table.Atom))}
+    (snapshot : decodeRows unboxed physical = some state.rows) :
+    decodeRows unboxed (invalidateRows target (flushRows source physical).1) =
+      some (copy abi state source target).rows := by
+  simpa [copy, read_rows] using physical_invalidate unboxed target (physical_flush unboxed source snapshot).1
+
+theorem lookup_location {rows : List (Option Cache.Entry)} {location : Nat} {entry : Cache.Entry}
+    (selected : Cache.lookup location rows = some entry) : entry.location = location := by
+  induction rows with
+  | nil => simp [Cache.lookup] at selected
+  | cons cell rest ih =>
+    cases cell with
+    | none => exact ih selected
+    | some old =>
+      by_cases hit : old.location = location
+      · simp [Cache.lookup, hit] at selected; subst entry; exact hit
+      · exact ih (by simpa [Cache.lookup, hit] using selected)
+
+theorem dirty_copy (abi : Boxing.ABI) (state : State) {counter source : Nat} (target : Nat)
+    (history : Cache.Trace counter state.rows) {entry : Cache.Entry}
+    (selected : Cache.lookup source state.rows = some entry) (dirty : entry.dirty = true)
+    (ready : Boxing.Ready state.heap) (fresh : Boxing.Fresh state.heap) :
+    let after := copy abi state source target
+    after.memory target = .reference state.heap.hp ∧
+      after.heap.cells (state.heap.hp + 1) = some (.bits (BitVec.ofNat 64 entry.payload)) ∧
+      after.heap.hp ≤ state.heap.limit ∧ Boxing.Fresh after.heap ∧
+      Cache.lookup target after.rows = none ∧ Cache.Trace counter after.rows := by
+  have event := (Cache.flush_refines (location := source) state.rows (Cache.trace_unique history)).1
+  simp [selected, dirty, Option.filter] at event
+  have location := lookup_location selected
+  dsimp only [copy, read]
+  simp only [event]
+  refine ⟨?_, ?_, Boxing.allocation_within_segment abi ready _, Boxing.allocated_fresh abi fresh _,
+    Cache.invalidate_absent _ _, Cache.Trace.invalidate (Cache.Trace.flush history source) target⟩
+  · simp [put, location]
+  · simpa [Boxing.body, Boxing.tagged] using Boxing.allocated_payload abi state.heap (BitVec.ofNat 64 entry.payload)
+
+theorem clean_read_no_allocation (abi : Boxing.ABI) (state : State) (location : Nat)
+    (noEvent : (Cache.flush location state.rows).2 = none) :
+    (read abi state location).heap = state.heap ∧ (read abi state location).memory = state.memory := by
+  simp [read, noEvent]
+
+/-- The writes of a copy preserve every location other than its source and
+its destination. Aliasing source/destination is allowed. -/
+theorem copy_other (abi : Boxing.ABI) (state : State) (source target query : Nat)
+    (history : Cache.Unique state.rows) (notSource : query ≠ source) (notTarget : query ≠ target) :
+    (copy abi state source target).memory query = state.memory query := by
+  have event := (Cache.flush_refines (location := source) state.rows history).1
+  cases selected : Cache.lookup source state.rows with
+  | none => simp [selected] at event; simp [copy, read, event, put, notTarget]
+  | some entry =>
+    have location := lookup_location selected
+    cases dirty : entry.dirty with
+    | false => simp [selected, dirty, Option.filter] at event; simp [copy, read, event, put, notTarget]
+    | true =>
+      simp [selected, dirty, Option.filter] at event
+      simp [copy, read, event, put, location, notSource, notTarget]
+/-- One chain from a history-derived dirty source, through emitted backend copy,
+to an exact-bit collector snapshot rooted by the copied register. -/
+theorem copy_collection (abi : Boxing.ABI) (state : State) {counter source : Nat} (target : Nat)
+    (history : Cache.Trace counter state.rows) {entry : Cache.Entry}
+    (selected : Cache.lookup source state.rows = some entry) (dirty : entry.dirty = true)
+    (ready : Boxing.Ready state.heap) (fresh : Boxing.Fresh state.heap)
+    (stack : List Roots.Word) {after : Operational.Heap.Store (BitVec 64)}
+    (collection : Operational.Collection.Relocation (HeapCheck.snapshot (copy abi state source target).heap)
+      after (HeapCheck.savedRoots [(copy abi state source target).memory target] stack)) :
+    after[collection.address state.heap.hp]? = some (.atom (BitVec.ofNat 64 entry.payload)) := by
+  have value := (dirty_copy abi state target history selected dirty ready fresh).1
+  have event := (Cache.flush_refines (location := source) state.rows (Cache.trace_unique history)).1
+  simp [selected, dirty, Option.filter] at event
+  have heapEq : (copy abi state source target).heap = Boxing.allocate abi state.heap (BitVec.ofNat 64 entry.payload) := by
+    simp [copy, read, event]
+  have saved : state.heap.hp ∈ HeapCheck.savedRoots [(copy abi state source target).memory target] stack :=
+    HeapCheck.saved_register (index := 0) (by simpa using value)
+  have objectRead : (HeapCheck.snapshot (copy abi state source target).heap)[state.heap.hp]? =
+      some (.atom (BitVec.ofNat 64 entry.payload)) := by
+    rw [heapEq]; exact HeapCheck.allocated_object abi state.heap _
+  simpa [Operational.Collection.renameCell] using collection.copied state.heap.hp _
+    (Operational.Collection.Reachable.root saved) objectRead
+
+end CacheExecution
 
 namespace Contended
 /-- Separate payload-read satisfaction from the later ticket observation. This

@@ -774,4 +774,114 @@ module GrammarPipeline {
     firstPoll.stage == "held" and firstPoll.published > epochAtAllocation
   })
 
+  type PhysicalOperandPair = {present:bool,firstKind:int,firstValue:int,secondKind:int,secondValue:int}
+  pure val unusedOperand:PhysicalOperandPair = {present:false,firstKind:0,firstValue:0,secondKind:0,secondValue:0}
+  pure def observeOperandPair(pair:PhysicalOperandPair):List[NativeOperandRow] = {
+    val identity = if(pair.firstKind == 0) pair.firstValue else pair.firstValue * 4 + pair.firstKind + 1
+    if(not(pair.present)) List()
+    else if(pair.secondKind == 0 and pair.secondValue == 1) List({kind:3,first:identity,second:0})
+    else if(pair.secondKind == 0 and pair.secondValue == 0) List({kind:5,first:identity,second:0})
+    else if(pair.secondKind == 1 and pair.firstKind == 1)
+      List({kind:4,first:pair.firstValue,second:pair.secondValue})
+    else List()
+  }
+  pure def extractOperandPrefix(slots:List[PhysicalOperandPair],count:int):{ok:bool,rows:List[NativeOperandRow]} =
+    if(count < 0 or count > slots.length()) {ok:false,rows:List()} else
+    slots.slice(0,count).foldl({ok:true,rows:List()},(s,pair) => {
+      val observed = observeOperandPair(pair)
+      {ok:s.ok and observed.length() == 1,rows:s.rows.concat(observed)}
+    })
+  pure def appendOperand(slots:List[PhysicalOperandPair],count:int,pair:PhysicalOperandPair):List[PhysicalOperandPair] = {
+    val expanded = if(count < slots.length()) slots else
+      0.to(slots.length() / 2).fold(slots,(rows,index) => rows.append(unusedOperand))
+    expanded.replaceAt(count,pair)
+  }
+  run allocatedOperandPrefixIgnoresCapacityAndRetainsPairMarkersTest = init.expect({
+    val globalPair = {present:true,firstKind:2,firstValue:9,secondKind:0,secondValue:1}
+    val constantPair = {...globalPair,secondValue:0}
+    val closurePair = {...globalPair,firstKind:1,firstValue:0,secondKind:1,secondValue:1}
+    val physical = List(globalPair,constantPair,closurePair,unusedOperand,globalPair)
+    val snapshot = extractOperandPrefix(physical,3)
+    snapshot.ok and snapshot.rows.length() == 3 and
+      snapshot.rows.nth(0).kind == 3 and snapshot.rows.nth(1).kind == 5 and
+      snapshot.rows.nth(2) == {kind:4,first:0,second:1} and
+      not(extractOperandPrefix(physical,4).ok) and not(extractOperandPrefix(physical,6).ok)
+  })
+  run physicalOperandAppendGrowsAndPreservesAllocatedRowsTest = init.expect({
+    val pair = {present:true,firstKind:2,firstValue:9,secondKind:0,secondValue:0}
+    0.to(8).forall(capacity => {
+      val full = if(capacity == 0) List() else 0.to(capacity - 1).fold(List(),(rows,index) => rows.append(pair))
+      val appended = appendOperand(full,capacity,pair)
+      appended.length() == 3 * capacity / 2 + 1 and appended.slice(0,capacity) == full and
+        extractOperandPrefix(appended,capacity + 1).ok
+    })
+  })
+  run malformedOperandPairCannotBecomeAValidSnapshotTest = init.expect({
+    val wrongBase = {present:true,firstKind:2,firstValue:0,secondKind:1,secondValue:1}
+    val wrongMarker = {...wrongBase,secondKind:2}
+    not(extractOperandPrefix(List(wrongBase),1).ok) and
+      not(extractOperandPrefix(List(wrongMarker),1).ok)
+  })
+  type CopyCacheState = {rows:List[FpCell],memory:List[int],hp:int,heap:List[BoxCell]}
+  pure def readBoxedCache(s:CopyCacheState,source:int):CopyCacheState = {
+    val flushed = flushFp(s.rows,source)
+    if(flushed.events.length() == 0) {...s,rows:flushed.rows}
+    else {...s,rows:flushed.rows,memory:s.memory.replaceAt(source,s.hp),hp:s.hp + 2,
+      heap:boxHeap(s.heap,flushed.events.nth(0).payload)}
+  }
+  pure def executeCacheCopy(s:CopyCacheState,source:int,target:int):CopyCacheState = {
+    val fetched = readBoxedCache(s,source)
+    {...fetched,rows:invalidateFp(fetched.rows,target),memory:fetched.memory.replaceAt(target,fetched.memory.nth(source))}
+  }
+  run dirtySourceIsBoxedBeforeCopyAndDestinationInvalidationTest = init.expect({
+    val source = {present:true,location:0,dirty:true,stamp:8,payload:123}
+    val target = {...source,location:1,stamp:9,payload:456}
+    val original = {rows:List(source,target),memory:List(-10,-20),hp:0,heap:List()}
+    val copied = executeCacheCopy(original,0,1)
+    copied.memory == List(0,0) and copied.hp == 2 and copied.heap.nth(1).bits == 123 and
+      probeFp(copied.rows,1) == List() and not(probeFp(copied.rows,0).nth(0).dirty) and
+      copied.memory.nth(1) != original.memory.nth(0)
+  })
+  run repeatedCleanReadDoesNotAllocateOrCopyStaleBoxedStorageTest = init.expect({
+    val source = {present:true,location:0,dirty:true,stamp:8,payload:123}
+    val original = {rows:List(source),memory:List(-10,-20),hp:0,heap:List()}
+    val first = executeCacheCopy(original,0,1)
+    val second = executeCacheCopy(first,0,1)
+    second.hp == first.hp and second.heap == first.heap and second.memory == first.memory
+  })
+  pure def heapCheck(hp:int,threshold:int,requestsGC:bool,overflow:bool):{collect:bool,overflow:bool} =
+    {collect:hp > threshold and requestsGC,overflow:hp > threshold and requestsGC and overflow}
+  run heapSlowPathShortCircuitsAndUsesStrictThresholdTest = init.expect(
+    heapCheck(10,10,true,true) == {collect:false,overflow:false} and
+      heapCheck(11,10,false,true) == {collect:false,overflow:false} and
+      heapCheck(11,10,true,false) == {collect:true,overflow:false} and
+      heapCheck(11,10,true,true) == {collect:true,overflow:true})
+
+  type SectionHeap = {hp:int,limit:int,cells:List[BoxCell]}
+  pure def selectBoxSection(s:SectionHeap,start:int,stop:int):SectionHeap = {...s,hp:start,limit:stop}
+  pure def freshBoxSection(s:SectionHeap):bool =
+    s.hp.to(s.limit - 1).forall(address => s.cells.nth(address).kind == "free")
+  pure def allocateInSection(s:SectionHeap,bits:int):SectionHeap =
+    {...s,hp:s.hp + 2,cells:s.cells.replaceAt(s.hp,{kind:"header",bits:2288}).replaceAt(s.hp + 1,{kind:"payload",bits:bits})}
+  run lowerAddressSectionAllocationRetainsEarlierHighAddressObjectsTest = init.expect({
+    val initialHeap = {hp:10,limit:12,cells:0.to(11).fold(List(),(cells,address) => cells.append({kind:"free",bits:0}))}
+    val highBox = allocateInSection(initialHeap,123)
+    val selected = selectBoxSection(highBox,2,4)
+    val lowerBox = allocateInSection(selected,456)
+    freshBoxSection(selected) and selected.cells.nth(11).kind == "payload" and
+      lowerBox.hp == 4 and lowerBox.cells.nth(3).bits == 456 and
+      lowerBox.cells.nth(10) == highBox.cells.nth(10) and lowerBox.cells.nth(11).bits == 123
+  })
+
+  pure def enterReportedCache(s:{reported:int,rows:List[FpCell]},entry:FpCell):{reported:int,rows:List[FpCell]} =
+    {reported:if(s.rows.foldl(false,(hole,cell) => hole or not(cell.present))) s.reported else s.rows.length() + 1,
+      rows:insertFp(s.rows,entry)}
+  run nativeReportedCacheSizeCannotStandInForOccupiedEntryCountTest = init.expect({
+    val first = {present:true,location:0,dirty:true,stamp:1,payload:11}
+    val second = {...first,location:8,stamp:2,payload:22}
+    val third = {...first,location:16,stamp:3,payload:33}
+    val entered = List(first,second,third).foldl({reported:0,rows:List()},(s,entry) => enterReportedCache(s,entry))
+    entered.reported == 2 and entered.rows.foldl(0,(count,cell) => count + (if(cell.present) 1 else 0)) == 3
+  })
+
 }

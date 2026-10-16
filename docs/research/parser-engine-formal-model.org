@@ -48,10 +48,10 @@ before selecting another runtime optimization.
 | Ordered chunk publication and unique reservation | Gambit =end_heap_chunk=, GCC =__sync= route and locked steal recheck | =Publication.trace_safe= covers arbitrary admitted histories; =reservation_visible= composes payload visibility with queued/held conservation; =distinct_reservations= excludes two adjacent claims of a unique queue head | Faithful C memory observations, immutable chunk/epoch decoding, acquire behavior and global queue uniqueness |
 | Native context construction and snapshots | Gambit =entry-context=, =restore-context=, =context->frame= and task split | =Contexts.assignments_valid= and =constructed_layout= derive slot validity from entry construction; task/parent and join length laws preserve it; cleared state has no publishable frame | Target label-info/name decoding, join displacement producer, return-address uniqueness and actual typed vector access |
 | Lowest-dead-slot register spilling | Gambit =lowest-dead-slot=, =live-slots= and =save-regs-to-stk= | =Spill.chosen_dead= and =saved_read= derive destination validity; =live_read_preserved= and =all_live_retained= cover arbitrary repeated saves with growth | Decode selected register reads and live variables, metadata updates and return-address movement; connect the actual instruction emitter to the derived copy sequence |
-| Dirty cache materialization and invalidation | Active =targ-fp-cache-*= and =targ-loc-no-invalidate= in the C target | =Cache.trace_unique=, =trace_bound= and =new_stamp_fresh= derive lifecycle invariants; =history_dirty_read= and =dirty_spill_signed= connect first dirty writeback to physical slots and signed root scanning | Operand.encode_decode and Boxing.cache_allocation_root now connect tagged storage and heap payloads; native equality/table extraction, unboxed-variable storage, target cache invalidation, compiler reservation and allocator slow paths remain interfaces |
+| Dirty cache materialization and invalidation | Active =targ-fp-cache-*= and =targ-loc-no-invalidate= in the C target | =Cache.trace_unique=, =trace_bound= and =new_stamp_fresh= derive lifecycle invariants; =history_dirty_read= and =dirty_spill_signed= connect first dirty writeback to physical slots and signed root scanning | =CacheExecution.decodeEntry= extracts the active F64V stamp payload; =dirty_copy= composes first writeback, allocation, read, destination store and invalidation; =copy_collection= retains exact payload bits under relocation; primitive scalar extraction, nested closure-target effects, compiler reservation and native GC implementation remain interfaces |
 | Ticket CAS versus post-poll acquire | =TICKETLOCK_TRYLOCK2=, =TICKETLOCK_UNLOCK2= and normal wait macro | =Ticket.stale_cas_success_safe= covers arbitrary past current observations under no-wrap; failed stale CAS leaves state unchanged; =unlock_valid= admits ownerless handoff with queued waiters | GCC/ISA atomic implementation and no-wrap admission remain interfaces; Contended.ordinary_poll_not_universal exhibits a stale-read history under the explicit weak-observation projection; a universal native acquire proof is still absent |
-| Native operand decoding and copy denotation | Gambit =gsc/_gvmadt.scm= constructors, =enter-opnd=, =put-copy= and =targ-gen-copy= | =Operand.encode_decode= and =intern_preserves= cover all six tags and arbitrary tables; =destination_read= and =closure_aliases= resolve nested bases; =decoded_copy_readback= connects decoding, reads, writes and unrelated-place retention | Native table/name extraction, recursive fuel sufficiency, target cache effects, frame extension and return metadata sequencing |
-| Heap flonum allocation | =MEM_ALLOCATED_FLONUM_ALLOC=, =FLONUM_FROM_END= and =FLONUM_TO_BODY= | =Boxing.allocation_identity= derives header/payload writes; =trace_fresh= preserves ownership across arbitrary allocation histories; =cache_allocation_root= composes a dirty entry with fresh bounded storage and the emitted signed frame map | Qualified 64-bit non-handle heap branch only; physical capacity and pointer bounds, compiler reservation, slow-path collection and full heap/source correspondence |
+| Native operand decoding and copy denotation | Gambit =gsc/_gvmadt.scm= constructors, =enter-opnd=, =put-copy= and =targ-gen-copy= | =Operand.encode_decode= and =intern_preserves= cover all six tags and arbitrary tables; =destination_read= and =closure_aliases= resolve nested bases; =decoded_copy_readback= connects decoding, reads, writes and unrelated-place retention | =Table.extract_read= connects every observed prefix row to a physical pair; =append_snapshot= covers actual capacity growth and new-row writes; native tagged-datum/eqv? extraction, recursive fuel sufficiency, complete instruction emission, frame extension and return metadata sequencing remain |
+| Heap flonum allocation | =MEM_ALLOCATED_FLONUM_ALLOC=, =FLONUM_FROM_END= and =FLONUM_TO_BODY= | =Boxing.allocation_identity= derives header/payload writes; =trace_fresh= preserves ownership across arbitrary allocation histories; =cache_allocation_root= composes a dirty entry with fresh bounded storage and the emitted signed frame map | =Boxing.trace_retains= covers allocation and lower-address section selection under local ownership; =HeapCheck= follows the strict check/limit/collection short circuit and exact-bit relocation; free-list validity, complete heap-limit effects, collector byte copying, compiler reservation and pointer bounds remain |
 | Atomic old-value results and bounded tickets | Gambit =FETCH_AND_ADD_WORD=, =COMPARE_AND_SWAP_WORD= and ticket macros | =Atomic.compare_swap_success=, =compare_swap_failed= and =bounded_tickets_unique= separate old-value tests from physical wrap | GCC/backend code generation; logical operation linearization; fixnum scaling, overflow and maximum outstanding tickets |
 | Closure and captured continuation retention | =mark_continuation=, =mark_captured_continuation= and =scan= | =captured_frame_reached= and =path_reached= cover arbitrary-depth pointer paths; =discovered_path_relocated= composes them with relocation | Host copying, frame-link interpretation, physical registers and SMP synchronization |
 | Least strong marking closure | Strong-mark worklist and =mark_reachable_from_marked= | =program= generates root/edge rules; =CollectorSchedule.zero_workers_marking_exact= connects global worker termination to marking through pending ownership, including in-flight objects | C forwarding/notification effects must refine the generated history; lock and memory-order linearization remain explicit |
@@ -401,8 +401,9 @@ hp by two, writes the header at old hp and the exact =BitVec 64= payload at
 old hp plus one. The tagged pointer denotes the header; untagging plus one
 selects the payload. Earlier allocated cells are retained.
 
-=Fresh= describes ownership of unallocated addresses, not physically zeroed
-memory. =Ready= bounds the two-word write by the physical segment capacity,
+=Fresh= describes ownership of the current section tail, not physically zeroed
+memory or all addresses above hp. The later section-composition extension below
+corrects the former globally monotone ownership scope. =Ready= bounds the two-word write by the physical segment capacity,
 not by a GC trigger threshold. =trace_fresh= derives ownership for arbitrary
 admitted allocation histories. =tagged_fits= separately requires a representable
 capacity. =cache_allocation_root= combines the existing dirty-cache history,
@@ -439,6 +440,8 @@ separate from debug history barriers and successful try-lock CAS.
 
 **** Qualification and retained boundary
 
+Historical qualification for the preceding operand/boxing adapter:
+
 - Lean: the complete package passed 72 build jobs. New theorem dependency
   output contains only standard logical axioms; no =sorry=, custom host axiom or
   =native_decide= is used.
@@ -469,6 +472,165 @@ control does not qualify the SMP Scheme collector. Native table extraction,
 complete emission/cache effects, allocation slow paths and ordinary acquire
 are still open in the unified ledger. No runtime or performance change is
 admitted by this extension. Model closure must precede local optimization.
+
+*** Physical extraction, cache execution and section-aware slow paths
+
+This extension follows the same source identity and closes a connected path:
+physical operand storage to decoded rows, actual cache entries to emitted
+copy/writeback effects, then boxed payloads to the native heap-check protocol
+and the existing collector relation. It adds no runtime optimization.
+
+**** Physical operand table and actual cache representation
+
+=Operand.Table.Atom= observes booleans, nonnegative numeric operands and opaque
+canonical identity keys. =observe= interprets the native pair's second field:
+=#t= selects global, =#f= selects constant, and a numeric field selects a closure
+only when its base is numeric. Numeric zero is not Scheme false. This scalar
+observation boundary still requires a correct native tagged-datum/eqv? adapter;
+the theorem does not implement Gambit's entire object decoder.
+
+=extract= reads exactly the allocated vector prefix and fails on a missing or
+malformed allocated row. Spare capacity is ignored. =extract_size= derives the
+prefix bound; =extract_read= connects every admitted row back to the indexed
+physical pair and its scalar observation. =grow_size= proves the native
+=floor(3*n/2)+1= capacity law. =grow_snapshot= and =append_snapshot= prove that
+copying the old vector, incrementing allocated count and writing the new row at
+the old count preserve the complete decoded prefix for arbitrary sizes. These
+are general storage proofs, not tests of a few fixed grammar tables. Native
+search-loop/eqv? correspondence and symbol/object identity extraction remain
+separate obligations.
+
+The active =targ-fp-cache-enter= entry has three vector fields: location,
+dirty flag and stamp. Payload is not a fourth physical field. Source inspection
+also confirms =targ-use-fresh-fp-vars?=#t=: =targ-unboxed-loc->code= selects
+=F64V<stamp>=. =CacheExecution.decodeEntry= therefore gets its payload from the
+stamp-indexed unboxed store. The inactive register/stack reuse mode is not
+qualified by this adapter. =decodeRows= checks every actual three-field entry
+and preserves false slots. =physical_flush= proves that mutating the first dirty
+field and emitting its writeback agrees with the logical flush.
+=physical_invalidate= covers clearing every matching vector slot;
+=physical_copy_rows= composes both observed vector operations with the executed
+copy state. Embedding observed fields in the actual Scheme heap, including entry
+object ownership, is still a native scalar/read/write interface.
+
+=CacheExecution.read= executes the first dirty writeback event as a real
+=Boxing.allocate= and updates boxed source storage before returning its value.
+=dirty_copy= composes a history-derived source with the destination store and
+subsequent invalidation. It derives fresh bounded heap writes, exact payload,
+target cache absence and a valid resulting cache history. =copy_other= preserves
+every unrelated source/destination location; =clean_read_no_allocation= excludes
+spurious boxes on clean/missing entries. This denotation covers emitted direct
+register/stack copies. Frontend self-copy elision, nested closure-target
+materialization, source emission extraction and return metadata remain distinct.
+
+The cache-size field also needs its own correspondence. In the inspected
+producer it is assigned =old-vector-length+1= on growth; insertion into a hole
+does not update it. =reported_size_is_not_occupancy_bound= constructs three
+valid distinct locations with reported size two and actual occupancy three.
+A matching Quint control retains the same producer history. This refutes the
+proposed identification of reported size with an occupancy upper bound; a
+finite witness is sufficient for that negative result. Since
+=targ-heap-reserve-and-check= uses the reported field, its reservation proof must
+retain this distinction. This is not yet a native out-of-bounds witness:
+compiler flushing, reserved words, section fudge and physical capacity must be
+composed before making a memory-safety conclusion. No counter or runtime gate
+is changed to conceal the discrepancy.
+
+**** Correcting the heap ownership scope
+
+The previous global =Fresh= tail was too strong for Gambit's msections. A newly
+selected section can have a lower address while a live boxed object remains in
+a higher section. =Fresh= now quantifies only over =[hp, physical-limit)=.
+=set_heap_msection= changes active pointers to the selected tospace; it does not
+impose global address monotonicity. =selectSection= models that pointer change
+under =SectionFree= ownership. Old bytes in an unallocated section are not
+assumed to be physically zero; the cell projection tracks ownership.
+
+=allocated_cell_retained= now proves preservation of every already-owned cell,
+including addresses above current hp. =Trace= includes allocation and section
+selection. =trace_fresh= derives local ownership, and =trace_retains= preserves
+all existing cells across arbitrary such histories. A separate whole-heap
+=extent= is retained monotonically by =trace_extent= while hp can move backward.
+The collection snapshot ranges over that extent, not the current hp;
+=selected_snapshot_retains= proves that selecting a lower section cannot omit
+an older high-address object from the snapshot. Free-list validity and
+nonoverlap are explicit native allocator premises, not facts inferred from a
+passing section fixture. Collection relocation is a different transition and
+is not incorrectly required to preserve old physical addresses.
+
+**** Heap-limit dispatch and collection composition
+
+The native [[https://github.com/gambit/gambit/blob/dcd677cd3e40860bdd27dfbdbf5e3ce46ab03813/lib/_kernel.scm][kernel heap handler]]
+saves all GVM registers and a separate return address before =##check-heap=.
+The strict =hp > heap_limit= check then short-circuits
+=heap_limit() && garbage_collect()=. =heap_limit= in
+[[https://github.com/gambit/gambit/blob/dcd677cd3e40860bdd27dfbdbf5e3ce46ab03813/lib/mem.c][the native allocator]] may reuse/select a section or arrange more space and
+return zero, without collection. Nonzero requests GC. Overflow is reported only
+when collection also returns nonzero; a returning overflow handler retries the
+check. No successful continuation is inferred from the overflow result.
+
+=HeapCheck.overflow_exact= and =no_gc_on_reuse= preserve that control flow,
+including equality at the trigger threshold. =saved_register= includes every
+saved reference, independently of ordinary caller liveness flags. =snapshot=
+retains the boxed object's full =BitVec 64= payload as an atom, unlike the older
+pointer-only root projection. =allocated_object= derives that atom from actual
+header/payload writes. =boxed_register_survives= connects it to saved roots and
+relocation. =CacheExecution.copy_collection= composes the dirty source, copied
+register root and exact-bit post-collection object in one theorem.
+
+This composition still consumes the existing =Collection.Relocation= contract.
+It is not a proof of native forwarding/copying, complete free-list operations,
+soft-limit reservation, register push/pop implementation or every heap-limit
+branch's memory effects. Those remaining source imports are visible in the
+unified ledger; they cannot be removed by treating a GC success flag as proof.
+
+**** Ordinary contended acquire: identified missing import
+
+The newly compiled GCC ARM64 fixture retains this instruction sequence:
+=ldaddal next_ticket=; ordinary =ldr current_ticket= / compare / branch; ordinary
+payload =ldr=; =ldaddal current_ticket= on unlock. The earlier atomic accesses
+and later matching poll are different events. A ticket allocation before the
+previous owner's release cannot acquire that later release. The matching poll
+has no acquire instruction or post-poll barrier, and the branch alone does not
+order the subsequent independent load in the cited ARM model. GCC volatile
+access also does not supply a general compiler barrier for payload storage.
+
+Thus the gap is an absent ordering import for the normal poll, not a missing
+induction over ticket numbers. A positive theorem needs a source/backend rule
+that orders the payload read after an acquire observing the matching release,
+plus the existing no-wrap/ownership conditions. An acquire load for the normal
+poll is a possible upstream correctness repair; no such repair or backend
+substitution is made here. Mixed volatile/legacy-RMW accesses also need an
+explicit compiler contract. The abstract negative history and successful native
+handoff remain separate evidence; no native hardware failure or complete ARM
+execution certificate is claimed. The paper's published errata were checked;
+the [[https://www.cl.cam.ac.uk/~pes20/armv8-mca/errata.html][coherence-footprint and exclusive-instruction corrections]] do not
+supply the absent acquire in this binary.
+
+**** Current qualification
+
+- Lean: complete package passed, 72 build jobs, with standard logical axioms
+  only. The general proofs above contain no =sorry= or custom native axiom.
+- Quint: 78 directed tests passed. New controls cover allocated-prefix failure,
+  unused capacity, actual growth, pair markers, dirty-source ordering, destination
+  invalidation, repeated clean reads, strict short-circuit checks and lower-address
+  section selection retaining an older high-address object, plus the reported-size
+  counterexample. The existing
+  =PipelineSafety= check passed 1,000 sampled histories at most 40 steps; this
+  remains a grammar pipeline check, not an ISA checker.
+- Native Scheme: canonical LR, layout and style passed together,
+  30 + 23 + 6 = 59 cases, 39.7631 seconds, normal exit zero. The unchanged total
+  and idle budgets remain 90 and 5 seconds, with three suite workers and GCC.
+  The new compiled branch/copy control retains both possible flonum values while
+  an opaque callback creates 32,768 pairs, performs actual GC, then checks the
+  pressure roots and an increased native GC count. This tests allocation/GC value
+  retention, not exhaustive section or heap-overflow branch coverage.
+- Five evidence-admission controls passed, including failed exit, timeout,
+  manifest discovery and source/native-product drift rejection. A failed Quint
+  negative-input trial exposed slicing before the count bound; the adapter now
+  rejects the bound before slicing. Its failed receipt remains local evidence.
+- Parent =1185b3d= completed CI run =38883844344= successfully. The new revision
+  requires its own CI result. No CPU or complete native-collector claim follows.
 
 *** Physical placement and acquire qualification
 

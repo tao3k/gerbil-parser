@@ -4,7 +4,7 @@
 ;;; Explicit closing boundaries belong to the declaring language grammar.
 
 (import (only-in :gerbil-parser/t/fixtures/layout-columns wide-frame-roots closure-frame-roots
-                 host-boxing-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
+                 cache-copy-flonum-values host-boxing-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
         :std/test
         :gerbil-parser/src/grammar/algebra
         (only-in :gerbil-parser/src/language/grammar deflanguage)
@@ -255,6 +255,23 @@
       (check (host-contended-control) => 0))
     (test-case "actual heap flonum boxing retains bit patterns and previous allocations"
       (check (host-boxing-control) => 0))
+    (test-case "compiled flonum copies retain both branch values through allocation and collection"
+      (for-each
+       (lambda (select-right?)
+         (let* ((before (f64vector-ref (##process-statistics) 6))
+                (actual
+                 (cache-copy-flonum-values
+                  -4.5 select-right?
+                  (lambda ()
+                    (let ((roots (let loop ((remaining 32768) (rows '()))
+                                   (if (zero? remaining) rows
+                                     (loop (- remaining 1) (cons remaining rows))))))
+                      (##gc)
+                      (check (length roots) => 32768)))))
+                (after (f64vector-ref (##process-statistics) 6)))
+           (check actual => (if select-right? '(-8.5 -8.5) '(-4.25 -8.5)))
+           (check (> after before) => #t)))
+       '(#f #t)))
     (test-case "native ticket CAS distinguishes success, busy and unlock"
       (check (host-ticket-control) => 0))
     (test-case "compiled flonum cache writes retain values across opaque collection"

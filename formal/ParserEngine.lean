@@ -546,3 +546,27 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Host.Contended.ordinary_poll_not_universal
 
 #print axioms ParserEngine.Host.Operand.decoded_copy_readback
+
+#print axioms ParserEngine.Host.Operand.Table.extract_read
+#print axioms ParserEngine.Host.Operand.Table.append_snapshot
+#print axioms ParserEngine.Host.CacheExecution.decoded_payload
+#print axioms ParserEngine.Host.CacheExecution.dirty_copy
+#print axioms ParserEngine.Host.CacheExecution.copy_other
+#print axioms ParserEngine.Host.CacheExecution.copy_collection
+#print axioms ParserEngine.Host.HeapCheck.overflow_exact
+#print axioms ParserEngine.Host.HeapCheck.boxed_register_survives
+
+#print axioms ParserEngine.Host.Boxing.selected_fresh
+#print axioms ParserEngine.Host.Boxing.selected_retains
+
+#print axioms ParserEngine.Host.Boxing.trace_retains
+
+#print axioms ParserEngine.Host.CacheExecution.physical_flush
+
+#print axioms ParserEngine.Host.CacheExecution.physical_invalidate
+#print axioms ParserEngine.Host.CacheExecution.physical_copy_rows
+
+#print axioms ParserEngine.Host.CacheExecution.reported_size_is_not_occupancy_bound
+
+#print axioms ParserEngine.Host.Boxing.trace_extent
+#print axioms ParserEngine.Host.HeapCheck.selected_snapshot_retains

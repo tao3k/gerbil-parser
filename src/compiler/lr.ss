@@ -269,6 +269,7 @@
 (def (lower-rules rules root (allow-dynamic? #f) (observe-origin #f))
   (let ((next-id 1)
         (next-synthetic 0)
+        (used-names (make-table test: eq?))
         (productions '()))
     (def (emit-production lhs rhs action precedence owner path expression)
       (let (production
@@ -277,13 +278,29 @@
           (observe-origin production owner (reverse path) expression))
         (set! next-id (+ next-id 1))
         (set! productions (cons production productions))))
+    ;; Internal names share the grammar namespace. Reserve authored rules and
+    ;; references before lowering, including references to later declarations.
+    ;; Deterministic allocation preserves reproducible tables and diagnostics.
+    (def (reserve-references expression)
+      (when (pair? expression)
+        (when (eq? (car expression) 'reference)
+          (table-set! used-names (cadr expression) #t))
+        (for-each reserve-references expression)))
+    (def (claim-name name)
+      (and (not (table-ref used-names name #f))
+           (begin (table-set! used-names name #t) name)))
     (def (fresh owner)
-      (let (name
-            (string->symbol
-             (string-append "$" (symbol->string owner) "."
-                            (number->string next-synthetic))))
-        (set! next-synthetic (+ next-synthetic 1))
-        name))
+      (let loop ()
+        (let (name
+              (string->symbol
+               (string-append "$" (symbol->string owner) "."
+                              (number->string next-synthetic))))
+          (set! next-synthetic (+ next-synthetic 1))
+          (or (claim-name name) (loop)))))
+    (table-set! used-names root #t)
+    (for-each (lambda (row)
+                (table-set! used-names (car row) #t)
+                (reserve-references (cadr row))) rules)
     ;; Paths are allocated only for an explicitly requested diagnostic replay.
     ;; Canonical productions retain their existing shape and ordering.
     (def (child-path path index) (and observe-origin (cons index path)))
@@ -374,7 +391,7 @@
     (for-each
      (lambda (row) (lower-to (car row) (car row) (cadr row) #f '()))
      rules)
-    (cons (make-production 0 '$accept
+    (cons (make-production 0 (or (claim-name '$accept) (fresh 'accept))
                            (list (list 'nonterminal root)) 'pass #f)
           (reverse productions))))
 

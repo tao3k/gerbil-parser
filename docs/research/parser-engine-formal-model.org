@@ -44,8 +44,8 @@ local object-count identity as evidence that an architecture gap has closed.
    allocation and GC behavior. Neither timing nor byte counts prove semantics.
 
 The request state vocabulary is: admitted grammar/IR identity; source identity
-and generation; lexical position/mode; pending terminal with its admission
-basis; LR states; semantic values; retained recognition yields; branch and
+and generation; lexical position/mode; pending raw token with its admission
+basis; state-selected grammar terminal; LR states; semantic values; retained recognition yields; branch and
 layout context; checkpoint/history owner; public artifact; and FFI owner/lifetime.
 A source coordinate, token ordinal, grammar state and object identity are four
 different quantities. Mutable tokens need a real producer protocol; an abstract
@@ -78,7 +78,7 @@ the transition and representation distinctions below.
 | Abstract Interpretation: sound recursive derived facts | =src/compiler/lr.ss=: completion, nullable, FIRST | =Grammar.nullable_iff_derives=, nullable/FIRST least-closure laws and =first_reach= | Native occurrence/delta solver refinement, convergence, duplicate references and suffix-fact consumers |
 | Extensibility for the Masses: independent construct/operation extension | POO Loader and admitted IR consumers | LeanPoo retained factory selection, ordered reduction composition | Extension laws for whole grammar admission, not just selected actions |
 | Polymorphic Embedding of DSLs: interpretation and recursive analysis boundaries | Shared canonical compiler observations | No backend interpretation relation | Same admitted meaning across Scheme, generated C and Rust products |
-| Essence of LR Parsing: item/closure/goto and derivations (section 2) | LR compiler and runtime action/goto selection | CFG derivations, item prediction/advance predicates and conditional table-driven trace theorem | Native closure/goto construction, viable prefixes, selected-cell support and acceptance-stack correspondence |
+| Essence of LR Parsing: item/closure/goto and derivations (section 2) | LR compiler and runtime action/goto selection | CFG derivations, LR1 closure-to-core projection, viable-prefix induction and raw-request acceptance soundness | Native construction refinement, language completeness and semantic-action correspondence |
 | Essence of LR Parsing: staging, direct style/CPS, constructed results (sections 3--4) | Prepared plans, deterministic driver and fallback | Prepared action-chain equality; no residual parser refinement | Binding-time classification, dynamic branch semantics and specialization termination/size |
 | Essence of LR Parsing: conflicts and semantic actions (section 5) | Fork selection, dynamic precedence and reduction actions | Ordered local action semantics only | Branch choice/effects/rejection and complete semantic result preservation |
 | Efficient and Flexible Incremental Parsing: state matching versus sentential-form reuse (section 4.1) | =src/runtime/lr-parser/transfer.ss= | Key admission and terminal-prefix lemmas | Transfer guards must imply the same continuation, including lookahead and lexical/layout context |
@@ -95,8 +95,8 @@ receipt. All rows still require a checked Scheme abstraction relation.
 |-----------------+---------------+--------------------------------------------|
 | DSL/Loader -> canonical IR | Selected reduction factories | Admission judgments, POO extension semantics, hygiene and product consistency |
 | Grammar -> derived facts -> LR tables | Derivation-based nullable/FIRST and item/cell-support model; bounded native chart comparison | Native fixed-point, item closure/goto and conflict construction refinement |
-| Source -> ranked contextual scanner | Longest/rank/declaration maximum over a complete supplied candidate set; fixed-terminal lexical/request composition | Native candidate completeness, raw-token/terminal relation, byte mapping, contextual modes and trivia |
-| Pending terminal -> action -> shift/reduce/capture | Grammar-annotated traces erase to =Request=; =GrammarPipeline= connects one real grammar, ranking and LR graph | General viable-prefix/RHS agreement, mutable native values, state-sensitive terminal matching and AST correspondence |
+| Source -> ranked contextual scanner | Longest/rank/declaration maximum over supplied candidates; raw-token predicates and certified row selection | Native candidate completeness, source-to-raw observations, byte mapping, contextual modes and trivia |
+| Pending raw token -> selected terminal -> shift/reduce/capture | =RawRequest= composes row selection, viable prefixes, derived RHS agreement and singleton acceptance; two executable protocol fixtures | Native transition refinement, mutable observations, layout/custom selectors and AST correspondence |
 | Deterministic driver -> fork/layout/recovery | Scope withdrawal and ownership fragments | Branch score/order, fuel exhaustion, effect isolation and failure frontier |
 | Recognition -> projection/tree | Local field/alias, sequence, capture lemmas | Complete projection induction, positions/relocation, nullable anchors and action effects |
 | Checkpoint -> transfer -> resumed request | Key equality, yield/prefix and history fragments | Same continuation outcome on success; exact original fallback on failed admission |
@@ -244,16 +244,15 @@ producer premise in the Lean theorem.
    =Lookahead.selectRaw= laws and =raw_terminal_is_state_sensitive= witness,
    together with the real selector control, make this difference explicit.
    =Grammar='s fixed-terminal trace cannot be claimed to cover all such paths.
-   A general refinement must relate raw tokens to terminal predicates per
-   selected row and retain the same pending raw token through reductions.
+   The raw-request extension below supplies this logical relation and retains
+   the pending observation through reductions; native refinement remains open.
 
-The remaining producer obligations are therefore actionable: derive native
-nullable/FIRST worklist facts from the semantic closures; prove canonical item
-closure/goto and conflict construction; derive RHS agreement and the singleton
-start frame from viable-prefix invariants; and connect raw-token predicates,
-state-specific lookahead and scanner modes before lifting the fixed-terminal
-request theorem. GLR, layout, recovery, edits and ABI remain later compositions
-listed in the architecture ledger. Runtime tuning remains deferred.
+The producer obligations require native nullable/FIRST worklist refinement,
+closure/goto and conflict construction correspondence, and source-to-raw scanner
+observations. The extension below derives RHS agreement and singleton acceptance
+from explicit graph certificates. GLR, layout, recovery, edits and ABI remain
+later compositions listed in the architecture ledger. Runtime tuning remains
+deferred.
 
 *** Preparation failures remain evidence
 
@@ -290,6 +289,119 @@ stronger correspondence premises are necessary. They do not turn the current
 schema validator into a semantic checker. Runtime code and CPU benchmark
 admission are unchanged; the earlier CPU failure remains unqualified.
 
+
+*** Viable prefixes, LR construction and state-dependent raw requests
+
+[[file:../../formal/ParserEngine/Viable.lean][Viable.lean]] connects the earlier =Grammar.Predicts= relation, including
+=FIRST(beta, lookahead)= and nullable inheritance, to a graph of production/dot
+cores. =lr1_closure_erases= preserves production and dot while erasing lookahead.
+=lr1_graph_constructed= derives the core graph certificate from LR1 closure/goto
+membership and exact item projection. It does not assume a completed item
+already describes the runtime stack.
+
+The graph certificate requires initial items to originate in closure of the
+augmented seed, and target items to originate in closure of the source items
+advanced across that edge. Subset inclusion permits omission of predictions
+with no lookahead. No prediction may introduce the augmented production as a
+user rule. These are construction obligations, not conclusions from state IDs,
+action schemas or an accept state being reachable.
+
+Induction on the actual top-first stack path establishes:
+
+- =item_suffix=: every item's consumed RHS prefix is a suffix of the stack in
+  source order, with the dot within the production width.
+- =completed_rhs=: the completed production fits the stack and its popped
+  symbols, reversed into source order, equal its RHS. Epsilon is included.
+- =drop_path=: popping the used prefix retains the earlier graph path.
+- =accepting_stack=: a completed isolated augmented production of width one
+  implies exactly one start symbol and two physical states. The singleton is
+  derived rather than supplied as a request premise.
+
+[[file:../../formal/ParserEngine/RawRequest.lean][RawRequest.lean]] uses these results in one complete deterministic request.
+It retains original raw observations separately from chosen grammar terminals.
+Only shift commits a terminal and consumes raw input; reduce preserves the raw
+suffix and the next query uses the new LR state. Frame derivations, raw input
+conservation and the ordered terminal/raw relation are preserved together.
+=complete_request= derives a CFG word related to the entire original raw input
+from the initial state, a legal trace, exhausted input and a selected accept.
+It requires neither a per-reduction RHS premise nor a singleton-root premise.
+This is conditional acceptance soundness, not language completeness.
+
+=Lookahead.RowSupported= certifies EOF, exact literal, folded literal and kind
+branches. =selected_raw_supported= preserves that certificate through the actual
+priority order. =RawRequest.builtin_action_and_terminal= projects it into both
+published-cell support and the terminal predicate needed by the request proof.
+The certificates remain obligations of the row producer. Mutable Scheme token
+fields and effectful custom selectors do not inherit them automatically.
+
+[[file:../../formal/quint/RawRequest.qnt][RawRequest.qnt]] supplies a second connected fixture: =S -> X literal-if |
+Y token-word=, =X -> a=, =Y -> b=. The same raw =word/if= observation commits
+different grammar terminals in two complete requests. Directed histories cover
+retained lookahead through reduction, normal rejection and full acceptance.
+Mutations consume lookahead during reduction, commit a state-independent
+terminal, accept a prefix or reverse a reduction yield. Each is rejected by the
+shared path/derivation/conservation invariant. This is a finite protocol check,
+not a proof of native LR table construction.
+
+*** Compiler defect exposed by the construction obligation
+
+The native graph check initially failed on an authored =$accept= nonterminal:
+=lower-rules= always named the augmented production =$accept=, so prediction
+could reintroduce augmented dot-zero items into goto targets. The same namespace
+also allowed authored rules to collide with generated helper names.
+
+The engine now reserves authored rule names and reference targets before
+lowering, claims helper names deterministically, and allocates an unused
+augmented name. Ordinary non-colliding grammars retain their naming sequence.
+No user namespace restriction or compatibility mode was added.
+
+The existing [[file:../../t/resolved-grammar-test.ss][resolved-grammar owner]] now checks four grammars across LR0/LALR,
+canonical LR1 and follow-partition LR1 construction. An independent list-pair
+closure oracle checks item origins and augmented separation without using the
+producer's closure templates or packed increment rule. ACTION checks require a
+shift edge and item, or a completed item with its published lookahead; GOTO
+checks require an actual nonterminal edge. Invented edge labels and production
+zero used as a reduction fail the controls. These checks compare the published
+tables to generated graph/lookahead data; they do not independently prove the
+native lookahead propagation fixed point. Partitioned LR1, layout guards and
+full GLR execution are outside this new control.
+
+Public compile/prepare/parse checks cover =$accept=, =$accept.0= and =$start.0=
+collisions, deterministic repeated lowering, valid full input and rejection.
+Root aliases follow the public recognition-result contract. The raw selector
+check reuses the same token object across two complete requests with distinct
+root kinds and verifies the committed literal/kind terminals.
+
+Local qualification of this extension:
+
+| Check | Result and scope |
+|-------+------------------|
+| Locked Lean =lake build= | 60 jobs; new graph/request/selector theorem axioms printed; no =sorry= |
+| Full Quint =npm test= | 153 directed controls, 18 modules, 17 seeded invariant explorations |
+| New raw request protocol | Seven directed controls; 1,000 traces bounded at 20 steps |
+| Scheme resolved-grammar owner | 46 cases, 5.010 seconds, exit 0, no supervisor reason or missing receipt |
+| Evidence host/input/product controls | Five tests; new model and follow-construction inputs invalidate observations |
+
+The original graph failure and subsequent preparation/test-authoring failures
+remain failed local records. Correcting a missing public root alias, a checker
+syntax error and a capacity-versus-published-state iteration error did not
+change a compiler expectation to manufacture a pass. The final owner run uses
+the same 90-second total and five-second silence limits. CPU benchmarks were
+not rerun, and no CPU improvement is claimed.
+
+The new Lean source-mutation control also exposed duplicate owners in the
+Lean observation input list, which made the strict snapshot function reject
+that observation before running Lean. The collector now forms an ordered set
+of all owners; the control checks uniqueness and invalidation for both new
+Lean modules. No owner or premise was removed.
+
+The logical graph-to-raw-request soundness chain is now connected. A universal
+Scheme-to-model simulation remains open: native lowering/fixed points,
+interning/partitioning, row publication and selector observations must establish
+the named certificates for every admitted grammar. Completeness, scanner modes,
+AST spans/actions, recovery and ABI observations remain separate ledger gaps.
+Model closure for the full engine is therefore not claimed, and architecture
+performance work remains gated by those obligations.
 
 ** Completion gates before architecture optimization
 

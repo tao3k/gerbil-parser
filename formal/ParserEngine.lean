@@ -1,3 +1,4 @@
+import ParserEngine.RawRequest
 import ParserEngine.Grammar
 import ParserEngine.Request
 import ParserEngine.Lookahead
@@ -193,3 +194,14 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Lookahead.exact_literal_precedes_kind
 
 #print axioms ParserEngine.Grammar.Fixture.repeated_S
+
+#print axioms ParserEngine.Viable.completed_rhs
+#print axioms ParserEngine.Viable.accepting_stack
+#print axioms ParserEngine.RawRequest.reduce_valid
+#print axioms ParserEngine.RawRequest.complete_request
+
+#print axioms ParserEngine.Lookahead.selected_raw_supported
+
+#print axioms ParserEngine.Viable.lr1_graph_constructed
+
+#print axioms ParserEngine.RawRequest.builtin_action_and_terminal

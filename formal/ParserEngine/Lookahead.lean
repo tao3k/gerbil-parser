@@ -327,6 +327,41 @@ theorem token_fallback_after_literal_failure (row : SelectorRow Entry) (input : 
   · simp [selectRaw, noExact, disabled]
   · simp [selectRaw, noExact, absent]
 
+/-- Branch certificates connect the prioritized built-in selector to the
+semantic relation used by raw requests. They bind both the returned action
+and its terminal predicate; a row's mere presence is insufficient. -/
+structure RowSupported (row : SelectorRow Entry)
+    (supports : Option RawToken → Entry → Prop) : Prop where
+  eof : ∀ entry, row.eof = some entry → supports none entry
+  literal : ∀ input entry, row.literal input.lexeme = some entry → supports (some input) entry
+  casefold : ∀ input entry, row.casefold input.lexeme = some entry → supports (some input) entry
+  token : ∀ input entry, row.token input.kind = some entry → supports (some input) entry
+
+theorem selected_raw_supported (row : SelectorRow Entry)
+    (supports : Option RawToken → Entry → Prop) (certified : RowSupported row supports)
+    (input : Option RawToken) (entry : Entry) (selected : selectRaw row input = some entry) :
+    supports input entry := by
+  cases input with
+  | none => exact certified.eof entry selected
+  | some input =>
+    cases exactRow : row.literal input.lexeme with
+    | some found =>
+      have equal : found = entry := by simpa [selectRaw, exactRow] using selected
+      subst found
+      exact certified.literal input entry exactRow
+    | none =>
+      cases sensitive : row.insensitive with
+      | false =>
+        exact certified.token input entry (by simpa [selectRaw, exactRow, sensitive] using selected)
+      | true =>
+        cases folded : row.casefold input.lexeme with
+        | some found =>
+          have equal : found = entry := by simpa [selectRaw, exactRow, sensitive, folded] using selected
+          subst found
+          exact certified.casefold input entry folded
+        | none =>
+          exact certified.token input entry (by simpa [selectRaw, exactRow, sensitive, folded] using selected)
+
 /-- One immutable raw token can select different grammar terminals in different
 states. A state-independent kind/lexeme normalization is therefore insufficient. -/
 def literalState : SelectorRow Nat :=

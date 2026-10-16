@@ -23,13 +23,19 @@ class ModelInputControls(unittest.TestCase):
             request = root / "formal/ParserEngine/Request.lean"
             request.write_text("namespace Request\nend Request\n")
             (root / "formal/ParserEngine/Grammar.lean").write_text("namespace Grammar\nend Grammar\n")
+            for module in ("Viable", "RawRequest"):
+                (root / f"formal/ParserEngine/{module}.lean").write_text(f"namespace {module}\nend {module}\n")
             lean, quint = model_checks(root)
             self.assertEqual((lean.claim, quint.claim), ("lean-model", "quint-protocol"))
+            self.assertEqual(len(lean.inputs), len(set(lean.inputs)))
+            self.assertIn("formal/ParserEngine/Viable.lean", lean.inputs)
+            self.assertIn("formal/ParserEngine/RawRequest.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Grammar.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Request.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Reuse.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Capture.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Lookahead.lean", lean.inputs)
+            self.assertIn("formal/quint/RawRequest.qnt", quint.inputs)
             self.assertIn("formal/quint/GrammarPipeline.qnt", quint.inputs)
             self.assertIn("formal/quint/RequestFlow.qnt", quint.inputs)
             self.assertIn("formal/quint/LookaheadScope.qnt", quint.inputs)
@@ -70,6 +76,15 @@ class ModelInputControls(unittest.TestCase):
                 self.assertIn("t/fixtures/tla-sany-differential/preload.ss", check.inputs)
                 self.assertIn("scripts/tests/history-commit-test.ss", check.inputs)
             self.assertNotIn("formal/quint/ReuseAdmission.qnt", lean.inputs)
+            for name in lean.inputs:
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                if not path.exists():
+                    path.write_text("input")
+            for module in ("Viable", "RawRequest"):
+                before = snapshot(root, lean.inputs)
+                (root / f"formal/ParserEngine/{module}.lean").write_text("changed graph/request premise")
+                self.assertNotEqual(before, snapshot(root, lean.inputs))
             for name in quint.inputs:
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -77,7 +92,7 @@ class ModelInputControls(unittest.TestCase):
             first = snapshot(root, quint.inputs)
             (root / "formal/quint/ReuseAdmission.qnt").write_text("changed protocol")
             self.assertNotEqual(first, snapshot(root, quint.inputs))
-            for name in ("formal/quint/GrammarPipeline.qnt", "src/compiler/lr-table.ss", "src/compiler/lr-compiler.ss",
+            for name in ("formal/quint/RawRequest.qnt", "src/compiler/lr-follow-automaton.ss", "formal/quint/GrammarPipeline.qnt", "src/compiler/lr-table.ss", "src/compiler/lr-compiler.ss",
                          "t/resolved-grammar-test.ss", "formal/quint/RequestFlow.qnt", "docs/research/parser-engine-formal-model.org",
                          "formal/quint/LookaheadScope.qnt", "formal/quint/ModuleAdmission.qnt",
                          "src/runtime/lr-parser/checkpoint.ss", "src/runtime/token.ss",

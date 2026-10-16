@@ -5,14 +5,16 @@
         (only-in :gerbil-parser/src/compiler/lr +lr-eof+ lr-spec-ref current-grammar-source-map compute-nullable compute-first compute-productive compute-completion terminal-symbol?
                  lower-rules production-lhs production-rhs production-table production-terminal-catalog
                  sequence-first sequence-nullable? base-symbol nonterminal-symbol? nonterminal-name)
-        (only-in :gerbil-parser/src/compiler/funcs compiler-index-set-union)
+        (only-in :gerbil-parser/src/compiler/funcs compiler-index-set-union compiler-index-set-member?)
         (only-in :gerbil-parser/src/compiler/lr-automaton make-item-layout make-core-symbol-catalog
                  make-core-item core-item-count core-item-production-id core-item-dot)
-        (only-in :gerbil-parser/src/compiler/lr-lookahead make-core-suffix-catalog)
+        (only-in :gerbil-parser/src/compiler/lr-lookahead make-core-suffix-catalog
+                 build-states-via-lr0 build-states-via-canonical-lr1)
+        (only-in :gerbil-parser/src/compiler/lr-follow-automaton build-states-via-follow-partition-lr1)
         (only-in :gerbil-parser/src/compiler/lr-conflict-candidates initial-backward-follow-partitions)
         (only-in :gerbil-parser/src/compiler/normalize compile-grammar grammar-ir-ref compile-grammar/context normalized-grammar-ir normalized-grammar-source-map)
         (only-in :gerbil-parser/src/modules/parser/objects make-grammar make-grammar-role)
-        (only-in :gerbil-parser/src/runtime/lr-parser lr-parse lr-prepare lr-parse/prepared lr-rejection-condition?)
+        (only-in :gerbil-parser/src/runtime/lr-parser lr-parse lr-prepare lr-parse/prepared lr-runtime-with-action-selector lr-rejection-condition?)
         (only-in :gerbil-parser/src/runtime/lr-parser/prepare make-lr-action-selector)
         (only-in :gerbil-parser/src/runtime/lr-action-index index-action-rows)
         (only-in :gerbil-parser/src/runtime/scan make-ranked-lexical-scanner-factory)
@@ -129,6 +131,162 @@
          (raw (make-token 'word "if" 0 2)))
     (check (car (select 0 raw)) => '(terminal literal "if"))
     (check (car (select 1 raw)) => '(terminal token word))))
+
+;;; List-pair closure oracle; never uses packed +1, cached templates or the
+;;; producer's closure implementation. The augmented production cannot predict.
+(def (reference-core-closure table seeds)
+  (let visit ((pending seeds) (seen '()))
+    (if (null? pending) seen
+      (let ((item (car pending)) (tail (cdr pending)))
+        (if (member item seen) (visit tail seen)
+          (let* ((production (vector-ref table (car item))) (dot (cadr item))
+                 (rhs (production-rhs production))
+                 (next (and (< dot (length rhs)) (base-symbol (list-ref rhs dot))))
+                 (predicted
+                  (if (and next (nonterminal-symbol? next))
+                    (filter-map (lambda (id)
+                       (and (not (zero? id))
+                            (eq? (production-lhs (vector-ref table id)) (nonterminal-name next))
+                            (list id 0))) (iota (vector-length table))) '())))
+            (visit (append tail predicted) (cons item seen))))))))
+
+(def (graph-construction-holds? table states transitions layout)
+  (def (coordinates state)
+    (map (lambda (core) (list (core-item-production-id core layout) (core-item-dot core layout)))
+         (vector-ref states state)))
+  (let (initial (reference-core-closure table '((0 0))))
+    (and (every (lambda (item) (member item initial)) (coordinates 0))
+         (every
+          (lambda (edge)
+            (let* ((source (coordinates (car edge))) (symbol (cadr edge))
+                   (target (coordinates (caddr edge)))
+                   (moved (filter-map (lambda (item)
+                     (let ((rhs (production-rhs (vector-ref table (car item)))) (dot (cadr item)))
+                       (and (< dot (length rhs)) (equal? symbol (base-symbol (list-ref rhs dot)))
+                            (list (car item) (+ dot 1))))) source))
+                   (closure (reference-core-closure table moved)))
+              (and (not (member '(0 0) target))
+                   (every (lambda (item) (member item closure)) target)))) transitions))))
+
+(def (table-support-holds? spec table states transitions layout lookaheads offsets terminals)
+  (def (supported? state key action)
+    (case (car action)
+      ((fork) (every (lambda (child) (supported? state key child)) (cdr action)))
+      ((reject-nonassoc) #t) ; Rejection makes no successful transition claim.
+      ((shift)
+       (and (member (list state key (cadr action)) transitions)
+            (any (lambda (core)
+                   (let* ((rhs (production-rhs (vector-ref table (core-item-production-id core layout))))
+                          (dot (core-item-dot core layout)))
+                     (and (< dot (length rhs)) (equal? key (base-symbol (list-ref rhs dot))))))
+                 (vector-ref states state))))
+      ((reduce accept)
+       (let* ((id (if (eq? (car action) 'accept) 0 (cadr action)))
+              (width (length (production-rhs (vector-ref table id))))
+              (terminal-id (let find ((at 0))
+                             (and (< at (vector-length terminals))
+                                  (if (equal? key (vector-ref terminals at)) at (find (+ at 1)))))))
+         (and (if (zero? id) (and (eq? (car action) 'accept) (equal? key +lr-eof+) (= width 1)) #t)
+              terminal-id
+              (let find ((cores (vector-ref states state)) (node (vector-ref offsets state)))
+                (and (pair? cores)
+                     (or (and (= (core-item-production-id (car cores) layout) id)
+                              (= (core-item-dot (car cores) layout) width)
+                              (compiler-index-set-member? (vector-ref lookaheads node) terminal-id))
+                         (find (cdr cores) (+ node 1))))))))
+      (else #f)))
+  (and (every (lambda (state)
+                (every (lambda (cell) (supported? state (car cell) (cdr cell)))
+                       (vector-ref (lr-spec-ref spec 'actions) state)))
+              (iota (- (vector-length offsets) 1)))
+       (every (lambda (state)
+                (every (lambda (cell) (member (list state (list 'nonterminal (car cell)) (cdr cell)) transitions))
+                       (vector-ref (lr-spec-ref spec 'gotos) state)))
+              (iota (- (vector-length offsets) 1)))))
+
+(def (graph-provenance-case)
+  (for-each
+   (lambda (entry)
+     (let* ((rules (car entry)) (root (cadr entry)) (productions (lower-rules rules root))
+            (table (production-table productions)))
+       (let-values (((_nullable nullable _productive _productive-index) (compute-completion productions)))
+         (let-values (((_first first) (compute-first productions nullable)))
+           (for-each
+            (lambda (build)
+              (let-values (((states _count lookaheads offsets transitions terminals layout _symbols _visits _items)
+                            (build productions table first nullable)))
+                (check (not (not (graph-construction-holds? table states transitions layout))) => #t)
+                (let* ((route (cond ((eq? build build-states-via-lr0) 'lalr)
+                                    ((eq? build build-states-via-canonical-lr1) 'canonical-lr1)
+                                    (else 'follow-partition-lr1)))
+                       (spec (compile-lr-spec rules root 'probe #f route)))
+                  (check (not (not (table-support-holds? spec table states transitions layout lookaheads offsets terminals))) => #t)
+                  (let (actions (vector-copy (lr-spec-ref spec 'actions)))
+                    (vector-set! actions 0 (cons (cons +lr-eof+ '(reduce 0)) (vector-ref actions 0)))
+                    (check (not (table-support-holds? (cons (cons 'actions actions) spec)
+                                  table states transitions layout lookaheads offsets terminals)) => #t)))
+                ;; Inventing a positive-dot RHS symbol must fail the independent
+                ;; closure relation even when the graph target remains in range.
+                (when (pair? transitions)
+                  (let* ((edge (car transitions))
+                         (mutated (cons (list (car edge) '(terminal token impossible) (caddr edge))
+                                        (cdr transitions))))
+                    (check (not (graph-construction-holds? table states mutated layout)) => #t)))))
+            (list build-states-via-lr0 build-states-via-canonical-lr1 build-states-via-follow-partition-lr1))))))
+   (list (list grammar-model-rules 'start)
+         (list lr1-not-lalr-rules 'source-file)
+         (list shared-lookahead-rules 'source-file)
+         (list '((start (sequence (literal "x") (reference $accept)))
+                 ($accept (literal "a"))) 'start))))
+
+(def (internal-name-isolation-case)
+  ;; Both augmented and lowered helper names must avoid authored declarations.
+  (for-each
+   (lambda (entry)
+     (let* ((rules (car entry)) (root (cadr entry)) (text (caddr entry))
+            (productions (lower-rules rules root)))
+       (check (lower-rules rules root) => productions)
+       (check (member (production-lhs (car productions)) (map car rules)) => #f)
+       (for-each
+        (lambda (route)
+          (let (runtime (lr-prepare (compile-lr-spec rules root 'reject #f route)))
+            (let-values (((_root rest) (lr-parse/prepared runtime
+              (map (lambda (at) (make-token 'punctuation (substring text at (+ at 1)) at (+ at 1)))
+                   (iota (string-length text))))))
+              (check (null? rest) => #t))
+            (check (with-catch
+                    (lambda (condition)
+                      (if (lr-rejection-condition? condition) #t (raise condition)))
+                    (lambda () (lr-parse/prepared runtime '()) #f)) => #t)))
+        '(canonical-lr1 follow-partition-lr1))))
+   (list
+    (list '((start (alias Start (sequence (literal "x") (reference $accept))))
+            ($accept (literal "a"))) 'start "xa")
+    (list '(($accept (alias Start (sequence (literal "x") (reference $accept.0))))
+            ($accept.0 (literal "a"))) '$accept "xa")
+    (list '((start (alias Start (sequence (optional (literal "x")) (reference $start.0))))
+            ($start.0 (literal "a"))) 'start "xa"))))
+
+(def (raw-request-terminal-case)
+  (let* ((rules '((start (choice (alias Keyword (sequence (literal "a") (literal "if")))
+                                (alias Identifier (sequence (literal "b") (token word)))))))
+         (base (lr-prepare (compile-lr-spec rules 'start)))
+         (raw (make-token 'word "if" 1 3)) (selected '())
+         (runtime (lr-runtime-with-action-selector base
+          (lambda (rows index insensitive? layout?)
+            (let (select (make-lr-action-selector rows index insensitive? layout?))
+              (lambda (state input)
+                (let (entry (select state input))
+                  (when (and (eq? input raw) entry (eq? (cadr entry) 'shift))
+                    (set! selected (cons (car entry) selected)))
+                  entry)))))))
+    (for-each
+     (lambda (prefix kind)
+       (let-values (((root rest) (lr-parse/prepared runtime
+                         (list (make-token 'punctuation prefix 0 1) raw))))
+         (check (null? rest) => #t)
+         (check (recognition-node-kind root) => kind))) '("a" "b") '(Keyword Identifier))
+    (check (reverse selected) => '((terminal literal "if") (terminal token word)))))
 
 (def (first-is-not-productivity-case)
   (let (productions (lower-rules
@@ -799,6 +957,12 @@
                       table-support-counterexample-case))
     (test-case-add! (TestCase "one raw token selects different grammar terminals across LR states"
                       state-sensitive-terminal-case))
+    (test-case-add! (TestCase "constructed LR graphs preserve item origins and start separation"
+                      graph-provenance-case))
+    (test-case-add! (TestCase "internal production names are isolated and deterministic"
+                      internal-name-isolation-case))
+    (test-case-add! (TestCase "complete raw requests choose terminals from the current LR state"
+                      raw-request-terminal-case))
     (test-case-add! (TestCase "FIRST retains a terminal prefix before an unproductive suffix"
                       first-is-not-productivity-case))
     (test-case-add! (TestCase "dense item coordinates preserve epsilon and production boundaries"

@@ -9,14 +9,174 @@ universal properties of the reference algorithms; Scheme controls check the
 implementation; matched benchmarks measure CPU and allocation. These are
 three separate obligations, not interchangeable receipts.
 
-The executable package is [[file:../../formal/ParserEngine.lean][formal/ParserEngine.lean]]. It pins Lean 4.34.0
-and LeanPoo revision =0a111f6c5de43b261de5bba9287b48540d9f7c2e= in both
-the Lake declaration and manifest. LeanPoo is a verification dependency only.
+The executable package is [[file:../../formal/ParserEngine.lean][formal/ParserEngine.lean]]. The checked toolchain and LeanPoo revision are recorded in
+[[file:../../formal/lean-toolchain][lean-toolchain]], [[file:../../formal/lakefile.toml][lakefile.toml]] and its locked manifest. LeanPoo is a verification dependency only.
 Its =Functional.Requirements.Factories= and =Selected= retain typed factories;
 =prepare_ok_iff= establishes that successful preparation selected exactly
 those factories. Our executor threads transformed children through that tuple:
 LeanPoo's independent-result =build= is deliberately not used for sequential
 actions. No new Scheme dispatch facility or author interface is introduced.
+
+* Architecture alignment audit and qualification order
+
+The architecture model is *incomplete*. A successful Lean build establishes the
+listed theorems; successful Quint runs check their stated finite histories.
+Neither establishes coverage of all paper mechanisms, all engine routes or a
+refinement of Scheme. Hash-binding a source file only identifies that file.
+It does not connect a source transition to a theorem.
+
+The local reduction objective above is historical scope, not a complete engine
+specification. This section is the shared coverage ledger. Extend this ledger
+and its connected models before another runtime optimization. Do not use a new
+local object-count identity as evidence that an architecture gap has closed.
+
+** Responsibilities and shared vocabulary
+
+1. Papers define mechanisms, premises and limits. Transfer to this engine must
+   identify both retained premises and differences in algorithm/representation.
+2. Quint describes legal histories, invalidation and interleavings. Its bounded
+   transition envelope must name the same owners and observations as Lean.
+3. Lean defines denotations, representation relations, transition preservation
+   and cost recurrences under explicit premises. It must not replace producer
+   premises with facts that only a native implementation could establish.
+4. Scheme/Rust controls discharge implementation-specific correspondence and
+   failure obligations. Complete-request benchmarks measure the resulting CPU,
+   allocation and GC behavior. Neither timing nor byte counts prove semantics.
+
+The request state vocabulary is: admitted grammar/IR identity; source identity
+and generation; lexical position/mode; pending terminal with its admission
+basis; LR states; semantic values; retained recognition yields; branch and
+layout context; checkpoint/history owner; public artifact; and FFI owner/lifetime.
+A source coordinate, token ordinal, grammar state and object identity are four
+different quantities. Mutable tokens need a real producer protocol; an abstract
+revision field does not supply one to Scheme.
+
+The common observations are recognition outcome, exact remainder, terminal
+order/identity, tree fields and spans, diagnostics, published bytes/events and
+ownership after cancellation/edit/retry. Cost observations additionally include
+preparation, scanning, selection, shifts/reductions, capture, reuse checks and
+failed reuse, materialization, validation/digest/publication, FFI transport,
+allocation/GC and scheduling. Counted operations are not CPU weights.
+
+** Paper mechanism coverage
+
+The [[file:scheme-dsl-research-basis.org][research basis]] records the reading boundaries for the DSL papers.
+The table audits their mechanisms against the current models; it does not
+assert a new full-text reading or reproduce the papers' results. The LR and
+incremental papers were rechecked in selected passages of sections 2, 3.1, 4.1 and 5.1, and
+sections 4.1/7 respectively, for
+the transition and representation distinctions below.
+
+| Paper / mechanism | Current implementation owner | Existing formal support | Unclosed obligation |
+|-------------------+------------------------------+-------------------------+---------------------|
+| Syntactic Abstraction in Scheme: contextual pattern/template expansion | =src/compiler/language-expander.ss= and =language-artifact.ss= | Native expansion controls; no syntax-object model in these Lean/Quint modules | Binding/context preservation across composed grammar vocabulary |
+| Binding as Sets of Scopes: phase and binding identity | Language elaboration and generated entry bindings | No scope-set or phase correspondence theorem | Imported/renamed helpers, generated names and domain labels must remain distinct |
+| Keeping it Clean with Syntax Parameters: scoped expansion context | Engine expansion context | Directed controls; no composed context model | Nested declaration/expression contexts and restoration on failure |
+| Fortifying Macros: dependent declarations and author-level blame | Canonical declaration admission | No formal declaration-judgment model | Collect/check order, reference validity and original diagnostic ownership |
+| Compiled, Extensible, Multi-language DSLs: one admitted core with shared analyses | Canonical IR, compiler products and Loader | Prepared factory equivalence covers a consumer only | Extension/override elaboration and source-to-product consistency |
+| Parsing Expression Grammars: recognition algebra and rewrite premises | Grammar DSL and LR lowering | No PEG-to-CFG equivalence is claimed | State CFG/LR semantics explicitly; ordered choice laws cannot justify LR rewrites |
+| Abstract Interpretation: sound recursive derived facts | =src/compiler/lr.ss=: completion, nullable, FIRST | No least-fixed-point/derivation correspondence theorem | Soundness, completeness where required, convergence and suffix-fact consumers |
+| Extensibility for the Masses: independent construct/operation extension | POO Loader and admitted IR consumers | LeanPoo retained factory selection, ordered reduction composition | Extension laws for whole grammar admission, not just selected actions |
+| Polymorphic Embedding of DSLs: interpretation and recursive analysis boundaries | Shared canonical compiler observations | No backend interpretation relation | Same admitted meaning across Scheme, generated C and Rust products |
+| Essence of LR Parsing: item/closure/goto and derivations (section 2) | =src/compiler/lr.ss= and runtime action/goto selection | Stack depth; new token-flow kernel below | Grammar derivations, table construction, selected-action legality and goto correspondence |
+| Essence of LR Parsing: staging, direct style/CPS, constructed results (sections 3--4) | Prepared plans, deterministic driver and fallback | Prepared action-chain equality; no residual parser refinement | Binding-time classification, dynamic branch semantics and specialization termination/size |
+| Essence of LR Parsing: conflicts and semantic actions (section 5) | Fork selection, dynamic precedence and reduction actions | Ordered local action semantics only | Branch choice/effects/rejection and complete semantic result preservation |
+| Efficient and Flexible Incremental Parsing: state matching versus sentential-form reuse (section 4.1) | =src/runtime/lr-parser/transfer.ss= | Key admission and terminal-prefix lemmas | Transfer guards must imply the same continuation, including lookahead and lexical/layout context |
+| Efficient and Flexible Incremental Parsing: breakdown, ambiguity and fragility (sections 4--6) | Checkpoint drive, fallback and failure frontier | Separate finite scope/ownership histories | Shared branch/recovery/history semantics and termination/progress obligations |
+| Efficient and Flexible Incremental Parsing: repetitive structure (section 7) | Recognition sequences, capture and reuse catalog | Linear logical join/materialization counts | Height/search/update recurrence and grammar premises; persistence alone does not establish logarithmic incremental cost |
+| Efficient and Flexible Incremental Parsing: explicit identity reuse (section 8) | History and retained recognition objects | Conditional history/key protocols | Identity anchoring, no duplicated identity and observation stability across edits |
+
+** Implementation route coverage
+
+Status means *what is established*, not whether a source file is present in a
+receipt. All rows still require a checked Scheme abstraction relation.
+
+| Engine boundary | Present model | Missing composition / producer obligation |
+|-----------------+---------------+--------------------------------------------|
+| DSL/Loader -> canonical IR | Selected reduction factories | Admission judgments, POO extension semantics, hygiene and product consistency |
+| Grammar -> derived facts -> LR tables | Conditional prepared-plan lemmas | Derivation-based nullable/FIRST/closure/goto and conflict semantics |
+| Source -> ranked contextual scanner | Fold recognition/count identities | Longest/rank/tie policy, byte/character mapping, lexical modes, trivia and token admission |
+| Pending terminal -> action -> shift/reduce/capture | =Request.lean= / =RequestFlow.qnt=: ordered terminal conservation and depth over traces | Table-selected targets/widths, mutable native values and emitted AST correspondence |
+| Deterministic driver -> fork/layout/recovery | Scope withdrawal and ownership fragments | Branch score/order, fuel exhaustion, effect isolation and failure frontier |
+| Recognition -> projection/tree | Local field/alias, sequence, capture lemmas | Complete projection induction, positions/relocation, nullable anchors and action effects |
+| Checkpoint -> transfer -> resumed request | Key equality, yield/prefix and history fragments | Same continuation outcome on success; exact original fallback on failed admission |
+| Root/remainder -> validated artifact | Publication generation protocol and a byte/event lower bound | All success/failure routes, trailing-token policy, diagnostics and digest/event encoding |
+| Scheme -> C ABI -> Rust/Tokio | No composed ABI semantic model | Lifetime, cancellation, scheduling, ownership, error/result encoding and backend parity |
+| Complete request -> cost claim | Conditional work arithmetic and native measurements | Composed work recurrence, failed-path charges and measured cost attribution |
+
+** First connected kernel: retained terminal flow
+
+[[file:../../formal/ParserEngine/Request.lean][Request.lean]] composes the existing =Capture.splitPrefix= semantics with LR
+state/value depth. A configuration contains a top-first state stack, top-first
+terminal-yield frames and the unconsumed significant-token suffix. Its invariant
+is both stack alignment and:
+
+#+begin_example
+flatten(reverse(frames)) ++ rest = admitted significant-token input
+#+end_example
+
+=shift_valid= consumes exactly one pending token. =reduce_valid= uses an admitted
+width, contracts only that prefix in source order, preserves its suffix and
+leaves pending input unchanged, including width zero. =trace_valid= composes
+these steps over arbitrary finite traces. =root_and_remainder= separates prefix
+observation from =complete_root='s explicit empty-remainder premise.
+
+[[file:../../formal/quint/RequestFlow.qnt][RequestFlow.qnt]] uses the same state and observation, with an empty input control and input ordinals
+1--3, at most six frames, arbitrary abstract targets and reduction widths 0--3.
+Its ten directed controls include full consumption, nullable/repeated
+reductions, retained suffix, prefix acceptance, rejection and three deliberate
+faults. Seeded 1,000-sample/20-step exploration checks this envelope; it is not
+exhaustive model checking. Fault actions are excluded from the admitted step.
+Neither model asserts grammar acceptance, scan correctness, AST yield equality,
+native identity, progress or complete engine coverage.
+
+Local qualification for this model change: =lake build= completed 57 jobs;
+=npm --prefix formal/quint test= passed 137 directed controls across 16 modules
+and 15 seeded invariant explorations; the evidence host/input controls passed
+four tests. =RequestFlow='s final ten controls and 1,000-sample exploration also
+passed independently. These results establish the stated model properties and
+input invalidation behavior, not native refinement or model completeness.
+
+The Scheme correspondence obligations are concrete:
+
+- =batch.ss= shift adds the current terminal and advances =rest= once.
+- =batch.ss= reduction obtains source-order operands, retains the remaining
+  states/values and recurses with the original =rest= after a successful goto.
+- =recognition.ss= capture retains a terminal-yield description independent of
+  the possibly lossy semantic value. =Request.frames= denotes that description,
+  not arbitrary public AST children.
+- =batch.ss= accept returns a root and remainder. =parser.ss='s
+  =parse-tokenized/with= checks the remainder before success publication.
+  Low-level accept checks the top semantic value, not a singleton stack.
+  The single-frame premise of =root_and_remainder= must therefore come from
+  the start-production/table correspondence; it is not discharged here.
+- The direct checkpoint, contextual and generated paths need their own
+  transition correspondence. Hash-binding these owners does not prove it.
+
+These obligations are now visible; the source-to-model simulation is still
+open. Counterexamples demonstrate that correct depth can coexist with reversed
+terminals, and that a valid prefix is not a complete request. They are model
+falsifiers, not claims that the production runtime has those faults.
+
+** Completion gates before architecture optimization
+
+1. Specify the admitted DSL/grammar and scanner meaning, including effects and
+   invalid declarations. Connect derived facts and tables to that meaning.
+2. Extend the shared LR kernel with selected actions/gotos, branch/layout and
+   recovery, then connect capture/projection and checkpoint transfer to it.
+3. Compose edit/retry/cancellation/history and artifact/ABI observations with
+   the same request semantics. Name every unsupported route and premise.
+4. Bind executable conformance controls to these abstraction relations; model
+   command success and source hashes alone cannot discharge the relations.
+5. Derive complete cost recurrences from admitted transitions. Rank optimization
+   hypotheses only after the applicable semantic boundaries close, then use
+   complete-request Scheme benchmarks for CPU qualification.
+
+The latest =a50882f= Ubuntu CPU trial remains a failed performance gate:
+production P90 =0.9724769011= against the unchanged =0.95= ceiling with valid
+controls. A passing earlier trial cannot cancel it. The current model changes
+make no CPU improvement or runtime repair claim and do not authorize treating
+that revision as performance-qualified.
 
 * Papers, obligations and implementation owners
 
@@ -153,7 +313,7 @@ conformance remain open; the protocol model is not a second grammar authority.
 
 * Fold run specialization: distinct proof responsibilities
 
-* Whole-engine execution boundary: not another Fold-only speed model
+* Ordered consumer execution: conditional region model
 
 =Execution.lean= models ordered, dependent consumers over one immutable source
 extent. The shared recognition fact is source-only; consumers retain their

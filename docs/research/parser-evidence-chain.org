@@ -2,6 +2,11 @@
 
 * One optimization chain
 
+The architecture has four connected owners: papers, Quint, Lean and executable
+implementation. Measurements are implementation evidence. The command-review
+adapter below uses four narrower evidence claims for a scoped change; these
+claims do not certify completion of the architecture model.
+
 The optimization unit is an engine change with four distinct obligations:
 
 | Evidence layer | Owner | Qualified claim |
@@ -20,6 +25,12 @@ The production grammar.ss / parser.ss / parser-test.ss interfaces are unchanged.
 This extends [[file:parser-engine-formal-model.org][the reduction and sequence model]]. The existing
 [[file:parser-execution-evidence.org][measurement admission]] remains authoritative for actual requests.
 Passing a model does not establish implementation conformance or improvement.
+The [[file:parser-engine-formal-model.org::*Architecture alignment audit and qualification order][architecture alignment ledger]] is authoritative for missing model coverage.
+The four command-claim receipts below are evidence layers for a scoped change,
+not a completeness test for the paper program or the full engine. In particular,
+=lean-model= plus =quint-protocol= may pass while grammar/table, scanner, branch,
+projection, transfer and ABI correspondence remain unmodeled. Source hashes do
+not discharge any of those semantic obligations.
 The [[file:lr-owned-stack.org][request-owned LR stack study]] applies the chain to execution storage and
 immutable-frontier publication.
 

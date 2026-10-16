@@ -1,3 +1,4 @@
+import ParserEngine.Request
 import ParserEngine.Lookahead
 import ParserEngine.Capture
 import ParserEngine.Reuse
@@ -163,3 +164,11 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Capture.tagged_capture_vector_payload
 #print axioms ParserEngine.Capture.tagged_capture_vector_is_not_token
 #print axioms ParserEngine.Capture.unary_vector_mutation_keeps_storage_kind
+
+#print axioms ParserEngine.Request.initial_valid
+#print axioms ParserEngine.Request.capture_conserves
+#print axioms ParserEngine.Request.shift_valid
+#print axioms ParserEngine.Request.reduce_valid
+#print axioms ParserEngine.Request.trace_valid
+#print axioms ParserEngine.Request.root_and_remainder
+#print axioms ParserEngine.Request.complete_root

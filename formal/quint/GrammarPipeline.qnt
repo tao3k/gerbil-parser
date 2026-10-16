@@ -228,4 +228,68 @@ module GrammarPipeline {
       not(blocked.subseteq(resolved)) and blocked != Set()
   })
 
+  type HeapObject = {tag:str,refs:List[int],atom:int}
+  type HeapWrite = {cells:List[HeapObject],ok:bool}
+  pure def heapVectorWrite(heap:List[HeapObject],owner:int,index:int,value:int):HeapWrite =
+    if(not(heap.indices().contains(owner))) {cells:heap,ok:false}
+    else if(heap.nth(owner).tag != "vector" or not(heap.nth(owner).refs.indices().contains(index)))
+      {cells:heap,ok:false}
+    else {cells:heap.replaceAt(owner,{...heap.nth(owner),refs:heap.nth(owner).refs.replaceAt(index,value)}),ok:true}
+  run heapPublicationAndAtomicFailureTest = init.expect({
+    val heap = List({tag:"pair",refs:List(1,1),atom:0},
+      {tag:"atom",refs:List(),atom:7},{tag:"vector",refs:List(0),atom:0})
+    val cleared = heapVectorWrite(heap,2,0,1)
+    cleared.ok and cleared.cells.nth(0) == heap.nth(0) and cleared.cells.nth(1) == heap.nth(1) and
+      cleared.cells.nth(2) != heap.nth(2) and
+      heapVectorWrite(heap,0,0,2) == {cells:heap,ok:false} and
+      heapVectorWrite(heap,2,9,0) == {cells:heap,ok:false}
+  })
+  type QueueBudget = {remaining:Set[int],queued:List[int]}
+  pure def queueRank(s:QueueBudget):int = 2 * s.remaining.size() + s.queued.length()
+  pure def queuePublication(s:QueueBudget,owner:int,incoming:Set[int]):QueueBudget =
+    if(s.remaining.intersect(incoming) == Set()) s
+    else {remaining:s.remaining.exclude(incoming),
+      queued:if(s.queued.indices().exists(i => s.queued.nth(i) == owner)) s.queued else s.queued.append(owner)}
+  run freshQueueBudgetProgressTest = init.expect({
+    val before = {remaining:Set(0,1,70),queued:List()}
+    val published = queuePublication(before,4,Set(0,70))
+    val repeated = queuePublication(published,4,Set(0,70))
+    queueRank(published) < queueRank(before) and repeated == published and
+      queueRank({...published,queued:List()}) < queueRank(published)
+  })
+  run stalePublicationCannotBeProgressTest = init.expect({
+    val stale = {remaining:Set(1),queued:List(4)}
+    queuePublication(stale,4,Set(70)) == stale and
+      queueRank({...stale,queued:stale.queued.append(4)}) > queueRank(stale)
+  })
+  type ScopeContext = {columns:int,frames:List[int]}
+  type ScopeState = {current:ScopeContext,saved:List[ScopeContext]}
+  pure def unwindScope(s:ScopeState,depth:int):ScopeState =
+    0.to(s.saved.length()).fold(s,(active,index) =>
+      if(active.saved.length() <= depth) active
+      else {current:active.saved.nth(0),saved:active.saved.slice(1,active.saved.length())})
+  run layoutEveryExitRestoresScopeTest = init.expect({
+    val outer = {columns:1,frames:List(100)}
+    val inner = {columns:2,frames:List(7)}
+    val current = {current:{columns:3,frames:List(9)},saved:List(inner,outer)}
+    Set("returned","failed","cancelled").forall(outcome =>
+      {result:outcome,state:unwindScope(current,0)} ==
+        {result:outcome,state:{current:outer,saved:List()}}) and
+      current.current.columns != outer.columns
+  })
+  pure def layoutClose(frames:List[int],nextEligible:bool,boundary:bool,eof:bool):{ok:bool,frames:List[int]} =
+    if(frames == List()) {ok:false,frames:frames}
+    else if(eof or (not(nextEligible) and boundary))
+      {ok:true,frames:frames.slice(1,frames.length())} else {ok:false,frames:frames}
+  run layoutEmptySuccessAndNextPriorityTest = init.expect(
+    layoutClose(List(1),false,false,true) == {ok:true,frames:List()} and
+      layoutClose(List(),false,false,true) == {ok:false,frames:List()} and
+      layoutClose(List(1),true,true,false) == {ok:false,frames:List(1)})
+
+  pure def partitionContinues(nodes:int,current:int,nextGroups:int):bool =
+    current < nextGroups and nextGroups < nodes
+  run partitionRecursionMustProgressTest = init.expect(
+    partitionContinues(4,2,3) and not(partitionContinues(4,2,2)) and
+      not(partitionContinues(4,3,4)) and not(partitionContinues(4,3,2)))
+
 }

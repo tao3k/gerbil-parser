@@ -19,7 +19,8 @@
         (only-in :gerbil-parser/src/runtime/lr-parser
                  lr-prepare lr-parse/prepared lr-parse/prepared/receipt
                  current-lr-event-program-enabled? lr-runtime-for-current-semantic-backend
-                 lr-initial-checkpoint lr-checkpoint-drive)
+                 lr-initial-checkpoint lr-checkpoint-drive lr-runtime-with-action-selector)
+        (only-in :gerbil-parser/src/runtime/lr-parser/prepare make-lr-action-selector)
         (only-in :gerbil-parser/src/runtime/lr-action-index index-action-row)
         (only-in :gerbil-parser/src/runtime/artifact
                  make-success-parse-artifact
@@ -118,8 +119,47 @@
         '(lalr canonical-lr1 partitioned-lr1 follow-partition-lr1))))
    '(() ((precedence left -1 (empty))))))
 
+(def (layout-unwind-exception-case)
+  (let* ((rules '((root (alias Root (sequence (reference block) (token word))))
+                 (block (sequence (layout-start "|>") (reference body) (layout-end)))
+                 (body (choice (precedence right 1 (sequence (token word) (reference body)))
+                               (precedence left 0 (empty))))))
+         (base (lr-prepare (compile-lr-spec rules 'root 'selective-glr)))
+         (outer-columns (make-layout-columns "outer")) (outer-frames '((100 . "outer")))
+         (outer-column-values (u32vector->list outer-columns))
+         (inner-columns (make-layout-columns "|>\nx")) (sentinel (cons 'cancelled 'request))
+         (saw-owned-frame? #f)
+         (runtime (lr-runtime-with-action-selector base
+           (lambda (rows index insensitive? layout?)
+             (let (select (make-lr-action-selector rows index insensitive? layout?))
+               (lambda (state token)
+                 (when (pair? (current-layout-frames))
+                   (set! saw-owned-frame? #t)
+                   ;; A branch-local throw must unwind its pushed marker.
+                   (raise sentinel))
+                 (select state token)))))))
+    (parameterize ((current-layout-columns outer-columns) (current-layout-frames outer-frames))
+      (check (with-catch (lambda (condition) (eq? condition sentinel))
+               (lambda ()
+                 (parameterize ((current-layout-columns inner-columns) (current-layout-frames '()))
+                   (lr-parse/prepared runtime
+                     (list (make-token 'punctuation "|>" 0 2) (make-token 'word "x" 3 4))))
+                 #f)) => #t)
+      (check saw-owned-frame? => #t)
+      (check (eq? (current-layout-columns) outer-columns) => #t)
+      (check (eq? (current-layout-frames) outer-frames) => #t)
+      (check (u32vector->list (current-layout-columns)) => outer-column-values)
+      ;; Successful empty-list close is distinct from the #f failure result.
+      (parameterize ((current-layout-columns inner-columns) (current-layout-frames '((1 . "|>"))))
+        (check (layout-after-end #f) => '())
+        (check (layout-after-end (make-token 'punctuation "|>" 0 2) '("|>")) => #f))
+      (parameterize ((current-layout-frames '()))
+        (check (layout-after-end #f) => #f)))))
+
 (def layout-boundary-test
   (test-suite "Grammar-owned layout closing boundaries"
+    (test-case "layout branch exceptions restore owned outer columns and frames"
+      (layout-unwind-exception-case))
     (test-case "native layout fallback retains suppressed reduce origins and immutable rows"
       (native-layout-fallback-origin-case))
     (test-case "layout continuations are rejected before contextual preparation"

@@ -1297,8 +1297,37 @@
     (check (parse-literals rules "ac") => 'accepted)
     (check (parse-literals rules "abbc") => 'rejected)))
 
+(def (published-pair-heap-case)
+  (def (copy-pairs value)
+    (if (pair? value) (cons (copy-pairs (car value)) (copy-pairs (cdr value))) value))
+  (def (pair-graph? value)
+    (and (not (vector? value))
+         (or (not (pair? value)) (and (pair-graph? (car value)) (pair-graph? (cdr value))))))
+  (let* ((spec (compile-lr-spec
+                '((start (alias Root (choice (literal "a") (literal "b"))))) 'start))
+         (slots (lr-spec-ref spec 'actions))
+         (published (vector->list slots))
+         (expected (copy-pairs published)))
+    (check (pair-graph? published) => #t)
+    ;; Clear the actual published-row vector; retained rows share action pairs
+    ;; but do not point back into their mutable vector owner.
+    (for-each (lambda (index) (vector-set! slots index '())) (iota (vector-length slots)))
+    (check published => expected)
+    (check (with-catch (lambda (_condition) #t)
+             (lambda () (vector-set! slots (vector-length slots) 'bad) #f)) => #t)
+    (check (vector->list slots) => (make-list (vector-length slots) '()))
+    (check (with-catch (lambda (_condition) #t)
+             (lambda () (vector-set! (car published) 0 'bad) #f)) => #t)
+    (check published => expected)
+    ;; Negative control: publishing a live vector retains its mutations.
+    (let* ((scratch (vector '(reduce 1))) (alias scratch))
+      (vector-set! scratch 0 #f)
+      (check (vector-ref alias 0) => #f))))
+
 (def resolved-grammar-test
   (test-suite "resolved grammar admission and CFG alternatives"
+    (test-case-add! (TestCase "published action pairs survive vector writes and atomic setter failure"
+                      published-pair-heap-case))
     (test-case-add! (TestCase "duplicate CFG rows retain physical IDs and precedence through publication"
                       duplicate-production-identity-case))
     (test-case-add! (TestCase "native dense item layout refines ordered grammar coordinates and goto"

@@ -38,6 +38,42 @@
 (import (only-in :gerbil-parser/src/compiler/lr-partition refine-canonical-partition build-states-via-partitioned-lr1)
         (only-in :std/vector/extensible ExtensibleVector-fill-pointer ExtensibleVector-ref))
 
+(def (partition-termination-bound-case)
+  ;; This is an operation bound, not a timing assertion. The real dirty loop
+  ;; must recurse only while the dense group count grows below the node count.
+  (for-each
+   (lambda (nodes)
+     (let ((rounds 0) (observed '()) (initial (if (= nodes 0) 0 1)))
+       (let-values (((ids groups)
+                     (compiler-index-partition-refine
+                      (make-vector nodes 0) initial
+                      (lambda (node ids) (if (= node 0) '() (list (vector-ref ids (- node 1)))))
+                      (lambda (source visit) (when (< (+ source 1) nodes) (visit (+ source 1))))
+                      (lambda (groups count examined)
+                        (set! rounds (+ rounds 1))
+                        (set! observed (cons groups observed))
+                        (check count => nodes)
+                        (check (<= examined nodes) => #t)))))
+         (check groups => nodes)
+         (check (<= rounds (+ 1 (- nodes initial))) => #t)
+         (for-each (lambda (node) (check (vector-ref ids node) => node)) (iota nodes)))))
+   '(0 1 2 3 8 16)))
+
+(def (lookahead-delivery-bound-case)
+  ;; Every native dequeue has a nonempty fresh pending mask. At most one such
+  ;; delivery can be charged to each (physical item node, terminal) bit.
+  (for-each
+   (lambda (rules)
+     (let* ((productions (lower-rules rules 'source-file)) (table (production-table productions)))
+       (let-values (((_nullable nullable) (compute-nullable productions)))
+         (let-values (((_first first) (compute-first productions nullable)))
+           (let-values (((_states count masks offsets _edges terminals _layout _symbols _lr0-visits visits)
+                         (build-states-via-lr0 productions table first nullable)))
+             (check (vector-ref offsets count) => (vector-length masks))
+             (check (> visits 0) => #t)
+             (check (<= visits (* (vector-length masks) (vector-length terminals))) => #t))))))
+   (list shared-lookahead-rules lr1-not-lalr-rules (lr1-context-family-rules 8))))
+
 (def (quotient-lookahead-storage-case)
   (for-each (lambda (rules)
     (let* ((productions (lower-rules rules 'source-file)) (table (production-table productions)))
@@ -335,6 +371,10 @@
 
 (def canonical-lr1-reference-test
   (test-suite "canonical LR(1) reference"
+    (poo-flow-test-case "native partition rounds satisfy the finite dense-group bound"
+      (partition-termination-bound-case))
+    (poo-flow-test-case "native lookahead delivery stays within its finite item-terminal domain"
+      (lookahead-delivery-bound-case))
     (poo-flow-test-case "quotient lookaheads preserve physical core positions and exact member unions"
       (quotient-lookahead-storage-case))
     (poo-flow-test-case "dirty successor delivery composes across predecessor rounds"

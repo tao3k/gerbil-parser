@@ -1,3 +1,4 @@
+import ParserEngine.Operational
 import ParserEngine.Construction
 import ParserEngine.Names
 import ParserEngine.Encoding
@@ -323,3 +324,26 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Construction.shifted_lookahead_retained
 #print axioms ParserEngine.Construction.cell_events_origin
 #print axioms ParserEngine.Construction.vector_layout_publication
+
+#print axioms ParserEngine.Operational.Heap.allocation_identity
+#print axioms ParserEngine.Operational.Heap.vector_write_retains
+#print axioms ParserEngine.Operational.Heap.failed_write_atomic
+#print axioms ParserEngine.Operational.Heap.publication_survives_trace
+#print axioms ParserEngine.Operational.Scheduling.step_decreases
+#print axioms ParserEngine.Operational.Scheduling.finish_stopped
+#print axioms ParserEngine.Operational.Scheduling.finish_quiescent
+#print axioms ParserEngine.Operational.Scheduling.partition_round_bound
+#print axioms ParserEngine.Operational.Layout.end_requires_owned_frame
+#print axioms ParserEngine.Operational.Layout.eligible_next_cannot_close
+#print axioms ParserEngine.Operational.Layout.declared_boundary_closes
+#print axioms ParserEngine.Operational.Layout.context_selection_origin
+#print axioms ParserEngine.Operational.Layout.unwind_owned_scope
+#print axioms ParserEngine.Operational.Layout.every_exit_restores
+#print axioms ParserEngine.Operational.Heap.private_trace_retains
+#print axioms ParserEngine.Operational.Scheduling.native_delta_progress
+#print axioms ParserEngine.Operational.Scheduling.trace_length_bound
+#print axioms ParserEngine.Operational.Layout.outer_columns_survive
+#print axioms ParserEngine.Operational.Heap.allocation_is_fresh
+#print axioms ParserEngine.Operational.Layout.token_final_byte_in_bounds
+
+#print axioms ParserEngine.Operational.Scheduling.stale_publication_noop

@@ -1,0 +1,500 @@
+import ParserEngine.Construction
+
+/-! Operational adapters for Scheme object storage, finite native scheduling
+and dynamically scoped layout. These semantics describe the used primitives,
+not an interpreter or a correctness theorem for Gambit/GCC. -/
+namespace ParserEngine.Operational
+
+namespace Heap
+
+inductive Cell (Atom : Type) where
+  | atom (value : Atom)
+  | pair (first rest : Nat)
+  | vector (references : List Nat)
+  deriving DecidableEq, Repr
+
+abbrev Store (Atom : Type) := List (Cell Atom)
+
+inductive Tree (Atom : Type) where
+  | atom (value : Atom)
+  | pair (first rest : Tree Atom)
+  deriving DecidableEq, Repr
+
+/-- A published list recursively contains immutable pairs and atoms, including
+shared subgraphs. Mutable vectors cannot masquerade as frozen list objects. -/
+inductive Frozen (heap : Store Atom) : Nat → Tree Atom → Prop where
+  | atom {address value} (read : heap[address]? = some (.atom value)) :
+      Frozen heap address (.atom value)
+  | pair {address first rest left right} (read : heap[address]? = some (.pair first rest))
+      (car : Frozen heap first left) (cdr : Frozen heap rest right) :
+      Frozen heap address (.pair left right)
+
+def allocate (heap : Store Atom) (cell : Cell Atom) : Store Atom × Nat :=
+  (heap ++ [cell], heap.length)
+
+def writeVector (heap : Store Atom) (owner index value : Nat) : Store Atom × Bool :=
+  match heap[owner]? with
+  | some (.vector references) =>
+      if index < references.length then
+        (heap.set owner (.vector (references.set index value)), true)
+      else (heap, false)
+  | _ => (heap, false)
+
+theorem allocation_identity (heap : Store Atom) (cell : Cell Atom) :
+    (allocate heap cell).1[(allocate heap cell).2]? = some cell ∧
+      (allocate heap cell).2 = heap.length := by simp [allocate]
+
+theorem allocation_is_fresh (heap : Store Atom) (cell : Cell Atom) :
+    heap[(allocate heap cell).2]? = none := by simp [allocate]
+
+theorem frozen_transport {before after : Store Atom} {root tree}
+    (retains : ∀ (address : Nat) (cell : Cell Atom), before[address]? = some cell → after[address]? = some cell)
+    (published : Frozen before root tree) : Frozen after root tree := by
+  induction published with
+  | atom read => exact Frozen.atom (retains _ _ read)
+  | pair read car cdr ihCar ihCdr => exact Frozen.pair (retains _ _ read) ihCar ihCdr
+
+theorem allocation_retains {heap : Store Atom} {root tree}
+    (published : Frozen heap root tree) (cell : Cell Atom) :
+    Frozen (allocate heap cell).1 root tree := by
+  apply frozen_transport (published := published)
+  intro address value read
+  by_cases bound : address < heap.length
+  · simpa only [allocate, List.getElem?_append_left bound] using read
+  · have missing := List.getElem?_eq_none (Nat.le_of_not_gt bound)
+    rw [missing] at read
+    cases read
+
+theorem vector_update_retains {heap : Store Atom} {owner references root tree}
+    (vectorAt : heap[owner]? = some (.vector references))
+    (published : Frozen heap root tree) (replacement : List Nat) :
+    Frozen (heap.set owner (.vector replacement)) root tree := by
+  induction published with
+  | @atom address value read =>
+    have different : owner ≠ address := by
+      intro same
+      subst owner
+      rw [vectorAt] at read
+      cases read
+    apply Frozen.atom
+    rw [List.getElem?_set_ne different]
+    exact read
+  | @pair address first rest left right read car cdr ihCar ihCdr =>
+    have different : owner ≠ address := by
+      intro same
+      subst owner
+      rw [vectorAt] at read
+      cases read
+    apply Frozen.pair _ ihCar ihCdr
+    rw [List.getElem?_set_ne different]
+    exact read
+
+theorem vector_write_retains {heap : Store Atom} {root tree}
+    (published : Frozen heap root tree) (owner index value : Nat) :
+    Frozen (writeVector heap owner index value).1 root tree := by
+  unfold writeVector
+  split
+  · rename_i references vectorAt
+    split
+    · exact vector_update_retains vectorAt published _
+    · exact published
+  · exact published
+
+theorem failed_write_atomic (heap : Store Atom) (owner index value : Nat)
+    (failed : (writeVector heap owner index value).2 = false) :
+    (writeVector heap owner index value).1 = heap := by
+  cases read : heap[owner]? with
+  | none => simp [writeVector, read]
+  | some cell =>
+    cases cell with
+    | atom atom => simp [writeVector, read]
+    | pair first rest => simp [writeVector, read]
+    | vector references =>
+      by_cases bound : index < references.length
+      · simp [writeVector, read, bound] at failed
+      · simp [writeVector, read, bound]
+
+inductive Trace : Store Atom → Store Atom → Prop where
+  | initial (heap : Store Atom) : Trace heap heap
+  | allocate {before after} (earlier : Trace before after) (cell : Cell Atom) :
+      Trace before (Heap.allocate after cell).1
+  | write {before after} (earlier : Trace before after) (owner index value : Nat) :
+      Trace before (writeVector after owner index value).1
+
+theorem publication_survives_trace {before after : Store Atom} {root tree}
+    (published : Frozen before root tree) (execution : Trace before after) : Frozen after root tree := by
+  induction execution with
+  | initial => exact published
+  | allocate earlier cell ih => exact allocation_retains ih cell
+  | write earlier owner index value ih => exact vector_write_retains ih owner index value
+
+/-- A vector alias is observably mutable, unlike the pair/atom representation. -/
+theorem vector_alias_counterexample :
+    let heap : Store Nat := [.atom 7, .vector [0], .atom 9]
+    (writeVector heap 1 0 2).1[1]? ≠ heap[1]? := by decide
+
+theorem allocation_preserves_read {heap : Store Atom} {address : Nat} {value : Cell Atom}
+    (read : heap[address]? = some value) (cell : Cell Atom) :
+    (allocate heap cell).1[address]? = some value := by
+  by_cases bound : address < heap.length
+  · simpa only [allocate, List.getElem?_append_left bound] using read
+  · have missing := List.getElem?_eq_none (Nat.le_of_not_gt bound)
+    rw [missing] at read
+    cases read
+
+theorem other_vector_write_preserves_read {heap : Store Atom} {address owner index value : Nat}
+    {cell : Cell Atom} (different : owner ≠ address) (read : heap[address]? = some cell) :
+    (writeVector heap owner index value).1[address]? = some cell := by
+  unfold writeVector
+  split
+  · split
+    · rw [List.getElem?_set_ne different]; exact read
+    · exact read
+  · exact read
+
+/-- A request owns allocations at or beyond its initial heap frontier. Writes
+through an alias into an older request are excluded by this explicit protocol. -/
+inductive PrivateTrace (frontier : Nat) : Store Atom → Store Atom → Prop where
+  | initial (heap : Store Atom) : PrivateTrace frontier heap heap
+  | allocate {before after} (earlier : PrivateTrace frontier before after) (cell : Cell Atom) :
+      PrivateTrace frontier before (Heap.allocate after cell).1
+  | write {before after} (earlier : PrivateTrace frontier before after) (owner index value : Nat)
+      (owned : frontier ≤ owner) : PrivateTrace frontier before (writeVector after owner index value).1
+  | replace {before after} (earlier : PrivateTrace frontier before after) (owner : Nat)
+      (cell : Cell Atom) (owned : frontier ≤ owner) :
+      PrivateTrace frontier before (after.set owner cell)
+
+theorem private_trace_retains {before after : Store Atom} {frontier address : Nat} {cell : Cell Atom}
+    (older : address < frontier) (read : before[address]? = some cell)
+    (execution : PrivateTrace frontier before after) : after[address]? = some cell := by
+  induction execution with
+  | initial => exact read
+  | allocate earlier cell ih => exact allocation_preserves_read ih cell
+  | write earlier owner index value owned ih =>
+    exact other_vector_write_preserves_read (by omega) ih
+  | replace earlier owner cell owned ih =>
+    rw [List.getElem?_set_ne (by omega : owner ≠ address)]
+    exact ih
+
+end Heap
+
+namespace Scheduling
+
+def eraseMany [BEq Fact] : List Fact → List Fact → List Fact
+  | remaining, [] => remaining
+  | remaining, fact :: rest => eraseMany (remaining.erase fact) rest
+
+theorem erase_many_length_le [BEq Fact] (remaining incoming : List Fact) :
+    (eraseMany remaining incoming).length ≤ remaining.length := by
+  induction incoming generalizing remaining with
+  | nil => exact Nat.le_refl _
+  | cons fact rest ih => exact Nat.le_trans (ih _) List.length_erase_le
+
+theorem erase_many_fresh_decreases [BEq Fact] [LawfulBEq Fact]
+    (remaining incoming : List Fact) (fresh : ∃ fact ∈ incoming, fact ∈ remaining) :
+    (eraseMany remaining incoming).length < remaining.length := by
+  induction incoming generalizing remaining with
+  | nil => simp at fresh
+  | cons first rest ih =>
+    by_cases present : first ∈ remaining
+    · have shorter := List.length_erase_of_mem present
+      have bounded := erase_many_length_le (remaining.erase first) rest
+      simp only [eraseMany]
+      have nonempty : 0 < remaining.length := List.length_pos_of_mem present
+      omega
+    · have unchanged := List.erase_eq_self_iff.mpr present
+      simp only [eraseMany, unchanged]
+      apply ih
+      obtain ⟨fact, member, known⟩ := fresh
+      rcases List.mem_cons.mp member with rfl | member
+      · exact False.elim (present known)
+      · exact ⟨fact, member, known⟩
+
+structure Budget (Fact Owner : Type) where
+  remaining : List Fact
+  queued : List Owner
+
+def rank (state : Budget Fact Owner) : Nat := 2 * state.remaining.length + state.queued.length
+
+def publish [BEq Fact] [LawfulBEq Fact] [BEq Owner] (state : Budget Fact Owner) (owner : Owner)
+    (incoming : List Fact) : Budget Fact Owner :=
+  if incoming.any (fun fact => state.remaining.contains fact) then
+    ⟨eraseMany state.remaining incoming,
+      if state.queued.contains owner then state.queued else owner :: state.queued⟩
+  else state
+
+theorem stale_publication_noop [BEq Fact] [LawfulBEq Fact] [BEq Owner]
+    (state : Budget Fact Owner) (owner : Owner) (incoming : List Fact)
+    (old : ∀ fact ∈ incoming, fact ∉ state.remaining) : publish state owner incoming = state := by
+  unfold publish
+  split
+  · rename_i live
+    obtain ⟨fact, member, known⟩ := List.any_eq_true.mp live
+    exact False.elim (old fact member (List.contains_iff_mem.mp known))
+  · rfl
+
+inductive Step [BEq Fact] [LawfulBEq Fact] [BEq Owner] :
+    Budget Fact Owner → Budget Fact Owner → Prop where
+  | publish {state owner incoming} (fresh : ∃ fact ∈ incoming, fact ∈ state.remaining) :
+      Step state (Scheduling.publish state owner incoming)
+  | drain (remaining : List Fact) (owner : Owner) (rest : List Owner) :
+      Step ⟨remaining, owner :: rest⟩ ⟨remaining, rest⟩
+
+theorem step_decreases [BEq Fact] [LawfulBEq Fact] [BEq Owner]
+    {before after : Budget Fact Owner} (step : Step before after) : rank after < rank before := by
+  cases step with
+  | @publish state owner incoming fresh =>
+    have shorter := erase_many_fresh_decreases _ _ fresh
+    have live : incoming.any (fun fact => before.remaining.contains fact) = true := by
+      obtain ⟨fact, member, known⟩ := fresh
+      exact List.any_eq_true.mpr ⟨fact, member, List.contains_iff_mem.mpr known⟩
+    simp only [publish, live, ite_true, rank]
+    split <;> (try simp only [List.length_cons]) <;> omega
+  | drain => simp [rank]
+
+/-- Only progress steps recurse. Empty/old evidence is a finite callback
+return, not an allowed infinitely repeated scheduler transition. -/
+def finish [BEq Fact] [LawfulBEq Fact] [BEq Owner]
+    (choose : (state : Budget Fact Owner) → Option {next // Step state next})
+    (state : Budget Fact Owner) : Budget Fact Owner :=
+  match choose state with
+  | none => state
+  | some next => finish choose next.1
+termination_by rank state
+decreasing_by exact step_decreases next.2
+
+theorem finish_stopped [BEq Fact] [LawfulBEq Fact] [BEq Owner]
+    (choose : (state : Budget Fact Owner) → Option {next // Step state next})
+    (state : Budget Fact Owner) : choose (finish choose state) = none := by
+  rw [finish]
+  split
+  next stopped => exact stopped
+  next later equation => exact finish_stopped choose later.1
+termination_by rank state
+decreasing_by
+  rename_i later _ _
+  exact step_decreases later.2
+
+theorem finish_quiescent [BEq Fact] [LawfulBEq Fact] [BEq Owner]
+    (choose : (state : Budget Fact Owner) → Option {next // Step state next})
+    (progress : ∀ state, state.queued ≠ [] → choose state ≠ none)
+    (state : Budget Fact Owner) : (finish choose state).queued = [] := by
+  by_cases empty : (finish choose state).queued = []
+  · exact empty
+  · exact False.elim (progress _ empty (finish_stopped choose state))
+
+/-- Exact native partition recursion guard. Even the round producer is
+arbitrary; recursion itself requires a strictly larger count below the limit. -/
+def partitionRounds (nodes : Nat) (groups : State → Nat) (round : State → State)
+    (state : State) : Nat :=
+  if groups state < groups (round state) ∧ groups (round state) < nodes then
+    1 + partitionRounds nodes groups round (round state)
+  else 1
+termination_by nodes - groups state
+decreasing_by omega
+
+theorem partition_round_bound (nodes : Nat) (groups : State → Nat) (round : State → State)
+    (state : State) : partitionRounds nodes groups round state ≤ nodes - groups state + 1 := by
+  rw [partitionRounds]
+  split
+  · have later := partition_round_bound nodes groups round (round state)
+    omega
+  · omega
+termination_by nodes - groups state
+decreasing_by omega
+
+/-- A nonzero native delta supplies the fresh finite-domain witness needed by
+Step.publish. The terminal bound and current mask/catalog relation are explicit. -/
+theorem native_delta_progress {remaining : List (Nat × Nat)} {owner terminalCount incoming known : Nat}
+    (bounded : ∀ bit, incoming.testBit bit = true → bit < terminalCount)
+    (representation : ∀ bit, bit < terminalCount →
+      ((owner, bit) ∈ remaining ↔ known.testBit bit = false))
+    (novel : Encoding.difference incoming known ≠ 0) :
+    ∃ fact ∈ ((List.range terminalCount).filter (fun bit => incoming.testBit bit)).map (fun bit => (owner, bit)),
+      fact ∈ remaining := by
+  obtain ⟨bit, present⟩ := Nat.exists_testBit_of_ne_zero novel
+  have fresh := (Encoding.difference_fresh incoming known bit).mp present
+  have bound := bounded bit fresh.1
+  refine ⟨(owner, bit), ?_, (representation bit bound).mpr fresh.2⟩
+  apply List.mem_map.mpr
+  exact ⟨bit, List.mem_filter.mpr ⟨List.mem_range.mpr bound, fresh.1⟩, rfl⟩
+
+inductive Trace [BEq Fact] [LawfulBEq Fact] [BEq Owner] :
+    Nat → Budget Fact Owner → Budget Fact Owner → Prop where
+  | initial (state : Budget Fact Owner) : Trace 0 state state
+  | next {count before middle after} (step : Step before middle)
+      (later : Trace count middle after) : Trace (count + 1) before after
+
+theorem trace_length_bound [BEq Fact] [LawfulBEq Fact] [BEq Owner]
+    {count : Nat} {before after : Budget Fact Owner} (execution : Trace count before after) :
+    count + rank after ≤ rank before := by
+  induction execution with
+  | initial => omega
+  | next step later ih => have decrease := step_decreases step; omega
+
+end Scheduling
+
+namespace Layout
+
+structure Frame where
+  column : Nat
+  marker : String
+  deriving DecidableEq, Repr
+
+structure Token where
+  lexeme : String
+  start : Nat
+  finish : Nat
+  deriving DecidableEq, Repr
+
+/-- Native column reads require a nonempty admitted token; EOF is represented
+separately. Its final byte is within the source, without truncated subtraction. -/
+theorem token_final_byte_in_bounds (token : Token) (bytes : Nat)
+    (nonempty : token.start < token.finish) (bounded : token.finish ≤ bytes) :
+    token.start ≤ token.finish - 1 ∧ token.finish - 1 < bytes := by omega
+
+inductive Role where
+  | ordinary | start | next
+  deriving DecidableEq, Repr
+
+def shiftAllowed (columns : Nat → Nat) (frames : List Frame) (token : Token) : Bool :=
+  match frames with
+  | [] => true
+  | frame :: _ => decide (frame.column < columns token.start)
+
+def nextEligible (columns : Nat → Nat) (frames : List Frame) (token : Token) : Bool :=
+  match frames with
+  | [] => false
+  | frame :: _ => decide (columns (token.finish - 1) = frame.column ∧ token.lexeme = frame.marker)
+
+def afterShift (columns : Nat → Nat) (frames : List Frame) (role : Role) (token : Token) : List Frame :=
+  match role with
+  | .start => ⟨columns (token.finish - 1), token.lexeme⟩ :: frames
+  | _ => frames
+
+def afterEnd (columns : Nat → Nat) (frames : List Frame)
+    (token : Option Token) (boundaries : List String) : Option (List Frame) :=
+  match frames with
+  | [] => none
+  | frame :: tail =>
+      match token with
+      | none => some tail
+      | some next =>
+          if !nextEligible columns frames next &&
+              decide (columns next.start ≤ frame.column ∨ next.lexeme ∈ boundaries)
+            then some tail else none
+
+theorem start_frame_uses_final_byte (columns : Nat → Nat) (frames : List Frame) (token : Token) :
+    afterShift columns frames .start token = ⟨columns (token.finish - 1), token.lexeme⟩ :: frames := rfl
+
+theorem non_start_retains_frames (columns : Nat → Nat) (frames : List Frame) (token : Token)
+    (role : Role) (other : role ≠ .start) : afterShift columns frames role token = frames := by
+  cases role <;> simp_all [afterShift]
+
+theorem end_requires_owned_frame {columns frames token boundaries tail}
+    (closed : afterEnd columns frames token boundaries = some tail) :
+    ∃ frame, frames = frame :: tail := by
+  cases frames with
+  | nil => simp [afterEnd] at closed
+  | cons head rest =>
+    cases token with
+    | none => simp only [afterEnd, Option.some.injEq] at closed; exact ⟨head, by rw [closed]⟩
+    | some token =>
+      simp only [afterEnd] at closed
+      split at closed
+      · cases closed; exact ⟨head, rfl⟩
+      · contradiction
+
+theorem eligible_next_cannot_close {columns frames token boundaries}
+    (eligible : nextEligible columns frames token = true) :
+    afterEnd columns frames (some token) boundaries = none := by
+  cases frames with
+  | nil => simp [afterEnd]
+  | cons head tail => simp [afterEnd, eligible]
+
+theorem last_frame_eof_closes (columns : Nat → Nat) (frame : Frame) (boundaries : List String) :
+    afterEnd columns [frame] none boundaries = some [] := rfl
+
+theorem declared_boundary_closes {columns frame tail token boundaries}
+    (ordinary : nextEligible columns (frame :: tail) token = false)
+    (declared : token.lexeme ∈ boundaries) :
+    afterEnd columns (frame :: tail) (some token) boundaries = some tail := by
+  simp [afterEnd, ordinary, declared]
+
+/-- The previous fallback origin theorem now receives the actual frame/column
+eligibility computation instead of an unexplained Boolean. -/
+theorem context_selection_origin {origin : Grammar.Action → Prop} {primary reductions}
+    (primarySource : ∀ action ∈ Construction.selected primary, origin action)
+    (fallbackSource : ∀ action ∈ reductions, origin action)
+    (columns : Nat → Nat) (frames : List Frame) (token : Token) (enabled : Bool) :
+    ∀ action ∈ Construction.selectLayout (shiftAllowed columns frames token)
+      (Construction.publishLayout enabled primary reductions), origin action :=
+  Construction.layout_selection_origin primarySource fallbackSource enabled _
+
+/-- Column objects retain heap identity across dynamic scope restoration.
+Frames describe the current branch; they are not global parser state. -/
+structure Context where
+  columns : Option Nat
+  frames : List Frame
+  deriving DecidableEq, Repr
+
+structure Dynamic where
+  current : Context
+  saved : List Context
+  deriving DecidableEq, Repr
+
+def enter (state : Dynamic) (inner : Context) : Dynamic :=
+  ⟨inner, state.current :: state.saved⟩
+
+def unwind (depth : Nat) (state : Dynamic) : Dynamic :=
+  if state.saved.length ≤ depth then state else
+    match _stack : state.saved with
+    | [] => state
+    | prior :: rest => unwind depth ⟨prior, rest⟩
+termination_by state.saved.length
+decreasing_by simp_all
+
+theorem unwind_owned_scope (outer : Dynamic) (nested : List Context) (current : Context) :
+    unwind outer.saved.length ⟨current, nested ++ outer.current :: outer.saved⟩ = outer := by
+  induction nested generalizing current with
+  | nil =>
+    rw [unwind]
+    simp only [List.nil_append, List.length_cons, Nat.add_one_le_iff, Nat.lt_irrefl, ite_false]
+    rw [unwind]
+    simp
+  | cons head rest ih =>
+    rw [unwind]
+    have deeper : ¬ (head :: (rest ++ outer.current :: outer.saved)).length ≤ outer.saved.length := by simp; omega
+    simp only [List.cons_append]
+    rw [ite_eq_right deeper]
+    exact ih head
+
+inductive Exit (Value : Type) where
+  | returned (value : Value)
+  | failed (reason : String)
+  | cancelled
+  deriving DecidableEq, Repr
+
+def leave (depth : Nat) (result : Exit Value) (state : Dynamic) : Exit Value × Dynamic :=
+  (result, unwind depth state)
+
+theorem every_exit_restores (outer : Dynamic) (nested : List Context) (current : Context)
+    (result : Exit Value) :
+    leave outer.saved.length result ⟨current, nested ++ outer.current :: outer.saved⟩ = (result, outer) := by
+  simp only [leave, unwind_owned_scope]
+
+/-- Dynamic restoration and private heap ownership compose: restoring the outer
+column reference also restores access to its unchanged mutable column object. -/
+theorem outer_columns_survive {before after : Heap.Store Atom} {frontier address : Nat}
+    {cell : Heap.Cell Atom} (outer : Dynamic) (nested : List Context) (current : Context)
+    (result : Exit Value) (columnOwner : outer.current.columns = some address)
+    (older : address < frontier) (read : before[address]? = some cell)
+    (execution : Heap.PrivateTrace frontier before after) :
+    (leave outer.saved.length result ⟨current, nested ++ outer.current :: outer.saved⟩).2.current.columns =
+      some address ∧ after[address]? = some cell := by
+  rw [every_exit_restores]
+  exact ⟨columnOwner, Heap.private_trace_retains older read execution⟩
+
+end Layout
+
+end ParserEngine.Operational

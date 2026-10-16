@@ -1539,3 +1539,139 @@ The evidence collector binds the layout source and its test owner, and checks
 that changing that owner invalidates a prior snapshot. These are model/native
 correspondence controls, not CPU measurements or a claim of whole-engine
 formal closure. No runtime performance change is included.
+
+* Operational heap, finite scheduler progress and dynamic layout
+
+** Shared operational boundary
+
+[[file:../../formal/ParserEngine/Operational.lean][Operational.lean]] collects the operational adapters for the existing
+construction and request models. It adds one shared primitive vocabulary,
+not another language-author entrypoint. The paper obligations remain separate:
+finite monotone publication needs an actual progress argument; heap identity
+is distinct from structural equality; and dynamic context must be restored
+when a branch exits. These adapters refine those obligations under explicit
+primitive and ownership protocols. They are not a Scheme interpreter or a
+proof of the Gambit compiler, collector, FFI or machine-code backend.
+
+** Heap addresses, tags and publication
+
+=Heap.Store= contains addressed atom, pair and vector objects. Allocation
+appends a fresh object, and =allocation_identity= / =allocation_is_fresh= prove
+its readback and freshness. =writeVector= checks the object tag and slot bound;
+wrong-tag and out-of-range operations fail without changing storage.
+=failed_write_atomic= proves that error boundary.
+
+=Heap.Frozen= describes the recursively readable pair/atom graph of a published
+row, including shared subgraphs. It excludes a mutable vector at any node.
+=vector_update_retains= and =publication_survives_trace= prove that arbitrary
+allocation/vector-write histories preserve the same published tree. They do
+not assume that all objects at different addresses are unaliased: vectors can
+point to shared actions, while actions have no path back to their vector owner.
+A checked counterexample shows why retaining a vector alias is different.
+
+The native bridge is the actual =map/cons= publication in
+[[file:../../src/compiler/lr-compiler.ss][build-actions]], followed by =vector-set!= cleanup. The new Scheme control
+retains actual compiled action rows, clears their mutable vector owner,
+checks the pair graph and contents survive, and checks wrong-tag/out-of-range
+setters leave it unchanged. A live-vector alias is a negative control.
+The trace protocol does not allow pair/string mutation through external
+aliases. Logical addresses represent object identity; allocator address reuse,
+moving GC, cycles and arbitrary foreign mutation remain outside this model.
+
+=Heap.PrivateTrace= supplies a separate ownership law for request-local mutable
+objects. New request allocations start at a heap frontier; writes/replacements
+must target objects owned at or beyond that frontier. The replacement case
+also covers private packed-buffer updates without pretending their scalar
+slots are Scheme pointers. =private_trace_retains= proves every older object's
+contents remain readable, including mutable outer column objects. An arbitrary
+callback that mutates an older object violates this explicit protocol.
+
+** Progress is distinct from quiescent correctness
+
+The existing =Worklist.quiescent_exact= proves correctness at an empty queue.
+The new =Scheduling= adapter adds a finite progress measure:
+
+#+begin_example
+rank = 2 * remaining unpublished facts + queued owners
+#+end_example
+
+A publication must remove at least one fresh finite-domain fact. It can add
+at most one queue owner; an already queued owner is coalesced. A drain removes
+one queue entry. =step_decreases= proves strict decrease in either case, and
+=trace_length_bound= bounds any such execution by its initial rank.
+=native_delta_progress= connects a nonzero native mask difference to an actual
+fresh catalog fact using =Encoding.difference_fresh=, the terminal bound and
+the current mask/catalog representation. Old evidence returns the unchanged state by =stale_publication_noop= and
+cannot be admitted as a progress transition. =finish= is well-founded recursion without timeout fuel;
+=finish_stopped= proves it returns at the scheduler's stop condition, and
+=finish_quiescent= derives an empty queue when nonempty queues enable progress.
+
+The exact forward-partition guard also receives its own proof.
+=partitionRounds= recurses only when the new group count strictly increases
+and remains below the node count. =partition_round_bound= proves at most
+=nodes - initialGroups + 1= rounds, including empty and singleton domains.
+This matches [[file:../../src/compiler/funcs.ss][compiler-index-partition-refine]], rather than treating an arbitrary
+changed flag as progress. Its native control checks chain sizes 0, 1, 2, 3, 8
+and 16. The native LALR delivery control checks that actual dequeues do not
+exceed the physical item-node/terminal domain on three grammar families.
+These are operation bounds, not CPU measurements.
+
+Finite callback execution and the mask/catalog representation are still
+producer obligations. The backward follow-block changed flag and canonical
+state-interning queue have separate producers; the forward round theorem is
+not silently applied to them. Completing those source-level refinements and
+their relation to semantic quiescence remains distinct from termination of
+the finite operational model.
+
+** Layout context, frame ownership and exits
+
+The installed Gerbil source was checked at =gerbil/runtime/control.ss=:
+=call-with-parameters= delegates one parameter to =##parameterize1= and nests
+multiple bindings. The model follows those scoped bindings and stack unwinding;
+it does not substitute an exception-only cleanup combinator for parameter
+restoration. Runtime source requests bind fresh columns and empty frames in
+[[file:../../src/runtime/parser.ss][parse-tokenized]], and layout shifts/ends bind branch-local frames in
+[[file:../../src/runtime/lr-parser/batch.ss][the materialized driver]].
+
+=Layout.shiftAllowed=, =nextEligible=, =afterShift= and =afterEnd= model the
+actual column/lexeme rules in [[file:../../src/runtime/layout.ss][layout.ss]]. The frame stores the marker's final
+byte column, not its exclusive end. =token_final_byte_in_bounds= retains the
+nonempty admitted-token and source-bound premises; EOF is represented
+separately. =context_selection_origin= now supplies the earlier fallback theorem
+with the actual frame/column eligibility computation. An eligible next marker
+cannot close a frame, even if its lexeme is a declared closing boundary.
+An EOF close of the last frame succeeds with an empty list; this is distinct
+from failure to close an unowned frame.
+
+=Layout.Dynamic= stores current and saved contexts, including the column
+object's identity. =unwind_owned_scope= proves recursive unwinding restores
+the exact outer context across arbitrary nested scopes. =every_exit_restores=
+covers returned, failed and cooperatively cancelled exits. Finally,
+=outer_columns_survive= composes scope restoration with private heap ownership:
+the restored outer column reference also reads the unchanged outer object.
+Restoring the reference alone would not establish that content property.
+
+The new native control raises a private sentinel from the actual LR action
+selector after a layout shift has pushed an owned frame. Gerbil unwinds the
+branch and nested request parameters; both outer column/frame identities and
+the outer packed-column contents are restored. Existing complete-request
+success/rejection controls remain, together
+with EOF-empty-success and next-marker-priority checks. Continuation reentry,
+forced thread termination, Rust cancellation and foreign heap mutation are
+not inferred from this cooperative-exit proof.
+
+** Qualification
+
+Four native-engine/source-client owners run concurrently under the unchanged
+90-second total and five-second idle bounds. All 101 cases pass in 27.2 seconds:
+canonical reference 27, resolved grammar 55, layout boundary 13 and style
+contract 6. After adding the outer-column content assertion, a focused
+layout/style run passes all 19 cases in 7.3 seconds. Lean kernel-checks the
+general proofs, including the well-founded
+recursion definitions; the axiom audit uses standard Lean logic and introduces
+no custom axioms, =sorry= or =native_decide=. GrammarPipeline passes 27
+directed tests and adds heap-alias,
+atomic-write, stale-publication, scope-exit and recursion-guard falsifiers.
+The new proof module is part of the evidence snapshot and source-change
+invalidation controls. Model, native control and CI evidence remain distinct.
+No local runtime performance optimization is included.

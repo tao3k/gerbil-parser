@@ -1,3 +1,4 @@
+import ParserEngine.EventIterator
 import ParserEngine.Publication
 import ParserEngine.RequestAST
 import ParserEngine.TableBridge
@@ -842,3 +843,25 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Publication.numbered_values
 
 #print axioms ParserEngine.Publication.event_extraction_exact
+
+#print axioms ParserEngine.EventIterator.chunk_order
+
+#print axioms ParserEngine.EventIterator.append_order
+
+#print axioms ParserEngine.EventIterator.view_composition
+
+#print axioms ParserEngine.EventIterator.cancelled_view
+
+#print axioms ParserEngine.EventIterator.complete_iterator
+
+#print axioms ParserEngine.EventIterator.publication_refinement
+
+#print axioms ParserEngine.EventIterator.iterator_total
+
+#print axioms ParserEngine.EventIterator.complete_request_product
+
+#print axioms ParserEngine.EventIterator.cancelled_token_claim
+#print axioms ParserEngine.EventIterator.unchanged_token_requires_identity
+
+#print axioms ParserEngine.EventIterator.translated_claim_composition
+#print axioms ParserEngine.EventIterator.negative_start_rejected

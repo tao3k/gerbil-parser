@@ -62,4 +62,18 @@ module Publication {
   run leftoverSourceWitnessTest = init.expect(
     not(completeSource(closeSourceNode(openSourceNode(sourceProduct(List(7))),0))))
 
+  // Continuations own their view context; cancellation retains provenance.
+  type ViewContext = {delta:int,moved:bool}
+  pure def moveContext(c:ViewContext,d:int):ViewContext = {delta:c.delta+d,moved:true}
+  pure val unmoved:ViewContext = {delta:0,moved:false}
+  run cancelledViewRetainsProofTest = init.expect(
+    moveContext(moveContext(unmoved,11),-11) == {delta:0,moved:true})
+  run siblingContextWitnessTest = init.expect(
+    val deferred = unmoved
+    val visited = moveContext(unmoved,7)
+    deferred != visited and deferred == {delta:0,moved:false})
+  run appendBlockOrderTest = init.expect(
+    val newestFirst = List(List(3,4),List(1,2))
+    List(0).concat(newestFirst.foldl(List(5),(acc,block) => block.concat(acc))) == List(0,1,2,3,4,5))
+
 }

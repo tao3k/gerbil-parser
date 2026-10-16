@@ -305,11 +305,86 @@ completed, the same-budget serial qualification passed. These are correctness
 receipts, not CPU measurements.
 
 Remaining closure boundaries are explicit: native primitive/record extraction
-and compiler-produced trace simulation; relocation/position views; a universal
-refinement of the event rope/chunk iterator; complete source-position partition
+and compiler-produced trace simulation; native relocation/position-view extraction
+and physical event rope/chunk iterator simulation (the general extracted
+iterator is addressed below); complete source-position partition
 and artifact digest/schema/diagnostic admission; GLR/layout/recovery and arbitrary
 installed callbacks. Host execution remains an external premise. No Gambit
 source or SDK build is part of this work, and no performance optimization is admitted.
+
+*** Position views, rope continuations and complete products
+
+The [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][LR paper, sections 2--4]] supplies the accepted-derivation obligation and
+compares direct and continuation-based control. It does not specify our AST
+coordinates, token identity or event rope. Those additional obligations come
+from [[file:../../src/runtime/funcs.ss][canonical child sequences]], [[file:../../src/runtime/event-program.ss][event programs]] and [[file:../../src/runtime/artifact.ss][publication]]. They must be connected
+to the accepted request rather than attributed to the paper.
+
+[[file:../../formal/ParserEngine/EventIterator.lean][EventIterator.lean]] models finite extracted ropes with empty, atom, branch
+and signed position-view constructors. Atoms are consumer instructions; a
+semantic frame expands to its header, body and footer. Chunks embed their
+vector elements in index order. An append envelope embeds its prefix, blocks
+in reverse storage order, and tail. This extraction is a mathematical adapter,
+not an assertion that private Scheme records automatically implement it.
+
+| Actual execution obligation | General theorem | Admission boundary |
+|-----------------------------+-----------------+--------------------|
+| Child and event views accumulate signed shifts | =view_composition= | Exact signed arithmetic and stable native reads |
+| Opposing shifts retain moved provenance | =cancelled_view= | A zero total shift still selects translated token validation |
+| Arbitrary signed claims compose and negative translated starts are rejected | =translated_claim_composition=, =negative_start_rejected= | Current source coordinates must be admitted naturals |
+| Translated zero-shift claims compare all token metadata; unchanged claims require identity | =cancelled_token_claim=, =unchanged_token_requires_identity= | Stable object identity is an external premise; coordinates are compared as signed integers |
+| Chunk and append iteration preserve source order | =chunk_order=, =blocks_order=, =append_order= | Vector bounds, stored block order and immutable finite extraction |
+| Deferred siblings restore their own context | =step_conserves=, =trace_conserves= | Extracted continuations carry delta and moved independently |
+| Explicit iteration finishes with the recursive meaning | =frame_completion=, =iterator_total=, =complete_iterator= | All finite extracted ropes are covered; cycles or concurrent mutation are not admitted |
+| Iterator output feeds the same canonical publisher | =publication_refinement= | Consumer resolution must admit signed coordinates and preserve token claims; no saturating integer-to-natural conversion is implicit |
+| One complete request yields the AST and event product | =complete_request_product= | The same root must decode from LR values and denote the rope operations; source queue exhaustion and closed frames remain required |
+
+The composed theorem derives grammar membership, complete semantic replay,
+root-operation correspondence, exact numbered source payloads and node-open
+count from the request, iterator and publication traces together. The stronger
+source-text and scanner-binding contract in =Publication.complete_product=
+uses the same transported publication trace. Header/footer callback effects,
+including retention of an opening node ID until its close, still require a
+faithful native trace extraction; this is not inferred from an artifact flag.
+
+[[file:../../t/event-iterator-test.ss][The independent Scheme recipe interpreter]] checks chunk/carry widths
+0, 1, 15, 16, 17, 31, 32, 33, 65 and 129, independent sibling translations,
+cancelled views, canonical child identity, field/fragment order and retained
+closing IDs across recursive and explicit fallback paths. Depth controls
+include 63, 64, 65 and 129. The oracle does not inspect private rope slots or
+call the native traversal to construct its expected sequence.
+
+[[file:../../t/lr-request-product-test.ss][Complete request controls]] now publish both canonical and event backends
+through opposing root relocations against freshly allocated source tokens.
+They also shift each full request by one source byte and compare its published
+product against a fresh canonical parse of the prefixed source. This covers
+nonzero shifts of complete 64-record and arithmetic requests as well as cancelled
+views. They compare every event with independent production replay and publication,
+validate the artifact and reconstruct source text for empty, trivia, Unicode,
+64-record and arithmetic requests. Untranslated roots must reject replacement
+significant token objects; cancelled views must accept matching current source
+payloads. Public root relocation uses the recognition relocation constructor;
+an internal event sequence view is not itself an admitted root. The initial
+control used that wrong root constructor and failed with =invalid recognition
+value=; the failed receipt is retained and the root adapter was corrected.
+
+The request-product (4), iterator (3), stack-reduction (19) and style (6)
+owners pass 32 cases with two workers, CI LR tracing, natural exit zero in
+21.9847 seconds after adding nonzero full-request shifts, with unchanged
+90/5-second owner budgets. These are correctness
+receipts, not CPU measurements.
+
+Lean passes 77 build jobs with standard logical axioms only. Publication Quint
+passes 14 directed tests, including moved-bit cancellation, deferred sibling
+context and newest-first block scheduling. These finite controls complement
+the universal Lean statements; they are not a native simulation proof.
+
+Remaining closure boundaries include native extraction and trace simulation,
+semantic-frame header/footer extraction, physical chunk/index and pending-frame
+encoding, signed-coordinate/source admission, the complete source-position
+partition, artifact digest/schema/diagnostic admission and non-deterministic,
+layout/recovery or arbitrary installed callbacks. Host behavior remains external.
+No Gambit source or build is involved and no performance optimization is admitted.
 
 *** Timeout diagnosis and bounded verification
 

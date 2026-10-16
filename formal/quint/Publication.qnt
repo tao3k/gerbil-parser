@@ -37,4 +37,29 @@ module Publication {
   pure def uncheckedFinish(s: State): State = {...s, phase: "published", output: s.basis}
   run staleMutationTest = init.then(Prepare).then(Edit).expect(not(valid(uncheckedFinish(q))))
   run cancelledMutationTest = init.then(Prepare).then(Cancel).expect(not(valid(uncheckedFinish(q))))
+  // Directed source-queue/ID adapter controls; distinct from revision admission.
+  type SourceProduct = {rest:List[int],tokens:List[List[int]],nextToken:int,nextNode:int,frames:List[int],ok:bool}
+  pure def sourceProduct(tokens:List[int]):SourceProduct =
+    {rest:tokens,tokens:List(),nextToken:0,nextNode:0,frames:List(),ok:true}
+  pure def claimSource(s:SourceProduct,expected:int):SourceProduct =
+    if(s.ok and s.rest.length() > 0 and s.rest.nth(0) == expected)
+      {...s,rest:s.rest.slice(1,s.rest.length()),tokens:s.tokens.append(List(s.nextToken,s.rest.nth(0))),nextToken:s.nextToken+1}
+    else {...s,ok:false}
+  pure def openSourceNode(s:SourceProduct):SourceProduct =
+    {...s,nextNode:s.nextNode+1,frames:List(s.nextNode).concat(s.frames)}
+  pure def closeSourceNode(s:SourceProduct,id:int):SourceProduct =
+    if(s.ok and s.frames.length() > 0 and s.frames.nth(0) == id)
+      {...s,frames:s.frames.slice(1,s.frames.length())} else {...s,ok:false}
+  pure def completeSource(s:SourceProduct):bool = s.ok and s.rest == List() and s.frames == List()
+  run sourcePayloadOrderAndZeroIdTest = init.expect(
+    val start = openSourceNode(sourceProduct(List(0,7,0)))
+    val done = closeSourceNode(claimSource(claimSource(claimSource(start,0),7),0),0)
+    completeSource(done) and done.tokens == List(List(0,0),List(1,7),List(2,0)) and done.nextNode == 1)
+  run wrongSourcePayloadWitnessTest = init.expect(
+    not(claimSource(sourceProduct(List(7)),8).ok))
+  run mismatchedNodeIdWitnessTest = init.expect(
+    not(closeSourceNode(openSourceNode(sourceProduct(List())),1).ok))
+  run leftoverSourceWitnessTest = init.expect(
+    not(completeSource(closeSourceNode(openSourceNode(sourceProduct(List(7))),0))))
+
 }

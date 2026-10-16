@@ -232,6 +232,85 @@ workers, natural exit zero in 7.7008 seconds and unchanged 90/5-second owner
 budgets. The evidence-input control binds both new proof modules and the Scheme
 correspondence owner. These observations do not establish a CPU improvement.
 
+*** Complete requests, typed extraction and canonical event products
+
+The paper's accepted-derivation obligation and the implementation's AST/event
+obligation now share one ID-bearing request trace. [[file:../../formal/ParserEngine/RequestAST.lean][RequestAST.lean]] retains
+the original runtime opcode selection, exact production-vector lookup, reduction
+width and source boundary. A reduction's offset must be the pending raw token's
+start or the request's EOF boundary; arbitrary caller offsets are not admitted.
+Nullable operand anchors follow the next nonempty semantic value before falling
+back to that invocation boundary. Pending starts come from the decoded leaf
+span; the complete product contract also binds EOF to the selected constructor's
+maximum input-token end.
+
+=step_erases= and =trace_erases= connect this trace to the existing certified
+raw-token LR engine. =step_executes= and =trace_executes= execute its semantic
+instructions using the same production IDs and ordered operand actions.
+=complete_request= obtains the grammar derivation and complete AST replay from
+that one trace. The final single unfielded root is an explicit native admission,
+not inferred from grammar recognition alone. Table/selector decoding and native
+step extraction must establish the trace; a successful artifact flag cannot do so.
+
+[[file:../../formal/ParserEngine/Publication.lean][Publication.lean]] adds a finite typed extraction of native token/node/fragment
+records and ordered child lists/branches. Tokens retain their kind, lexeme and
+coordinates. =decodeValue= projects the logical AST while =valueOps= retains
+the full token payload for publication. =rootOps= rejects token/fragment roots
+and widens a root node to the complete source byte range, matching
+[[file:../../src/runtime/artifact.ss][with-recognition-event-walk]].
+
+| Publication obligation | General correspondence | Native boundary |
+|------------------------+------------------------+-----------------|
+| Five canonical event vector forms retain every slot | =event_extraction_roundtrip= and =event_extraction_exact= prove both decoder directions | Primitive vector access, symbol/name conversion, exact natural and string classification must be faithful; the Scheme extractor rejects wrong widths, tags, negative/inexact IDs and non-string lexemes |
+| Significant tokens bind the current source queue | =Step.claim= consumes the matching head; =Flush= consumes only admitted trivia before the requested boundary | Untranslated native publication also checks object identity; metadata equality does not prove native identity or mutation stability |
+| Token order, lexemes and consecutive IDs survive publication | =trace_conserves= retains the complete numbered source suffix; =numbered_values= restores the full token payload list | Source extraction must refer to this request, not another equal-shaped parse |
+| Node IDs are allocated once and retained on close | Opening pushes the allocated ID/kind and advances the counter; closing requires that same top frame; =trace_node_counter= counts all allocations | Native iterator frame extraction and effectful sink execution remain producer obligations |
+| AST, source filtering and reconstructed text refer to one request | =complete_product= composes request replay, extracted root operations, closed publication, significant-token filtering, source coverage and UTF-8 root length | Scanner coverage, faithful primitive/coordinate extraction and native simulations are explicit premises |
+
+The complete product theorem returns the accepted grammar derivation, semantic
+replay using the source-token projection, the root operation sequence, empty
+publication frames, all numbered source tokens, the matching significant input,
+reconstructed original text and the exact node allocation count. It does not
+assume the result from =parse-artifact-valid?=. Lexer coverage and the primitive
+UTF-8 byte-length correspondence are named inputs, not proved by re-encoding an
+already accepted result.
+
+The reusable [[file:../../t/fixtures/lr-request-product.ss][Scheme extraction/reference owner]] reads actual runtime record getters,
+production IDs, RHS action metadata, capture offsets and canonical event vectors.
+Its complete postorder request replay does not read cached semantic values or
+call native reducers. Each shifted leaf must be the original next significant
+token; every reduce checks its pending/EOF boundary, ID and width. A separate
+AST visitor consumes actual source tokens and emits the model's canonical event
+shapes. Neither reference interpreter calls the production artifact walker.
+
+[[file:../../t/lr-request-product-test.ss][Real request controls]] compare this replay, independent recognition projection,
+native AST extraction, public parse output, canonical publication and event-backend
+publication; the event-program root predicate is asserted so a recognition
+fallback cannot satisfy that comparison. They include empty/trivia-only input, Unicode, 64 records and arithmetic
+precedence. Exact event streams, artifact validation and source round trips are
+checked separately. Negative controls reject malformed extraction, wrong source
+payloads, unclaimed significant tokens and invalid roots. The shared Quint
+publication model adds directed source-payload, zero-ID, mismatched-close and
+leftover-source histories; those controls are separate from its revision invariant.
+
+Qualification: Lean passes 76 build jobs with the new theorem axiom lists printed
+and no admitted native/host axiom. Publication passes 11 directed Quint controls.
+The request-product (4), table/semantic correspondence (5), stack-reduction (19)
+and style (6) owners pass 34 cases with two workers and CI LR tracing enabled,
+natural exit zero in 26.7361 seconds under unchanged 90/5-second owner budgets.
+The first adapter run exposed a Children-versus-stack assertion mismatch; that
+failed receipt is retained. A later combined run had an empty child log and a
+startup idle timeout during concurrent local compilation. After the Lean run
+completed, the same-budget serial qualification passed. These are correctness
+receipts, not CPU measurements.
+
+Remaining closure boundaries are explicit: native primitive/record extraction
+and compiler-produced trace simulation; relocation/position views; a universal
+refinement of the event rope/chunk iterator; complete source-position partition
+and artifact digest/schema/diagnostic admission; GLR/layout/recovery and arbitrary
+installed callbacks. Host execution remains an external premise. No Gambit
+source or SDK build is part of this work, and no performance optimization is admitted.
+
 *** Timeout diagnosis and bounded verification
 
 The failing macOS semantics job at revision =543812e= is run =38916765458=,
@@ -289,6 +368,13 @@ completes [[https://github.com/tao3k/gerbil-parser/actions/runs/38935111963][CI 
 [[https://github.com/tao3k/gerbil-parser/actions/runs/38935111963/job/117095700943][macOS semantics]], generation and FFI. No red job remains on that revision.
 The table/semantic-value correspondence additions above are subsequent work;
 their local receipts do not turn this parent result into exact-head CI evidence.
+
+Parent revision =6168f69e04d67e8885be78dfcc15d304677c7f4a= completes
+[[https://github.com/tao3k/gerbil-parser/actions/runs/38938315771][CI run 38938315771]] successfully, including Ubuntu and
+[[https://github.com/tao3k/gerbil-parser/actions/runs/38938315771/job/117107215233][macOS semantics]]. The macOS complete Scheme step passes from
+=2026-10-16T17:38:41Z= to =17:40:37Z= under unchanged budgets. This confirms
+that revision; the subsequent request/AST/publication additions require their
+own exact-head remote result. The local qualification above remains separate.
 
 ** Unified representation correspondence
 

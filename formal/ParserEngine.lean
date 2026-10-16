@@ -1,3 +1,5 @@
+import ParserEngine.Publication
+import ParserEngine.RequestAST
 import ParserEngine.TableBridge
 import ParserEngine.SemanticValues
 import ParserEngine.HostLowering
@@ -820,3 +822,23 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.TableBridge.origins_from_publication
 
 #print axioms ParserEngine.SemanticValues.same_id_views
+
+#print axioms ParserEngine.RequestAST.run_append
+#print axioms ParserEngine.RequestAST.step_erases
+#print axioms ParserEngine.RequestAST.step_executes
+#print axioms ParserEngine.RequestAST.trace_erases
+#print axioms ParserEngine.RequestAST.trace_executes
+#print axioms ParserEngine.RequestAST.complete_request
+
+#print axioms ParserEngine.Publication.extraction_bounds
+#print axioms ParserEngine.Publication.flush_conserves
+#print axioms ParserEngine.Publication.step_conserves
+#print axioms ParserEngine.Publication.trace_conserves
+#print axioms ParserEngine.Publication.event_extraction_roundtrip
+#print axioms ParserEngine.Publication.complete_product
+
+#print axioms ParserEngine.Publication.trace_node_counter
+
+#print axioms ParserEngine.Publication.numbered_values
+
+#print axioms ParserEngine.Publication.event_extraction_exact

@@ -40,11 +40,12 @@ before selecting another runtime optimization.
 
 | Mechanism and research premise | Actual implementation owner | General model correspondence | Remaining host obligation |
 |--------------------------------+-----------------------------+------------------------------+---------------------------|
-| Strong pointer reachability from roots | Gambit =mem.c= strong-mark phase, =mark_frame= and object scanner | =Roots.discover= scans all declared root banks; =frame_slot= and =frame_sound= connect selected tagged slots to arbitrary-width GC maps | Compiler-generated maps and extraction of every host root bank must be faithful |
+| Strong pointer reachability from roots | Gambit =targ-build-gc-map=, chunk emitter and =mem.c:mark_frame= | =FrameMaps.emitted_signed_root= derives emitted storage and retained roots from compiler live decisions; cursor, signed-literal and paired/trailing-word lemmas connect the C reader | Soundness of GVM liveness/variable placement and faithful extraction of every host root bank |
 | Closure and captured continuation retention | =mark_continuation=, =mark_captured_continuation= and =scan= | =captured_frame_reached= and =path_reached= cover arbitrary-depth pointer paths; =discovered_path_relocated= composes them with relocation | Host copying, frame-link interpretation, physical registers and SMP synchronization |
-| Least strong marking closure | Strong-mark worklist | =program= generates rules from discovered roots and every object's scanned fields; =marking_program_exact= and =marking_control_flow_exact= derive marking at actual model quiescence | Refine the C marker's scheduling and forwarding operations to this history |
+| Least strong marking closure | Strong-mark worklist and =mark_reachable_from_marked= | =program= generates root/edge rules; =CollectorSchedule.zero_workers_marking_exact= connects global worker termination to marking through pending ownership, including in-flight objects | C forwarding/notification effects must refine the generated history; lock and memory-order linearization remain explicit |
 | One denotation across scalar and field masks | [[file:../../src/compiler/funcs.ss][compiler-index-set-for-each]] | =Masks.callback_unique=, =field_address_injective= and =field_callback_exact= connect every bit to one field; =frame_field_exact= uses that same decoder for root maps | Signed Scheme primitive decoding, lowest-bit selection and physical callback loop refinement |
-| Key equality distinct from hash equality | Native table lookup and =UNUSED=/=DELETED= probe branches | =Hash.probe_refines_search= relates physical observations to equality search; =get_put_other= preserves colliding keys | Physical probe coverage, resize termination and host equality/hash compatibility |
+| Key equality distinct from hash equality | Generic =table-access= and C =gc_hash_table_ref= | =ProbeCoverage= derives both starts, scaled physical stepping, injectivity and complete slot coverage; =physical_probe_terminates= excludes exhaustion when UNUSED exists; =scan_refines_probe= connects the outcome | Allocator/load/resize invariants must retain UNUSED; host equality/hash compatibility and integer/pointer bounds |
+| Queued and reserved collector work | Local scans, mutex-protected idle/wake and locked chunk stealing | =reservation_preserves_pending= and =steal_preserves_pending= preserve ownership; idle/wake preserve active count; =zero_workers_drained= derives global pending-empty | Native observations must include complete chunk payloads and outstanding callbacks, not merely queue headers |
 | Logical state identity across insertion | [[file:../../src/compiler/lr-lookahead.ss][canonical interner]] | =intern_correspondence=, =intern_preserves_index=, =queue_step_refines= and =queue_step_indexed= connect bucket operations to canonical keys and pending owners | Physical slot operations and immutable native key decoding |
 | Rehash preserves entries, not positions | Gambit =process_gc_hash_tables= and =gc_hash_table_rehash_in_situ= | =rehash_lookup= derives query preservation from entry membership and functional key/value ownership across arbitrary slot reordering | Prove the host rehash produces those retained entries; weak tables are excluded |
 | Splits invalidate every reader | [[file:../../src/compiler/lr-follow-automaton.ss][backward dependency builder]] | =built_reverse_member= models successive reverse-row writes; =metadata_edge_member= and =metadata_reader_notified= connect metadata reads to notifications | Decode native metadata and admitted vector bounds, including admitted source-core presence |
@@ -74,10 +75,74 @@ weak values and wills require separate reachability rules and are excluded.
 Qualification metadata: the tested Gerbil SDK identifies revision =2591dcd=
 with local patch identity =f5cedd8168cb=; its compiler reports Gambit baseline
 =dcd677cd3e40860bdd27dfbdbf5e3ce46ab03813= and GCC 16. The GC root/scanner and
-probe branches were re-read from that baseline's =lib/mem.c=. A matching
+probe branches were re-read from that baseline's =lib/mem.c=. The corresponding
+=gsc/_t-c-3.scm=, =gsc/_t-c-2.scm=, =lib/_system.scm= and
+=include/gambit.h.in= supply the target map generator, frame decisions, generic
+hash dispatch and physical macros. A matching
 reported baseline is not proof that all installed patch bytes equal that
-source. No complete Gambit C, native stack-map generator, FFI pinning or SMP
-collector correctness claim follows from this reading or from the models.
+source. The modeled map generator is not a proof of the preceding GVM liveness
+analysis, C compilation, FFI pinning or SMP memory model. No complete Gambit
+collector correctness claim follows from the source inspection.
+
+*** Host producer and consumer composition
+
+=FrameMaps.generate= follows the target's accumulator-addition and power-doubling
+loop. =generate_exact= and =generated_bit= prove exact correspondence for arbitrary
+finite live-decision lists. Internal returns force the inclusive saved-register
+band, including the return variable. =chunk_read= derives every serialized field;
+=emitted_chunk_bound= proves that the selected frame slot has an emitted chunk.
+=emitted_signed_root= composes generation, serialization, signed scanning and root
+retention without assuming a correct final map from the caller.
+
+The C frame scanner uses physical slot one for bit zero. Its cursor shifts the
+loaded word inside a field and reloads at the field boundary. The model derives
+address progress and bit observations for these branches. The actual =WORD= type
+is signed, and =targ-display-c-hex-u32= may emit negative literals. BitVec proofs
+retain modular literal decoding and GCC's arithmetic shift observation inside
+the existing field. =GCMAP2= combines low and high 32-bit fields on a 64-bit host;
+a trailing =GCMAP1= may sign-extend its literal. The trailing-word theorem is
+restricted to existing low-field slots: extra sign bits are not additional
+roots. A pure unsigned-word identity would have been too strong here.
+
+The generic =equal?= route computes a fixnum modulo, then steps by two physical
+fields. The C =eq?= route uses the bounded unsigned high-product hash macro and
+also steps by two fields. Both step by one key/value slot, with descending
+wraparound. =position_next= relates the closed-form traversal to the native
+branch; =position_injective= and =position_covers= prove a complete circuit for
+arbitrary positive capacity and admitted start. Deleted slots continue probing;
+UNUSED stops. =scan= distinguishes legitimate absence from exhausting an invalid
+full/corrupt table. Termination still requires the allocator's UNUSED invariant;
+the proof does not silently add a timeout or report exhaustion as a miss.
+
+The C scheduler separates local queue entries from objects reserved for an
+ongoing scan. Both remain pending obligations. Counter-preservation theorems
+cover local publication, reservation, idle and wake. Chunk transfer proves both
+count validity and pending membership preservation. A single worker's empty
+queue cannot establish collector quiescence. =counter_bound= also bounds the
+counter by the processor catalogue; an admitted processor limit therefore
+bounds the C counter without separately assuming a safe stored count.
+=zero_workers_drained= derives it
+from a globally valid zero count, and =zero_workers_marking_exact= supplies the
+pending-empty premise of the generated marking program. The latter explicitly
+retains the notification history and its physical ownership relation. Native
+atomicity, visibility, forwarding and callback refinement are not inferred from
+that theorem's conclusion.
+
+The compiled control lives in the existing
+[[file:../../t/fixtures/layout-columns.ss][layout-columns fixture]], which already belongs to native conformance preparation.
+A macro generates 96 independent heap roots retained across an opaque callback.
+Two workers exercise them around GC. The emitted C was inspected: it contains
+out-of-line normal and internal return descriptors, including a 97-slot normal
+frame and multiword maps with negative all-one literals. The runner confirms
+loading the compiled fixture object. Source interpretation alone is not the
+receipt for this compiler path. Both model checks now bind that fixture, so
+changing it invalidates the associated observation.
+
+The physical table control covers the generic negative-hash and C =eq?= routes,
+tombstones, growth, GC rehash and zero-valued entries. Quint additionally checks
+nonuniform 32-bit chunk ordering, the saved-return-variable boundary, full probe
+coverage, tombstones versus UNUSED, reserved objects and chunk stealing. These
+finite controls supplement the general theorems; they do not verify C or GCC.
 
 *** Composition qualification
 
@@ -103,9 +168,15 @@ exercise repeated actual LR continuation reentry and compare affected
 partition refinement against an exhaustive synchronous oracle. These are
 implementation controls, not replacements for the universal model proofs.
 
-Qualification: Lean builds 70 jobs; GrammarPipeline passes 37 directed tests;
-five source/host/evidence controls pass. The final four-owner native run passes
-104 cases (canonical 29, resolved grammar 55, layout 14, style 6) in 25.4 seconds,
+Current qualification: Lean builds 70 jobs; GrammarPipeline passes 43 directed
+tests; five source/host/evidence controls pass. The compiled-fixture four-owner
+run passes 105 cases in 73.7 seconds. After adding both physical table routes,
+the affected canonical/layout/style owners pass all 51 cases (30/15/6) in 27.0
+seconds. The unchanged resolved-grammar owner has 55 passing cases in that
+four-owner run. These are separate receipts, not a claimed single 106-case run.
+
+Earlier qualification retained for comparison: the previous four-owner run
+passed 104 cases (canonical 29, resolved 55, layout 14, style 6) in 25.4 seconds,
 under unchanged 90-second total and five-second idle limits. The earlier update
 control failed because its chosen neighboring row had already been updated by
 the test itself. Its failed receipt is retained; the corrected control chooses

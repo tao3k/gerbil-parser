@@ -1,5 +1,6 @@
 import ParserEngine.Operational
 import ParserEngine.Encoding
+import Init.Data.BitVec.Lemmas
 
 /-! Representation adapters shared by root discovery and compiler scheduling.
 These algorithms expose descriptor, equality and dependency assumptions; they
@@ -554,4 +555,457 @@ theorem clean_outgoing_transport {old next : Nat → Nat} {edges : List (Nat × 
   exact clean delivered
 
 end Dependencies
+namespace FrameMaps
+/-- Binary denotation of the compiler's evaluated live? decisions. -/
+def encode : List Bool → Nat
+  | [] => 0
+  | live :: rest => (if live then 1 else 0) + 2 * encode rest
+
+/-- The target compiler loop: accumulator addition and a doubling power. -/
+def generate : Nat → Nat → List Bool → Nat
+  | _, accumulator, [] => accumulator
+  | power, accumulator, live :: rest =>
+      generate (power * 2) (if live then accumulator + power else accumulator) rest
+
+theorem generate_exact (power accumulator : Nat) (live : List Bool) :
+    generate power accumulator live = accumulator + power * encode live := by
+  induction live generalizing power accumulator with
+  | nil => simp [generate, encode]
+  | cons selected rest ih =>
+    cases selected <;> simp [generate, encode, ih, Nat.mul_add, Nat.mul_assoc, Nat.add_assoc]
+
+theorem encode_bit (live : List Bool) (index : Nat) :
+    (encode live).testBit index = true ↔ live[index]? = some true := by
+  induction live generalizing index with
+  | nil => simp [encode]
+  | cons selected rest ih =>
+    cases index with
+    | zero => cases selected <;> simp [encode, Nat.add_mod]
+    | succ index =>
+      have odd (value : Nat) : (1 + 2 * value) / 2 = value := by omega
+      cases selected <;> simp [encode, Nat.testBit_succ, odd, ih]
+
+theorem generated_bit (live : List Bool) (index : Nat) :
+    (generate 1 0 live).testBit index = true ↔ live[index]? = some true := by
+  simpa [generate_exact] using encode_bit live index
+
+/-- Internal returns additionally retain the saved GVM registers and return
+variable: the upper bound is inclusive in the native target compiler. -/
+def internalLive (ordinary : Nat → Bool) (aligned registers index : Nat) : Bool :=
+  ordinary index || (decide (aligned ≤ index) && decide (index ≤ aligned + registers))
+
+theorem saved_register_live (ordinary : Nat → Bool) (aligned registers index : Nat)
+    (lower : aligned ≤ index) (upper : index ≤ aligned + registers) :
+    internalLive ordinary aligned registers index = true := by simp [internalLive, lower, upper]
+
+/-- Target serialization emits low 32-bit fields before high fields. -/
+def chunks (width : Nat) : Nat → Nat → List Nat
+  | 0, _ => []
+  | count + 1, mask => mask % 2 ^ width :: chunks width count (mask / 2 ^ width)
+
+theorem chunk_read (width count mask index : Nat) (bound : index < count) :
+    (chunks width count mask)[index]? = some (Encoding.field mask width (width * index)) := by
+  induction count generalizing mask index with
+  | zero => omega
+  | succ count ih =>
+    cases index with
+    | zero => simp [chunks, Encoding.field]
+    | succ index =>
+      simp only [chunks, List.getElem?_cons_succ]
+      rw [ih _ _ (by omega)]
+      congr 1
+      simp [Encoding.field, Nat.shiftRight_eq_div_pow, Nat.div_div_eq_div_mul,
+        Nat.mul_add, Nat.pow_add, Nat.mul_comm]
+
+theorem emitted_frame_root {live : List Bool} {words : List Roots.Word} {index address : Nat}
+    (selected : live[index]? = some true) (read : words[index]? = some (.reference address)) :
+    address ∈ Roots.frame (generate 1 0 live) 0 words := by
+  apply Roots.frame_slot read
+  simpa using (generated_bit live index).mpr selected
+
+/-- C's i starts at one; gcmap bit zero denotes physical frame slot one. -/
+theorem c_slot_index (index : Nat) : (index + 1) - 1 = index := by omega
+/-- The target's 32-bit chunks are concatenated low first by GCMAP2 on
+64-bit hosts. This lemma retains the required low-word bound. -/
+theorem joined_word_bit (low high width bit : Nat) (fits : low < 2 ^ width) :
+    (low + 2 ^ width * high).testBit bit =
+      if bit < width then low.testBit bit else high.testBit (bit - width) := by
+  simpa [Nat.add_comm] using Nat.testBit_two_pow_mul_add high fits bit
+
+structure Cursor where
+  block : Nat
+  inside : Nat
+
+def address (width : Nat) (cursor : Cursor) : Nat := cursor.block * width + cursor.inside
+
+def loaded (mask width : Nat) (cursor : Cursor) : Nat :=
+  Encoding.field mask width (cursor.block * width) >>> cursor.inside
+
+def advance (width : Nat) (cursor : Cursor) : Cursor :=
+  if cursor.inside + 1 = width then ⟨cursor.block + 1, 0⟩ else ⟨cursor.block, cursor.inside + 1⟩
+
+theorem cursor_bound (width : Nat) (cursor : Cursor) (positive : 0 < width) (inside : cursor.inside < width) :
+    (advance width cursor).inside < width := by unfold advance; split <;> dsimp <;> omega
+
+theorem cursor_advances (width : Nat) (cursor : Cursor) :
+    address width (advance width cursor) = address width cursor + 1 := by
+  unfold advance address
+  split
+  next boundary => simp only [Nat.add_zero, Nat.add_mul, Nat.one_mul]; omega
+  next remaining => dsimp; omega
+
+theorem cursor_reads_bit (mask width : Nat) (cursor : Cursor) (inside : cursor.inside < width) :
+    (loaded mask width cursor).testBit 0 = true ↔ mask.testBit (address width cursor) = true := by
+  simp only [loaded, Nat.testBit_shiftRight, Nat.add_zero, Encoding.field_member, address]
+  simp [inside]
+
+theorem cursor_shift (mask width : Nat) (cursor : Cursor) (noBoundary : cursor.inside + 1 ≠ width) :
+    loaded mask width (advance width cursor) = loaded mask width cursor >>> 1 := by
+  simp [loaded, advance, noBoundary, Nat.shiftRight_add]
+
+theorem cursor_reload (mask width : Nat) (cursor : Cursor) (boundary : cursor.inside + 1 = width) :
+    loaded mask width (advance width cursor) = Encoding.field mask width ((cursor.block + 1) * width) := by
+  simp [loaded, advance, boundary]
+
+
+/-- C WORD is signed. GCMAP's negative literals are decoded modulo the host
+word width; they must not be mistaken for negative set domains. -/
+theorem signed_literal_bits (width payload : Nat) :
+    BitVec.ofInt width ((payload : Int) - (2 ^ width : Nat)) = BitVec.ofNat width payload := by
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_ofInt, BitVec.toNat_ofNat]
+  simp only [Int.sub_emod, Int.emod_self, Int.sub_zero, Int.emod_emod]
+  exact congrArg Int.toNat (Int.natCast_emod payload (2 ^ width)).symm
+
+/-- GCC's signed right shift and a logical Nat shift have the same observed
+low bit until the map word is exhausted. At that boundary C reloads a word. -/
+theorem signed_cursor_reads (mask width : Nat) (cursor : Cursor) (inside : cursor.inside < width) :
+    ((BitVec.ofNat width (Encoding.field mask width (cursor.block * width))).sshiftRight cursor.inside).getLsbD 0 = true ↔
+      mask.testBit (address width cursor) = true := by
+  have positive : 0 < width := by omega
+  rw [BitVec.getLsbD_sshiftRight]
+  simp only [Nat.add_zero, Nat.not_le.mpr positive, decide_false, Bool.not_false,
+    Bool.true_and, inside, ite_true, BitVec.getLsbD_ofNat, decide_true]
+  simp [address, Encoding.field_member, inside]
+
+
+def chunkCount (width slots : Nat) : Nat := (slots + width - 1) / width
+
+theorem emitted_chunk_bound {width slots index : Nat} (positive : 0 < width) (slot : index < slots) :
+    index / width < chunkCount width slots := by
+  have division := Nat.mod_add_div (slots + width - 1) width
+  have small := Nat.mod_lt (slots + width - 1) positive
+  have enough : slots ≤ width * ((slots + width - 1) / width) := by omega
+  apply (Nat.div_lt_iff_lt_mul positive).mpr
+  exact Nat.lt_of_lt_of_le slot (by simpa [chunkCount, Nat.mul_comm] using enough)
+
+/-- Complete producer-to-consumer chain: a selected live pointer gets an
+emitted chunk, the signed C cursor sees that bit, and the root scanner retains
+it. No assumption that the caller already supplied a correct final GC map. -/
+theorem emitted_signed_root {live : List Bool} {words : List Roots.Word} {width index root : Nat}
+    (positive : 0 < width) (selected : live[index]? = some true)
+    (read : words[index]? = some (.reference root)) :
+    (chunks width (chunkCount width live.length) (generate 1 0 live))[index / width]? =
+      some (Encoding.field (generate 1 0 live) width (width * (index / width))) ∧
+    ((BitVec.ofNat width (Encoding.field (generate 1 0 live) width (width * (index / width)))).sshiftRight
+      (index % width)).getLsbD 0 = true ∧ root ∈ Roots.frame (generate 1 0 live) 0 words := by
+  have inFrame : index < live.length := by
+    by_cases bound : index < live.length
+    · exact bound
+    · have absent := List.getElem?_eq_none (Nat.le_of_not_gt bound)
+      rw [absent] at selected
+      cases selected
+  refine ⟨chunk_read _ _ _ _ (emitted_chunk_bound positive inFrame), ?_, emitted_frame_root selected read⟩
+  have visible := (signed_cursor_reads (generate 1 0 live) width ⟨index / width, index % width⟩
+    (Nat.mod_lt index positive)).mpr
+  have mapped : address width ⟨index / width, index % width⟩ = index := by
+    simpa [address, Nat.mul_comm, Nat.add_comm] using Nat.mod_add_div index width
+  have observed := visible (by rw [mapped]; exact (generated_bit live index).mpr selected)
+  simpa [Nat.mul_comm] using observed
+
+
+/-- A final GCMAP1 may sign-extend a negative 32-bit literal on a 64-bit
+host. Only its existing payload slots may be observed. -/
+theorem trailing_signed_word (width payload bit : Nat) (existing : bit < width) :
+    ((BitVec.ofNat width payload).signExtend (2 * width)).getLsbD bit = payload.testBit bit := by
+  rw [BitVec.getLsbD_signExtend]
+  simp only [existing, ite_true, show bit < 2 * width by omega, decide_true, Bool.true_and]
+  rw [BitVec.getLsbD_ofNat]
+  simp [existing]
+
+theorem paired_word_reads (width low high bit : Nat) (fits : low < 2 ^ width) (existing : bit < 2 * width) :
+    (BitVec.ofNat (2 * width) (low + 2 ^ width * high)).getLsbD bit =
+      if bit < width then low.testBit bit else high.testBit (bit - width) := by
+  rw [BitVec.getLsbD_ofNat]
+  simp only [existing, decide_true, Bool.true_and]
+  exact joined_word_bit low high width bit fits
+
+end FrameMaps
+
+namespace ProbeCoverage
+/-- One descending circuit, following native step=1 and wraparound. -/
+def position (capacity start turn : Nat) : Nat :=
+  if turn ≤ start then start - turn else capacity + start - turn
+
+def previous (capacity slot : Nat) : Nat := if slot = 0 then capacity - 1 else slot - 1
+
+theorem position_bound {capacity start turn : Nat} (initial : start < capacity) (turnBound : turn < capacity) :
+    position capacity start turn < capacity := by unfold position; split <;> omega
+
+theorem position_first {capacity start : Nat} : position capacity start 0 = start := by simp [position]
+
+theorem position_next {capacity start turn : Nat} (initial : start < capacity) (bound : turn + 1 < capacity) :
+    position capacity start (turn + 1) = previous capacity (position capacity start turn) := by
+  unfold position previous
+  split <;> split <;> split <;> omega
+
+theorem position_injective {capacity start left right : Nat} (_initial : start < capacity)
+    (l : left < capacity) (r : right < capacity)
+    (same : position capacity start left = position capacity start right) : left = right := by
+  unfold position at same
+  split at same <;> split at same <;> omega
+
+theorem position_covers {capacity start target : Nat} (initial : start < capacity) (valid : target < capacity) :
+    ∃ turn, turn < capacity ∧ position capacity start turn = target := by
+  by_cases before : target ≤ start
+  · exact ⟨start - target, by omega, by simp [position]; omega⟩
+  · refine ⟨capacity + start - target, by omega, ?_⟩
+    unfold position
+    split <;> omega
+
+def observations (capacity start : Nat) (slots : Nat → Hash.Slot Key Value) : List (Hash.Slot Key Value) :=
+  (List.range capacity).map (fun turn => slots (position capacity start turn))
+
+theorem observed_slot {capacity start target : Nat} (slots : Nat → Hash.Slot Key Value)
+    (initial : start < capacity) (valid : target < capacity) :
+    slots target ∈ observations capacity start slots := by
+  obtain ⟨turn, bound, same⟩ := position_covers initial valid
+  exact List.mem_map.mpr ⟨turn, List.mem_range.mpr bound, by rw [same]⟩
+
+inductive Result (Value : Type) where
+  | found (value : Value)
+  | absent
+  | exhausted
+  deriving DecidableEq, Repr
+
+/-- Unlike an Option-only projection, exhausting a corrupt/full probe is not
+reported as a legitimate UNUSED miss. -/
+def scan [DecidableEq Key] (key : Key) : List (Hash.Slot Key Value) → Result Value
+  | [] => .exhausted
+  | .unused :: _ => .absent
+  | .deleted :: rest => scan key rest
+  | .entry candidate value :: rest => if key = candidate then .found value else scan key rest
+
+theorem unused_prevents_exhaustion [DecidableEq Key] (key : Key) (rows : List (Hash.Slot Key Value))
+    (vacant : Hash.Slot.unused ∈ rows) : scan key rows ≠ .exhausted := by
+  induction rows with
+  | nil => simp at vacant
+  | cons row rest ih =>
+    cases row with
+    | unused => simp [scan]
+    | deleted => exact ih (by simpa using vacant)
+    | entry candidate value =>
+      by_cases same : key = candidate
+      · simp [scan, same]
+      · simpa [scan, same] using ih (by simpa using vacant)
+
+theorem physical_probe_terminates [DecidableEq Key] {capacity start : Nat} (key : Key)
+    (slots : Nat → Hash.Slot Key Value) (initial : start < capacity)
+    (space : ∃ target, target < capacity ∧ slots target = .unused) :
+    scan key (observations capacity start slots) ≠ .exhausted := by
+  obtain ⟨target, bound, empty⟩ := space
+  apply unused_prevents_exhaustion
+  exact empty ▸ observed_slot slots initial bound
+
+theorem hash_start_bound (width mixed capacity : Nat) (positive : 0 < capacity) :
+    ((mixed % 2 ^ width) * capacity) / 2 ^ width < capacity := by
+  apply (Nat.div_lt_iff_lt_mul (Nat.two_pow_pos width)).mpr
+  have bound := Nat.mul_lt_mul_of_pos_right (Nat.mod_lt mixed (Nat.two_pow_pos width)) positive
+  simpa [Nat.mul_comm] using bound
+
+/-- Generic equal? tables use fixnum-modulo, including negative custom hashes;
+C eq? tables use the bounded high-product route above. Both then step by one
+slot (two physical fields). -/
+theorem generic_start_bound (hash : Int) (capacity : Nat) (positive : 0 < capacity) :
+    (hash % (capacity : Int)).toNat < capacity := by
+  have low := Int.emod_nonneg hash (show (capacity : Int) ≠ 0 by omega)
+  have high := Int.emod_lt_of_pos hash (show (0 : Int) < capacity by omega)
+  omega
+
+theorem physical_step (capacity slot : Nat) :
+    2 * previous capacity slot = if slot = 0 then 2 * capacity - 2 else 2 * slot - 2 := by
+  unfold previous
+  split <;> omega
+
+def optionResult : Result Value → Option Value
+  | .found value => some value
+  | .absent | .exhausted => none
+
+theorem scan_refines_probe [DecidableEq Key] (key : Key) (rows : List (Hash.Slot Key Value)) :
+    optionResult (scan key rows) = Hash.probe key rows := by
+  induction rows with
+  | nil => rfl
+  | cons row rest ih =>
+    cases row with
+    | unused => rfl
+    | deleted => exact ih
+    | entry candidate value =>
+      by_cases same : key = candidate
+      · simp [scan, Hash.probe, same, optionResult]
+      · simpa only [scan, Hash.probe, same, ite_false] using ih
+
+end ProbeCoverage
+
+namespace CollectorSchedule
+/-- A reserved object remains a root obligation while scan/mark_array runs.
+Popping it from a queue does not make this worker idle. -/
+structure Worker where
+  active : Bool
+  queued : List Nat
+  held : List Nat
+
+def work (worker : Worker) : List Nat := worker.queued ++ worker.held
+
+def Safe (worker : Worker) : Prop := worker.active = false → work worker = []
+
+structure State where
+  workers : List Worker
+  count : Nat
+
+def Valid (state : State) : Prop :=
+  state.count = state.workers.countP Worker.active ∧ ∀ worker ∈ state.workers, Safe worker
+
+def pending (state : State) : List Nat := state.workers.flatMap work
+
+/-- Mutex-protected counter updates must correspond to actual active workers.
+An inactive worker cannot receive locally published chunks. -/
+theorem replace_active {earlierWorkers laterWorkers : List Worker} {old fresh : Worker} {count : Nat}
+    (valid : Valid ⟨earlierWorkers ++ old :: laterWorkers, count⟩)
+    (active : old.active = true) (same : fresh.active = true) :
+    Valid ⟨earlierWorkers ++ fresh :: laterWorkers, count⟩ := by
+  constructor
+  · simpa [List.countP_append, List.countP_cons, active, same] using valid.1
+  · intro worker member
+    rcases List.mem_append.mp member with earlier | later
+    · exact valid.2 worker (List.mem_append_left _ earlier)
+    · rcases List.mem_cons.mp later with rfl | later
+      · intro inactive; simp [same] at inactive
+      · exact valid.2 worker (List.mem_append_right _ (List.mem_cons_of_mem _ later))
+
+def publish (worker : Worker) (objects : List Nat) : Worker :=
+  {worker with queued := objects ++ worker.queued}
+
+def reserve (worker : Worker) (object : Nat) (rest : List Nat) : Worker :=
+  {worker with queued := rest, held := object :: worker.held}
+
+theorem publish_valid {earlierWorkers laterWorkers : List Worker} {worker : Worker} {count : Nat}
+    (valid : Valid ⟨earlierWorkers ++ worker :: laterWorkers, count⟩) (active : worker.active = true) (objects : List Nat) :
+    Valid ⟨earlierWorkers ++ publish worker objects :: laterWorkers, count⟩ :=
+  replace_active valid active active
+
+theorem reserve_valid {earlierWorkers laterWorkers : List Worker} {worker : Worker} {count object : Nat} {rest : List Nat}
+    (valid : Valid ⟨earlierWorkers ++ worker :: laterWorkers, count⟩) (active : worker.active = true) :
+    Valid ⟨earlierWorkers ++ reserve worker object rest :: laterWorkers, count⟩ :=
+  replace_active valid active active
+
+theorem reservation_retains_work (worker : Worker) (object : Nat) (rest : List Nat)
+    (head : worker.queued = object :: rest) : List.Perm (work (reserve worker object rest)) (work worker) := by
+  simp only [work, reserve, head, List.cons_append]
+  exact List.perm_middle
+
+theorem idle_valid {earlierWorkers laterWorkers : List Worker} {worker : Worker} {count : Nat}
+    (valid : Valid ⟨earlierWorkers ++ worker :: laterWorkers, count⟩) (active : worker.active = true)
+    (drained : work worker = []) :
+    Valid ⟨earlierWorkers ++ {worker with active := false} :: laterWorkers, count - 1⟩ := by
+  constructor
+  · have old := valid.1
+    simp only [List.countP_append, List.countP_cons, active, ite_true] at old
+    simp only [List.countP_append, List.countP_cons, Bool.false_eq_true, ite_false, Nat.add_zero]
+    omega
+  · intro other member
+    rcases List.mem_append.mp member with earlier | later
+    · exact valid.2 other (List.mem_append_left _ earlier)
+    · rcases List.mem_cons.mp later with rfl | later
+      · exact fun _ => drained
+      · exact valid.2 other (List.mem_append_right _ (List.mem_cons_of_mem _ later))
+
+theorem wake_valid {earlierWorkers laterWorkers : List Worker} {worker : Worker} {count : Nat}
+    (valid : Valid ⟨earlierWorkers ++ worker :: laterWorkers, count⟩) (inactive : worker.active = false) :
+    Valid ⟨earlierWorkers ++ {worker with active := true} :: laterWorkers, count + 1⟩ := by
+  constructor
+  · have old := valid.1
+    simp only [List.countP_append, List.countP_cons, inactive, Bool.false_eq_true, ite_false, Nat.add_zero] at old
+    simp only [List.countP_append, List.countP_cons, ite_true]
+    omega
+  · intro other member
+    rcases List.mem_append.mp member with earlier | later
+    · exact valid.2 other (List.mem_append_left _ earlier)
+    · rcases List.mem_cons.mp later with rfl | later
+      · intro impossible; simp at impossible
+      · exact valid.2 other (List.mem_append_right _ (List.mem_cons_of_mem _ later))
+
+theorem reservation_preserves_pending {earlier later : List Worker} {worker : Worker} {count object : Nat} {rest : List Nat}
+    (head : worker.queued = object :: rest) (fact : Nat) :
+    fact ∈ pending ⟨earlier ++ reserve worker object rest :: later, count⟩ ↔
+      fact ∈ pending ⟨earlier ++ worker :: later, count⟩ := by
+  simp [pending, work, reserve, head, or_left_comm]
+
+/-- Stealing removes a complete chunk from its victim before scanning it on
+an already-active thief. Both queue ownership and reservations remain visible. -/
+theorem steal_valid {earlier middle later : List Worker} {victim thief : Worker} {count : Nat} {chunk rest : List Nat}
+    (valid : Valid ⟨earlier ++ victim :: (middle ++ thief :: later), count⟩)
+    (victimActive : victim.active = true) (thiefActive : thief.active = true) :
+    Valid ⟨earlier ++ {victim with queued := rest} ::
+      (middle ++ {thief with held := chunk ++ thief.held} :: later), count⟩ := by
+  have first : Valid ⟨earlier ++ {victim with queued := rest} :: (middle ++ thief :: later), count⟩ :=
+    replace_active valid victimActive victimActive
+  have second := replace_active (earlierWorkers := earlier ++ {victim with queued := rest} :: middle)
+    (laterWorkers := later) (old := thief) (fresh := {thief with held := chunk ++ thief.held})
+    (count := count) (by simpa [List.append_assoc] using first) thiefActive thiefActive
+  simpa [List.append_assoc] using second
+
+theorem steal_preserves_pending {earlier middle later : List Worker} {victim thief : Worker} {count : Nat} {chunk rest : List Nat}
+    (head : victim.queued = chunk ++ rest) (fact : Nat) :
+    fact ∈ pending ⟨earlier ++ {victim with queued := rest} ::
+      (middle ++ {thief with held := chunk ++ thief.held} :: later), count⟩ ↔
+    fact ∈ pending ⟨earlier ++ victim :: (middle ++ thief :: later), count⟩ := by
+  simp [pending, work, head, or_left_comm]
+
+
+theorem counter_bound (state : State) (valid : Valid state) : state.count ≤ state.workers.length := by
+  rw [valid.1]
+  exact List.countP_le_length
+
+theorem counter_fits (state : State) (valid : Valid state) (limit : Nat)
+    (processors : state.workers.length ≤ limit) : state.count ≤ limit :=
+  Nat.le_trans (counter_bound state valid) processors
+
+/-- The C termination counter is global. A locally empty queue, a reserved
+object, or an uncounted active worker cannot justify termination. -/
+theorem zero_workers_drained (state : State) (valid : Valid state) (zero : state.count = 0) :
+    pending state = [] := by
+  have none : state.workers.countP Worker.active = 0 := valid.1.symm.trans zero
+  apply List.flatMap_eq_nil_iff.mpr
+  intro worker member
+  have inactive : worker.active = false := by
+    have h := List.countP_eq_zero.mp none worker member
+    cases value : worker.active <;> simp_all
+  exact valid.2 worker member inactive
+
+/-- Refinement records queues AND in-flight scans. Counter zero then supplies
+the genuine pending-empty premise of the compiled strong-marking theorem. -/
+theorem zero_workers_marking_exact {heap : List Roots.Object} {banks : Roots.Banks}
+    (state : State) (logical : Worklist.State Nat) (valid : Valid state)
+    (ownership : ∀ object, object ∈ logical.pending ↔ object ∈ pending state)
+    (history : Worklist.Trace (Roots.program heap banks) (Worklist.initial (Roots.program heap banks)) logical)
+    (zero : state.count = 0) : ∀ address, address ∈ logical.known ↔ Roots.Marked heap banks address := by
+  have stopped := zero_workers_drained state valid zero
+  have empty : logical.pending = [] := by
+    apply List.eq_nil_iff_forall_not_mem.mpr
+    intro object member
+    have present := (ownership object).mp member
+    simp [stopped] at present
+  exact Roots.marking_control_flow_exact heap banks logical history empty
+end CollectorSchedule
+
 end ParserEngine.Representation

@@ -405,4 +405,75 @@ module GrammarPipeline {
       0.to(4).fold(Set(),(marked,round) => strongMark(edges,marked)) == Set()
   })
 
+  pure def power2(width:int):int = if(width == 0) 1 else 0.to(width - 1).fold(1,(power,i) => power * 2)
+  pure def generatedMap(flags:List[bool]):int =
+    flags.foldl({power:1,mask:0},(s,live) =>
+      {power:s.power * 2,mask:s.mask + (if(live) s.power else 0)}).mask
+  pure def signedChunk(value:int):int = if(value < 2147483648) value else value - 4294967296
+  pure def unsignedChunk(value:int):int = ((value % 4294967296) + 4294967296) % 4294967296
+  run targetMapChunksAndSignedLiteralTest = init.expect({
+    val flags = 0.to(95).fold(List(),(rows,i) => rows.append(true))
+    val mask = generatedMap(flags)
+    val sparse = 1 + power2(31) + power2(32) + power2(65) + power2(95)
+    generatedMap(List(true,false,true,false,true)) == 21 and
+      sparse % power2(32) == 2147483649 and
+      (sparse / power2(32)) % power2(32) == 1 and
+      (sparse / power2(64)) % power2(32) == 2147483650 and
+      mask == power2(96) - 1 and
+      unsignedChunk(signedChunk(mask % power2(32))) == power2(32) - 1 and
+      (mask / power2(32)) % power2(32) == power2(32) - 1 and
+      (mask / power2(64)) % power2(32) == power2(32) - 1 and
+      0.to(95).forall(i => (mask / power2(i)) % 2 == 1)
+  })
+  pure def internalMapLive(ordinary:bool,aligned:int,registers:int,index:int):bool =
+    ordinary or (aligned <= index and index <= aligned + registers)
+  run internalSavedRegisterBandIncludesReturnVariableTest = init.expect(
+    internalMapLive(false,100,5,100) and internalMapLive(false,100,5,105) and
+      not(internalMapLive(false,100,5,106)) and not(internalMapLive(false,100,5,99)) and
+      internalMapLive(true,100,5,99))
+  pure def probePosition(capacity:int,start:int,turn:int):int =
+    if(turn <= start) start - turn else capacity + start - turn
+  run physicalProbeCoversEverySlotExactlyOnceTest = init.expect(
+    1.to(9).forall(capacity => 0.to(capacity - 1).forall(start => {
+      val seen = 0.to(capacity - 1).map(turn => probePosition(capacity,start,turn))
+      seen == 0.to(capacity - 1) and seen.size() == capacity and
+        0.to(capacity - 2).forall(turn =>
+          probePosition(capacity,start,turn + 1) ==
+            (if(probePosition(capacity,start,turn) == 0) capacity - 1
+             else probePosition(capacity,start,turn) - 1))
+    })))
+  type ProbeCell = {state:str,key:int,value:int}
+  pure def observeProbe(rows:List[ProbeCell],key:int):{stopped:bool,found:List[int]} =
+    rows.foldl({stopped:false,found:List()},(s,cell) =>
+      if(s.stopped) s else if(cell.state == "unused") {stopped:true,found:List()}
+      else if(cell.state == "entry" and cell.key == key) {stopped:true,found:List(cell.value)} else s)
+  run deletedProbeSlotMustNotActLikeUnusedTest = init.expect({
+    val prefix = List({state:"deleted",key:0,value:0},{state:"entry",key:3,value:0},
+      {state:"unused",key:0,value:0})
+    observeProbe(prefix,3) == {stopped:true,found:List(0)} and
+      observeProbe(prefix,4) == {stopped:true,found:List()} and
+      observeProbe(List({state:"deleted",key:0,value:0}),4) == {stopped:false,found:List()}
+  })
+  type ScanWorker = {active:bool,queued:Set[int],held:Set[int]}
+  pure def workerOwnership(workers:List[ScanWorker],count:int):bool =
+    count == workers.foldl(0,(n,w) => n + (if(w.active) 1 else 0)) and
+      workers.indices().forall(i => workers.nth(i).active or
+        (workers.nth(i).queued == Set() and workers.nth(i).held == Set()))
+  run reservedObjectPreventsFalseGlobalTerminationTest = init.expect({
+    val busy = {active:true,queued:Set(),held:Set(70)}
+    workerOwnership(List(busy),1) and not(workerOwnership(List(busy),0)) and
+      not(workerOwnership(List({...busy,active:false}),0)) and
+      workerOwnership(List({active:false,queued:Set(),held:Set()}),0)
+  })
+  run chunkStealingRetainsInFlightOwnershipTest = init.expect({
+    val before = List({active:true,queued:Set(1,2),held:Set()},
+      {active:true,queued:Set(3),held:Set()})
+    val after = List({active:true,queued:Set(),held:Set()},
+      {active:true,queued:Set(3),held:Set(1,2)})
+    workerOwnership(before,2) and workerOwnership(after,2) and
+      before.foldl(Set(),(jobs,w) => jobs.union(w.queued).union(w.held)) ==
+        after.foldl(Set(),(jobs,w) => jobs.union(w.queued).union(w.held)) and
+      not(workerOwnership(after,1))
+  })
+
 }

@@ -441,3 +441,44 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 
 #print axioms ParserEngine.Representation.Dependencies.decoded_shift_notified
 #print axioms ParserEngine.Representation.Dependencies.decoded_child_notified
+
+#print axioms ParserEngine.Representation.FrameMaps.generate_exact
+#print axioms ParserEngine.Representation.FrameMaps.generated_bit
+#print axioms ParserEngine.Representation.FrameMaps.saved_register_live
+#print axioms ParserEngine.Representation.FrameMaps.chunk_read
+#print axioms ParserEngine.Representation.FrameMaps.emitted_frame_root
+#print axioms ParserEngine.Representation.FrameMaps.joined_word_bit
+#print axioms ParserEngine.Representation.FrameMaps.cursor_bound
+#print axioms ParserEngine.Representation.FrameMaps.cursor_advances
+#print axioms ParserEngine.Representation.FrameMaps.cursor_reads_bit
+#print axioms ParserEngine.Representation.FrameMaps.cursor_shift
+#print axioms ParserEngine.Representation.FrameMaps.cursor_reload
+#print axioms ParserEngine.Representation.FrameMaps.signed_literal_bits
+#print axioms ParserEngine.Representation.FrameMaps.signed_cursor_reads
+#print axioms ParserEngine.Representation.FrameMaps.emitted_chunk_bound
+#print axioms ParserEngine.Representation.FrameMaps.emitted_signed_root
+#print axioms ParserEngine.Representation.FrameMaps.trailing_signed_word
+#print axioms ParserEngine.Representation.FrameMaps.paired_word_reads
+#print axioms ParserEngine.Representation.ProbeCoverage.position_bound
+#print axioms ParserEngine.Representation.ProbeCoverage.position_next
+#print axioms ParserEngine.Representation.ProbeCoverage.position_injective
+#print axioms ParserEngine.Representation.ProbeCoverage.position_covers
+#print axioms ParserEngine.Representation.ProbeCoverage.observed_slot
+#print axioms ParserEngine.Representation.ProbeCoverage.physical_probe_terminates
+#print axioms ParserEngine.Representation.ProbeCoverage.hash_start_bound
+#print axioms ParserEngine.Representation.ProbeCoverage.generic_start_bound
+#print axioms ParserEngine.Representation.ProbeCoverage.physical_step
+#print axioms ParserEngine.Representation.ProbeCoverage.scan_refines_probe
+#print axioms ParserEngine.Representation.CollectorSchedule.publish_valid
+#print axioms ParserEngine.Representation.CollectorSchedule.reserve_valid
+#print axioms ParserEngine.Representation.CollectorSchedule.reservation_retains_work
+#print axioms ParserEngine.Representation.CollectorSchedule.idle_valid
+#print axioms ParserEngine.Representation.CollectorSchedule.wake_valid
+#print axioms ParserEngine.Representation.CollectorSchedule.reservation_preserves_pending
+#print axioms ParserEngine.Representation.CollectorSchedule.steal_valid
+#print axioms ParserEngine.Representation.CollectorSchedule.steal_preserves_pending
+#print axioms ParserEngine.Representation.CollectorSchedule.zero_workers_drained
+#print axioms ParserEngine.Representation.CollectorSchedule.zero_workers_marking_exact
+
+#print axioms ParserEngine.Representation.CollectorSchedule.counter_bound
+#print axioms ParserEngine.Representation.CollectorSchedule.counter_fits

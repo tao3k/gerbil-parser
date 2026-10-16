@@ -51,7 +51,7 @@ def model_checks(root: Path):
                      "t/generate-grammar-model-facts.ss", "formal/ParserEngine/NativeFacts.lean", "t/canonical-lr1-reference-test.ss", "t/resolved-grammar-test.ss", "t/fixtures/lr1-construction.ss", "src/compiler/lr.ss", "src/compiler/funcs.ss", "src/schema.ss", "src/ffi/schema.ss", "src/modules/parser/types.ss", "t/language-surface-test.ss", "src/compiler/language-artifact.ss", "t/language-artifact-test.ss", "src/compiler/lr-compiler.ss", "src/compiler/lr-conflict-candidates.ss", "src/compiler/lr-table.ss", "src/compiler/lr-partition.ss", "src/compiler/lr-automaton.ss", "src/compiler/lr-lookahead.ss", "src/compiler/lr-follow-automaton.ss", "src/ffi/language-handles.ss", "scripts/tests/history-commit-test.ss",
                      "src/runtime/lr-parser/recognition.ss", "src/runtime/lr-parser/checkpoint.ss", "src/runtime/lr-parser/entry.ss",
                      "src/runtime/lr-parser/transfer.ss", "src/runtime/lr-parser/prepare.ss", "src/runtime/lr-action-index.ss", "src/runtime/parser.ss",
-                     "src/runtime/lr-parser/batch.ss", "src/runtime/layout.ss", "t/layout-boundary-test.ss", "src/runtime/lr-stack-storage.ss",
+                     "src/runtime/lr-parser/batch.ss", "src/runtime/layout.ss", "t/layout-boundary-test.ss", "t/fixtures/layout-columns.ss", "src/runtime/lr-stack-storage.ss",
                      "t/fixtures/tla-sany-differential/test-suite.ss", "t/lr-input-protocol-test.ss", "t/lr-goto-plan-test.ss",
                      "t/lr-action-preparation-test.ss", "t/fixtures/lr-action-selection.ss",
                      "t/sparse-capture-test.ss", "t/lr-fragment-transfer-test.ss", "t/runtime-module-organization-test.ss",

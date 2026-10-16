@@ -84,6 +84,31 @@
            (check (read (list 'sentinel)) => 0))))
      '(0 8 16))))
 
+(def (physical-table-probe-case)
+  (for-each
+   (lambda (generic?)
+     (let* ((table (if generic?
+                    (make-table size: 3 test: equal? hash: (lambda (key) -17))
+                    (make-table size: 3 test: eq?)))
+            (keys (list->vector (map (lambda (index) (vector index)) (iota 192))))
+            (zero (vector 'zero)))
+       (def (key index)
+         (if generic? (vector index) (vector-ref keys index)))
+       (table-set! table zero 0)
+       (for-each (lambda (index) (table-set! table (key index) index)) (iota 96))
+       ;; DELETED must continue probing; growth/GC rehash must retain the other
+       ;; equality classes, including a legitimate zero value.
+       (for-each (lambda (index) (table-set! table (key (* 2 index)))) (iota 48))
+       (##gc)
+       (for-each (lambda (index)
+         (check (table-ref table (key index) 'absent) => (if (even? index) 'absent index))) (iota 96))
+       (for-each (lambda (index) (table-set! table (key (+ 96 index)) (+ 96 index))) (iota 96))
+       (##gc)
+       (check (table-ref table zero) => 0)
+       (for-each (lambda (index)
+         (check (table-ref table (key (+ 96 index))) => (+ 96 index))) (iota 96))))
+   '(#t #f)))
+
 (def (canonical-interning-domain-case)
   (for-each
    (lambda (rules)
@@ -460,6 +485,8 @@
 
 (def canonical-lr1-reference-test
   (test-suite "canonical LR(1) reference"
+    (poo-flow-test-case "physical generic and eq probes retain tombstones, zero and rehashed entries"
+      (physical-table-probe-case))
     (poo-flow-test-case "closure roots retain colliding tables, cycles and wide mask callbacks across GC"
       (rooted-compiler-representation-case))
     (poo-flow-test-case "native canonical keys inhabit their finite matrix catalogue and intern once"

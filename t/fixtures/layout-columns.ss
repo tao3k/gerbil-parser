@@ -1,5 +1,5 @@
 ;;; Boxed-vector oracle, independent of packed storage and lookup dispatch.
-(export reference-layout-columns reference-packed-layout-columns layout-column-sources)
+(export wide-frame-roots reference-layout-columns reference-packed-layout-columns layout-column-sources)
 
 (def (reference-layout-columns source)
   (let* ((bytes (string->utf8 source)) (size (u8vector-length bytes))
@@ -43,3 +43,20 @@
               (when (< cursor end)
                 (##u32vector-set! columns cursor column) (fill (+ cursor 1))))
             (loop end next-column)))))))
+
+;;; Host GC map control: the opaque callback keeps 96 independent roots live.
+(defsyntax (with-wide-frame-roots stx)
+  (syntax-case stx ()
+    ((_ seed collect)
+     (let loop ((index 0) (names '()) (indices '()))
+       (if (= index 96)
+         (with-syntax (((root ...) (reverse names))
+                       ((ordinal ...) (reverse indices)))
+           #'(let ((root (cons ordinal seed)) ...)
+               (collect)
+               (list root ...)))
+         (loop (+ index 1) (cons (genident 'live-root) names)
+               (cons (datum->syntax #'with-wide-frame-roots index) indices)))))))
+
+(def (wide-frame-roots seed collect)
+  (with-wide-frame-roots seed collect))

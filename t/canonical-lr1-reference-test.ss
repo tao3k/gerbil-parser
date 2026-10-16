@@ -38,6 +38,22 @@
 (import (only-in :gerbil-parser/src/compiler/lr-partition refine-canonical-partition)
         (only-in :std/vector/extensible ExtensibleVector-fill-pointer ExtensibleVector-ref))
 
+(def (dirty-successor-composition-case)
+  ;; A predecessor chain needs successive dirty rounds. Omitting successor
+  ;; delivery leaves a plausible but incorrect stable partition.
+  (def (refine deliver?)
+    (compiler-index-partition-refine
+     '#(0 0 0 0) 1
+     (lambda (node ids) (if (= node 0) '() (list (vector-ref ids (- node 1)))))
+     (lambda (source visit) (when (and deliver? (< source 3)) (visit (+ source 1))))
+     (lambda (groups nodes examined) (void))))
+  (let-values (((correct count) (refine #t))
+               ((missed missed-count) (refine #f)))
+    (check correct => '#(0 1 2 3))
+    (check count => 4)
+    (check missed => '#(0 1 1 1))
+    (check missed-count => 2)))
+
 (def (refined-conflict-origin-case)
   ;; All three members were initially packable because state 0 witnessed reduction mask
   ;; 56. Transition refinement separates it; states 1 and 2 cannot then retain
@@ -273,6 +289,8 @@
 
 (def canonical-lr1-reference-test
   (test-suite "canonical LR(1) reference"
+    (poo-flow-test-case "dirty successor delivery composes across predecessor rounds"
+      (dirty-successor-composition-case))
     (poo-flow-test-case "transition splits retain a surviving canonical conflict witness"
       (refined-conflict-origin-case))
     (poo-flow-test-case "prepared corpus readers preserve fresh rejection and recovery"

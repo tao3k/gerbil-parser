@@ -1318,3 +1318,110 @@ and verifies start/body/completion output. The earlier simplified probe omitted
 =-e=. Deadlines and compiler selection are unchanged. The original cold-start
 failure remains distinct from this regression; exact-head macOS semantic
 success is required for closure.
+
+* Physical production identity, dirty delivery and publication composition
+
+** Paper premises and native representation
+
+The LR paper obligations above distinguish an item, its viable prefix and the
+published table action. The native representation introduces an additional
+identity: =production-id= is an ordered table index, including augmentation at
+zero. Projecting a production to =lhs/rhs= is insufficient to identify an item.
+Two authored alternatives can share that CFG projection while carrying
+separate RHS aliases and precedence. This is a representation obligation;
+no accepted-language equivalence for precedence pruning is inferred from it.
+
+[[file:../../formal/ParserEngine/Construction.lean][Construction.lean]] now keeps =PhysicalItem.production= through dense item
+encoding. =physical_code_injective= composes the coordinate round-trip for
+arbitrary production counts and widths: equal valid codes imply equal physical
+production IDs and dots. =duplicate_rules_keep_physical_identity= proves that
+equal semantic rows can decode equally while their physical offsets differ.
+=decodePhysicalEvent= reserves zero for acceptance and excludes it from reduce
+events before semantic projection. =admitted_physical_event_supported= connects
+ordered-row decoding and concrete admission checks to semantic cell support.
+
+Native correspondence is controlled in
+[[file:../../t/resolved-grammar-test.ss][resolved-grammar-test.ss]]: two same-base-CFG alternatives retain IDs 1 and 2,
+distinct annotated RHSs and precedence, distinct dense dot-zero/completed
+items, and the higher-priority =Higher= node after repeated complete requests
+on LALR, canonical LR(1) and follow-partition LR(1). The first test draft
+incorrectly expected distinct =production-action= values. The real engine
+stores these aliases in RHS annotations. The corrected control checks that
+actual representation; no engine behavior was changed to satisfy the draft.
+
+** Dirty scheduling without stable numeric labels
+
+[[file:../../src/compiler/funcs.ss][compiler-index-partition-refine]] detects old groups with multiple new children
+and marks the new groups of every successor of each split source. In
+[[file:../../src/compiler/lr-follow-automaton.ss][forward-refine-blocks]], signatures contain predecessor group sets per edge
+label. Consequently split sources affect their outgoing neighbors. Group IDs
+can also change through dense renumbering without any group splitting.
+
+=SplitGroup= expresses actual peer separation, and =DirtyTarget= includes the
+whole new group of an affected target. =split_successor_dirty= establishes
+coverage of each delivered dependency. =clean_predecessor_transport= proves,
+for arbitrary labeled graphs, that equal predecessor signatures remain equal
+under the next partition when the target is clean. It transports peer
+relations, not equality of numeric IDs. =refined_signature_uniform= derives agreement within each new group under
+the old partition: active groups use signature keys, and only inactive old
+groups require the retained uniformity invariant. =clean_group_uniform= then
+transports that agreement to the next partition for clean new groups. Active
+old groups are allowed to split; assuming they were already uniform would
+miss the scheduler's purpose. Native key equality and bitset signatures still
+need their representation correspondence.
+
+The native predecessor-chain control needs successive refinement rounds. With
+all successor callbacks delivered, the four nodes become four groups. The
+same real scheduler with delivery omitted stops incorrectly at two groups.
+The existing exhaustive graph/synchronous-oracle controls remain. Quint adds
+renumbering-without-splitting and missing-delivery falsifiers. This proof is
+about the forward scheduler; it does not discharge the separately implemented
+backward active-core/dependent scheduler.
+
+** From admitted events to a frozen row and clean scratch
+
+=writeCandidate= distinguishes an untouched slot from a failed resolution.
+=replay_candidates_trace= constructs provenance from the first candidate and
+every concrete conflict choice, including forks, rejection and failure.
+=physical_replayed_table_supported= composes physical ID decoding, event
+admission and policy replay into =TableSupported=. It no longer takes a
+completed =CellTrace= as a premise. Publication must still select an action
+retained by that execution; event admission is explicit rather than replaced
+with an assumed final support proof.
+
+=buildEventScratch= models a newest-first event catalog, resolving each event
+against the earlier cell value and recording touched keys.
+=event_scratch_covered= derives coverage from construction for arbitrary event
+lists. =event_scratch_trace= derives each cell's provenance from its own key's
+sources. =event_row_publication= composes those facts: every selected published
+action has an origin for that cell, the frozen row is retained, and every
+scratch slot is empty for the next state. Neither a final trace nor final
+scratch coverage is supplied as a premise. Duplicate touches are permitted;
+the native first-install-only catalog satisfies a stronger uniqueness rule.
+
+The model's frozen row is an immutable value. Native =build-actions= copies
+entries into a row list before clearing touched action/reduction/shift slots.
+Proving that the Scheme vector operations, list allocation and all three
+scratch catalogs refine this transition remains a host implementation bridge.
+The existing native table-support and injected unsupported-cell controls,
+together with repeated complete parsing and the new identity control, test
+this bridge; finite tests do not turn it into a universal Scheme proof.
+Layout-guard fallback publication and quotient lookahead transport remain
+separate composition obligations. No local performance optimization is made.
+
+** Validation and CI boundary
+
+Before these changes, exact commit =dedffb71028bd4ae62d4f56e41537847103c32c0=
+passed every enabled job in GitHub run =38859187649=, including macOS and
+Ubuntu semantics. This closes the preceding command-protocol repair's remote
+CI gate; it is not CI evidence for the new commit.
+
+The source-client/native-engine batch runs three owners concurrently with the
+existing 90-second total and five-second idle bounds: resolved grammar 54,
+canonical LR reference 24, and style contract 6 cases pass in 34.2 seconds.
+The failed first identity-test draft is retained separately in the local
+qualification transcript. GrammarPipeline has 17 directed Quint tests,
+including physical-identity, renumbering, delivery and scratch-isolation
+controls. Lean kernel-checks the general theorems; the evidence collector's
+five host/source-identity controls also pass. These observations qualify the
+stated model and native controls, not whole-engine formal closure or CPU gain.

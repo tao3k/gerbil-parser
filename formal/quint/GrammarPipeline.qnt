@@ -159,4 +159,40 @@ module GrammarPipeline {
     List(List(Set(3)),List(Set(4))).foldl(true,(valid,group) => valid and conflictOrigin(group)) and
       Set(3).union(Set(4)) == Set(3,4))
 
+  // Physical production indices survive equal semantic rows.
+  pure def coreOffset(widths:List[int],production:int):int =
+    widths.indices().filter(index => index < production)
+      .fold(0,(offset,index) => offset + widths.nth(index) + 1)
+  run duplicateProductionIdentityTest = init.expect(
+    List({lhs:1,rhs:List(2)},{lhs:1,rhs:List(2)}).nth(0) ==
+      List({lhs:1,rhs:List(2)},{lhs:1,rhs:List(2)}).nth(1) and
+    coreOffset(List(1,1),0) == 0 and coreOffset(List(1,1),1) == 2 and
+    coreOffset(List(0,0),1) == 1)
+
+  pure def peers(ids:List[int],node:int):Set[int] =
+    ids.indices().filter(peer => ids.nth(peer) == ids.nth(node))
+  pure def splitSources(oldIds:List[int],newIds:List[int]):Set[int] =
+    oldIds.indices().filter(source =>
+      peers(oldIds,source).exists(peer => newIds.nth(peer) != newIds.nth(source)))
+  type DependencyEdge = {source:int,target:int}
+  pure def dirtyNodes(oldIds:List[int],newIds:List[int],edges:Set[DependencyEdge]):Set[int] =
+    edges.filter(edge => splitSources(oldIds,newIds).contains(edge.source))
+      .fold(Set(),(marked,edge) => marked.union(peers(newIds,edge.target)))
+  run renumberWithoutSplitTest = init.expect(
+    splitSources(List(0,0,1,1),List(1,1,0,0)) == Set() and
+      List(0,0,1,1) != List(1,1,0,0))
+  run missedDirtySuccessorWitnessTest = init.expect(
+    dirtyNodes(List(0,0,0,0),List(0,1,1,1),
+      Set({source:0,target:1},{source:1,target:2},{source:2,target:3})) == Set(1,2,3) and
+    dirtyNodes(List(0,0,0,0),List(0,1,1,1),Set()) == Set())
+
+  pure def clearTouched(slots:List[int],touched:Set[int]):List[int] =
+    slots.indices().fold(slots,(result,key) =>
+      if(touched.contains(key)) result.replaceAt(key,-1) else result)
+  run publicationScratchIsolationTest = init.expect({
+    val row = List(4,-1,7)
+    clearTouched(row,Set(0,2)) == List(-1,-1,-1) and row == List(4,-1,7) and
+      clearTouched(row,Set(0)) != List(-1,-1,-1)
+  })
+
 }

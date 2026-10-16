@@ -285,3 +285,23 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Construction.install_choice_origin
 #print axioms ParserEngine.Construction.admitted_event_supported
 #print axioms ParserEngine.Construction.install_preserves_cell_trace
+
+#print axioms ParserEngine.Construction.physical_code_injective
+#print axioms ParserEngine.Construction.duplicate_rules_keep_physical_identity
+#print axioms ParserEngine.Construction.split_successor_dirty
+#print axioms ParserEngine.Construction.clean_predecessor_transport
+#print axioms ParserEngine.Construction.replay_candidates_trace
+#print axioms ParserEngine.Construction.replayed_table_supported
+#print axioms ParserEngine.Construction.scratch_write_covered
+#print axioms ParserEngine.Construction.scratch_clear_empty
+#print axioms ParserEngine.Construction.publication_retains_row_and_clears
+#print axioms ParserEngine.Construction.admitted_physical_event_supported
+#print axioms ParserEngine.Construction.augmented_cannot_reduce
+#print axioms ParserEngine.Construction.authored_cannot_accept
+#print axioms ParserEngine.Construction.decoded_candidates_admitted
+#print axioms ParserEngine.Construction.physical_replayed_table_supported
+#print axioms ParserEngine.Construction.clean_group_uniform
+#print axioms ParserEngine.Construction.event_scratch_covered
+#print axioms ParserEngine.Construction.event_scratch_trace
+#print axioms ParserEngine.Construction.event_row_publication
+#print axioms ParserEngine.Construction.refined_signature_uniform

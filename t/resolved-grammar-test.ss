@@ -5,7 +5,7 @@
         (only-in :std/test/base TestCase test-case-add!)
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
         (only-in :gerbil-parser/src/compiler/lr +lr-eof+ lr-spec-ref current-grammar-source-map compute-nullable compute-first compute-productive compute-completion terminal-symbol?
-                 lower-rules production-id production-lhs production-rhs production-table production-terminal-catalog
+                 lower-rules production-precedence production-id production-lhs production-rhs production-table production-terminal-catalog
                  sequence-first sequence-nullable? base-symbol nonterminal-symbol? nonterminal-name)
         (only-in :gerbil-parser/src/compiler/funcs compiler-index-set-union compiler-index-set-member?)
         (only-in :gerbil-parser/src/compiler/lr-automaton make-item-layout make-core-symbol-catalog
@@ -579,6 +579,38 @@
         (check (table-ref nullable 'start #f) => #f)
         (check (table-ref productive 'start #f) => #f)
         (check (table-ref first 'start '()) => '((terminal literal "a")))))))
+
+(def (duplicate-production-identity-case)
+  ;; Equal base CFG rows retain distinct RHS aliases, precedence and IDs.
+  (let* ((rules '((start (choice
+                         (precedence left 1 (alias Lower (literal "a")))
+                         (precedence left 2 (alias Higher (literal "a")))))))
+         (productions (lower-rules rules 'start))
+         (authored (cdr productions))
+         (table (production-table productions)))
+    (check (length authored) => 2)
+    (check (map production-id authored) => '(1 2))
+    (check (production-lhs (car authored)) => (production-lhs (cadr authored)))
+    (check (map base-symbol (production-rhs (car authored)))
+      => (map base-symbol (production-rhs (cadr authored))))
+    (check (equal? (production-rhs (car authored)) (production-rhs (cadr authored))) => #f)
+    (check (equal? (production-precedence (car authored)) (production-precedence (cadr authored))) => #f)
+    (let-values (((terminals _index) (production-terminal-catalog productions)))
+      (let (layout (make-item-layout table terminals))
+        (for-each (lambda (dot)
+          (let ((left (make-core-item 1 dot layout)) (right (make-core-item 2 dot layout)))
+            (check (= left right) => #f)
+            (check (core-item-production-id left layout) => 1)
+            (check (core-item-production-id right layout) => 2))) '(0 1))))
+    (for-each (lambda (route)
+      (let* ((spec (compile-lr-spec rules 'start 'reject #f route))
+             (runtime (lr-prepare spec)))
+        ;; Repeated requests use the published table after all scratch cleanup.
+        (for-each (lambda (iteration)
+          (let-values (((root rest) (lr-parse/prepared runtime (list (make-token 'punctuation "a" 0 1)))))
+            (check (recognition-node-kind root) => 'Higher)
+            (check rest => '()))) '(0 1))))
+      '(lalr canonical-lr1 follow-partition-lr1))))
 
 ;;; Independent coordinates include epsilon, unary and uneven-width rules.
 ;;; Expected coordinates are not decoded from the packed value.
@@ -1266,6 +1298,8 @@
 
 (def resolved-grammar-test
   (test-suite "resolved grammar admission and CFG alternatives"
+    (test-case-add! (TestCase "duplicate CFG rows retain physical IDs and precedence through publication"
+                      duplicate-production-identity-case))
     (test-case-add! (TestCase "native dense item layout refines ordered grammar coordinates and goto"
                       dense-layout-refinement-case))
     (test-case-add! (TestCase "lowering proof replay publishes bindings and preserves native identity"

@@ -11,8 +11,11 @@
         (only-in :gerbil-parser/src/runtime/parser parse-source parse-source/checkpoints)
         (only-in :gerbil-parser/src/runtime/token make-token token-start)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-initial-checkpoint lr-prepare lr-lexical-mode-id current-lr-recognition-observer)
+        (only-in :gerbil-parser/src/runtime/lr-parser/checkpoint-base lr-initial-checkpoint/selected)
         (only-in :gerbil-parser/src/runtime/lr-stack-storage make-lr-token-observer)
-        (only-in :gerbil-parser/src/runtime/lr-parser/state lr-checkpoint-states lr-runtime-table lr-runtime-reduction-widths lr-runtime-reduction-plans)
+        (only-in :gerbil-parser/src/runtime/lr-parser/state lr-checkpoint-states lr-checkpoint-runtime lr-checkpoint-tokens lr-checkpoint-input-end-offset
+                 lr-checkpoint-semantic-values lr-checkpoint-rest lr-checkpoint-deterministic-actions
+                 lr-checkpoint-deterministic-shifts lr-checkpoint-recognition-stack lr-runtime-table lr-runtime-reduction-widths lr-runtime-reduction-plans)
         (only-in :gerbil-parser/src/runtime/lr-parser/checkpoint
                  lr-run-checkpoint lr-run-persistent-checkpoint))
 (export lr-input-protocol-test)
@@ -48,6 +51,33 @@
         (list result root (reverse shifted) (reverse frames))))))
 (def lr-input-protocol-test
   (test-suite "LR scalar input protocol and external frontiers"
+    (test-case "selected entry resets request fields and scans every token end"
+      (let ((runtime (parser-machine-runtime records-parser))
+            (tokens (list (make-token 'word "first" 18 23)
+                          (make-token 'word "second" 0 4)
+                          (make-token 'word "last" 12 17))))
+        (for-each
+         (lambda (observer)
+           (parameterize ((current-lr-recognition-observer observer))
+             (let* ((first (lr-initial-checkpoint/selected runtime tokens))
+                    (empty (lr-initial-checkpoint/selected runtime '()))
+                    (again (lr-initial-checkpoint/selected runtime tokens)))
+               (for-each
+                (lambda (checkpoint)
+                  (check (eq? (lr-checkpoint-runtime checkpoint) runtime) => #t)
+                  (check (lr-checkpoint-states checkpoint) => '(0))
+                  (check (lr-checkpoint-semantic-values checkpoint) => '())
+                  (check (list (lr-checkpoint-deterministic-actions checkpoint)
+                               (lr-checkpoint-deterministic-shifts checkpoint)) => '(0 0))
+                  (check (lr-checkpoint-recognition-stack checkpoint) => (if observer '() #f)))
+                (list first empty again))
+               (check (eq? first again) => #f)
+               (check (eq? (lr-checkpoint-tokens first) tokens) => #t)
+               (check (eq? (lr-checkpoint-rest first) tokens) => #t)
+               (check (eq? (lr-checkpoint-rest again) tokens) => #t)
+               (check (lr-checkpoint-rest empty) => '())
+               (check (map lr-checkpoint-input-end-offset (list first empty again)) => '(23 0 23)))))
+         (list #f (lambda (_value) (void))))))
     (test-case "action budgets preserve pending lookahead, scanner mode and callbacks"
       (let ((runtime (parser-machine-runtime records-parser))
             (tokens (filter (lambda (token) (not ((parser-machine-trivia records-parser) token)))

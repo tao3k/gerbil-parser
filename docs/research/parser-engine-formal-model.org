@@ -59,6 +59,50 @@ policy and reuses derived metadata. Tokens, stacks, counters, remainders and
 returned products remain request responsibilities. No previous request's
 checkpoint is reused by this change.
 
+*** Selected checkpoint constructor correspondence
+
+The parser-side adapter is =RawRequest.Entry= in
+[[file:../../formal/ParserEngine/RawRequest.lean][RawRequest.lean]]. It follows the actual selected constructor in
+=checkpoint-base.ss=: runtime identity, the original token list, maximum
+end offset, state zero, empty semantic values, the original remainder, zero
+action/shift counts and an optional empty recognition stack. The observer flag
+and non-layout guard are separate inputs; a false flag is not an empty list.
+The native =lr-parse/prepared= layout branch uses the batch owner instead and
+is outside this constructor theorem.
+
+=scanEnd_le_iff= proves the accumulator bound for every token list and initial
+offset, and =token_end_bounded= derives that every decoded token end is covered.
+The decoder admits nonnegative ends; arbitrary Scheme values are not admitted.
+A final-token shortcut would be wrong for the constructor's input contract:
+ends 23, 4, 17 must produce 23. This is a field-construction control, not a claim
+that such a list is a lexically ordered complete source.
+
+=config_exact= makes the native zero entry explicit through the graph-decoder
+premise =engine.graph.entry = 0=. =constructed_valid= then establishes the
+reference initial invariant, and =complete_from_constructed= composes it with
+the existing universal accepted-derivation theorem for any admitted request
+trace. This closes the reference constructor-to-request composition; it does
+not infer table/selector certificates or a whole Scheme operational refinement.
+The empty native semantic-value list must decode to empty model frames;
+nonempty semantic-value decoding is outside this initial adapter.
+
+The [[file:../../t/lr-input-protocol-test.ss][real Scheme input-protocol owner]] checks both observer states, empty input,
+all initial fields, selected runtime/token identities, distinct checkpoint
+objects and the nonmonotone-end control. Quint adds the same end-maximum/empty
+input control alongside the independent-request and retained-stack histories.
+These bounded implementation checks identify the constructor that must retain
+the universal adapter's premises when the actual parser changes. Host execution
+remains an external premise, and no Gambit source/build work is involved.
+
+Constructor qualification: the locked Lean package passes all 72 build jobs,
+with six new explicit axiom listings and no admitted host axiom. RawRequest
+passes ten directed Quint controls. The real input-protocol/style modules pass
+6+6=12 cases with two workers, natural exit zero in 6.3415 seconds under the
+existing 90/5-second owner budgets; the evidence-input binding control passes.
+At inspection, revision =841f9fa= has three successful Rust jobs, while macOS
+is building parser/language packs in preparation and has not yet entered
+semantics. This is not a remote confirmation of the timeout correction.
+
 *** Timeout diagnosis and bounded verification
 
 The failing macOS semantics job at revision =543812e= is run =38916765458=,

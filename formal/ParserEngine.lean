@@ -786,3 +786,10 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Host.TicketMachine.prefix_registers
 #print axioms ParserEngine.Host.TicketMachine.run_add
 #print axioms ParserEngine.Host.TicketMachine.pollRun_eq_run
+
+#print axioms ParserEngine.RawRequest.Entry.scanEnd_le_iff
+#print axioms ParserEngine.RawRequest.Entry.token_end_bounded
+#print axioms ParserEngine.RawRequest.Entry.config_exact
+#print axioms ParserEngine.RawRequest.Entry.constructed_valid
+#print axioms ParserEngine.RawRequest.Entry.fresh_fields
+#print axioms ParserEngine.RawRequest.Entry.complete_from_constructed

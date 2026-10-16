@@ -36,6 +36,8 @@ class ModelInputControls(unittest.TestCase):
             self.assertIn("formal/ParserEngine/Operational.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Host.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/HostLowering.lean", lean.inputs)
+            self.assertIn("src/runtime/lr-parser/checkpoint-base.ss", lean.inputs)
+            self.assertIn("src/runtime/lr-parser/checkpoint-base.ss", quint.inputs)
             self.assertIn("t/layout-boundary-test.ss", lean.inputs)
             self.assertIn("t/layout-boundary-test.ss", quint.inputs)
             self.assertIn("t/fixtures/layout-columns.ss", lean.inputs)

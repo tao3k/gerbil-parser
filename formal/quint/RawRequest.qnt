@@ -103,4 +103,9 @@ module RawRequest {
   run retainedPreviousRequestStateWitnessTest = init.then(Shift).then(Reduce)
     .then(Shift).then(Reduce).then(Accept).then(WrongRestartKeepsFrames)
     .expect(not(RawSafety))
+  // Native entry scans all token ends, not merely the final token.
+  pure def inputEnd(ends:List[int]):int = ends.foldl(0,(offset,end) => if(offset < end) end else offset)
+  run entryEndMaximumAndEmptyInputTest = init.expect(
+    inputEnd(List(23,4,17)) == 23 and inputEnd(List()) == 0 and
+    inputEnd(List(0,0)) == 0 and inputEnd(List(23,4,17)) != 17)
 }

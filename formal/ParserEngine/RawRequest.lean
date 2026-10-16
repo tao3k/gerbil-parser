@@ -246,4 +246,78 @@ theorem complete_request (engine : Engine Raw) (input : List Raw) (last : Config
       Relates engine.realizesToken terminals input :=
   accepted_derivation engine input last (trace_valid (initial_valid engine input) trace) complete selected
 
+namespace Entry
+/-- Left-to-right maximum used by lr-initial-checkpoint/selected. The decoder
+admits nonnegative token ends; arbitrary Scheme values are not covered. -/
+def scanEnd (endOffset : Raw → Nat) : List Raw → Nat → Nat
+  | [], current => current
+  | token :: rest, current => scanEnd endOffset rest (max current (endOffset token))
+
+theorem scanEnd_le_iff (endOffset : Raw → Nat) (tokens : List Raw) (current bound : Nat) :
+    scanEnd endOffset tokens current ≤ bound ↔
+      current ≤ bound ∧ ∀ token ∈ tokens, endOffset token ≤ bound := by
+  induction tokens generalizing current with
+  | nil => simp [scanEnd]
+  | cons token rest ih => simp [scanEnd, ih, Nat.max_le, and_assoc]
+
+theorem token_end_bounded (endOffset : Raw → Nat) (tokens : List Raw)
+    (token : Raw) (member : token ∈ tokens) :
+    endOffset token ≤ scanEnd endOffset tokens 0 :=
+  ((scanEnd_le_iff endOffset tokens 0 _).mp (Nat.le_refl _)).2 token member
+
+/-- Initial fields of the selected non-layout entry. Frames denote decoded
+semantic values; decoding the empty native value list is an explicit boundary.
+This record does not model Scheme heap allocation or nonempty AST decoding. -/
+structure Checkpoint (Runtime Raw : Type) where
+  runtime : Runtime
+  input : List Raw
+  inputEnd : Nat
+  config : Config Raw
+  actions : Nat
+  shifts : Nat
+  recognition : Option (List (Frame Raw))
+
+def construct (runtime : Runtime) (endOffset : Raw → Nat) (tokens : List Raw)
+    (observe layout : Bool) : Checkpoint Runtime Raw :=
+  ⟨runtime, tokens, scanEnd endOffset tokens 0, ⟨[0], [], tokens⟩, 0, 0,
+    if observe && !layout then some [] else none⟩
+
+/-- Entry state zero is an actual constructor literal, not inferred from an
+arbitrary graph. The graph decoder must establish its matching entry. -/
+theorem config_exact (engine : Engine Raw) (endOffset : Raw → Nat) (tokens : List Raw)
+    (observe layout : Bool) (entryZero : engine.graph.entry = 0) :
+    (construct engine endOffset tokens observe layout).config = initial engine tokens := by
+  simp [construct, initial, entryZero]
+
+theorem constructed_valid (engine : Engine Raw) (endOffset : Raw → Nat) (tokens : List Raw)
+    (observe layout : Bool) (entryZero : engine.graph.entry = 0) :
+    Valid engine tokens (construct engine endOffset tokens observe layout).config := by
+  rw [config_exact engine endOffset tokens observe layout entryZero]
+  exact initial_valid engine tokens
+
+/-- Selection identity and all dynamic counters/stacks are set by this call.
+No preceding request state is an argument to this constructor. -/
+theorem fresh_fields (runtime : Runtime) (endOffset : Raw → Nat) (tokens : List Raw)
+    (observe layout : Bool) :
+    let checkpoint := construct runtime endOffset tokens observe layout
+    checkpoint.runtime = runtime ∧ checkpoint.input = tokens ∧ checkpoint.config.frames = [] ∧
+      checkpoint.config.rest = tokens ∧ checkpoint.actions = 0 ∧ checkpoint.shifts = 0 ∧
+      checkpoint.recognition = (if observe && !layout then some [] else none) := by
+  simp [construct]
+
+/-- Compose the concrete constructor adapter with the existing arbitrary
+request theorem. Runtime/graph/table/selector certificates remain in Engine;
+this does not prove native lowering or host execution. -/
+theorem complete_from_constructed (engine : Engine Raw) (endOffset : Raw → Nat)
+    (tokens : List Raw) (observe : Bool) (entryZero : engine.graph.entry = 0)
+    (last : Config Raw)
+    (trace : Trace engine (construct engine endOffset tokens observe false).config last)
+    (complete : last.rest = [])
+    (selected : engine.select (last.states.headD 0) none = some (none, .accept)) :
+    ∃ terminals, Derives engine.grammar [.nonterminal engine.start] terminals ∧
+      Relates engine.realizesToken terminals tokens := by
+  rw [config_exact engine endOffset tokens observe false entryZero] at trace
+  exact complete_request engine tokens last trace complete selected
+end Entry
+
 end ParserEngine.RawRequest

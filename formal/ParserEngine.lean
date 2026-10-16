@@ -1,3 +1,5 @@
+import ParserEngine.Callback
+import ParserEngine.IteratorEncoding
 import ParserEngine.EventIterator
 import ParserEngine.Publication
 import ParserEngine.RequestAST
@@ -865,3 +867,58 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 
 #print axioms ParserEngine.EventIterator.translated_claim_composition
 #print axioms ParserEngine.EventIterator.negative_start_rejected
+
+#print axioms ParserEngine.IteratorEncoding.record_roundtrip
+
+#print axioms ParserEngine.IteratorEncoding.record_exact
+
+#print axioms ParserEngine.IteratorEncoding.frame_roundtrip
+
+#print axioms ParserEngine.IteratorEncoding.frame_exact
+
+#print axioms ParserEngine.IteratorEncoding.opening_return_retained
+
+#print axioms ParserEngine.IteratorEncoding.pushed_blocks_order
+
+#print axioms ParserEngine.IteratorEncoding.chunk_resume_exact
+
+#print axioms ParserEngine.IteratorEncoding.exhausted_chunk_rejected
+
+#print axioms ParserEngine.IteratorEncoding.extracted_record_slots
+
+
+#print axioms ParserEngine.IteratorEncoding.advanced_chunk_suffix
+
+#print axioms ParserEngine.Callback.step_erases
+
+#print axioms ParserEngine.Callback.open_returns_original_counter
+
+#print axioms ParserEngine.Callback.trace_erases
+
+#print axioms ParserEngine.Callback.iterator_callback_publication
+
+#print axioms ParserEngine.IteratorEncoding.physical_chunk_write
+
+#print axioms ParserEngine.IteratorEncoding.stack_roundtrip
+
+#print axioms ParserEngine.IteratorEncoding.physical_append_stack
+
+#print axioms ParserEngine.IteratorEncoding.saved_zero_is_not_missing
+
+#print axioms ParserEngine.Callback.complete_request_product
+
+#print axioms ParserEngine.IteratorEncoding.extracted_chunk_has_successor
+
+#print axioms ParserEngine.IteratorEncoding.block_join_has_successor
+
+#print axioms ParserEngine.Callback.retained_opening_return
+
+#print axioms ParserEngine.IteratorEncoding.node_callbacks
+
+#print axioms ParserEngine.IteratorEncoding.field_callbacks
+
+#print axioms ParserEngine.IteratorEncoding.fragment_callbacks
+
+#print axioms ParserEngine.IteratorEncoding.chunk_callbacks
+
+#print axioms ParserEngine.IteratorEncoding.append_callbacks

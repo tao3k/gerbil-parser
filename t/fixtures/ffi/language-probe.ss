@@ -31,9 +31,13 @@ static int probe_source_language(uint64_t handle) {
   }
   printf("SOURCE-ABI-100-CALLS wall-ms=%.3f cpu-ms=%.3f\n",1000*(monotonic_seconds()-started),1000.0*(clock()-cpu_started)/CLOCKS_PER_SEC); fflush(stdout);
   if (gerbil_parser_language_parse(handle,invalid,sizeof invalid,&r)!=-1 || r.status!=-1) { status=3; goto done; }
+  printf("SOURCE-ABI-INVALID-UTF8-OK\n"); fflush(stdout);
   if (gerbil_parser_language_parse(handle,NULL,0,&r) || r.length<80 || r.payload[8]) { status=4; goto done; }
+  printf("SOURCE-ABI-EMPTY-SOURCE-OK\n"); fflush(stdout);
   if (gerbil_parser_language_release(handle)) { status=5; goto done; }
+  printf("SOURCE-ABI-RELEASE-OK\n"); fflush(stdout);
   if (gerbil_parser_language_parse(handle,source,sizeof(source)-1,&r)!=-1 || r.status!=-1) { status=6; goto done; }
+  printf("SOURCE-ABI-RELEASED-HANDLE-OK\n"); fflush(stdout);
  done:
   gerbil_parser_language_release(handle);
   gerbil_parser_result_release(&r); gerbil_parser_result_release(&r);

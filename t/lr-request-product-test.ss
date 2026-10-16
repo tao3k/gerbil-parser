@@ -1,5 +1,6 @@
 ;;; Complete request extraction, AST replay and canonical event products.
 (import :std/test
+        (only-in :gerbil-parser/t/fixtures/event-iterator-extraction extract-event-graph replay-event-graph event-program-callbacks)
         (only-in :std/string/utf8 string-utf8-length)
         (only-in :gerbil-parser/t/fixtures/lr-request-product extract-value extract-token extract-event replay-request reference-events)
         (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/grammar records-parser)
@@ -72,6 +73,7 @@
           (parameterize ((current-lr-event-program-enabled? #t) (current-lr-recognition-observer #f))
             (let-values (((program rest) (lr-parse/prepared runtime significant)))
               (check (event-program-value? program) => #t)
+              (check (replay-event-graph (extract-event-graph program)) => (event-program-callbacks program))
               (check-shifted-product machine source program)
               (check rest => '())
               (let (product (make-success-parse-artifact digest source tokens program trivia?))

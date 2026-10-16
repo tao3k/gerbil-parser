@@ -76,4 +76,19 @@ module Publication {
     val newestFirst = List(List(3,4),List(1,2))
     List(0).concat(newestFirst.foldl(List(5),(acc,block) => block.concat(acc))) == List(0,1,2,3,4,5))
 
+  // Saved callback returns are not interchangeable with the later counter.
+  run retainedOpeningIdTest = init.expect(
+    val outer = openSourceNode(sourceProduct(List()))
+    val saved = outer.nextNode - 1
+    val inner = openSourceNode(outer)
+    val closedInner = closeSourceNode(inner,inner.nextNode - 1)
+    completeSource(closeSourceNode(closedInner,saved)) and saved == 0 and inner.nextNode == 2)
+  run currentCounterIsNotSavedIdWitnessTest = init.expect(
+    val opened = openSourceNode(sourceProduct(List()))
+    not(closeSourceNode(opened,opened.nextNode).ok))
+  run physicalChunkAdvanceTest = init.expect(
+    val items = List(10,11,12,13)
+    val index = 1
+    items.slice(index,items.length()) == List(items.nth(index)).concat(items.slice(index+1,items.length())))
+
 }

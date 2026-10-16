@@ -1,8 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Engine-owned persistent event instructions. No mutable instruction buffer
 ;;; is exposed. Semantic frames share bodies; token instructions reuse tokens.
-(import (only-in ./token token? token-start token-end))
-(export event-program-value? event-program-value-kind event-program-value-start
+(import (only-in ./token token? token-kind token-lexeme token-start token-end))
+(export event-program-inspect event-program-value? event-program-value-kind event-program-value-start
         event-program-value-end event-program-value-code
         event-program-token event-program-append event-program-append/avl event-program-relocate
         event-program-field event-program-node-value event-program-fragment-value
@@ -328,3 +328,29 @@
   (event-program-walk/inline
    (lambda (operation name offset delta moved? state)
      (visit operation name offset delta moved?)) code))
+
+;;; One-layer verification projection of the actual private records. Child
+;;; references retain identity. Chunk slots are copied to a fresh list so this
+;;; projection never exposes the mutable instruction vector. No traversal or
+;;; callback is performed here; consumers supply their own extraction policy.
+(def (event-program-inspect code)
+  (cond
+   ((not code) (vector 'empty))
+   ((token? code) (vector 'token (token-kind code) (token-lexeme code) (token-start code) (token-end code)))
+   ((event-code-branch? code)
+    (vector 'branch (event-code-branch-left code) (event-code-branch-right code)
+            (event-code-branch-start code) (event-code-branch-end code) (event-code-branch-height code)))
+   ((event-code-view? code) (vector 'view (event-code-view-code code) (event-code-view-delta code)))
+   ((event-code-append? code)
+    (vector 'append (event-code-append-prefix code) (map (lambda (block) block) (event-code-append-blocks code))
+            (event-code-append-tail code) (event-code-append-start code)
+            (event-code-append-end code) (event-code-append-height code)))
+   ((event-code-chunk? code)
+    (vector 'chunk (vector->list (event-code-chunk-items code)) (event-code-chunk-start code) (event-code-chunk-end code)))
+   ((event-program-value? code)
+    (vector 'value (event-program-value-kind code) (event-program-value-start code)
+            (event-program-value-end code) (event-program-value-body code)))
+   ((event-field-frame? code)
+    (vector 'field (event-field-frame-name code) (event-field-frame-start code)
+            (event-field-frame-end code) (event-field-frame-body code)))
+   (else (error "invalid event record" code))))

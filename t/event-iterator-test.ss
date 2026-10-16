@@ -1,5 +1,6 @@
 ;;; Position-view iterator controls against an independent recipe interpreter.
 (import :std/test
+        (only-in :gerbil-parser/t/fixtures/event-iterator-extraction extract-event-graph replay-event-graph event-program-callbacks decode-event-frame)
         :gerbil-parser/src/runtime/event-program
         (only-in :gerbil-parser/src/runtime/token make-token token-start)
         (only-in :gerbil-parser/src/runtime/recognition make-recognition-child)
@@ -33,6 +34,7 @@
     (event-program-walk (lambda (op name offset delta moved?)
                           (set! actual (cons (list op name offset delta moved?) actual))) program)
     (check (reverse actual) => (recipe-events recipe 0 #f))
+    (check (replay-event-graph (extract-event-graph program)) => (event-program-callbacks program))
     (event-program-walk/inline
      (lambda (op name offset delta moved? context)
        (set! inlined (cons (list op name offset delta moved?) inlined))
@@ -54,6 +56,38 @@
            (check-recipe (list 'join moved sequence))
            (check-recipe (list 'view 3 (list 'join moved (list 'view -2 sequence))))))
        '(0 1 15 16 17 31 32 33 65 129)))
+    (test-case "actual record extraction covers layouts and detaches private instruction lists"
+      (let* ((recipe (list 'node 'Root (list 'field 'value
+                      (list 'view 0 (cons 'sequence
+                        (map (lambda (i) (list 'token (make-token 'word "x" i (+ i 1)))) (iota 129)))))))
+             (program (compile-recipe recipe))
+             (graph (extract-event-graph program))
+             (tags (map car (vector->list (cdr graph)))))
+        (for-each (lambda (tag) (check (not (not (memq tag tags))) => #t))
+                  '(value field view append branch chunk token))
+        (check (event-program-inspect #f) => '#(empty))
+        (check-exception (event-program-inspect '#(unknown)) true)
+        (let* ((tokens (map (lambda (i) (make-token 'word "x" i (+ i 1))) (iota 33)))
+               (chunk (event-program-append (car tokens) (cadr tokens)))
+               (append-code (foldl (lambda (token code) (event-program-append code token)) #f tokens))
+               (before (event-program-callbacks append-code))
+               (chunk-packet (event-program-inspect chunk))
+               (append-packet (event-program-inspect append-code)))
+          (check (vector-ref chunk-packet 0) => 'chunk)
+          (check (vector-ref append-packet 0) => 'append)
+          (set-car! (vector-ref chunk-packet 1) #f)
+          (set-car! (vector-ref append-packet 2) #f)
+          (check (event-program-callbacks append-code) => before)
+          (check (length (event-program-callbacks chunk)) => 2))))
+    (test-case "physical frame extraction rejects widths tags and malformed cursor references"
+      (for-each (lambda (frame) (check-exception (decode-event-frame frame) true))
+        (list #f '#() '#(0 #f 0) '#(0 #t 0 #f) '#(0 #f 0 #f 0) '#(0 #t 0 #f #t)
+              '#(-1 #f 0 #f) '#(0 #f 0 0) '#(0 #f 0.5 #f)))
+      (check (decode-event-frame '#(0 #t -7 #t 0)) => '(finish 0 -7 #t 0))
+      (check (decode-event-frame '#(0 16 -7 #t)) => '(chunk 0 16 -7 #t))
+      (check-exception (replay-event-graph (cons 0 (vector '(chunk (1) 0 1) '(token "word" "x" 0 1)))) true)
+      (check-exception (replay-event-graph (cons 0 (vector '(view 0 0)))) true)
+      (check-exception (replay-event-graph (cons 0 (vector '(view 7 0)))) true))
     (test-case "canonical child views restore deferred sibling context"
       (let* ((left (make-recognition-child 'left (make-token 'word "a" 0 1)))
              (right (make-recognition-child 'right (make-token 'word "b" 1 2)))

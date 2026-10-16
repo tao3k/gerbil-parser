@@ -252,3 +252,10 @@
 ;;; Both ABI Suites share the persistent runtime owner thread.
 (def test-worker-affinity 'language-abi-runtime)
 (export test-worker-affinity)
+
+;; Affinity preserves the persistent ABI owner thread but does not isolate its
+;; C-to-Scheme negative-path return from another Worker's Scheme execution.
+;; Keep this normal-return control inside an exclusive native-entry interval;
+;; concurrent host reentry is an external, separately unqualified premise.
+(def test-worker-exclusive? #t)
+(export test-worker-exclusive?)

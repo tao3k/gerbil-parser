@@ -386,6 +386,138 @@ partition, artifact digest/schema/diagnostic admission and non-deterministic,
 layout/recovery or arbitrary installed callbacks. Host behavior remains external.
 No Gambit source or build is involved and no performance optimization is admitted.
 
+*** Actual record extraction, physical frames and callback histories
+
+The LR paper establishes the recognition/derivation obligation. Native record
+layout, event callbacks and artifact publication are additional implementation
+obligations. This extension keeps their connection to the same complete-request
+trace explicit; it does not attribute these representations to the paper.
+
+[[file:../../src/runtime/event-program.ss][event-program-inspect]] projects one layer of the actual private instruction
+record. It does not call either walker. Tokens retain kind, lexeme and signed
+coordinates; branches retain both child references and all cached fields;
+views retain their child and signed delta; append envelopes retain prefix,
+newest-first blocks, tail, bounds and height; chunks retain ordered items and
+bounds; value and field records retain name, bounds and body. The false root
+projects to the empty tag. The projection copies chunk slots and the append
+block list so callers cannot mutate private instruction storage through a packet.
+The parsing path does not invoke this verification projection.
+
+[[file:../../formal/ParserEngine/IteratorEncoding.lean][IteratorEncoding.lean]] defines exactly these typed packets. =record_roundtrip=
+and =record_exact= prove both directions of the record decoder for arbitrary
+payloads and references, including fields not used by walking. =Extract= requires
+a successful record read and a finite recursive witness for every referenced
+child. The =node_callbacks=, =field_callbacks=, =fragment_callbacks=, =chunk_callbacks=
+and =append_callbacks= theorems establish callback order for arbitrary bodies,
+signed positions and references. =lowerRecord= handles all record branches, including field headers and
+footers, node headers and footers, fragment boundaries, chunk order and append
+block order. There is no axiom that converts an arbitrary heap into an extraction
+witness. Name conversion, object/reference identity and primitive slot reads
+must satisfy their stated external contracts.
+
+| Physical representation | General correspondence | Required admission |
+|-------------------------+------------------------+--------------------|
+| Four-slot sibling and chunk frames | =frame_roundtrip=, =frame_exact= | Exact packet width, reference, Boolean and integer classification |
+| Five-slot node/field/fragment finish frames | =opening_return_retained=, =saved_zero_is_not_missing= | False context differs from an integer result, including zero |
+| Whole encoded pending stack | =stack_roundtrip= | Every packet decodes; malformed packets cannot be skipped |
+| Tail-first, newest-first append pushes | =physical_append_stack= | The stored block list is stable throughout traversal |
+| Chunk slot-one mutation | =physical_chunk_write=, =advanced_chunk_suffix= | The signed index is admitted as a natural and is within vector bounds |
+| Initial chunk index one | =extracted_chunk_has_successor=, =block_join_has_successor= | A physical chunk has at least two items; native singleton leaves are not chunks |
+
+The index-one condition is consequential: a one-item chunk would leave an
+invalid resume frame after its first item. The current producer joins two
+nonempty blocks, and the extraction contract requires the resulting successor.
+This is a producer invariant, not permission to extend a timeout or silently
+accept a malformed chunk. Cached heights and bounds remain bound in record
+extraction even though the event decoder does not use them to select callbacks.
+
+[[file:../../formal/ParserEngine/Callback.lean][Callback.lean]] models normal-return publication callbacks with actual trivia
+flushes and canonical emissions. Its history retains each call and returned ID.
+=step_erases= and =trace_erases= derive the corresponding publication trace.
+=open_returns_original_counter= proves that trivia does not change the opening
+ID. =retained_opening_return= connects that ID to the decoded five-slot physical
+frame, independently of later nested calls. =iterator_callback_publication=
+connects this history to the generic rope iterator; =complete_request_product=
+then composes grammar acceptance, complete AST replay, root operations, exact
+numbered source payloads, node counts and closed frames.
+
+The callback model's frame stack is a ghost bracketing invariant. The native
+close callback checks that its retained ID is an integer; it does not maintain
+or check a second nesting stack. Consequently the proof requires well-bracketed
+traversal and cannot infer correct nesting from that integer test alone. Signed
+position admission, root-coordinate clamping, source identity and stable reads
+must also be supplied at their respective boundary. Emitter exceptions,
+continuation reentry and arbitrary installed callback effects are outside this
+normal-return relation.
+
+[[file:../../t/fixtures/event-iterator-extraction.ss][The Scheme extractor]] assigns references by actual object identity, reads the
+new projection, checks primitive slots and admits finite acyclic graphs. Its
+independent physical replay decodes four/five-slot frames before consumption,
+advances chunk cursors, restores sibling contexts and uses the saved opening
+return for the footer. It does not call the native traversal. A separate actual
+inline traversal produces the comparison history, returning 0, 7, 14 and so on
+to exercise retained consumer results independently of the default node counter.
+
+[[file:../../t/event-iterator-test.ss][Iterator controls]] cover every record tag, copied-storage isolation, all prior
+chunk/carry and depth boundaries, zero/missing return distinction, malformed
+frame widths/tags/types, invalid references, cycles and undersized chunks.
+[[file:../../t/lr-request-product-test.ss][Complete-request controls]] compare every extracted callback against the actual
+inline traversal on the real empty, trivia, Unicode, arithmetic and 64-record
+programs, in addition to their independent AST replay and canonical publication
+checks. The first extraction run encountered the old compiled module interface;
+only the changed parser module was rebuilt with the existing SDK. A later graph
+validator edit had an incomplete Scheme form; the negative receipt is retained.
+Both were corrected before the final unchanged-budget qualification.
+
+Local receipts: Lean passes 79 jobs with standard logical axioms only;
+Publication Quint passes 17 directed tests; the source-binding control passes;
+Scheme passes 34 cases across four owners with two workers, natural exit zero
+in 6.6306 seconds, CI LR tracing enabled, and unchanged 90/5-second owner budgets.
+The final integrated run also passes all 82 cases across these four owners
+plus canonical LR (31) and ABI (17), with two Workers, the ABI exclusive
+interval, every required real negative-stage marker and natural exit zero in
+14.4743 seconds. These are correctness receipts and do not establish a CPU gain.
+
+This closes the typed record/packet codecs, physical stack/cursor identities and
+normal-return callback-to-publication composition. It does not prove that the
+compiled Scheme machine generates every modeled transition: whole-machine
+simulation of recursive/depth-fallback dispatch, extraction-witness generation
+from producer execution, and native heap mutation/identity stability remain
+explicit obligations. The source-position partition, artifact admission and
+non-deterministic/layout/recovery routes remain outside this slice. Host behavior
+stays external; no Gambit source modification or build is involved. The complete
+architecture model remains incomplete, so runtime optimization is not admitted.
+
+*** Current Ubuntu ABI watchdog failure and execution admission
+
+At =f6985c9=, Ubuntu semantics job =117123877753= in run =38944020625=
+failed with =MODULE-BATCH-TIMEOUT t/language-abi-test.ss reason=idle-timeout=.
+The last callback control completed all 100 normal C parses (10.845 ms in that
+receipt), then entered its negative-call/return interval while another Worker
+was constructing LR tables. No parser assertion failure was reported. This is
+not the earlier canonical-LR total-budget failure. macOS semantics at the same
+revision passed; other Ubuntu corpus/generation/FFI and Rust jobs passed.
+
+A local two-Worker ABI/canonical-LR control passed 48 cases in 26.1923 seconds
+without reproducing the Linux failure. That result does not identify a host
+bug or establish concurrent reentry safety. Affinity pins the persistent ABI
+owner thread but does not reserve its C-to-Scheme callback interval. The ABI
+owner now declares exclusivity for this normal-return qualification, as the
+ABI resource owner already does; other owners retain the two-Worker scheduler.
+The external host-reentry premise is not promoted to a parser proof.
+
+[[file:../../t/fixtures/ffi/language-probe.ss][The C probe]] also records real completed negative-path stages: invalid UTF-8,
+empty input, release and released-handle rejection. These markers follow the
+existing success conditions; they do not replace an assertion or periodically
+renew a deadline. All 100 calls per descriptor and all negative checks remain.
+The same 90/5-second owner budgets and outer deadlines remain in force.
+
+With this declaration, the two-Worker control emits =TEST-SUITE-EXCLUSIVE
+modules=1= and passes all 48 cases, every negative-stage marker, and natural
+exit zero in 19.2805 seconds. Only parser-owned probe code was compiled using
+the installed SDK. Linux CI must confirm the changed admission; the failed
+Linux receipt is retained, and the local Darwin result is not a Linux pass.
+
 *** Timeout diagnosis and bounded verification
 
 The failing macOS semantics job at revision =543812e= is run =38916765458=,

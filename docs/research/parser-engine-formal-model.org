@@ -30,6 +30,88 @@ specification. This section is the shared coverage ledger. Extend this ledger
 and its connected models before another runtime optimization. Do not use a new
 local object-count identity as evidence that an architecture gap has closed.
 
+** Unified representation correspondence
+
+This is the current composition ledger. Earlier qualification sections retain
+historical evidence; they do not supersede the obligations below. The shared
+representation owner is [[file:../../formal/ParserEngine/Representation.lean][Representation.lean]], composed with the existing
+[[file:../../formal/ParserEngine/Operational.lean][operational algorithms]] and [[file:../../formal/ParserEngine/Worklist.lean][notification semantics]]. Complete this chain
+before selecting another runtime optimization.
+
+| Mechanism and research premise | Actual implementation owner | General model correspondence | Remaining host obligation |
+|--------------------------------+-----------------------------+------------------------------+---------------------------|
+| Strong pointer reachability from roots | Gambit =mem.c= strong-mark phase, =mark_frame= and object scanner | =Roots.discover= scans all declared root banks; =frame_slot= and =frame_sound= connect selected tagged slots to arbitrary-width GC maps | Compiler-generated maps and extraction of every host root bank must be faithful |
+| Closure and captured continuation retention | =mark_continuation=, =mark_captured_continuation= and =scan= | =captured_frame_reached= and =path_reached= cover arbitrary-depth pointer paths; =discovered_path_relocated= composes them with relocation | Host copying, frame-link interpretation, physical registers and SMP synchronization |
+| Least strong marking closure | Strong-mark worklist | =program= generates rules from discovered roots and every object's scanned fields; =marking_program_exact= and =marking_control_flow_exact= derive marking at actual model quiescence | Refine the C marker's scheduling and forwarding operations to this history |
+| One denotation across scalar and field masks | [[file:../../src/compiler/funcs.ss][compiler-index-set-for-each]] | =Masks.callback_unique=, =field_address_injective= and =field_callback_exact= connect every bit to one field; =frame_field_exact= uses that same decoder for root maps | Signed Scheme primitive decoding, lowest-bit selection and physical callback loop refinement |
+| Key equality distinct from hash equality | Native table lookup and =UNUSED=/=DELETED= probe branches | =Hash.probe_refines_search= relates physical observations to equality search; =get_put_other= preserves colliding keys | Physical probe coverage, resize termination and host equality/hash compatibility |
+| Logical state identity across insertion | [[file:../../src/compiler/lr-lookahead.ss][canonical interner]] | =intern_correspondence=, =intern_preserves_index=, =queue_step_refines= and =queue_step_indexed= connect bucket operations to canonical keys and pending owners | Physical slot operations and immutable native key decoding |
+| Rehash preserves entries, not positions | Gambit =process_gc_hash_tables= and =gc_hash_table_rehash_in_situ= | =rehash_lookup= derives query preservation from entry membership and functional key/value ownership across arbitrary slot reordering | Prove the host rehash produces those retained entries; weak tables are excluded |
+| Splits invalidate every reader | [[file:../../src/compiler/lr-follow-automaton.ss][backward dependency builder]] | =built_reverse_member= models successive reverse-row writes; =metadata_edge_member= and =metadata_reader_notified= connect metadata reads to notifications | Decode native metadata and admitted vector bounds, including admitted source-core presence |
+| Core-level invalidation safely approximates vertex dependencies | The same backward scheduler and final-index publication | =projected_notification= and =clean_outgoing_transport= preserve inactive successor-signature equivalence under arbitrary ID renumbering | Every changed target core must be reported; partition groups must remain inside one core |
+
+*** Research and source reading boundary
+
+The existing LR paper and abstract-interpretation basis supply the grammar,
+finite-domain and least-closure obligations recorded below. Appel's
+[[https://www.cs.princeton.edu/~appel/papers/143.pdf][Simple Generational Garbage Collection and Fast Allocation]] supplies the
+root-pointer reachability premise in its introduction. Only that indexed
+introductory passage was available for this reading; the PDF fetch was denied.
+No generational allocation, write-barrier, throughput or full-paper correctness
+result is transferred to this engine. Gambit source inspection supplies the
+concrete root and object descriptors; it is distinct from the paper argument.
+
+The strong-mark phase includes VM, symbol/keyword, reference-counted foreign
+roots, globals, active continuations, registers, saved registers, type caches
+and processor roots. =Roots.Banks= names these sources separately. Captured
+continuation handles are roots; the saved frame and dynamic environment are
+then object edges. Closure code metadata is excluded from its free-variable
+payload; frame maps exclude return/link metadata. Typed numeric arrays,
+strings and other pointer-free payloads are opaque in this pointer projection.
+The projection does not establish their byte-content preservation. Weak keys,
+weak values and wills require separate reachability rules and are excluded.
+
+Qualification metadata: the tested Gerbil SDK identifies revision =2591dcd=
+with local patch identity =f5cedd8168cb=; its compiler reports Gambit baseline
+=dcd677cd3e40860bdd27dfbdbf5e3ce46ab03813= and GCC 16. The GC root/scanner and
+probe branches were re-read from that baseline's =lib/mem.c=. A matching
+reported baseline is not proof that all installed patch bytes equal that
+source. No complete Gambit C, native stack-map generator, FFI pinning or SMP
+collector correctness claim follows from this reading or from the models.
+
+*** Composition qualification
+
+The universal proofs retain descriptor, equality, metadata and source-generation
+premises explicitly. In particular, they do not assume a final marking set,
+assume equal hash values identify equal keys, or use an assumed final lookup
+equality to prove rehash. The marking rules are generated from the scanned
+objects; interning preserves its index relation on every insertion; reverse
+rows are constructed by successive writes before notification is related to
+signature transport. =decodeCore= derives the shift target as the next
+physical core from symbol presence, and separate shift/child lemmas feed the
+same notification theorem. Labels remain explicit in signature transport;
+erasing labels for core-level scheduling does not erase them from semantic
+signature equality. A complete host refinement remains open at the concrete
+obligations in the table. These are the next model tasks, not permission to
+resume local runtime optimization.
+
+The native control retains a strong constant-hash table only through a closure.
+Its values contain cycles and wide masks. It forces GC during bit callbacks,
+looks up independently allocated equal keys and state zero, and checks the
+collision chain before and after updates. Existing controls additionally
+exercise repeated actual LR continuation reentry and compare affected
+partition refinement against an exhaustive synchronous oracle. These are
+implementation controls, not replacements for the universal model proofs.
+
+Qualification: Lean builds 70 jobs; GrammarPipeline passes 37 directed tests;
+five source/host/evidence controls pass. The final four-owner native run passes
+104 cases (canonical 29, resolved grammar 55, layout 14, style 6) in 25.4 seconds,
+under unchanged 90-second total and five-second idle limits. The earlier update
+control failed because its chosen neighboring row had already been updated by
+the test itself. Its failed receipt is retained; the corrected control chooses
+an untouched row and reruns the same four owners. No runtime defect or CPU
+improvement is inferred from this test repair. No runtime optimization is made.
+
 ** Responsibilities and shared vocabulary
 
 1. Papers define mechanisms, premises and limits. Transfer to this engine must

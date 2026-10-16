@@ -360,4 +360,49 @@ module GrammarPipeline {
       internMatrix(after,List(0,1)) == after
   })
 
+  // GC maps select tagged pointer slots; numeric lookalikes are not roots.
+  type RootWord = {pointer:bool,value:int}
+  pure def scanFrame(words:List[RootWord],selected:Set[int]):Set[int] =
+    words.indices().filter(i => selected.contains(i) and words.nth(i).pointer)
+      .map(i => words.nth(i).value)
+  run frameMapAndPointerTagBothRequiredTest = init.expect({
+    val words = List({pointer:true,value:70},{pointer:false,value:70},
+      {pointer:true,value:1024},{pointer:true,value:9})
+    scanFrame(words,Set(0,1,2)) == Set(70,1024) and
+      scanFrame(words,Set(1)) == Set() and
+      scanFrame(words,Set(0)) != Set(70,1024)
+  })
+  type HashEntry = {key:List[int],value:int}
+  pure def bucketLookup(bucket:List[HashEntry],key:List[int]):List[int] = {
+    bucket.foldl(List(),(result,entry) =>
+      if(result.length() == 0 and entry.key == key) List(entry.value) else result)
+  }
+
+  run collisionEqualityAndZeroSurviveUpdateTest = init.expect({
+    val bucket = List({key:List(2),value:7},{key:List(1),value:0})
+    val updated = List({key:List(2),value:8}).concat(bucket)
+    bucketLookup(bucket,List(1)) == List(0) and
+      bucketLookup(updated,List(2)) == List(8) and
+      bucketLookup(updated,List(1)) == List(0) and
+      bucketLookup(updated,List(3)) == List()
+  })
+  pure def notifyReverse(edges:Set[DependencyEdge],changed:Set[int]):Set[int] =
+    edges.filter(edge => changed.contains(edge.target)).map(edge => edge.source)
+  run reverseCoreNotificationMustIncludeEveryReaderTest = init.expect({
+    val graph = Set({source:0,target:2},{source:1,target:2},
+      {source:2,target:2},{source:3,target:4})
+    notifyReverse(graph,Set(2)) == Set(0,1,2) and
+      notifyReverse(graph.filter(edge => edge != {source:1,target:2}),Set(2)) == Set(0,2) and
+      notifyReverse(graph,Set()) == Set()
+  })
+  pure def strongMark(edges:Set[DependencyEdge],known:Set[int]):Set[int] =
+    known.union(edges.filter(edge => known.contains(edge.source)).map(edge => edge.target))
+  run capturedClosureTableCycleNeedsTransitiveRootsTest = init.expect({
+    val edges = Set({source:0,target:1},{source:1,target:2},
+      {source:2,target:3},{source:3,target:2},{source:3,target:4})
+    val reached = 0.to(4).fold(Set(0),(marked,round) => strongMark(edges,marked))
+    reached == Set(0,1,2,3,4) and strongMark(edges,reached) == reached and
+      0.to(4).fold(Set(),(marked,round) => strongMark(edges,marked)) == Set()
+  })
+
 }

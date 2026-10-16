@@ -1,3 +1,4 @@
+import ParserEngine.Representation
 import ParserEngine.Operational
 import ParserEngine.Construction
 import ParserEngine.Names
@@ -401,3 +402,42 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Operational.Canonical.finish_processes_all_keys
 
 #print axioms ParserEngine.Operational.Canonical.catalogue_count
+
+#print axioms ParserEngine.Representation.Roots.frame_slot
+#print axioms ParserEngine.Representation.Roots.frame_sound
+#print axioms ParserEngine.Representation.Roots.captured_handle
+#print axioms ParserEngine.Representation.Roots.active_slot
+#print axioms ParserEngine.Representation.Roots.captured_frame_reached
+#print axioms ParserEngine.Representation.Roots.path_reached
+#print axioms ParserEngine.Representation.Roots.discovered_path_relocated
+#print axioms ParserEngine.Representation.Roots.program_member
+#print axioms ParserEngine.Representation.Roots.marking_program_exact
+#print axioms ParserEngine.Representation.Roots.marking_control_flow_exact
+#print axioms ParserEngine.Representation.Roots.marked_reached
+#print axioms ParserEngine.Representation.Masks.callback_unique
+#print axioms ParserEngine.Representation.Masks.field_address_injective
+#print axioms ParserEngine.Representation.Masks.field_callback_exact
+#print axioms ParserEngine.Representation.Masks.frame_field_exact
+#print axioms ParserEngine.Representation.Hash.get_put
+#print axioms ParserEngine.Representation.Hash.get_put_other
+#print axioms ParserEngine.Representation.Hash.reuse_zero
+#print axioms ParserEngine.Representation.Hash.intern_lookup
+#print axioms ParserEngine.Representation.Hash.intern_correspondence
+#print axioms ParserEngine.Representation.Hash.intern_preserves_index
+#print axioms ParserEngine.Representation.Dependencies.reverse_member
+#print axioms ParserEngine.Representation.Dependencies.dirty_member
+#print axioms ParserEngine.Representation.Dependencies.projected_notification
+#print axioms ParserEngine.Representation.Dependencies.clean_outgoing_transport
+
+#print axioms ParserEngine.Representation.Dependencies.built_reverse_member
+#print axioms ParserEngine.Representation.Dependencies.native_notification_exact
+#print axioms ParserEngine.Representation.Dependencies.metadata_edge_member
+#print axioms ParserEngine.Representation.Dependencies.metadata_reader_notified
+#print axioms ParserEngine.Representation.Hash.queue_step_refines
+#print axioms ParserEngine.Representation.Hash.queue_step_indexed
+
+#print axioms ParserEngine.Representation.Hash.probe_refines_search
+#print axioms ParserEngine.Representation.Hash.rehash_lookup
+
+#print axioms ParserEngine.Representation.Dependencies.decoded_shift_notified
+#print axioms ParserEngine.Representation.Dependencies.decoded_child_notified

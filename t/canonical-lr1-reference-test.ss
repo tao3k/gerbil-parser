@@ -38,6 +38,52 @@
 (import (only-in :gerbil-parser/src/compiler/lr-partition refine-canonical-partition build-states-via-partitioned-lr1)
         (only-in :std/vector/extensible ExtensibleVector-fill-pointer ExtensibleVector-ref))
 
+(def (rooted-compiler-representation-case)
+  ;; The closure is the only retained owner of this strong, deliberately
+  ;; colliding table; every payload includes a cycle and a wide immutable mask.
+  (def (make-reader)
+    (let ((table (make-table test: equal? hash: (lambda (key) 0)))
+          (width (integer-length (##greatest-fixnum))))
+      (table-set! table '(sentinel) 0)
+      (for-each
+       (lambda (row)
+         (let* ((mask (bitwise-ior (- (arithmetic-shift 1 (+ width 5)) 1)
+                                  (arithmetic-shift 1 (+ 1024 row))))
+                (payload (vector row mask #f)))
+           (vector-set! payload 2 payload)
+           (table-set! table (list 'state row) payload)))
+       (iota 17))
+      (lambda (key (replacement #f))
+        (when replacement (table-set! table key replacement))
+        (table-ref table key #f))))
+  (let ((read (make-reader)) (width (integer-length (##greatest-fixnum))))
+    (for-each
+     (lambda (row)
+       (##gc)
+       (check (read (list 'sentinel)) => 0)
+       (check (read (list 'missing row)) => #f)
+       (let ((payload (read (list 'state row))) (visited '()))
+         (check (vector-ref payload 0) => row)
+         (check (eq? (vector-ref payload 2) payload) => #t)
+         (compiler-index-set-for-each (vector-ref payload 1)
+           (lambda (bit)
+             (when (zero? bit) (##gc))
+             (set! visited (cons bit visited))))
+         (check (reverse visited) => (append (iota (+ width 5)) (list (+ 1024 row))))
+         (check (eq? (read (list 'state row)) payload) => #t)
+         ;; Replace through a fresh equal key, force GC, then verify both the
+         ;; replacement and a different colliding entry, including zero.
+         (let ((replacement (vector (+ row 17) (vector-ref payload 1) #f))
+               (neighbor 1))
+           (vector-set! replacement 2 replacement)
+           (read (list 'state row) replacement)
+           (read (list 'sentinel) 0)
+           (##gc)
+           (check (eq? (read (list 'state row)) replacement) => #t)
+           (check (vector-ref (read (list 'state neighbor)) 0) => neighbor)
+           (check (read (list 'sentinel)) => 0))))
+     '(0 8 16))))
+
 (def (canonical-interning-domain-case)
   (for-each
    (lambda (rules)
@@ -414,6 +460,8 @@
 
 (def canonical-lr1-reference-test
   (test-suite "canonical LR(1) reference"
+    (poo-flow-test-case "closure roots retain colliding tables, cycles and wide mask callbacks across GC"
+      (rooted-compiler-representation-case))
     (poo-flow-test-case "native canonical keys inhabit their finite matrix catalogue and intern once"
       (canonical-interning-domain-case))
     (poo-flow-test-case "native partition rounds satisfy the finite dense-group bound"

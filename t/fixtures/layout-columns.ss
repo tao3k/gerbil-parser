@@ -1,5 +1,5 @@
 ;;; Boxed-vector oracle, independent of packed storage and lookup dispatch.
-(export cache-copy-flonum-values host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors cyclic-pointer-roots mutual-closure-frame-roots closure-frame-roots wide-frame-roots reference-layout-columns reference-packed-layout-columns layout-column-sources)
+(export cache-copy-flonum-values host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors cyclic-pointer-roots mutual-closure-frame-roots closure-frame-roots wide-frame-roots reference-layout-columns reference-packed-layout-columns layout-column-sources)
 
 (def (reference-layout-columns source)
   (let* ((bytes (string->utf8 source)) (size (u8vector-length bytes))
@@ -93,13 +93,44 @@
 
 ;;; Host macro controls execute in the same compiled fixture as the GC controls.
 ;;; The OS waiter touches only C-owned words, never Scheme values or a VM.
-(extern host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-contended-control host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
+(extern host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-contended-control host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
 (begin-foreign
  (namespace ("gerbil-parser/t/fixtures/layout-columns#"
-             host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-contended-control host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors))
+             host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-contended-control host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors))
  (c-declare #<<END-C
 #include <stdlib.h>
 #include <string.h>
+/* Owned arenas exercise the actual SDK tag and CAS macros. This does not call
+   mem.c's collector or qualify SMP publication of an unfinished copied body. */
+static int parser_host_forwarding_control(void) {
+  ___WORD arena[24];
+  if (sizeof(___WORD) != 8) return 1;
+  for (int i = 0; i < 24; ++i) arena[i] = ___FIX(i + 40);
+  ___WORD *source = arena + 1;
+  ___WORD *winner = arena + 16;
+  ___WORD *cursor = arena + 8;
+  ___WORD head = ___MAKE_HD_WORDS(2, ___sPAIR);
+  source[-1] = head;
+  ___WORD object = ___TAG(source - ___REFERENCE_TO_BODY, ___tPAIR);
+  ___WORD published = ___TAG(winner - ___REFERENCE_TO_BODY, ___FORW);
+  if (___COMPARE_AND_SWAP_WORD(&source[-1], head, published) != head) return 2;
+  *cursor++ = head;
+  ___WORD observed = ___COMPARE_AND_SWAP_WORD(&source[-1], head,
+                         ___TAG(cursor - ___REFERENCE_TO_BODY, ___FORW));
+  if (observed == head) return 3;
+  --cursor;
+  ___WORD redirected = ___TAG(___UNTAG_AS(observed, ___FORW), ___TYP(object));
+  if (cursor != arena + 8 || source[-1] != published) return 4;
+  if (arena[8] != head || arena[9] != ___FIX(49)) return 5;
+  if (___BODY0(redirected) != winner || ___TYP(redirected) != ___TYP(object)) return 6;
+  if (!___TESTTYPE(___HD_TYP(source[-1]), ___FORW)) return 7;
+  /* A winner also redirects references with a distinct original object tag. */
+  redirected = ___TAG(___UNTAG_AS(published, ___FORW), ___tSUBTYPED);
+  if (___BODY0(redirected) != winner || ___TYP(redirected) != ___tSUBTYPED) return 8;
+  for (int i = 2; i < 8; ++i) if (arena[i] != ___FIX(i + 40)) return 9;
+  return 0;
+}
+
 static int parser_host_slot_control(void) {
   ___WORD words[256];
   ___WORD *base = words + 160;
@@ -252,6 +283,7 @@ END-C
  (define host-flonum-address
    (c-lambda (scheme-object) unsigned-long-long
      "___result = ___CAST(___U64,___FLONUM_TO_BODY(___arg1));"))
+ (define host-forwarding-control (c-lambda () int "parser_host_forwarding_control"))
  (define host-boxing-control (c-lambda () int "parser_host_boxing_control"))
  (define host-contended-control (c-lambda () int "parser_host_contended_control"))
  (define host-ticket-control (c-lambda () int "parser_host_ticket_control"))

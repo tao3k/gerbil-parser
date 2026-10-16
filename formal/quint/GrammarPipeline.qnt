@@ -1193,4 +1193,58 @@ module GrammarPipeline {
       agrees and switchMaskControl(hash,switchCapacityControl(count)) == hash % switchCapacityControl(count))) and
       switchMaskControl(7,6) != 7 % 6)
 
+  pure def fusionGuard(firstApply:bool,secondIf:bool,metadata:int,testKind:int,result:int,args:List[int]):bool =
+    firstApply and secondIf and metadata == 1 and (testKind == 0 or testKind == 1) and args == List(result)
+  run fusionRequiresExactSingleResultOperandAndOptimizableMetadataTest = init.expect(
+    fusionGuard(true,true,1,0,3,List(3)) and fusionGuard(true,true,1,1,3,List(3)) and
+    not(fusionGuard(true,true,1,0,3,List())) and not(fusionGuard(true,true,1,0,3,List(3,3))) and
+    not(fusionGuard(true,true,1,0,3,List(4))) and not(fusionGuard(true,true,0,0,3,List(3))) and
+    not(fusionGuard(true,true,-1,0,3,List(3))) and not(fusionGuard(false,true,1,0,3,List(3))) and
+    not(fusionGuard(true,false,1,0,3,List(3))) and not(fusionGuard(true,true,1,2,3,List(3))))
+  run fusedNegationSwapsDestinationsWithoutInvertingPrimitiveResultTest = init.expect(
+    List(false,true).foldl(true,(valid,negated) => valid and List(false,true).foldl(true,(same,value) => {
+      val original = if(if(negated) not(value) else value) 600 else 601
+      val fused = if(value) (if(negated) 601 else 600) else (if(negated) 600 else 601)
+      same and original == fused
+    })))
+  pure def entryOverflowControl(keysPresent:bool,restMode:int):str =
+    if(keysPresent) (if(restMode == 0) "GET_KEY" else if(restMode == 2) "GET_REST_KEY" else "GET_KEY_REST")
+    else if(restMode == 0) "WRONG_NARGS" else "GET_REST"
+  run emptyPresentKeywordsStillChooseKeyOverflowHandlerTest = init.expect(
+    entryOverflowControl(true,0) == "GET_KEY" and entryOverflowControl(false,0) == "WRONG_NARGS" and
+      entryOverflowControl(true,1) == "GET_KEY_REST" and entryOverflowControl(true,2) == "GET_REST_KEY" and
+      entryOverflowControl(false,1) == "GET_REST" and entryOverflowControl(false,2) == "GET_REST")
+  run losingForwardingCasRestoresCursorButDoesNotClearTentativeHeadTest = init.expect({
+    val before = {cursor:2,storage:List(40,41,42,43),header:100}
+    val reserved = {...before,cursor:before.cursor + 1,storage:before.storage.replaceAt(before.cursor,77)}
+    val observed = 100
+    val rolled = {...reserved,cursor:reserved.cursor - 1}
+    rolled.cursor == before.cursor and rolled.storage.slice(0,before.cursor) == before.storage.slice(0,before.cursor) and
+      rolled.storage.nth(before.cursor) == 77 and rolled.storage.nth(3) == 43 and observed == rolled.header
+  })
+  run arbitraryFailedCasDoesNotProveForwardingHeaderTest = init.expect({
+    val expected = {kind:"movable",body:0}
+    val unrelated = {kind:"still",body:0}
+    unrelated != expected and unrelated.kind != "forwarded"
+  })
+  run forwardingPublicationDoesNotProveBodyCopyCompleteTest = init.expect({
+    val won = {forwarded:true,copied:false}
+    won.forwarded and not(won.copied)
+  })
+  pure def willScanControl(traverseWeak:bool):Set[int] = if(traverseWeak) Set(1,2) else Set(2)
+  pure def closureScanControl(words:int,freeStart:int):Set[int] =
+    0.to(words - 1).filter(index => freeStart <= index)
+  pure def continuationScanControl(words:int):Set[int] = 0.to(words - 1).filter(index => 1 <= index)
+  run weakWillSkipsLinkAndUntraversedTestatorTest = init.expect(
+    not(willScanControl(false).contains(1)) and willScanControl(true).contains(1) and
+      List(false,true).foldl(true,(valid,weak) => valid and willScanControl(weak).contains(2) and
+        not(willScanControl(weak).contains(0))))
+  run closureAndContinuationDoNotScanCodeOrFramePointerAsOrdinaryReferencesTest = init.expect(
+    2.to(12).forall(words => 1.to(words).forall(freeStart => {
+      val selected = closureScanControl(words,freeStart)
+      selected.forall(index => index >= freeStart and index < words) and
+        selected.size() == words - freeStart and
+        not(continuationScanControl(words).contains(0)) and continuationScanControl(words).size() == words - 1
+    })))
+
 }

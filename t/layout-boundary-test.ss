@@ -4,7 +4,7 @@
 ;;; Explicit closing boundaries belong to the declaring language grammar.
 
 (import (only-in :gerbil-parser/t/fixtures/layout-columns wide-frame-roots cyclic-pointer-roots mutual-closure-frame-roots closure-frame-roots
-                 cache-copy-flonum-values host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
+                 cache-copy-flonum-values host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
         :std/test
         :gerbil-parser/src/grammar/algebra
         (only-in :gerbil-parser/src/language/grammar deflanguage)
@@ -253,6 +253,8 @@
   (test-suite "Grammar-owned layout closing boundaries"
     (test-case "normal ticket handoff reads payload written after waiter allocation"
       (check (host-contended-control) => 0))
+    (test-case "actual forwarding tags and losing CAS preserve owned storage"
+      (check (host-forwarding-control) => 0))
     (test-case "actual heap flonum boxing retains bit patterns and previous allocations"
       (check (host-boxing-control) => 0))
     (test-case "compiled flonum copies retain both branch values through allocation and collection"

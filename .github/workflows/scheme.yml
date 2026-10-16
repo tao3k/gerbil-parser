@@ -215,6 +215,9 @@ jobs:
             --require '^COMPILER-SWITCH-OK cases=56$' \
             --require '^COMPILER-IFJUMP-OK cases=36$' \
             --require '^COMPILER-LABEL-OK cases=8$' \
+            --require '^COMPILER-ENTRY-OK cases=162$' \
+            --require '^COMPILER-RETURN-OK cases=6$' \
+            --require '^COMPILER-FUSION-OK guards=108 fused=12$' \
             -- gsc -e '(with-exception-catcher (lambda (e) (display-exception e) (exit 70)) (lambda () (load "t/fixtures/compiler-reservation.ss")))'
       - name: Verify capture prefix field and tail parity
         run: |

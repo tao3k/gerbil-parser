@@ -668,3 +668,55 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Host.SwitchEmission.mask_matches_generator
 
 #print axioms ParserEngine.Host.SwitchEmission.native_bucket_retains
+
+#print axioms ParserEngine.Host.ApplyFusion.guard_exact
+
+#print axioms ParserEngine.Host.ApplyFusion.destination_exact
+
+#print axioms ParserEngine.Host.ApplyFusion.pair_complete
+
+#print axioms ParserEngine.Host.EntryDispatch.accepts_exactly
+
+#print axioms ParserEngine.Host.EntryDispatch.dispatch_decreases
+
+#print axioms ParserEngine.Host.EntryDispatch.setup_order
+
+#print axioms ParserEngine.Host.ReturnEmission.retained_slot
+
+#print axioms ParserEngine.Host.ReturnEmission.task_continuation
+
+#print axioms ParserEngine.Host.ForwardingCodec.roundtrip
+
+#print axioms ParserEngine.Host.ForwardingCodec.forwarding_body
+
+#print axioms ParserEngine.Host.ForwardingCodec.loser_rollback
+
+#print axioms ParserEngine.Host.ForwardingCodec.failed_cas_is_forwarded
+
+#print axioms ParserEngine.Host.SpecialScan.closure_fields_exact
+
+#print axioms ParserEngine.Host.SpecialScan.continuation_skips_frame
+
+#print axioms ParserEngine.Host.SpecialScan.ordinary_tail_partition
+
+#print axioms ParserEngine.Host.ReturnEmission.source_slots
+#print axioms ParserEngine.Host.ReturnEmission.source_return_link
+
+#print axioms ParserEngine.Host.EntryDispatch.source_counts_exact
+
+#print axioms ParserEngine.Host.EntryDispatch.empty_present_keys
+
+#print axioms ParserEngine.Host.SpecialScan.strong_hash_keys_exact
+
+#print axioms ParserEngine.Host.SpecialScan.strong_hash_values_exact
+
+#print axioms ParserEngine.Host.SpecialScan.selected_field_forwarded
+
+#print axioms ParserEngine.Host.SpecialScan.excluded_field_unchanged
+
+#print axioms ParserEngine.Host.SpecialScan.selected_aliases_agree
+
+#print axioms ParserEngine.Host.EntryDispatch.argument_stack_monotone
+#print axioms ParserEngine.Host.EntryDispatch.later_source_retained
+
+#print axioms ParserEngine.Host.SpecialScan.selected_fields_in_bounds

@@ -173,14 +173,96 @@ shared identity and payload values, with collection counters advancing. It runs
 alongside the prior bit-pattern, closure, continuation and physical-placement
 controls. This tests real collector behavior, not a copied collector loop.
 
-Remaining native obligations include word/tag/header decoding, forwarding-word
-encoding, complete section/range ownership, CAS-loser reservation rollback,
-nonmoving and special scan classes, complete work scheduling, and C/ISA
+The later entry/GC refinement below adds the forwarding codec, failed-CAS
+rollback and special-field selection/forwarding composition. Remaining native
+obligations include complete word/tag/header decoding, section/range ownership,
+nonmoving classes, frame-link mutation, complete work scheduling and C/ISA
 publication. A forwarded address is not proof that its body is ready to read:
 the copy loop and subsequent chunk-publication/scan history must compose.
 The existing repeated-collection theorem still requires a full relocation
 contract per cycle; this extension does not claim to have derived that whole
 contract for the native collector.
+
+**** Entry/return, apply fusion and special-object scan refinement
+
+This extension follows the same paper/source/model/control chain. The reported
+Gambit baseline remains =dcd677cd3e40860bdd27dfbdbf5e3ce46ab03813=;
+installed SDK behavior is checked separately. No runtime optimization is made.
+
+| Source producer or consumer | General model connection | Executable control and remaining boundary |
+|-----------------------------+--------------------------+-------------------------------------------|
+| =targ-gen-label-entry= positional counts and recursion | =EntryDispatch.source_counts_exact= derives required/maximum positional arities from the parameter shape; =accepts_exactly= and =dispatch_decreases= derive complete finite dispatch; =setup_order= retains source parameter order; =later_source_retained= proves earlier register transfers cannot clobber later argument sources across stack growth | 162 real dispatcher controls cover required counts 0/1/4, optional defaults, absent/empty/one keyword, ordinary/DSSSL rest, main/open/closed entries. Checks include actual PUSH/register assignments, constant-table descriptor decoding, exported labels and closure metadata. Full argument-value execution and inter-block cache preservation remain imports. |
+| =targ-gen-label-return*= and =targ-gen-label-task-return= | =ReturnEmission.source_slots= connects native head padding/truncation plus reversal to physical slot resizing; =source_return_link= retains every admitted return-address position; task continuation protocol retains the same fresh label at POP and normal return | Six real dispatcher controls check ordinary/task return metadata at retained sizes 1/3/8, exact live-bit maps, instruction counts and continuation label identity. Native frame decoding, arbitrary GC-map extraction and counter freshness still require their producer premises. |
+| =targ-apply-ifjump-optimization?= and both dispatcher branches | =ApplyFusion.guard_exact= requires both opcodes, present/optimizable primitive test metadata, identity/NOT, and exactly one eqv?-identical result operand. =pair_complete= removes the first apply and preserves routing, including NOT destination swapping | 108 actual guard checks include wrong opcodes, absent/disabled primitive metadata, unrelated tests, missing/duplicate/different operands. Twelve accepted pairs emit no first apply and match the real fused primitive generator, including result location, negation, poll and fallthrough. Primitive execution, result writes and resource bounds remain separate obligations. |
+| =TAG=, =UNTAG_AS= and forwarding redirection | =ForwardingCodec.forwarding_body= proves the 64-bit unsigned tag/untag/reference-offset round trip, including modular arithmetic | GCC control invokes actual SDK macros on owned arenas with both pair/subtyped original tags. Pointer provenance, alignment, header classification, 32-bit padding and allocator ownership remain explicit. |
+| =mark_array= failed forwarding CAS | =loser_rollback= restores the pre-reservation cursor and retains all previously owned cells; =failed_cas_is_forwarded= requires a race history allowing only unchanged MOVABLE or published FORW | Actual SDK CAS control installs a winner, observes the losing CAS old value, checks winner retention and redirection, restores the cursor and verifies no body copy occurred. It deliberately retains the tentative head in free storage. This is a macro/control-flow test, not execution of the SMP collector. |
+| =scan= subtype cases and hash-table loops | =SpecialScan= separates opaque bodies, names, wills, closures, continuations, frames, hash keys/values and ordinary tail-marked bodies. Exact key/value parity and bounds are proved. =selected_field_forwarded= composes selection with arbitrary forwarding histories; =selected_aliases_agree= and =excluded_field_unchanged= retain alias and exclusion semantics | Existing compiled closure/continuation/cyclic-root controls still exercise the real collector. Native subtype/word extraction, frame-link masking/restoration, nonmoving objects, weak-table postprocessing and scan/publication scheduling are not inferred from a selected-slot model. |
+
+Two source distinctions corrected the entry model during native qualification:
+
+- Keyword parameters occupy slots but do not enlarge the positional arity
+  dispatch interval. Its maximum is required plus optional, before the single
+  overflow/keyword handler. The source count theorem now derives exactly that.
+- An empty but present =keys= list is truthy in Scheme and still selects
+  =GET_KEY=. Keyword descriptor constants are interned by identity; a freshly
+  reconstructed equal vector has a different =SUB= ID. The native control reads
+  the descriptor from the actual ordered constant table before comparison.
+
+The CAS model also separates three events that cannot be collapsed: reserving
+one tentative header word, winning header publication, and completing body
+copy. A failed comparison alone does not establish a forwarding header; the
+restricted header-transition history is an explicit native producer obligation.
+The rollback theorem makes no claim that a rolled-back free word is cleared.
+The new C control never dereferences a winner body as if publication had already
+made its contents ready.
+
+The scan selector is a projection of the pinned =lib/mem.c:scan= branch table,
+not a replacement GC implementation. Closure code prefixes and continuation
+frame fields are excluded from ordinary reference scanning; frame traversal is
+owned by its dedicated metadata decoder. Will links are excluded in both weak
+modes, and the untraversed testator remains excluded from strong marking. GC
+hash-table key/value loops retain their descending parity and admitted bounds.
+The =Valid= header/layout predicate and =selected_fields_in_bounds= expose
+body-size admission, including the three-word will and hash-table prefixes.
+They prevent saturating model subtraction from silently admitting an invalid
+native unsigned subtraction. The forwarding composition currently requires each selected reference to
+classify as MOVABLE0/FORW; STILL/PERM objects are not treated as immediates.
+
+***** Ordinary contended acquire remains an ordering obligation
+
+The source and rebuilt GCC control still place ticket allocation before the
+owner's later payload write/release and poll the matching ticket with an
+ordinary volatile load. The [[https://gcc.gnu.org/onlinedocs/gcc/Volatiles.html][GCC volatile contract]] does not order ordinary
+memory against that load. The [[https://gcc.gnu.org/onlinedocs/gcc/_005f_005fsync-Builtins.html][GCC legacy atomic contract]] gives the allocation
+RMW a barrier, but that earlier observation cannot import a future release.
+This matches =Contended.early_fence_does_not_import_later_release= and the
+paper's separation of lock observation from speculative read satisfaction.
+The controlled local handoff passes; no failing hardware execution or complete
+ARM/LSE theorem is claimed. No backend, installed SDK or lock code is changed.
+
+***** Qualification of this extension
+
+- Full Lean package: 72 jobs, standard logical axioms only; no admitted proof,
+  custom runtime axiom or =native_decide=.
+- Quint: 120 directed controls, including rejected fusion protocols, empty
+  present keys, CAS rollback and publication-before-copy distinctions.
+- One installed GSC process: all previous receipts plus 162 entries, six returns
+  and 108 fusion guards/12 fused pairs; exit zero in 0.3166 seconds under the
+  unchanged 30-second total and 5-second idle budgets.
+- Updated GCC/GC and style suites: 27+6=33 cases, two workers, natural exit zero
+  in 14.3700 seconds under unchanged 90/5-second budgets.
+- The negative harness runs are retained: declaration placement, prefix-helper
+  argument order, identity-based descriptor admission, and the incorrect
+  keyword/positional count were repaired before accepting positive evidence.
+- The sole PR's previous revision has no red completed job at inspection;
+  macOS prepare has passed, macOS execution and Ubuntu prepare remain running.
+  Local qualification is distinct from
+  the remote result of the revision that will contain this extension.
+
+Complete source-to-C execution, native allocator/collector refinement and
+ordinary contended acquire are still open. These proofs reduce specific
+correspondence gaps; they do not close the entire host model or admit a local
+performance optimization.
 
 **** Ordinary contended acquire and the paper boundary
 
@@ -243,11 +325,11 @@ complete instruction generation for the dispatcher.
 
 | GVM family | Connected result | Remaining producer obligation |
 |------------+------------------+-------------------------------|
-| =label= | =LabelEmission.complete_simple_task_entry= connects dispatcher resets, simple labels and TASK_PUSH; slot/layout and internal-return/check components are retained | Entry with optional/keyword/rest arguments, ordinary return and task return still need complete sequence/frame composition and predecessor value preservation. |
-| =apply= | Common post-primitive heap check has a model | Every selected primitive inliner, its resource effects and the apply/ifjump fusion predicate require correspondence. An arbitrary callback would not establish it. |
+| =label= | =LabelEmission.complete_simple_task_entry= connects dispatcher resets, simple labels and TASK_PUSH; slot/layout and internal-return/check components are retained | Entry count/arity/order and ordinary/task return slot/protocol models now have real dispatcher controls; full argument execution, frame/GC-map extraction and predecessor value preservation remain. |
+| =apply= | Common post-primitive heap check and exact apply/ifjump selection/routing have models and native controls | Every selected primitive inliner, its result writes and resource effects require execution correspondence. An arbitrary callback would not establish it. |
 | =copy= | Operand decoding, dirty writebacks, copy denotation and heap-check blocks are connected | General nested destination evaluation, frame mutation and exact emitted target-form extraction remain open. |
 | =close= | =ClosureEmission.unwind_exact= and =complete_emission= prove arbitrary-group allocation/setup order; =high_water_bounds= derives stack demand | Native operand/table extraction, closure-size arithmetic, actual preallocation check expansion and closure body layout still need their imports. |
-| =ifjump= | =IfJumpEmission.routing_exact= and =clear_result_once= connect inversion, fallthrough and clearing; 36 real primitive controls include known-flonum folds | General primitive expression semantics, cache type-premise soundness, result production and two-instruction apply fusion remain. |
+| =ifjump= | =IfJumpEmission.routing_exact= and =clear_result_once= connect inversion, fallthrough and clearing; 36 real primitive controls include known-flonum folds | Fusion selection, apply suppression and branch protocol are connected; general primitive expression semantics, cache type-premise soundness and result production remain. |
 | =switch= | =SwitchEmission= connects five stable partitions, small-group order, target streams, hash/default coverage, capacity termination/power and C mask equivalence | Native classification, all-string hash compatibility, object/label identity, C widths/literals and full expression interpretation remain imports. |
 | =jump= | =JumpEmission= covers noninlined local label/register tails; numeric zero arguments remain a call | Return-address alias repair, primitive/global procedure selection, argument checks and jump inliners remain separate. |
 

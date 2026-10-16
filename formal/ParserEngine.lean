@@ -617,3 +617,54 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Host.JumpEmission.local_fallthrough_exact
 
 #print axioms ParserEngine.Host.Contended.ordinary_handoff_safe_iff
+
+#print axioms ParserEngine.Host.Forwarding.records_target
+
+#print axioms ParserEngine.Host.Forwarding.retains
+
+#print axioms ParserEngine.Host.Forwarding.scan_bounded
+
+#print axioms ParserEngine.Host.Forwarding.scan_unique
+
+#print axioms ParserEngine.Host.Forwarding.scanned_slot
+
+#print axioms ParserEngine.Host.Forwarding.same_alias_destination
+
+#print axioms ParserEngine.Host.Forwarding.native_split_scan
+
+#print axioms ParserEngine.Host.SwitchEmission.stable_group
+
+#print axioms ParserEngine.Host.SwitchEmission.stable_bucket
+
+#print axioms ParserEngine.Host.SwitchEmission.hashed_case_covered
+
+#print axioms ParserEngine.Host.IfJumpEmission.routing_exact
+
+#print axioms ParserEngine.Host.IfJumpEmission.clear_result_once
+
+#print axioms ParserEngine.Host.SwitchEmission.every_hashed_case_emitted
+
+#print axioms ParserEngine.Host.SwitchEmission.bucket_default_emitted
+
+#print axioms ParserEngine.Host.Forwarding.extent_bounded
+
+#print axioms ParserEngine.Host.LabelEmission.complete_simple_task_entry
+
+#print axioms ParserEngine.Host.Forwarding.native_scan_from_empty
+
+#print axioms ParserEngine.Host.Forwarding.mixed_scan_projection
+#print axioms ParserEngine.Host.Forwarding.immediate_slot_retained
+
+#print axioms ParserEngine.Host.Forwarding.header_trace_unique
+
+#print axioms ParserEngine.Host.Forwarding.header_trace_retains
+
+#print axioms ParserEngine.Host.Forwarding.lower_section_admitted
+
+#print axioms ParserEngine.Host.SwitchEmission.capacity_loop_terminates
+
+#print axioms ParserEngine.Host.SwitchEmission.capacity_power
+
+#print axioms ParserEngine.Host.SwitchEmission.mask_matches_generator
+
+#print axioms ParserEngine.Host.SwitchEmission.native_bucket_retains

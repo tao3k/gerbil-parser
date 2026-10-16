@@ -3,7 +3,7 @@
 ;;; -*- Gerbil -*-
 ;;; Explicit closing boundaries belong to the declaring language grammar.
 
-(import (only-in :gerbil-parser/t/fixtures/layout-columns wide-frame-roots mutual-closure-frame-roots closure-frame-roots
+(import (only-in :gerbil-parser/t/fixtures/layout-columns wide-frame-roots cyclic-pointer-roots mutual-closure-frame-roots closure-frame-roots
                  cache-copy-flonum-values host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
         :std/test
         :gerbil-parser/src/grammar/algebra
@@ -328,6 +328,20 @@
             (check ((car roots) 9) => '(right . 37))
             (check ((cdr roots) 8) => '(right . 37))
             (check ((cdr roots) 9) => '(left . 37))
+            (collect (+ cycle 1))))))
+    (test-case "pair tail marking and later scanning retain cyclic shared pointer graphs"
+      (let (root (cyclic-pointer-roots 53 (lambda () (##gc))))
+        (let collect ((cycle 0))
+          (when (< cycle 4)
+            (let (before (f64vector-ref (##process-statistics) 6))
+              (##gc)
+              (check (> (f64vector-ref (##process-statistics) 6) before) => #t))
+            (let ((slots (car root)) (tail (cdr root)))
+              (check (##eq? (vector-ref slots 0) root) => #t)
+              (check (##eq? (cdr tail) root) => #t)
+              (check (##eq? (vector-ref slots 1) (vector-ref slots 2)) => #t)
+              (check (vector-ref slots 1) => '(shared . 53))
+              (check (car tail) => '(cdr . 53)))
             (collect (+ cycle 1))))))
     (test-case "generated wide live frames retain every slot across worker collections"
       (wide-frame-gc-case))

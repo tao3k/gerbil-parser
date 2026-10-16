@@ -64,6 +64,170 @@ before selecting another runtime optimization.
 | Splits invalidate every reader | [[file:../../src/compiler/lr-follow-automaton.ss][backward dependency builder]] | =built_reverse_member= models successive reverse-row writes; =metadata_edge_member= and =metadata_reader_notified= connect metadata reads to notifications | Decode native metadata and admitted vector bounds, including admitted source-core presence |
 | Core-level invalidation safely approximates vertex dependencies | The same backward scheduler and final-index publication | =projected_notification= and =clean_outgoing_transport= preserve inactive successor-signature equivalence under arbitrary ID renumbering | Every changed target core must be reported; partition groups must remain inside one core |
 
+*** Forwarding, pointer scans and GVM dispatch composition
+
+The seven-family inventory below remains the current closure boundary. This
+extension adds general producer/consumer proofs for switch, ifjump routing and
+simple/task-entry labels, and derives movable-header forwarding and pointer-slot
+rewrites. It does not certify the entire compiler or collector from finite
+controls. The source baseline, SDK patch metadata and ABI boundary remain those
+recorded in the source reading section.
+
+**** Switch generation and its native C consumer
+
+=SwitchEmission.accumulated= and =stable_group= connect the native cons/reverse
+accumulators to stable filtering for all five kinds. Small fixnum and character
+groups have the exact source normalization order: character cases precede
+fixnum cases, followed by other cases. Symkeys instead concatenate symbols
+before keywords. Hash buckets preserve that order after the producer's reverse
+step; hash equality never substitutes for key identity.
+
+The target protocol now includes each group boundary, equality cascade,
+hashed type guard, bucket, case transfer and default transfer. Every bucket,
+even an empty one, contains a default exit. Only the final default transfer may
+be elided when the next block is the default label.
+
+There is a distinct generator/consumer obligation: Scheme computes hash modulo
+capacity, while =BEGIN_SWITCH_SYMKEY= uses =hash & (capacity-1)=. The actual
+capacity producer starts at one and doubles until strictly above the case
+count. =capacity_loop_terminates= derives a finite successful source trace for
+arbitrary counts, using a mathematical fuel bound rather than changing the
+runtime. =capacity_power= proves the result is a power of two;
+=mask_matches_generator= connects the C mask to generator modulo;
+=native_bucket_retains= derives case coverage with that produced capacity.
+Native hash decoding, key identity, C widths/literals and full source-to-C
+expression semantics remain imports.
+
+The installed GSC control checks 56 complete switch streams: five kinds,
+zero/one/two/three-case boundaries, the 20/21 symkey threshold, symbol-only,
+keyword-only and mixed guards, a deliberately colliding bucket, Unicode names,
+poll checks and default fallthrough. The compiler's =targ-hash= is independently
+compared with the installed runtime's =##symbol-hash= and =##keyword-hash=
+fields for those names. This is not an all-Unicode proof of hash compatibility.
+All checks call the real emitter and object/label tables; no generator is
+replaced by an expected-output callback.
+
+**** Branch and label generation
+
+=IfJumpEmission.routing_exact= proves branch inversion and fallthrough preserve
+both successor routes for arbitrary labels, next-block choices and predicate
+results. =clear_result_once= covers result clearing on the source-selected
+side of =END_IF=. The primitive-specific predicate semantics and fused
+apply/ifjump producer are still separate obligations.
+
+Thirty-six installed-compiler controls use real primitive metadata supplied by
+=target-select!=. They cover FALSEP generation, inversion, optional result
+assignment, poll/fallthrough, and known-flonum fixnum/flonum branch folding.
+The latter is native producer coverage; a general soundness proof of its cache
+type premise is not inferred from it. Eight more controls enter through the
+actual =targ-gen-gvm-instr= dispatcher for simple/task-entry labels, checking
+label identity, TASK_PUSH, frame size, cache-region clearing and all three
+basic-block budget resets. =LabelEmission.complete_simple_task_entry= gives
+the corresponding general state/code result. Predecessor value preservation,
+entry arguments and other return/task constructors remain in the inventory.
+
+Two control preconditions were discovered by negative runs. Constant operand
+construction requires the official =virtual.begin!= operand table; optional
+comments use =#f= or =make-comment=, not the truthy empty list. Violating either
+internal API precondition caused a signal-139 control process. Those receipts
+are retained, not admitted as compiler correctness results. The accepted
+control uses official environment/target/operand initialization, valid comments
+and unchanged SDK generators. Receipt output is flushed at actual completed
+phases so a future signal identifies its last completed producer. The operand
+initialization guard now runs before generator invocation; removing the official
+initialization in a disposable negative control produces a typed rejection,
+exit 70, instead of entering the unsafe generator.
+
+**** Movable forwarding and complete pointer-slot scans
+
+The =Forwarding= owner has two placement interfaces. The contiguous-region
+adapter derives allocation bounds and uniqueness from an initially empty
+forwarding view and header-derived positive widths. =native_scan_from_empty=
+consumes no caller-provided alias-uniqueness or copied-object certificate.
+The separate =HeaderTrace= interface admits any fresh physical target, including
+a lower-address section. =header_trace_unique= and =header_trace_retains= do not
+assume globally increasing physical addresses. Fresh target identity alone is
+not full body-range ownership; native section allocation must still establish
+that stronger premise for the physical copying proof.
+
+The header map denotes decoded per-object forwarding headers, not a new hash
+table in the parser. An already forwarded source reuses its target and retains
+allocation state; a new source records the selected target. =scanned_slot=
+connects each rewritten pointer slot to the final header view, and
+=same_alias_destination= preserves sharing under arbitrary scan histories.
+Widths include the copied header; =extent_bounded= additionally covers the
+whole reserved object in the contiguous adapter.
+
+Native pair scanning has a composition requirement: =mark_array= tail-marks
+the first copied field; later pair/chunk scanning starts with the remaining
+fields. =native_split_scan= joins the two scans for arbitrary field arrays.
+Skipping the first field is justified only by that preceding tail phase.
+=mixed_scan_projection= connects movable/immediate word scanning to the pointer
+history; =immediate_slot_retained= preserves each immediate slot's exact bits.
+Every reference in that slice must classify as MOVABLE0/FORW. STILL, PERM,
+weak and special-object references are not silently treated as immediates.
+
+A fresh GCC fixture builds a pair/vector graph with car and cdr cycles plus
+shared children. Four actual collections preserve the cycles, both pair arms,
+shared identity and payload values, with collection counters advancing. It runs
+alongside the prior bit-pattern, closure, continuation and physical-placement
+controls. This tests real collector behavior, not a copied collector loop.
+
+Remaining native obligations include word/tag/header decoding, forwarding-word
+encoding, complete section/range ownership, CAS-loser reservation rollback,
+nonmoving and special scan classes, complete work scheduling, and C/ISA
+publication. A forwarded address is not proof that its body is ready to read:
+the copy loop and subsequent chunk-publication/scan history must compose.
+The existing repeated-collection theorem still requires a full relocation
+contract per cycle; this extension does not claim to have derived that whole
+contract for the native collector.
+
+**** Ordinary contended acquire and the paper boundary
+
+Fresh inspection of the rebuilt GCC ARM64 waiter still finds =ldaddal= ticket
+allocation, ordinary =ldr= polling and payload reads, then =ldaddal= unlock.
+The matching poll has no acquire load or following barrier. The earlier
+allocation RMW cannot import a later owner's release. The existing
+=ordinary_handoff_safe_iff= identifies the missing all-location visibility
+condition; a successful local handoff does not prove it.
+
+The ARM paper's [[https://www.cl.cam.ac.uk/~pes20/armv8-mca/armv8-mca-draft.pdf][Section 11 spinlock example]] distinguishes speculative load
+satisfaction from later lock observations. It is a different lock/API, not a
+counterexample execution of this SDK. Its operational model excludes LSE RMW;
+the axiomatic model has broader coverage. The [[https://www.cl.cam.ac.uk/~pes20/armv8-mca/errata.html][published errata]] also correct
+coherence footprints and exclusive-instruction conditions. No full paper
+compiler/ISA theorem or model-checker execution is imported into our projection.
+
+The [[https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html][GCC memory-order contract]] ties acquire to the release observed by that
+operation and assumes race-free usage. A source repair would need coherent
+atomic accesses to the shared ticket fields and an ordering edge at the
+matching observation, followed by source/lowering qualification. An earlier
+full barrier, volatile polling, debug-only barriers and single-thread lock
+elision are not substitutes. This extension changes no SDK lock backend or
+runtime ordering implementation.
+
+**** Qualification
+
+- Lean: complete package, 72 build jobs; the added proof dependencies contain
+  standard logical axioms only, no =sorry=, custom host axiom or =native_decide=.
+- Quint: 112 directed tests pass. New controls include cycles/sharing, positive
+  width and freshness premises, omitted tail marking, immediate/address-bit
+  distinctions, lower physical sections, collision order, branch inversion
+  and modulo/mask equivalence with a non-power-of-two negative control.
+- Installed GSC: all earlier reservation/check/closure/jump receipts plus
+  56 switches, 36 ifjumps and eight GVM label dispatches pass in one process,
+  exit zero in 0.8922 seconds under unchanged 30/5-second budgets.
+- GCC/GC and style controls: 26+6=32 cases pass with two workers, normal exit
+  zero in 14.0869 seconds under unchanged 90/5-second budgets.
+- Five source/evidence admission controls pass. The existing model manifests
+  bind all modified proof, fixture and test owners. Both semantics CI platforms
+  now require the three additional compiler receipts in the same invocation.
+- Before publication, head =d50a31a= completed its full CI successfully. Local
+  results above are separate from the new revision's remote CI result.
+
+The seven-family inventory and native obligations remain the closure gate.
+No runtime performance optimization or CPU improvement is claimed.
+
 *** Closure opcodes, local transfers and physical GC copying
 
 This extension continues the shared source/proof/control ledger. It does not
@@ -79,12 +243,12 @@ complete instruction generation for the dispatcher.
 
 | GVM family | Connected result | Remaining producer obligation |
 |------------+------------------+-------------------------------|
-| =label= | Slot/layout, root-map and internal-return/check proofs already in the ledger | Simple, entry with optional/keyword/rest arguments, ordinary return, task entry and task return must each connect their complete emitted sequence and frame mutation. |
+| =label= | =LabelEmission.complete_simple_task_entry= connects dispatcher resets, simple labels and TASK_PUSH; slot/layout and internal-return/check components are retained | Entry with optional/keyword/rest arguments, ordinary return and task return still need complete sequence/frame composition and predecessor value preservation. |
 | =apply= | Common post-primitive heap check has a model | Every selected primitive inliner, its resource effects and the apply/ifjump fusion predicate require correspondence. An arbitrary callback would not establish it. |
 | =copy= | Operand decoding, dirty writebacks, copy denotation and heap-check blocks are connected | General nested destination evaluation, frame mutation and exact emitted target-form extraction remain open. |
 | =close= | =ClosureEmission.unwind_exact= and =complete_emission= prove arbitrary-group allocation/setup order; =high_water_bounds= derives stack demand | Native operand/table extraction, closure-size arithmetic, actual preallocation check expansion and closure body layout still need their imports. |
-| =ifjump= | Common block checks and local transfer selection have models | Test-specific generators, result assignment, branch inversion, fallthrough and two-instruction fusion must compose. |
-| =switch= | No complete family correspondence is claimed | Fixnum/character/symbol/keyword/other partitioning, default routing and emitted case order remain explicit obligations. |
+| =ifjump= | =IfJumpEmission.routing_exact= and =clear_result_once= connect inversion, fallthrough and clearing; 36 real primitive controls include known-flonum folds | General primitive expression semantics, cache type-premise soundness, result production and two-instruction apply fusion remain. |
+| =switch= | =SwitchEmission= connects five stable partitions, small-group order, target streams, hash/default coverage, capacity termination/power and C mask equivalence | Native classification, all-string hash compatibility, object/label identity, C widths/literals and full expression interpretation remain imports. |
 | =jump= | =JumpEmission= covers noninlined local label/register tails; numeric zero arguments remain a call | Return-address alias repair, primitive/global procedure selection, argument checks and jump inliners remain separate. |
 
 The closure worker receives reversed declarations, recurses before emitting

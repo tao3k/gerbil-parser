@@ -1,5 +1,5 @@
 ;;; Boxed-vector oracle, independent of packed storage and lookup dispatch.
-(export cache-copy-flonum-values host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors mutual-closure-frame-roots closure-frame-roots wide-frame-roots reference-layout-columns reference-packed-layout-columns layout-column-sources)
+(export cache-copy-flonum-values host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors cyclic-pointer-roots mutual-closure-frame-roots closure-frame-roots wide-frame-roots reference-layout-columns reference-packed-layout-columns layout-column-sources)
 
 (def (reference-layout-columns source)
   (let* ((bytes (string->utf8 source)) (size (u8vector-length bytes))
@@ -78,6 +78,18 @@
                       (if (zero? depth) right-value (left (- depth 1))))))
       (collect)
       (cons left right))))
+
+;;; A pair's car requires tail marking, its cdr requires the later pair scan,
+;;; and vector slots introduce shared forwarding and backward-cycle references.
+(def (cyclic-pointer-roots seed collect)
+  (let* ((slots (make-vector 3)) (tail (cons (cons 'cdr seed) #f))
+         (root (cons slots tail)) (shared (cons 'shared seed)))
+    (vector-set! slots 0 root)
+    (vector-set! slots 1 shared)
+    (vector-set! slots 2 shared)
+    (set-cdr! tail root)
+    (collect)
+    root))
 
 ;;; Host macro controls execute in the same compiled fixture as the GC controls.
 ;;; The OS waiter touches only C-owned words, never Scheme values or a VM.

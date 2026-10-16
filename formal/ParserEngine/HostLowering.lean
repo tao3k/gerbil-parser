@@ -1370,6 +1370,8 @@ def opcode (request : Request) : String :=
 construction is represented by its own event, rather than assumed absent. -/
 inductive Instruction where
   | box (location stamp : Nat)
+  | label (identity : Nat)
+  | taskPush (slots : Nat)
   | adjust (delta : Option Int)
   | check (name : String) (label : Nat) (heap ssb : Option Nat)
   | internalReturn (label stack : Nat)
@@ -1791,6 +1793,572 @@ theorem moved_headers (memory : Memory) (oldHeader newHeader count : Nat)
   · rw [outside _ _ _ _ _ (by omega)]
     simp [write]
 end CollectorCopy
+
+namespace Forwarding
+/-- Contiguous-region view of decoded movable-header forwarding entries.
+Positive widths include the header and admitted object-specific padding.
+HeaderTrace below handles nonmonotone physical section choices separately;
+native pointer/tag decoding and section ownership remain explicit imports. -/
+structure State where
+  table : Nat → Option Nat
+  next : Nat
+
+def Bounded (state : State) : Prop := ∀ source target, state.table source = some target → target < state.next
+def Unique (state : State) : Prop := ∀ left right target,
+  state.table left = some target → state.table right = some target → left = right
+
+def forward (width source : Nat) (state : State) : State × Nat :=
+  match state.table source with
+  | some target => (state, target)
+  | none => (⟨fun address => if address = source then some state.next else state.table address,
+      state.next + width⟩, state.next)
+
+theorem already_forwarded (width source target : Nat) (state : State)
+    (read : state.table source = some target) : forward width source state = (state, target) := by
+  simp [forward, read]
+
+theorem records_target (width source : Nat) (state : State) :
+    (forward width source state).1.table source = some (forward width source state).2 := by
+  unfold forward; split <;> simp_all
+
+theorem retains (width source : Nat) (state : State) {older target : Nat}
+    (read : state.table older = some target) : (forward width source state).1.table older = some target := by
+  unfold forward; split
+  · exact read
+  · next absent =>
+      have different : older ≠ source := by intro same; subst older; simp_all
+      simp [different, read]
+
+theorem bounded (width source : Nat) (positive : 0 < width) (state : State)
+    (valid : Bounded state) : Bounded (forward width source state).1 := by
+  unfold forward; split
+  · exact valid
+  · intro address target read
+    dsimp at read ⊢
+    split at read
+    · cases read; omega
+    · have old := valid address target read; omega
+
+theorem unique (width source : Nat) (state : State) (valid : Bounded state) (unique : Unique state) :
+    Unique (forward width source state).1 := by
+  unfold forward; split
+  · exact unique
+  · intro left right target leftRead rightRead
+    dsimp at leftRead rightRead
+    split at leftRead <;> split at rightRead
+    · omega
+    · cases leftRead; have bound := valid right state.next rightRead; omega
+    · cases rightRead; have bound := valid left state.next leftRead; omega
+    · exact unique left right target leftRead rightRead
+
+/-- Sequential MOVABLE0/FORW slice of mark_array: an already forwarded alias
+reuses its destination; only a fresh header advances allocation. STILL/PERM and
+weak-object classification are not supplied by this decoded interface. -/
+def scan (width : Nat → Nat) : List Nat → State → State × List Nat
+  | [], state => (state, [])
+  | source :: rest, state =>
+    let (updated, target) := forward (width source) source state
+    let (finalState, targets) := scan width rest updated
+    (finalState, target :: targets)
+
+theorem scan_retains (width : Nat → Nat) (sources : List Nat) (state : State) {older target : Nat}
+    (read : state.table older = some target) : (scan width sources state).1.table older = some target := by
+  induction sources generalizing state with
+  | nil => exact read
+  | cons source rest ih => exact ih _ (retains (width source) source state read)
+
+theorem scan_length (width : Nat → Nat) (sources : List Nat) (state : State) :
+    (scan width sources state).2.length = sources.length := by
+  induction sources generalizing state with
+  | nil => rfl
+  | cons source rest ih => simpa [scan] using ih (forward (width source) source state).1
+
+theorem scan_bounded (width : Nat → Nat) (positive : ∀ source, 0 < width source)
+    (sources : List Nat) (state : State) (valid : Bounded state) : Bounded (scan width sources state).1 := by
+  induction sources generalizing state with
+  | nil => exact valid
+  | cons source rest ih => exact ih _ (bounded (width source) source (positive source) state valid)
+
+theorem scan_unique (width : Nat → Nat) (positive : ∀ source, 0 < width source)
+    (sources : List Nat) (state : State) (valid : Bounded state) (injective : Unique state) :
+    Unique (scan width sources state).1 := by
+  induction sources generalizing state with
+  | nil => exact injective
+  | cons source rest ih =>
+    exact ih _ (bounded (width source) source (positive source) state valid)
+      (unique (width source) source state valid injective)
+
+/-- Every physical reference slot is rewritten to its final forwarding entry.
+This covers arbitrary aliases and cycles presented by successive body scans. -/
+theorem scanned_slot (width : Nat → Nat) (sources : List Nat) (state : State)
+    {index source : Nat} (read : sources[index]? = some source) :
+    ∃ target, (scan width sources state).2[index]? = some target ∧
+      (scan width sources state).1.table source = some target := by
+  induction sources generalizing state index with
+  | nil => simp at read
+  | cons first rest ih =>
+    cases index with
+    | zero =>
+      have same : first = source := by simpa using read
+      subst source
+      refine ⟨(forward (width first) first state).2, ?_, ?_⟩
+      · simp [scan]
+      · exact scan_retains width rest _ (records_target (width first) first state)
+    | succ index =>
+      obtain ⟨target, slot, forwarded⟩ := ih (forward (width first) first state).1 (by simpa using read)
+      exact ⟨target, by simpa [scan] using slot, forwarded⟩
+
+theorem same_alias_destination (width : Nat → Nat) (sources : List Nat) (state : State)
+    {left right source : Nat} (first : sources[left]? = some source) (second : sources[right]? = some source) :
+    (scan width sources state).2[left]? = (scan width sources state).2[right]? := by
+  obtain ⟨a, readA, mapA⟩ := scanned_slot width sources state first
+  obtain ⟨b, readB, mapB⟩ := scanned_slot width sources state second
+  have same : a = b := by rw [mapA] at mapB; exact Option.some.inj mapB
+  simp [readA, readB, same]
+
+/-- Sequential tail marking followed by later chunk scanning composes exactly.
+The split is not itself a proof that all reachable objects are scheduled. -/
+theorem scan_append (width : Nat → Nat) (first rest : List Nat) (state : State) :
+    scan width (first ++ rest) state =
+      let earlier := scan width first state
+      let later := scan width rest earlier.1
+      (later.1, earlier.2 ++ later.2) := by
+  induction first generalizing state with
+  | nil => simp [scan]
+  | cons source first ih => simp [scan, ih]
+
+def tailFields : List Nat → List Nat
+  | [] => []
+  | first :: _ => [first]
+def laterFields : List Nat → List Nat
+  | [] => []
+  | _ :: rest => rest
+
+theorem tail_and_later_complete (fields : List Nat) : tailFields fields ++ laterFields fields = fields := by
+  cases fields <;> rfl
+
+theorem native_split_scan (width : Nat → Nat) (fields : List Nat) (state : State) :
+    scan width fields state =
+      let earlier := scan width (tailFields fields) state
+      let later := scan width (laterFields fields) earlier.1
+      (later.1, earlier.2 ++ later.2) := by
+  cases fields <;> simp [tailFields, laterFields, scan]
+
+def nativeWidth (bodyWords : Nat) : Nat := bodyWords + 1
+
+theorem native_width_positive (bodyWords : Nat) : 0 < nativeWidth bodyWords := by
+  simp [nativeWidth]
+
+/-- Strengthen the start-address bound to the whole reserved object extent.
+This does not assert that the chosen native section has that much room. -/
+def ExtentBounded (width : Nat → Nat) (state : State) : Prop :=
+  ∀ source target, state.table source = some target → target + width source ≤ state.next
+
+theorem extent_bounded (width : Nat → Nat) (source : Nat) (state : State)
+    (valid : ExtentBounded width state) : ExtentBounded width (forward (width source) source state).1 := by
+  unfold forward; split
+  · exact valid
+  · intro address target read
+    dsimp at read ⊢
+    split at read
+    · next same => subst address; cases read; omega
+    · have old := valid address target read; omega
+
+def initial (cursor : Nat) : State := ⟨fun _ => none, cursor⟩
+
+theorem scan_extent_bounded (width : Nat → Nat) (sources : List Nat) (state : State)
+    (valid : ExtentBounded width state) : ExtentBounded width (scan width sources state).1 := by
+  induction sources generalizing state with
+  | nil => exact valid
+  | cons source rest ih => exact ih _ (extent_bounded width source state valid)
+
+/-- Starts from the actual empty-forwarding condition and derives the table's
+invariants for arbitrary input histories and header-derived positive widths.
+No caller-supplied alias uniqueness or target-copy certificate is consumed. -/
+theorem native_scan_from_empty (bodyWords : Nat → Nat) (sources : List Nat) (cursor : Nat) :
+    Bounded (scan (fun source => nativeWidth (bodyWords source)) sources (initial cursor)).1 ∧
+    Unique (scan (fun source => nativeWidth (bodyWords source)) sources (initial cursor)).1 ∧
+    ExtentBounded (fun source => nativeWidth (bodyWords source))
+      (scan (fun source => nativeWidth (bodyWords source)) sources (initial cursor)).1 := by
+  have boundedInitial : Bounded (initial cursor) := by simp [Bounded, initial]
+  have uniqueInitial : Unique (initial cursor) := by simp [Unique, initial]
+  have extentInitial : ExtentBounded (fun source => nativeWidth (bodyWords source)) (initial cursor) := by
+    simp [ExtentBounded, initial]
+  exact ⟨scan_bounded _ (fun source => native_width_positive (bodyWords source)) sources _ boundedInitial,
+    scan_unique _ (fun source => native_width_positive (bodyWords source)) sources _ boundedInitial uniqueInitial,
+    scan_extent_bounded _ sources _ extentInitial⟩
+/-- Movable/immediate slice of mark_array. Every reference here must decode to
+a MOVABLE0/FORW object; nonmoving references are not silently cast to immediates.
+Immediate bits are preserved without interpreting them as addresses. Complete
+native tag/head classification and nonmoving cases remain decoder obligations. -/
+def scanWords (width : Nat → Nat) : List Roots.Word → State → State × List Roots.Word
+  | [], state => (state, [])
+  | .immediate bits :: rest, state =>
+    let (after, words) := scanWords width rest state
+    (after, .immediate bits :: words)
+  | .reference source :: rest, state =>
+    let (updated, target) := forward (width source) source state
+    let (after, words) := scanWords width rest updated
+    (after, .reference target :: words)
+
+theorem mixed_scan_projection (width : Nat → Nat) (words : List Roots.Word) (state : State) :
+    (scanWords width words state).1 = (scan width (Roots.references words) state).1 ∧
+    Roots.references (scanWords width words state).2 = (scan width (Roots.references words) state).2 := by
+  induction words generalizing state with
+  | nil => simp [scanWords, scan, Roots.references]
+  | cons word rest ih =>
+    cases word with
+    | immediate bits => simpa [scanWords, Roots.references] using ih state
+    | reference source =>
+      have following := ih (forward (width source) source state).1
+      simpa [scanWords, scan, Roots.references] using following
+
+theorem immediate_slot_retained (width : Nat → Nat) (words : List Roots.Word) (state : State)
+    {index bits : Nat} (read : words[index]? = some (.immediate bits)) :
+    (scanWords width words state).2[index]? = some (.immediate bits) := by
+  induction words generalizing state index with
+  | nil => simp at read
+  | cons word rest ih =>
+    cases index with
+    | zero =>
+      have same : word = .immediate bits := by simpa using read
+      subst word; simp [scanWords]
+    | succ index =>
+      cases word with
+      | immediate value => simpa [scanWords] using ih state (by simpa using read)
+      | reference source =>
+        simpa [scanWords] using ih (forward (width source) source state).1 (by simpa using read)
+
+/-- A separate header projection admits physical allocation in any fresh
+section, including one below previously allocated addresses. The contiguous
+cursor bounds above are not imposed on this native placement interface. -/
+abbrev Headers := Nat → Option Nat
+
+def HeaderUnique (headers : Headers) : Prop :=
+  ∀ left right target, headers left = some target → headers right = some target → left = right
+
+def FreshTarget (headers : Headers) (candidate : Nat) : Prop :=
+  ∀ source target, headers source = some target → candidate ≠ target
+
+def forwardAt (headers : Headers) (source candidate : Nat) : Headers × Nat :=
+  match headers source with
+  | some target => (headers, target)
+  | none => ((fun address => if address = source then some candidate else headers address), candidate)
+
+theorem physical_records_target (headers : Headers) (source candidate : Nat) :
+    (forwardAt headers source candidate).1 source = some (forwardAt headers source candidate).2 := by
+  unfold forwardAt; split <;> simp_all
+
+theorem physical_retains (headers : Headers) (source candidate : Nat) {old target : Nat}
+    (read : headers old = some target) : (forwardAt headers source candidate).1 old = some target := by
+  unfold forwardAt; split
+  · exact read
+  · next absent =>
+      have different : old ≠ source := by intro same; subst old; simp_all
+      simp [different, read]
+
+theorem physical_unique (headers : Headers) (source candidate : Nat) (unique : HeaderUnique headers)
+    (fresh : headers source = none → FreshTarget headers candidate) :
+    HeaderUnique (forwardAt headers source candidate).1 := by
+  unfold forwardAt; split
+  · exact unique
+  · next absent =>
+      intro left right target leftRead rightRead
+      dsimp at leftRead rightRead
+      split at leftRead <;> split at rightRead
+      · omega
+      · cases leftRead; exact False.elim (fresh absent right candidate rightRead rfl)
+      · cases rightRead; exact False.elim (fresh absent left candidate leftRead rfl)
+      · exact unique left right target leftRead rightRead
+
+inductive HeaderTrace : Headers → Headers → Prop where
+  | refl (headers) : HeaderTrace headers headers
+  | next {before middle} (earlier : HeaderTrace before middle) (source candidate : Nat)
+      (fresh : middle source = none → FreshTarget middle candidate) :
+      HeaderTrace before (forwardAt middle source candidate).1
+
+theorem header_trace_unique {before after : Headers} (unique : HeaderUnique before)
+    (history : HeaderTrace before after) : HeaderUnique after := by
+  induction history with
+  | refl => exact unique
+  | next earlier source candidate fresh ih => exact physical_unique _ source candidate ih fresh
+
+theorem header_trace_retains {before after : Headers} (history : HeaderTrace before after)
+    {source target : Nat} (read : before source = some target) : after source = some target := by
+  induction history with
+  | refl => exact read
+  | next earlier current candidate fresh ih => exact physical_retains _ current candidate ih
+
+/-- Native placement cannot assume monotonically increasing physical addresses.
+A lower fresh section remains admissible without coalescing existing objects. -/
+theorem lower_section_admitted (high low : Nat) (lower : low < high) :
+    HeaderUnique (forwardAt (fun source => if source = 0 then some high else none) 1 low).1 ∧
+    (forwardAt (fun source => if source = 0 then some high else none) 1 low).1 0 = some high ∧
+    (forwardAt (fun source => if source = 0 then some high else none) 1 low).1 1 = some low := by
+  constructor
+  · apply physical_unique
+    · intro left right target a b
+      dsimp at a b
+      split at a <;> split at b <;> simp_all
+    · intro absent source target read
+      dsimp at read
+      split at read
+      · cases read; omega
+      · cases read
+  · simp [forwardAt]
+
+end Forwarding
+
+namespace SwitchEmission
+inductive Kind where | fixnum | character | symbol | keyword | other
+  deriving DecidableEq, Repr
+structure Case where
+  kind : Kind
+  key : Nat
+  label : Nat
+  hash : Nat
+  deriving DecidableEq, Repr
+
+/-- Five native mutable reverse accumulators, projected by kind. -/
+def accumulate : List Case → (Kind → List Case) → Kind → List Case
+  | [], buckets => buckets
+  | entry :: rest, buckets =>
+    accumulate rest (fun kind => if entry.kind = kind then entry :: buckets kind else buckets kind)
+
+theorem accumulated (cases : List Case) (buckets : Kind → List Case) (kind : Kind) :
+    accumulate cases buckets kind = (cases.filter (fun entry => entry.kind == kind)).reverse ++ buckets kind := by
+  induction cases generalizing buckets with
+  | nil => simp [accumulate]
+  | cons entry rest ih =>
+    rw [accumulate, ih]
+    by_cases same : entry.kind = kind <;> simp [same, List.append_assoc]
+
+def group (cases : List Case) (kind : Kind) : List Case := (accumulate cases (fun _ => []) kind).reverse
+
+theorem stable_group (cases : List Case) (kind : Kind) :
+    group cases kind = cases.filter (fun entry => entry.kind == kind) := by simp [group, accumulated]
+
+structure Groups where
+  general : List Case
+  fixnums : List Case
+  characters : List Case
+  symkeys : List Case
+
+def groups (cases : List Case) : Groups :=
+  let fixnums := group cases .fixnum
+  let characters := group cases .character
+  ⟨(if characters.length ≤ 2 then characters else []) ++
+    (if fixnums.length ≤ 2 then fixnums else []) ++ group cases .other,
+   if fixnums.length ≤ 2 then [] else fixnums,
+   if characters.length ≤ 2 then [] else characters,
+   group cases .symbol ++ group cases .keyword⟩
+
+/-- Hash-table buckets are consed by the producer then reversed at emission.
+Use key identity separately from its hash; collisions cannot identify cases. -/
+def collectBucket (capacity bucket : Nat) : List Case → List Case → List Case
+  | [], accumulated => accumulated
+  | entry :: rest, accumulated =>
+    collectBucket capacity bucket rest (if entry.hash % capacity = bucket then entry :: accumulated else accumulated)
+
+theorem bucket_accumulated (capacity bucket : Nat) (cases accumulated : List Case) :
+    collectBucket capacity bucket cases accumulated =
+      (cases.filter (fun entry => entry.hash % capacity == bucket)).reverse ++ accumulated := by
+  induction cases generalizing accumulated with
+  | nil => simp [collectBucket]
+  | cons entry rest ih =>
+    rw [collectBucket, ih]
+    by_cases same : entry.hash % capacity = bucket <;> simp [same, List.append_assoc]
+
+def bucket (capacity index : Nat) (cases : List Case) : List Case :=
+  (collectBucket capacity index cases []).reverse
+
+theorem stable_bucket (capacity index : Nat) (cases : List Case) :
+    bucket capacity index cases = cases.filter (fun entry => entry.hash % capacity == index) := by
+  simp [bucket, bucket_accumulated]
+
+theorem hashed_case_covered (capacity : Nat) (positive : 0 < capacity) (cases : List Case)
+    (entry : Case) (member : entry ∈ cases) :
+    ∃ index, index < capacity ∧ entry ∈ bucket capacity index cases := by
+  refine ⟨entry.hash % capacity, Nat.mod_lt _ positive, ?_⟩
+  simp [stable_bucket, member]
+/-- The native doubling loop starts at one and stops strictly above the number
+of symkey cases. Fuel is a proof bound, not a runtime timeout or API parameter. -/
+def capacityLoop (count : Nat) : Nat → Nat → Nat
+  | 0, current => current
+  | fuel + 1, current => if count < current then current else capacityLoop count fuel (2 * current)
+
+def capacity (count : Nat) : Nat := capacityLoop count (count + 1) 1
+
+inductive CapacityTrace (count : Nat) : Nat → Nat → Prop where
+  | done (current) (exit : count < current) : CapacityTrace count current current
+  | step (current) (continues : current ≤ count) {result}
+      (later : CapacityTrace count (2 * current) result) : CapacityTrace count current result
+
+theorem capacity_loop_terminates (count fuel current : Nat) (positive : 0 < current)
+    (enough : count + 1 ≤ current + fuel) :
+    CapacityTrace count current (capacityLoop count fuel current) := by
+  induction fuel generalizing current with
+  | zero => exact CapacityTrace.done current (by omega)
+  | succ fuel ih =>
+    simp only [capacityLoop]
+    split
+    · next exit => exact CapacityTrace.done current exit
+    · next notExit =>
+      exact CapacityTrace.step current (by omega) (ih _ (by omega) (by omega))
+
+theorem capacity_trace_exit {count initial result : Nat} (trace : CapacityTrace count initial result) :
+    count < result := by
+  induction trace with
+  | done current exit => exact exit
+  | step current continues later ih => exact ih
+
+theorem capacity_above (count : Nat) : count < capacity count := by
+  apply capacity_trace_exit (capacity_loop_terminates count (count + 1) 1 (by omega) (by omega))
+
+theorem capacity_loop_power (count fuel exponent : Nat) :
+    ∃ power, capacityLoop count fuel (2 ^ exponent) = 2 ^ power := by
+  induction fuel generalizing exponent with
+  | zero => exact ⟨exponent, rfl⟩
+  | succ fuel ih =>
+    simp only [capacityLoop]
+    split
+    · exact ⟨exponent, rfl⟩
+    · rw [show 2 * 2 ^ exponent = 2 ^ (exponent + 1) by simp [Nat.pow_succ, Nat.mul_comm]]
+      exact ih (exponent + 1)
+
+theorem capacity_power (count : Nat) : ∃ exponent, capacity count = 2 ^ exponent := by
+  simpa [capacity] using capacity_loop_power count (count + 1) 0
+
+/-- C BEGIN_SWITCH_SYMKEY masks by capacity-1, whereas the generator uses
+modulo. The source's power-of-two producer makes those operations identical. -/
+theorem mask_matches_generator (count hash : Nat) :
+    hash &&& (capacity count - 1) = hash % capacity count := by
+  obtain ⟨exponent, power⟩ := capacity_power count
+  rw [power]
+  exact Nat.and_two_pow_sub_one_eq_mod hash exponent
+
+theorem native_bucket_retains (cases : List Case) (entry : Case) (member : entry ∈ cases) :
+    entry ∈ bucket (capacity cases.length) (entry.hash &&& (capacity cases.length - 1)) cases := by
+  rw [mask_matches_generator]
+  simp [stable_bucket, member]
+
+end SwitchEmission
+
+namespace IfJumpEmission
+structure Plan where
+  inverted : Bool
+  branch : Nat
+  fallthrough : Nat
+  deriving DecidableEq, Repr
+
+def select (trueLabel falseLabel : Nat) (nextLabel : Option Nat) : Plan :=
+  if nextLabel = some trueLabel then ⟨true, falseLabel, trueLabel⟩ else ⟨false, trueLabel, falseLabel⟩
+
+def destination (plan : Plan) (predicate : Bool) : Nat :=
+  if (if plan.inverted then !predicate else predicate) then plan.branch else plan.fallthrough
+
+/-- Branch inversion preserves routing even when labels coincide or neither
+successor is the next block. Predicate-specific inliner semantics is separate. -/
+theorem routing_exact (trueLabel falseLabel : Nat) (nextLabel : Option Nat) (predicate : Bool) :
+    destination (select trueLabel falseLabel nextLabel) predicate =
+      if predicate then trueLabel else falseLabel := by
+  cases predicate <;> unfold select <;> split <;> simp [destination]
+
+inductive Event where
+  | adjust | test (inverted : Bool) | clearResult (location : Nat)
+  | goTo (label : Nat) | endIf
+  deriving DecidableEq, Repr
+
+def emit (trueLabel falseLabel : Nat) (nextLabel : Option Nat) (result : Option Nat) : List Event :=
+  let plan := select trueLabel falseLabel nextLabel
+  [.adjust, .test plan.inverted] ++
+    (if plan.inverted then result.toList.map .clearResult else []) ++
+    [.goTo plan.branch, .endIf] ++
+    (if plan.inverted then [] else result.toList.map .clearResult) ++
+    (if nextLabel = some plan.fallthrough then [] else [.goTo plan.fallthrough])
+
+theorem clear_result_once (trueLabel falseLabel : Nat) (nextLabel : Option Nat) (location : Nat) :
+    (emit trueLabel falseLabel nextLabel (some location)).count (.clearResult location) = 1 := by
+  unfold emit select
+  split <;> simp_all <;> split <;> simp
+
+end IfJumpEmission
+
+namespace SwitchEmission
+inductive Guard where | symbols | keywords | symkeys
+  deriving DecidableEq, Repr
+
+def guard (cases : List Case) : Guard :=
+  if (cases.filter (fun entry => entry.kind == .keyword)).isEmpty then .symbols
+  else if (cases.filter (fun entry => entry.kind == .symbol)).isEmpty then .keywords else .symkeys
+
+inductive Event where
+  | beginGroup (kind : Kind)
+  | caseGoTo (entry : Case)
+  | endGroup (kind : Kind)
+  | equalGoTo (entry : Case)
+  | beginHash (capacity : Nat) (guard : Guard)
+  | hashBucket (index : Nat)
+  | hashCaseGoTo (entry : Case)
+  | endHash
+  | goTo (label : Nat)
+  deriving DecidableEq, Repr
+
+def emitGroup (kind : Kind) (cases : List Case) : List Event :=
+  if cases.isEmpty then [] else [.beginGroup kind] ++ cases.map .caseGoTo ++ [.endGroup kind]
+
+def emitHash (capacity defaultLabel : Nat) (cases : List Case) : List Event :=
+  [.beginHash capacity (guard cases)] ++ (List.range capacity).flatMap (fun index =>
+    [.hashBucket index] ++ (bucket capacity index cases).map .hashCaseGoTo ++ [.goTo defaultLabel]) ++ [.endHash]
+
+def emit (cases : List Case) (capacity defaultLabel : Nat) (nextLabel : Option Nat) : List Event :=
+  let split := groups cases
+  emitGroup .other split.general ++ emitGroup .fixnum split.fixnums ++ emitGroup .character split.characters ++
+    (if split.symkeys.length ≤ 20 then split.symkeys.map .equalGoTo else emitHash capacity defaultLabel split.symkeys) ++
+    (if nextLabel = some defaultLabel then [] else [.goTo defaultLabel])
+
+theorem every_hashed_case_emitted (capacity defaultLabel : Nat) (positive : 0 < capacity)
+    (cases : List Case) (entry : Case) (member : entry ∈ cases) :
+    Event.hashCaseGoTo entry ∈ emitHash capacity defaultLabel cases := by
+  obtain ⟨index, bound, retained⟩ := hashed_case_covered capacity positive cases entry member
+  simp only [emitHash, List.mem_append, List.mem_singleton, List.mem_flatMap]
+  left; right
+  refine ⟨index, List.mem_range.mpr bound, ?_⟩
+  simp [retained]
+
+/-- Each bucket, including an empty one, has its own default exit. This cannot
+be replaced by only the final default, which may be elided for fallthrough. -/
+theorem bucket_default_emitted (capacity defaultLabel index : Nat) (cases : List Case)
+    (bound : index < capacity) : Event.goTo defaultLabel ∈ emitHash capacity defaultLabel cases := by
+  simp only [emitHash, List.mem_append, List.mem_singleton, List.mem_flatMap]
+  left; right
+  exact ⟨index, List.mem_range.mpr bound, by simp⟩
+end SwitchEmission
+
+namespace LabelEmission
+/-- The GVM dispatcher starts a basic block before simple/task-entry emission.
+Cache-region clearing is a producer effect; predecessor value preservation is
+still an inter-block obligation, not implied by discarding this local cache. -/
+def start (task : Bool) (label frameSize : Nat) (state : CheckEmission.State)
+    (_rows : List (Option Cache.Entry)) : CheckEmission.State × List (Option Cache.Entry) :=
+  ({state with
+    code := state.code ++ [.label label] ++ (if task then [.taskPush 0] else [])
+    framePointer := frameSize
+    heapReserved := 0
+    floatingReserved := 0
+    ssbReserved := 0}, [])
+
+theorem complete_simple_task_entry (task : Bool) (label frameSize : Nat) (state : CheckEmission.State)
+    (rows : List (Option Cache.Entry)) :
+    (start task label frameSize state rows).1.code =
+      state.code ++ [.label label] ++ (if task then [.taskPush 0] else []) ∧
+    (start task label frameSize state rows).1.framePointer = frameSize ∧
+    (start task label frameSize state rows).1.heapReserved = 0 ∧
+    (start task label frameSize state rows).1.floatingReserved = 0 ∧
+    (start task label frameSize state rows).1.ssbReserved = 0 ∧
+    (start task label frameSize state rows).1.nextLabel = state.nextLabel ∧
+    (start task label frameSize state rows).2 = [] := by simp [start]
+end LabelEmission
 
 namespace Contended
 /-- Separate payload-read satisfaction from the later ticket observation. This

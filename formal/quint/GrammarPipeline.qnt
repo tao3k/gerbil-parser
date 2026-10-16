@@ -1074,4 +1074,123 @@ module GrammarPipeline {
       localTransfer(false,0,false,true) == "call" and localTransfer(false,-1,true,false) == "return" and
       localTransfer(true,-1,false,true) == "fallthrough" and localTransfer(true,0,true,false) == "goto")
 
+  type ForwardControl = {table:List[int],cursor:int,roots:List[int]}
+  pure val emptyForwardControl:ForwardControl = {table:List(-1,-1,-1,-1,-1,-1,-1,-1),cursor:100,roots:List()}
+  pure def forwardControl(s:ForwardControl,source:int,width:int):ForwardControl = {
+    val existing = s.table.nth(source)
+    if(existing >= 0) {...s,roots:s.roots.append(existing)} else
+      {table:s.table.replaceAt(source,s.cursor),cursor:s.cursor + width,roots:s.roots.append(s.cursor)}
+  }
+  pure def scanForwardControl(s:ForwardControl,sources:List[int]):ForwardControl =
+    sources.foldl(s,(state,source) => forwardControl(state,source,source + 1))
+  run forwardedAliasesReuseDestinationsWithoutAnotherAllocationTest = init.expect({
+    val scanned = scanForwardControl(emptyForwardControl,List(2,0,2,1,0,2))
+    scanned.roots == List(100,103,100,104,103,100) and scanned.cursor == 106 and
+      scanned.table.slice(0,3) == List(103,104,100)
+  })
+  run cyclicBodyScansRetainThePreviouslyForwardedRootTest = init.expect({
+    val first = scanForwardControl(emptyForwardControl,List(0))
+    val body = scanForwardControl(first,List(1,0,2,1))
+    body.table.nth(0) == 100 and body.roots == List(100,101,100,103,101) and body.cursor == 106
+  })
+  run positiveWidthsKeepEveryForwardedObjectBelowTheCursorTest = init.expect({
+    val scanned = scanForwardControl(emptyForwardControl,List(7,0,7,2,3,0,1))
+    scanned.table.indices().forall(source => scanned.table.nth(source) < 0 or
+      scanned.table.nth(source) + source + 1 <= scanned.cursor)
+  })
+  run zeroWidthCannotSatisfyTheForwardingFreshnessPremiseTest = init.expect({
+    val invalid = forwardControl(emptyForwardControl,0,0)
+    invalid.table.nth(0) == invalid.cursor and not(invalid.table.nth(0) < invalid.cursor)
+  })
+  run tailMarkingAndLaterFieldsComposeTheSamePointerScanTest = init.expect({
+    val pointerSlots = List(2,0,2,1)
+    val first = scanForwardControl(emptyForwardControl,pointerSlots.slice(0,1))
+    val completed = scanForwardControl(first,pointerSlots.slice(1,pointerSlots.length()))
+    completed == scanForwardControl(emptyForwardControl,pointerSlots) and
+      completed != scanForwardControl(emptyForwardControl,pointerSlots.slice(1,pointerSlots.length())) and
+      scanForwardControl(emptyForwardControl,List()) == emptyForwardControl
+  })
+  type SwitchControl = {kind:int,key:int,label:int,hash:int}
+  pure def switchCaseControl(kind:int,key:int,hash:int):SwitchControl = {kind:kind,key:key,label:1000 + key,hash:hash}
+  pure def reverseSwitchControl(rows:List[SwitchControl]):List[SwitchControl] =
+    rows.foldl(List(),(acc,row) => List(row).concat(acc))
+  pure def switchGroupControl(rows:List[SwitchControl],kind:int):List[SwitchControl] =
+    reverseSwitchControl(rows.foldl(List(),(acc,row) => if(row.kind == kind) List(row).concat(acc) else acc))
+  pure def switchKeys(rows:List[SwitchControl]):List[int] = rows.foldl(List(),(acc,row) => acc.append(row.key))
+  run smallSwitchGroupsUseCharacterThenFixnumThenOtherOrderTest = init.expect({
+    val rows = List(switchCaseControl(4,0,0),switchCaseControl(0,1,1),switchCaseControl(4,2,2),
+                    switchCaseControl(1,3,3),switchCaseControl(0,4,4),switchCaseControl(1,5,5))
+    val general = switchGroupControl(rows,1).concat(switchGroupControl(rows,0)).concat(switchGroupControl(rows,4))
+    switchKeys(general) == List(3,5,1,4,0,2)
+  })
+  pure def switchBucketControl(rows:List[SwitchControl],capacity:int,index:int):List[SwitchControl] =
+    reverseSwitchControl(rows.foldl(List(),(acc,row) => if(row.hash % capacity == index) List(row).concat(acc) else acc))
+  run symkeyHashCollisionsRetainDistinctKeysAndEmissionOrderTest = init.expect({
+    val rows = List(switchCaseControl(2,10,7),switchCaseControl(2,11,39),switchCaseControl(3,12,7))
+    switchKeys(switchBucketControl(rows,32,7)) == List(10,11,12) and
+      switchBucketControl(rows,32,6) == List() and
+      rows.foldl(true,(valid,row) => valid and row.hash % 32 < 32)
+  })
+  run symkeysAreGroupedByKindBeforeBucketEmissionTest = init.expect({
+    val rows = List(switchCaseControl(3,1,7),switchCaseControl(2,2,7),switchCaseControl(3,3,7),switchCaseControl(2,4,7))
+    val symkeys = switchGroupControl(rows,2).concat(switchGroupControl(rows,3))
+    switchKeys(switchBucketControl(symkeys,8,7)) == List(2,4,1,3)
+  })
+  pure def hashBucketEvents(rows:List[SwitchControl],capacity:int,index:int,defaultLabel:int):List[int] =
+    switchBucketControl(rows,capacity,index).foldl(List(-index - 1),(events,row) => events.append(row.label)).append(defaultLabel)
+  run everyHashBucketNeedsItsOwnDefaultEvenForFinalFallthroughTest = init.expect({
+    val rows = List(switchCaseControl(2,10,7),switchCaseControl(3,11,39))
+    hashBucketEvents(rows,32,6,9000) == List(-7,9000) and
+      hashBucketEvents(rows,32,7,9000) == List(-8,1010,1011,9000)
+  })
+  run ifjumpInversionPreservesBothSuccessorRoutesTest = init.expect(
+    List(-1,600,601).foldl(true,(valid,following) => valid and List(false,true).foldl(true,(routes,predicate) => {
+      val inverted = following == 600
+      val branch = if(inverted) 601 else 600
+      val fallthrough = if(inverted) 600 else 601
+      val condition = if(inverted) not(predicate) else predicate
+      routes and (if(condition) branch else fallthrough) == (if(predicate) 600 else 601)
+    })))
+
+  run mixedPointerScanningPreservesImmediateWordsWithAddressLikeBitsTest = init.expect({
+    val words = List({pointer:false,value:100},{pointer:true,value:2},{pointer:false,value:13},{pointer:true,value:2})
+    val scanned = words.foldl({state:emptyForwardControl,words:List()},(s,word) => {
+      val after = if(word.pointer) forwardControl(s.state,word.value,word.value + 1) else s.state
+      {state:after,words:s.words.append(if(word.pointer) {pointer:true,value:after.table.nth(word.value)} else word)}
+    })
+    scanned.words == List({pointer:false,value:100},{pointer:true,value:100},{pointer:false,value:13},{pointer:true,value:100}) and
+      scanned.state.cursor == 103 and scanned.state.roots == List(100,100)
+  })
+  type PhysicalForwardControl = {headers:List[int],roots:List[int]}
+  pure def physicalForwardControl(s:PhysicalForwardControl,source:int,candidate:int):PhysicalForwardControl = {
+    val existing = s.headers.nth(source)
+    if(existing >= 0) {...s,roots:s.roots.append(existing)} else
+      {headers:s.headers.replaceAt(source,candidate),roots:s.roots.append(candidate)}
+  }
+  run forwardingAcrossLowerPhysicalSectionsRetainsExistingAliasesTest = init.expect({
+    val start = {headers:List(-1,-1,-1),roots:List()}
+    val high = physicalForwardControl(start,0,100)
+    val low = physicalForwardControl(high,1,4)
+    val alias = physicalForwardControl(low,0,3)
+    alias.headers == List(100,4,-1) and alias.roots == List(100,4,100)
+  })
+  run physicalForwardingRequiresFreshTargetOwnershipTest = init.expect({
+    val start = {headers:List(100,-1,-1),roots:List(100)}
+    val invalid = physicalForwardControl(start,1,100)
+    invalid.headers.nth(0) == invalid.headers.nth(1) and
+      start.headers.foldl(false,(occupied,target) => occupied or target == 100)
+  })
+  pure def switchCapacityControl(count:int):int =
+    0.to(count).fold(1,(current,round) => if(count < current) current else current * 2)
+  pure def switchMaskControl(hash:int,capacity:int):int =
+    0.to(28).fold(0,(masked,bit) => masked +
+      (if((hash / power2(bit)) % 2 == 1 and ((capacity - 1) / power2(bit)) % 2 == 1) power2(bit) else 0))
+  run switchCapacityDoublesToAPowerStrictlyAboveCaseCountTest = init.expect(
+    0.to(65).forall(count => switchCapacityControl(count) > count and
+      List(1,2,4,8,16,32,64,128).foldl(false,(found,power) => found or power == switchCapacityControl(count))))
+  run nativeBitmaskAndGeneratorModuloNeedThePowerOfTwoProducerTest = init.expect(
+    List(0,1,2,3,20,21,32).foldl(true,(valid,count) => valid and List(0,7,39,268435455).foldl(true,(agrees,hash) =>
+      agrees and switchMaskControl(hash,switchCapacityControl(count)) == hash % switchCapacityControl(count))) and
+      switchMaskControl(7,6) != 7 % 6)
+
 }

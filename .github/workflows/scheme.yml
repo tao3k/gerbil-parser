@@ -212,6 +212,9 @@ jobs:
             --require '^COMPILER-TRIGGER-OK flush=1 instructions=4$' \
             --require '^COMPILER-CLOSURE-OK cases=25$' \
             --require '^COMPILER-JUMP-OK cases=32$' \
+            --require '^COMPILER-SWITCH-OK cases=56$' \
+            --require '^COMPILER-IFJUMP-OK cases=36$' \
+            --require '^COMPILER-LABEL-OK cases=8$' \
             -- gsc -e '(with-exception-catcher (lambda (e) (display-exception e) (exit 70)) (lambda () (load "t/fixtures/compiler-reservation.ss")))'
       - name: Verify capture prefix field and tail parity
         run: |

@@ -49,10 +49,10 @@ before selecting another runtime optimization.
 | Native context construction and snapshots | Gambit =entry-context=, =restore-context=, =context->frame= and task split | =Contexts.assignments_valid= and =constructed_layout= derive slot validity from entry construction; task/parent and join length laws preserve it; cleared state has no publishable frame | Target label-info/name decoding, join displacement producer, return-address uniqueness and actual typed vector access |
 | Lowest-dead-slot register spilling | Gambit =lowest-dead-slot=, =live-slots= and =save-regs-to-stk= | =Spill.chosen_dead= and =saved_read= derive destination validity; =live_read_preserved= and =all_live_retained= cover arbitrary repeated saves with growth | Decode selected register reads and live variables, metadata updates and return-address movement; connect the actual instruction emitter to the derived copy sequence |
 | Dirty cache materialization and invalidation | Active =targ-fp-cache-*= and =targ-loc-no-invalidate= in the C target | =Cache.trace_unique=, =trace_bound= and =new_stamp_fresh= derive lifecycle invariants; =history_dirty_read= and =dirty_spill_signed= connect first dirty writeback to physical slots and signed root scanning | =CacheExecution.decodeEntry= extracts the active F64V stamp payload; =dirty_copy= composes first writeback, allocation, read, destination store and invalidation; =copy_collection= retains exact payload bits under relocation; primitive scalar extraction, nested closure-target effects, compiler reservation and native GC implementation remain interfaces |
-| Ticket CAS versus post-poll acquire | =TICKETLOCK_TRYLOCK2=, =TICKETLOCK_UNLOCK2= and normal wait macro | =Ticket.stale_cas_success_safe= covers arbitrary past current observations under no-wrap; failed stale CAS leaves state unchanged; =unlock_valid= admits ownerless handoff with queued waiters | GCC/ISA atomic implementation and no-wrap admission remain interfaces; Contended.ordinary_poll_not_universal exhibits a stale-read history under the explicit weak-observation projection; a universal native acquire proof is still absent |
+| Ticket CAS versus post-poll acquire | =TICKETLOCK_TRYLOCK2=, =TICKETLOCK_UNLOCK2= and normal wait macro | =Ticket.stale_cas_success_safe= covers arbitrary past current observations under no-wrap; failed stale CAS leaves state unchanged; =unlock_valid= admits ownerless handoff with queued waiters | GCC/ISA atomic implementation and no-wrap admission remain interfaces; Contended.ordinary_poll_not_universal exhibits a stale-read history and =early_fence_does_not_import_later_release= admits the allocation RMW while rejecting import of a later release; a universal native acquire proof is still absent |
 | Native operand decoding and copy denotation | Gambit =gsc/_gvmadt.scm= constructors, =enter-opnd=, =put-copy= and =targ-gen-copy= | =Operand.encode_decode= and =intern_preserves= cover all six tags and arbitrary tables; =destination_read= and =closure_aliases= resolve nested bases; =decoded_copy_readback= connects decoding, reads, writes and unrelated-place retention | =Table.extract_read= connects every observed prefix row to a physical pair; =append_snapshot= covers actual capacity growth and new-row writes; native tagged-datum/eqv? extraction, recursive fuel sufficiency, complete instruction emission, frame extension and return metadata sequencing remain |
-| Heap flonum allocation | =MEM_ALLOCATED_FLONUM_ALLOC=, =FLONUM_FROM_END= and =FLONUM_TO_BODY= | =Boxing.allocation_identity= derives header/payload writes; =trace_fresh= preserves ownership across arbitrary allocation histories; =cache_allocation_root= composes a dirty entry with fresh bounded storage and the emitted signed frame map | =Boxing.trace_retains= covers allocation and lower-address section selection under local ownership; =HeapCheck= follows the strict check/limit/collection short circuit and exact-bit relocation; free-list validity, complete heap-limit effects, collector byte copying, compiler reservation and pointer bounds remain |
-| Reported cache size, occupancy and heap reservation | Gambit =targ-fp-cache-enter=, =targ-heap-reserve-and-check=, =prepare_mem_pstate= and =lib/mem.h= | =Reservation.trace_shape= derives capacity from reported size; =batch_potential= conserves writeback potential; =qualified_no_check_safe= distinguishes six charged words from two actual words; =prepared_accounted_reads= and =triggering_dirty_reads= compose allocation traces and retained cells | Qualified 64-bit heap branch only; other primitive size bounds, complete instruction emission, selected live-frame production, native free-list/physical pointer validity and collector implementation |
+| Heap flonum allocation | =MEM_ALLOCATED_FLONUM_ALLOC=, =FLONUM_FROM_END= and =FLONUM_TO_BODY= | =Boxing.allocation_identity= derives header/payload writes; =trace_fresh= preserves ownership across arbitrary allocation histories; =cache_allocation_root= composes a dirty entry with fresh bounded storage and the emitted signed frame map | =Boxing.trace_retains= covers allocation and lower-address section selection under local ownership; =HeapCheck= follows the strict check/limit/collection short circuit and exact-bit relocation; =HeapCheck.completion_counts= and =rooted_cycles_preserve= cover returning retries and repeated rooted relocation; free-list validity, complete heap-limit effects, collector byte copying and pointer bounds remain |
+| Reported cache size, occupancy and heap reservation | Gambit =targ-fp-cache-enter=, =targ-heap-reserve-and-check=, =prepare_mem_pstate= and =lib/mem.h= | =Reservation.trace_shape= derives capacity from reported size; =batch_potential= conserves writeback potential; =qualified_no_check_safe= distinguishes six charged words from two actual words; =prepared_accounted_reads= and =triggering_dirty_reads= compose allocation traces and retained cells | =CheckEmission= now composes writeback events with complete heap-check blocks and arbitrary check sequences. Qualified 64-bit heap branch only; other primitive size bounds, remaining GVM opcode emission, selected live-frame production, native free-list/physical pointer validity and collector implementation |
 | Atomic old-value results and bounded tickets | Gambit =FETCH_AND_ADD_WORD=, =COMPARE_AND_SWAP_WORD= and ticket macros | =Atomic.compare_swap_success=, =compare_swap_failed= and =bounded_tickets_unique= separate old-value tests from physical wrap | GCC/backend code generation; logical operation linearization; fixnum scaling, overflow and maximum outstanding tickets |
 | Closure and captured continuation retention | =mark_continuation=, =mark_captured_continuation= and =scan= | =captured_frame_reached= and =path_reached= cover arbitrary-depth pointer paths; =discovered_path_relocated= composes them with relocation | Host copying, frame-link interpretation, physical registers and SMP synchronization |
 | Least strong marking closure | Strong-mark worklist and =mark_reachable_from_marked= | =program= generates root/edge rules; =CollectorSchedule.zero_workers_marking_exact= connects global worker termination to marking through pending ownership, including in-flight objects | C forwarding/notification effects must refine the generated history; lock and memory-order linearization remain explicit |
@@ -63,6 +63,94 @@ before selecting another runtime optimization.
 | Rehash preserves entries, not positions | Gambit =process_gc_hash_tables= and =gc_hash_table_rehash_in_situ= | =rehash_lookup= derives query preservation from entry membership and functional key/value ownership across arbitrary slot reordering | Prove the host rehash produces those retained entries; weak tables are excluded |
 | Splits invalidate every reader | [[file:../../src/compiler/lr-follow-automaton.ss][backward dependency builder]] | =built_reverse_member= models successive reverse-row writes; =metadata_edge_member= and =metadata_reader_notified= connect metadata reads to notifications | Decode native metadata and admitted vector bounds, including admitted source-core presence |
 | Core-level invalidation safely approximates vertex dependencies | The same backward scheduler and final-index publication | =projected_notification= and =clean_outgoing_transport= preserve inactive successor-signature equivalence under arbitrary ID renumbering | Every changed target core must be reported; partition groups must remain inside one core |
+
+*** Check emission, GC retry and contended handoff correspondence
+
+This extension follows the same source baseline and research boundaries as the
+ledger. Reachability and allocation research supplies the root-retention
+obligation; it does not supply Gambit's instruction emitter or GC semantics.
+The GCC and ARM sources cited below separate atomic ticket allocation from the
+later load that observes the previous owner's release. Those obligations stay
+separate throughout the composition.
+
+| Native producer or consumer | General proof | Executable correspondence and remaining boundary |
+|-----------------------------+---------------+-------------------------------------------------|
+| =targ-check-conditions= | =CheckEmission.complete_block= and =reset_exact= derive the full adjustment/check/internal-return block and exact budgets; =labels_exact= and =code_length_exact= cover arbitrary request sequences | The installed GSC emits and validates 144 blocks, including disabled, numeric-zero heap/SSB, boolean/numeric FLO, poll and stack-adjustment cases. The current SDK qualifies only the noncombined branch. |
+| =targ-update-fr= followed by =targ-check-conditions= | =materialize_corresponds= connects actual early-return cache events to the reservation model for arbitrary live selections; =flush_and_check_complete= puts all writebacks before the check and derives reset/label effects | A real triggering =targ-heap-reserve-and-check= call traverses a live frame, emits =SET_STK/F64BOX/F64V1=, then the zero-space check and internal return. Arbitrary native live-frame extraction and other GVM opcode families remain open. |
+| Kernel =##check-heap= | =HeapCheck.completion_counts= covers any finite number of overflow/retry attempts before one successful resumption | The C =W_ALL/R_ALL= save/restore pair occurs on each slow attempt; the outer GVM =PUSH_REGS= frame is not pushed again on every retry. A nonreturning exception handler supplies no completion proof. |
+| Repeated collection with moved roots | =HeapCheck.rooted_cycles_preserve= composes arbitrarily many relocations, updating the rooted address each time while retaining every payload bit | Every cycle still requires its actual root membership and relocation contract. Native forwarding, byte copying, root restoration and section ownership are not inferred from a successful heap-limit return. |
+| Ordinary contended ticket acquire | =Contended.early_fence_does_not_import_later_release= admits the earlier full-barrier allocation RMW, then proves the later release can remain unseen after a plain poll, for arbitrary epochs and locations | The existing real contention control is a functional handoff observation. It does not close the missing acquire rule or certify the ARM lowering. |
+
+**** Request semantics and complete check blocks
+
+The request model distinguishes Scheme =#f=, =#t= and numeric values. In
+particular =some 0= is an enabled heap/SSB request. The FLO suffix requires
+numeric =eqv?= equality, not boolean truthiness. The update-frame producer
+passes a boolean FLO flag, which cannot alias a numeric heap argument in this
+model. This is modeled source behavior, not a performance change.
+
+The code buffer retains the adjustment entry even when it is =#f=. The check's
+label cell and the generated internal-return label must be identical. Native
+controls inspect the real label table, return class, stack size, link and map
+metadata, budget resets and cache-region reset. The abstract return event does
+not itself prove every native frame map or link value; the general slot/map
+proofs and their remaining extraction premises remain in the shared ledger.
+
+The initial attempt to exercise both combined and noncombined checks by mutating
+=c#targ-combine-checks?= failed: the installed emitter retained its compiled
+noncombined behavior. That negative receipt is preserved. The accepted control
+requires noncombined SDK metadata and checks 144 supported combinations;
+Lean and Quint additionally cover the abstract combined branch. A separate
+harness initialization failure occurred before the official =env.begin!= call
+was added. Neither experiment is reported as an accepted native execution.
+
+**** GC completion and synchronization limits
+
+The slow-path event model preserves strict =hp>threshold= checks, the
+=heap_limit() && garbage_collect()= short circuit, restoration before exception
+signaling and retry only when the exception handler returns. Its completion
+relation admits exactly one final resumption and one raise/retry per earlier
+overflow attempt. It does not claim termination under unbounded allocation,
+collection failure or a diverging exception handler.
+
+The repeated-relocation theorem keeps the root updated across every cycle;
+retaining the original numeric address is insufficient. Collection correctness
+remains a producer obligation. Existing compiled GC, continuation reentry and
+copy controls validate concrete paths without discharging that universal
+native obligation.
+
+For ordinary ticket locks, the early allocation RMW can import the view
+available when it executes. The general counterexample still holds after that
+import: a later owner's write/release is not supplied by a subsequent plain
+poll. This is a failure of the proposed universal import rule in the stated
+observation model, not evidence of an observed hardware misexecution. Closing
+that import needs the actual host ordering implementation and its refinement;
+reclassifying ticket uniqueness, a debug barrier or single-thread lock elision
+as acquire would not supply it.
+
+**** Qualification
+
+- Lean: the complete package builds with the pinned toolchain; all new theorem
+  dependencies are standard logical axioms, with no =sorry= or custom host axiom.
+- Quint: 90 directed tests pass, including six new controls for complete request
+  masks, zero truthiness, FLO typing, exact counters and overflow/retry order.
+  These controls do not enumerate native weak-memory executions.
+- Installed compiler: the existing single GSC process checks 4,093 cache events,
+  134 observations, 144 complete emitted blocks and one actual triggering
+  live-frame flush. All three receipts pass through the existing qualifier,
+  with exit zero in 0.7550 seconds under unchanged 30/5-second budgets.
+- GCC/GC/continuation and style controls: 23+6=29 cases pass with two workers,
+  normal exit zero in 14.7763 seconds under unchanged 90/5-second budgets.
+- Five source/evidence admission tests pass. The same compiler control remains
+  bound in both model input manifests. Both platform semantics CI jobs now
+  require the complete emission and triggering-path receipts as well as the
+  reservation receipt, within one compiler invocation.
+- Before this extension, PR head =332a181= completed CI successfully. Local
+  qualification above is distinct from the new revision's remote CI result.
+
+Complete GVM instruction emission, native collector refinement and ordinary
+contended acquire remain open in the ledger. No runtime optimization or CPU
+benefit is claimed, and model completion is not declared.
 
 *** Research and source reading boundary
 

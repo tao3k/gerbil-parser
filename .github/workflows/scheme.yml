@@ -203,12 +203,14 @@ jobs:
         run: bash tools/ci/prepared-products.sh restore "$RUNNER_TEMP/scheme-products/scheme-products.tar.gz"
       - name: Verify native process contracts
         run: just test-process-contracts
-      - name: Verify installed compiler reservation producers
+      - name: Verify installed compiler reservation and instruction producers
         run: |
           gerbil env gxi qualify.ss run --timeout 30 --idle-timeout 5 \
             --log .data/compiler-reservation-controls.log \
             --require '^COMPILER-RESERVATION-OK observations=134 events=4093 charge=6 native-words=2$' \
-            -- gsc -e '(load "t/fixtures/compiler-reservation.ss")'
+            --require '^COMPILER-EMISSION-OK cases=144$' \
+            --require '^COMPILER-TRIGGER-OK flush=1 instructions=4$' \
+            -- gsc -e '(with-exception-catcher (lambda (e) (display-exception e) (exit 70)) (lambda () (load "t/fixtures/compiler-reservation.ss")))'
       - name: Verify capture prefix field and tail parity
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \

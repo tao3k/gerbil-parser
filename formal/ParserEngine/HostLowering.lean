@@ -1338,6 +1338,264 @@ theorem triggering_dirty_reads (abi : Boxing.ABI) (before : CacheExecution.State
 
 end Reservation
 
+namespace CheckEmission
+/-- Scheme #f is distinct from numeric zero and from #t. The target's FLO
+suffix uses eqv?, not truthiness or equality after a numeric coercion. -/
+inductive Datum where | absent | flag | count (value : Nat)
+  deriving DecidableEq, Repr
+structure Request where
+  heap : Option Nat
+  floating : Datum
+  ssb : Option Nat
+  poll : Bool
+  combine : Bool
+  stack : Nat
+  deriving DecidableEq, Repr
+
+def active (request : Request) : Bool := request.heap.isSome || request.ssb.isSome || request.poll
+
+def floatingMatch (request : Request) : Bool :=
+  match request.heap, request.floating with
+  | some heap, .count floating => heap == floating
+  | _, _ => false
+
+def opcode (request : Request) : String :=
+  (if request.combine then "CHECK" else if request.poll then "POLL" else "CHECK") ++
+  (if request.heap.isSome then "_HEAP" else "") ++
+  (if floatingMatch request then "_FLO" else "") ++
+  (if request.ssb.isSome then "_SSB" else "") ++
+  (if request.poll && request.combine then "_POLL" else "")
+
+/-- ADJFP #f is still an entry in the target's code buffer. Return metadata
+construction is represented by its own event, rather than assumed absent. -/
+inductive Instruction where
+  | box (location stamp : Nat)
+  | adjust (delta : Option Int)
+  | check (name : String) (label : Nat) (heap ssb : Option Nat)
+  | internalReturn (label stack : Nat)
+  deriving DecidableEq, Repr
+structure State where
+  code : List Instruction
+  nextLabel : Nat
+  framePointer : Nat
+  heapReserved : Nat
+  floatingReserved : Nat
+  ssbReserved : Nat
+  readsHeap : Bool
+  writesHeap : Bool
+  readsFrame : Bool
+  writesFrame : Bool
+  deriving DecidableEq, Repr
+
+def block (fudge : Nat) (request : Request) (state : State) : List Instruction :=
+  [.adjust (if state.framePointer = request.stack then none else
+      some ((request.stack : Int) - (state.framePointer : Int))),
+   .check (opcode request) state.nextLabel (request.heap.map (fudge + ·)) request.ssb,
+   .internalReturn state.nextLabel request.stack]
+
+def emit (fudge : Nat) (request : Request) (state : State) : State :=
+  if active request then
+    { state with
+      code := state.code ++ block fudge request state
+      nextLabel := state.nextLabel + 1
+      framePointer := request.stack
+      heapReserved := if request.heap.isSome then 0 else state.heapReserved
+      floatingReserved := if request.heap.isSome then 0 else state.floatingReserved
+      ssbReserved := if request.ssb.isSome then 0 else state.ssbReserved
+      readsHeap := state.readsHeap || request.heap.isSome || request.ssb.isSome
+      writesHeap := state.writesHeap || request.heap.isSome || request.ssb.isSome
+      readsFrame := state.readsFrame || request.poll || decide (state.framePointer ≠ request.stack)
+      writesFrame := state.writesFrame || decide (state.framePointer ≠ request.stack) }
+  else state
+
+theorem disabled_identity (fudge : Nat) (request : Request) (state : State)
+    (disabled : active request = false) : emit fudge request state = state := by
+  simp [emit, disabled]
+
+theorem complete_block (fudge : Nat) (request : Request) (state : State)
+    (enabled : active request = true) :
+    (emit fudge request state).code = state.code ++ block fudge request state ∧
+    (emit fudge request state).nextLabel = state.nextLabel + 1 ∧
+    (emit fudge request state).framePointer = request.stack := by simp [emit, enabled]
+
+theorem zero_heap_is_active (floating : Datum) (ssb : Option Nat) (poll combine : Bool) (stack : Nat) :
+    active ⟨some 0, floating, ssb, poll, combine, stack⟩ = true := by simp [active]
+
+theorem boolean_floating_is_not_numeric (request : Request) :
+    floatingMatch {request with floating := .flag} = false := by
+  cases request.heap <;> simp [floatingMatch]
+
+/-- Each enabled block preserves all unrelated budgets. Heap and float budgets
+reset together; an SSB-only or poll-only block cannot reset them. -/
+theorem reset_exact (fudge : Nat) (request : Request) (state : State)
+    (enabled : active request = true) :
+    (emit fudge request state).heapReserved = (if request.heap.isSome then 0 else state.heapReserved) ∧
+    (emit fudge request state).floatingReserved = (if request.heap.isSome then 0 else state.floatingReserved) ∧
+    (emit fudge request state).ssbReserved = (if request.ssb.isSome then 0 else state.ssbReserved) := by
+  simp [emit, enabled]
+
+/-- Arbitrarily many target checks preserve the exact concatenated instruction
+sequence; every active request consumes exactly one label. -/
+def emitMany (fudge : Nat) : List Request → State → State
+  | [], state => state
+  | request :: rest, state => emitMany fudge rest (emit fudge request state)
+
+def activeCount (requests : List Request) : Nat :=
+  requests.foldr (fun request total => (if active request then 1 else 0) + total) 0
+
+theorem labels_exact (fudge : Nat) (requests : List Request) (state : State) :
+    (emitMany fudge requests state).nextLabel = state.nextLabel + activeCount requests := by
+  induction requests generalizing state with
+  | nil => simp [emitMany, activeCount]
+  | cons request rest ih =>
+    rw [emitMany, ih]
+    cases h : active request <;> simp [emit, h, activeCount, Nat.add_assoc, Nat.add_comm]
+
+theorem code_length_exact (fudge : Nat) (requests : List Request) (state : State) :
+    (emitMany fudge requests state).code.length = state.code.length + 3 * activeCount requests := by
+  induction requests generalizing state with
+  | nil => simp [emitMany, activeCount]
+  | cons request rest ih =>
+    rw [emitMany, ih]
+    cases h : active request <;> simp [emit, h, block, activeCount, Nat.mul_add,
+      Nat.add_assoc, Nat.add_comm]
+/-- Extract the actual early-return cache events, in live-frame traversal order.
+Repeated and absent locations cannot synthesize additional writeback events. -/
+def materializeLive : List Nat → List (Option Cache.Entry) → List (Option Cache.Entry) × List Cache.Entry
+  | [], rows => (rows, [])
+  | location :: rest, rows =>
+    let (updated, event) := Cache.flush location rows
+    let (finalRows, events) := materializeLive rest updated
+    (finalRows, event.toList ++ events)
+
+theorem materialize_corresponds (locations : List Nat) (rows : List (Option Cache.Entry)) :
+    (materializeLive locations rows).1 = (Reservation.flushMany locations rows).1 ∧
+    (materializeLive locations rows).2.length = (Reservation.flushMany locations rows).2 := by
+  induction locations generalizing rows with
+  | nil => simp [materializeLive, Reservation.flushMany]
+  | cons location rest ih =>
+    have following := ih (Cache.flush location rows).1
+    simp only [materializeLive, Reservation.flushMany]
+    constructor
+    · exact following.1
+    · cases event : (Cache.flush location rows).2 <;>
+        simp [Reservation.eventCount, following.2, Nat.add_comm]
+
+/-- All writebacks precede the generated check. The source uses a boolean for
+flo-space here, so it cannot equal a numeric heap argument under eqv?. -/
+def flushAndCheck (space stack fudge charge : Nat) (locations : List Nat)
+    (rows : List (Option Cache.Entry)) (state : State) : State :=
+  let events := (materializeLive locations rows).2
+  let flushed : State := {state with
+    code := state.code ++ events.map (fun entry => .box entry.location entry.stamp)
+    heapReserved := state.heapReserved + charge * events.length
+    floatingReserved := state.floatingReserved + charge * events.length}
+  let request : Request := ⟨some space,
+    if 0 < flushed.floatingReserved ∧ flushed.floatingReserved = flushed.heapReserved
+    then .flag else .absent, none, false, false, stack⟩
+  emit fudge request flushed
+
+theorem flush_and_check_complete (space stack fudge charge : Nat) (locations : List Nat)
+    (rows : List (Option Cache.Entry)) (state : State) :
+    let events := (materializeLive locations rows).2
+    let after := flushAndCheck space stack fudge charge locations rows state
+    after.code = state.code ++ events.map (fun entry => .box entry.location entry.stamp) ++
+      [.adjust (if state.framePointer = stack then none else some ((stack : Int) - (state.framePointer : Int))),
+       .check "CHECK_HEAP" state.nextLabel (some (fudge + space)) none,
+       .internalReturn state.nextLabel stack] ∧
+    after.heapReserved = 0 ∧ after.floatingReserved = 0 ∧
+    after.ssbReserved = state.ssbReserved ∧ after.nextLabel = state.nextLabel + 1 := by
+  dsimp [flushAndCheck]
+  split <;> simp [emit, active, block, opcode, floatingMatch]
+
+end CheckEmission
+
+namespace HeapCheck
+/-- Save/restore here denotes the C W_ALL/R_ALL pair, not a repeated GVM
+PUSH_REGS frame. One kernel check restores even when collection reports overflow.
+Only a returning exception handler admits the next attempt. These events model
+control order, not the implementation of collection or exception handling. -/
+inductive Event where
+  | save | limit | collect | restore | raiseOverflow | retry | resume
+  deriving DecidableEq, Repr
+structure Attempt where
+  hp : Nat
+  threshold : Nat
+  limitRequestsGC : Bool
+  collectionOverflows : Bool
+  deriving DecidableEq, Repr
+
+def attemptEvents (attempt : Attempt) : List Event :=
+  if attempt.hp > attempt.threshold then
+    [.save, .limit] ++ (if attempt.limitRequestsGC then [.collect] else []) ++ [.restore] ++
+      (if attempt.limitRequestsGC && attempt.collectionOverflows then [.raiseOverflow] else [.resume])
+  else [.resume]
+
+def overflows (attempt : Attempt) : Bool :=
+  decide (attempt.hp > attempt.threshold) && attempt.limitRequestsGC && attempt.collectionOverflows
+
+/-- Finite successful invocations may have arbitrarily many overflow attempts.
+A raising or diverging handler does not manufacture a successful completion. -/
+inductive Completes : List Attempt → Prop where
+  | done (attempt) (ok : overflows attempt = false) : Completes [attempt]
+  | retry (attempt) (overflow : overflows attempt = true) {rest} (returns : Completes rest) :
+      Completes (attempt :: rest)
+
+def invocationEvents : List Attempt → List Event
+  | [] => []
+  | attempt :: rest => attemptEvents attempt ++
+      (if overflows attempt then [.retry] ++ invocationEvents rest else [])
+
+def eventCount (event : Event) (events : List Event) : Nat := events.count event
+
+theorem attempt_terminal (attempt : Attempt) :
+    (overflows attempt = true → attemptEvents attempt =
+      [.save, .limit, .collect, .restore, .raiseOverflow]) ∧
+    (overflows attempt = false → eventCount .resume (attemptEvents attempt) = 1 ∧
+      eventCount .raiseOverflow (attemptEvents attempt) = 0) := by
+  rcases attempt with ⟨hp, threshold, requests, overflow⟩
+  unfold overflows attemptEvents
+  split <;> cases requests <;> cases overflow <;> simp_all [eventCount]
+
+theorem completion_counts {attempts : List Attempt} (completion : Completes attempts) :
+    eventCount .resume (invocationEvents attempts) = 1 ∧
+    eventCount .raiseOverflow (invocationEvents attempts) + 1 = attempts.length ∧
+    eventCount .retry (invocationEvents attempts) + 1 = attempts.length := by
+  induction completion with
+  | done attempt ok =>
+    have terminal := (attempt_terminal attempt).2 ok
+    simp [invocationEvents, ok, eventCount] at *
+    have noRetry : eventCount .retry (attemptEvents attempt) = 0 := by
+      rcases attempt with ⟨hp, threshold, requests, overflow⟩
+      unfold attemptEvents
+      split <;> cases requests <;> cases overflow <;> simp_all [eventCount]
+    exact ⟨terminal.1, terminal.2, by simpa [eventCount] using noRetry⟩
+  | retry attempt overflow returns ih =>
+    have terminal := (attempt_terminal attempt).1 overflow
+    simp [invocationEvents, overflow, terminal, eventCount] at *
+    omega
+
+/-- GC cycles compose with changed addresses and roots on every cycle. Atom
+payloads keep all 64 bits. The native relocation implementation is an explicit
+premise at each cycle, never inferred from a returning heap-limit call. -/
+inductive RootedCycles (bits : BitVec 64) : Operational.Heap.Store (BitVec 64) → Nat →
+    Operational.Heap.Store (BitVec 64) → Nat → Prop where
+  | refl (heap address) : RootedCycles bits heap address heap address
+  | next {before middle after original address} (earlier : RootedCycles bits before original middle address)
+      (roots : List Nat) (held : address ∈ roots)
+      (collection : Operational.Collection.Relocation middle after roots) :
+      RootedCycles bits before original after (collection.address address)
+
+theorem rooted_cycles_preserve {bits : BitVec 64} {before after : Operational.Heap.Store (BitVec 64)}
+    {original address : Nat} (cycles : RootedCycles bits before original after address)
+    (read : before[original]? = some (.atom bits)) : after[address]? = some (.atom bits) := by
+  induction cycles with
+  | refl => exact read
+  | next earlier roots held collection ih =>
+    simpa [Operational.Collection.renameCell] using
+      collection.copied _ (.atom bits) (Operational.Collection.Reachable.root held) (ih read)
+end HeapCheck
+
 namespace Contended
 /-- Separate payload-read satisfaction from the later ticket observation. This
 projection admits speculative stale payloads; it is not the full ARM model. -/
@@ -1397,5 +1655,42 @@ theorem ordinary_poll_not_universal (ticket epoch : Nat) (contended : 0 < ticket
     ∃ final : State, Trace ticket (initial ticket) final ∧ final.currentTicket = ticket ∧
       final.phase = .consumed ∧ final.result = some 0 ∧ ¬ final.published ≤ 0 := by
   exact ⟨staleResult ticket epoch, ordinary_poll_stale_history ticket epoch contended, rfl, rfl, rfl, by simp [staleResult]; omega⟩
+
+/-- The allocation RMW can import the release visible *at allocation time*.
+This is deliberately stronger than giving that RMW no synchronization effect;
+it still cannot import a later owner's release through a plain polling load. -/
+def allocationFence (state : Acquire.State) (worker : Nat) : Acquire.State :=
+  {state with views := fun other => if other = worker then
+    Acquire.join (state.views other) state.released else state.views other}
+
+def beforePublication (epoch : Nat) : Acquire.State :=
+  ⟨fun _ => epoch, fun _ => epoch, fun _ _ => epoch, some 0⟩
+
+def afterOrdinaryHandoff (epoch location : Nat) : Acquire.State :=
+  Acquire.plainEnter (Acquire.release
+    (Acquire.write (allocationFence (beforePublication epoch) 1) 0 location) 0) 1
+
+/-- Parametric counterexample with the source order allocation-fence, previous
+owner write, release, matching poll, payload read. Ticket uniqueness and a
+full-barrier allocation RMW are insufficient for the later handoff. -/
+theorem early_fence_does_not_import_later_release (epoch location : Nat) :
+    (afterOrdinaryHandoff epoch location).current location = epoch + 1 ∧
+    (afterOrdinaryHandoff epoch location).released location = epoch + 1 ∧
+    (afterOrdinaryHandoff epoch location).views 1 location = epoch ∧
+    ¬ Acquire.Safe (afterOrdinaryHandoff epoch location) := by
+  have current : (afterOrdinaryHandoff epoch location).current location = epoch + 1 := by
+    simp [afterOrdinaryHandoff, Acquire.plainEnter, Acquire.release, Acquire.write,
+      allocationFence, beforePublication, Acquire.put]
+  have released : (afterOrdinaryHandoff epoch location).released location = epoch + 1 := by
+    simp [afterOrdinaryHandoff, Acquire.plainEnter, Acquire.release, Acquire.write,
+      allocationFence, beforePublication, Acquire.put, Acquire.join]
+  have observed : (afterOrdinaryHandoff epoch location).views 1 location = epoch := by
+    simp [afterOrdinaryHandoff, Acquire.plainEnter, Acquire.release, Acquire.write,
+      allocationFence, beforePublication, Acquire.join]
+  refine ⟨current, released, observed, ?_⟩
+  intro safe
+  have sees := safe.2 1 rfl location
+  rw [current, observed] at sees
+  omega
 end Contended
 end ParserEngine.Host

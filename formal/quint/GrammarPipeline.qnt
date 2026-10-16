@@ -950,4 +950,73 @@ module GrammarPipeline {
     checked.safe and checked.state.hp == 6 and checked.state.memory == List(0,2,4) and dirtyFp(checked.state.rows) == 0
   })
 
+  // Negative numbers denote Scheme #f in these control inputs. Numeric zero
+  // remains a present request. floating == -2 denotes Scheme #t, not a number.
+  type CheckRequest = {heap:int,floating:int,ssb:int,poll:bool,combine:bool,stack:int}
+  pure def activeCheck(r:CheckRequest):bool = r.heap >= 0 or r.ssb >= 0 or r.poll
+  pure def checkOpcode(r:CheckRequest):List[str] =
+    List(if(r.combine) "CHECK" else if(r.poll) "POLL" else "CHECK")
+      .concat(if(r.heap >= 0) List("HEAP") else List())
+      .concat(if(r.heap >= 0 and r.heap == r.floating) List("FLO") else List())
+      .concat(if(r.ssb >= 0) List("SSB") else List())
+      .concat(if(r.combine and r.poll) List("POLL") else List())
+  type CheckBuffer = {code:List[List[str]],label:int,fp:int,heap:int,floating:int,ssb:int}
+  pure def emitCheck(r:CheckRequest,s:CheckBuffer):CheckBuffer =
+    if(not(activeCheck(r))) s else
+      {code:s.code.concat(List(List(if(s.fp == r.stack) "false-adjust" else "adjust"),checkOpcode(r),List("internal-return"))),
+       label:s.label + 1,fp:r.stack,heap:if(r.heap >= 0) 0 else s.heap,
+       floating:if(r.heap >= 0) 0 else s.floating,ssb:if(r.ssb >= 0) 0 else s.ssb}
+  pure val initialCheckBuffer:CheckBuffer = {code:List(),label:17,fp:1,heap:11,floating:6,ssb:3}
+  pure val disabledCheck:CheckRequest = {heap:-1,floating:-1,ssb:-1,poll:false,combine:false,stack:3}
+  run numericZeroRequestsStillEmitCompleteBlocksTest = init.expect({
+    val heap = emitCheck({...disabledCheck,heap:0},initialCheckBuffer)
+    val ssb = emitCheck({...disabledCheck,ssb:0},initialCheckBuffer)
+    heap.code == List(List("adjust"),List("CHECK","HEAP"),List("internal-return")) and
+      heap.heap == 0 and heap.floating == 0 and heap.ssb == 3 and
+      ssb.code == List(List("adjust"),List("CHECK","SSB"),List("internal-return")) and
+      ssb.heap == 11 and ssb.floating == 6 and ssb.ssb == 0
+  })
+  run disabledChecksPreserveAllCountersAndFrameTest = init.expect(
+    emitCheck(disabledCheck,initialCheckBuffer) == initialCheckBuffer)
+  run floatingBooleanMustNotAliasNumericHeapRequestTest = init.expect(
+    checkOpcode({...disabledCheck,heap:0,floating:-2}) == List("CHECK","HEAP") and
+      checkOpcode({...disabledCheck,heap:0,floating:0}) == List("CHECK","HEAP","FLO") and
+      checkOpcode({...disabledCheck,heap:7,floating:7}) == List("CHECK","HEAP","FLO"))
+  run allCheckMasksPreserveBudgetAndLabelProtocolTest = init.expect({
+    val requests = List(-1,0,7).foldl(List(),(outer,heap) =>
+      outer.concat(List(-1,-2,0,7).foldl(List(),(floats,floating) =>
+        floats.concat(List(-1,0,7).foldl(List(),(stores,ssb) =>
+          stores.concat(List(false,true).foldl(List(),(polls,poll) =>
+            polls.concat(List(false,true).foldl(List(),(combined,combine) =>
+              combined.concat(List(1,3).foldl(List(),(stacks,stack) =>
+                stacks.append({heap:heap,floating:floating,ssb:ssb,poll:poll,combine:combine,stack:stack}))))))))))))
+    val result = requests.foldl({state:initialCheckBuffer,activeBlocks:0,valid:true},(history,r) => {
+      val updated = emitCheck(r,history.state)
+      val activeBlocks = if(activeCheck(r)) 1 else 0
+      {state:updated,activeBlocks:history.activeBlocks + activeBlocks,valid:history.valid and
+        updated.code.length() == history.state.code.length() + activeBlocks * 3 and
+        updated.label == history.state.label + activeBlocks}
+    })
+    requests.length() == 288 and result.valid and result.state.label == 17 + result.activeBlocks and
+      result.state.code.length() == 3 * result.activeBlocks
+  })
+  pure def slowAttempt(hp:int,threshold:int,requestsGC:bool,overflow:bool):List[str] =
+    if(hp <= threshold) List("resume") else
+      List("save","limit").concat(if(requestsGC) List("collect") else List()).append("restore").append(
+        if(requestsGC and overflow) "raise" else "resume")
+  run gcSlowPathRestoresBeforeOverflowAndShortCircuitsReuseTest = init.expect(
+    slowAttempt(11,10,true,true) == List("save","limit","collect","restore","raise") and
+      slowAttempt(11,10,false,true) == List("save","limit","restore","resume") and
+      slowAttempt(10,10,true,true) == List("resume"))
+  run overflowAttemptsRequireReturningHandlerAndRecheckTest = init.expect({
+    val attempts = List(true,true,true,false)
+    val history = attempts.foldl({events:List(),done:false,count:0},(s,overflow) =>
+      if(s.done) s else {events:s.events.concat(slowAttempt(11,10,true,overflow)).concat(if(overflow) List("retry") else List()),
+        done:not(overflow),count:s.count + 1})
+    history.done and history.count == 4 and history.events.foldl(0,(count,event) => count + (if(event == "resume") 1 else 0)) == 1 and
+      history.events.foldl(0,(count,event) => count + (if(event == "raise") 1 else 0)) == 3 and
+      history.events.foldl(0,(count,event) => count + (if(event == "retry") 1 else 0)) == 3 and
+      not(slowAttempt(11,10,true,true).foldl(false,(seen,event) => seen or event == "resume"))
+  })
+
 }

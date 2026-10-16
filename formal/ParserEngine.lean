@@ -584,3 +584,20 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Host.Reservation.prepared_accounted_reads
 
 #print axioms ParserEngine.Host.Reservation.triggering_dirty_reads
+
+#print axioms ParserEngine.Host.CheckEmission.complete_block
+
+#print axioms ParserEngine.Host.CheckEmission.reset_exact
+
+#print axioms ParserEngine.Host.CheckEmission.labels_exact
+
+#print axioms ParserEngine.Host.CheckEmission.code_length_exact
+
+#print axioms ParserEngine.Host.HeapCheck.completion_counts
+
+#print axioms ParserEngine.Host.HeapCheck.rooted_cycles_preserve
+
+#print axioms ParserEngine.Host.Contended.early_fence_does_not_import_later_release
+
+#print axioms ParserEngine.Host.CheckEmission.materialize_corresponds
+#print axioms ParserEngine.Host.CheckEmission.flush_and_check_complete

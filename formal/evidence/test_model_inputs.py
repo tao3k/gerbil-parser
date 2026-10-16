@@ -51,6 +51,8 @@ class ModelInputControls(unittest.TestCase):
             self.assertIn("formal/quint/YieldMemo.qnt", quint.inputs)
             self.assertIn("formal/quint/CaptureContext.qnt", quint.inputs)
             for check in (lean, quint):
+                self.assertIn("build-language-conformance-link.ss", check.inputs)
+                self.assertIn("scripts/tests/conformance-runner-test.ss", check.inputs)
                 self.assertIn("docs/research/parser-engine-formal-model.org", check.inputs)
                 self.assertIn("src/ffi/language-handles.ss", check.inputs)
                 self.assertIn("src/runtime/lr-parser/checkpoint.ss", check.inputs)

@@ -28,14 +28,33 @@
   (delete-duplicates/hash paths from-end?: #t))
 (def (replace-extension path extension)
   (string-append (path-strip-extension path) extension))
+(def (test-object-source? source)
+  (let (name (path-strip-directory source))
+    (or (string-prefix? "gerbil-parser__t__" name)
+        (string-suffix? "__parser-test.scm" name))))
+(def (test-initialization-options source)
+  ;; GSC inserts these at real module evaluation boundaries. Cold native
+  ;; initialization must remain visible to the unchanged silence watchdog.
+  ;; No timer or repeated heartbeat is involved; ordinary library objects have
+  ;; no diagnostic prelude, and source identities are stable across relocation.
+  (if (and (test-object-source? source)
+           (string-suffix? "-test.scm" (path-strip-directory source)))
+    (let (name (path-strip-directory source))
+      (apply append
+        (map (lambda (entry)
+               (list (car entry)
+                 (object->string
+                   `(begin (display ,(cdr entry)) (display ,name)
+                           (newline) (force-output)))))
+             '(("-prelude" . "CONFORMANCE-MODULE-START ")
+               ("-postlude" . "CONFORMANCE-MODULE-READY ")))))
+    '()))
 (def (test-object-options source options)
   ;; Keep the SDK's optimizer and trusted tail-host contract. Split large test
   ;; modules into Gambit's per-procedure C hosts instead of one giant function;
   ;; -O0 would invalidate tail-call elimination on older GCC.
-  (let (name (path-strip-directory source))
-    (if (or (string-prefix? "gerbil-parser__t__" name)
-            (string-suffix? "__parser-test.scm" name))
-      (string-append options " -U___SINGLE_HOST -D___MULTIPLE_HOSTS") options)))
+  (if (test-object-source? source)
+    (string-append options " -U___SINGLE_HOST -D___MULTIPLE_HOSTS") options))
 (def (newer? source target)
   (or (not (file-exists? target))
       (> (time->seconds (file-info-last-modification-time (file-info source)))
@@ -135,13 +154,28 @@
              (ld-options (call-with-input-file (path-expand "libgerbil.ldd" library) read)))
         (run-static-jobs user-sources
           (lambda (source)
-            (let ((target (replace-extension source ".o"))
-                  (c-file (replace-extension source ".c")))
+            (let* ((target (replace-extension source ".o"))
+                   (c-file (replace-extension source ".c"))
+                  (initialization (if library? '() (test-initialization-options source)))
+                  (translation-file (string-append target ".translation.sexp"))
+                  (translation-stamp (and (or (pair? initialization)
+                                             (file-exists? translation-file))
+                                          translation-file))
+                  (translation-identity (list gsc initialization)))
               ;; One worker owns translation and its object; no global phase barrier.
-              (when (newer? source c-file)
+              (when (or (newer? source c-file)
+                        (and translation-stamp
+                          (or (not (file-exists? translation-stamp))
+                              (not (equal? translation-identity
+                                     (call-with-input-file translation-stamp read))))))
                 (displayln "STATIC-TRANSLATE " source) (force-output)
+                (when (and translation-stamp (file-exists? translation-stamp))
+                  (delete-file translation-stamp))
                 (run-compiler [gsc "-verbose" "-c" "-o" c-file
-                                    "-e" compiler-progress-expression source])
+                                    "-e" compiler-progress-expression initialization ... source])
+                (when translation-stamp
+                  (call-with-output-file translation-stamp
+                    (lambda (port) (write translation-identity port))))
                 (displayln "STATIC-TRANSLATED " source) (force-output))
 
               (let* ((options (test-object-options source cc-options))

@@ -253,3 +253,21 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Completion.mutable_enables_exact
 
 #print axioms ParserEngine.Completion.counter_trace_exact
+
+#print axioms ParserEngine.Names.produced_recipe_checked
+#print axioms ParserEngine.Names.sequence_recipe_produced
+#print axioms ParserEngine.Names.choice_recipe_produced
+#print axioms ParserEngine.Names.repeat_recipe_produced
+#print axioms ParserEngine.Names.repeat1_recipe_produced
+#print axioms ParserEngine.Names.admitted_native_sound
+#print axioms ParserEngine.Viable.dense_coordinate_roundtrip
+#print axioms ParserEngine.Viable.dense_goto_refines_advance
+#print axioms ParserEngine.Viable.closure_trace_exact
+#print axioms ParserEngine.Names.admitted_native_root_sound
+#print axioms ParserEngine.Viable.goto_kernel_exact
+#print axioms ParserEngine.Viable.construction_traces_supported
+#print axioms ParserEngine.Names.operand_recipe_produced
+#print axioms ParserEngine.Names.native_sequence_recipe_produced
+#print axioms ParserEngine.Viable.lr1_trace_exact
+#print axioms ParserEngine.Viable.lr1_goto_kernel_exact
+#print axioms ParserEngine.Viable.lr1_construction_traces_supported

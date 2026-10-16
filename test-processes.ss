@@ -16,7 +16,8 @@
            (process-case (car row)
              ["gxi" "scripts/tests/conformance-runner-test.ss" (car row)]
              (cadr row) (caddr row) 10 5))
-         '(("success" 0 "CONFORMANCE-CONTROL-OK success")
+         '(("initialization" 0 "CONFORMANCE-CONTROL-OK initialization")
+           ("success" 0 "CONFORMANCE-CONTROL-OK success")
            ("duplicate" 70 "duplicate conformance Suite")
            ("failure" 1 "negative control")
            ("timeout" 70 "CONFORMANCE-GROUP-TIMEOUT timeout"))))

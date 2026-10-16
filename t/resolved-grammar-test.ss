@@ -484,6 +484,43 @@
     (check (source-at '(sequence (literal "a") (literal "b")) '(1)) => '(literal "b"))
     (check (equal? '(literal "a") (source-at '(sequence (literal "a") (literal "b")) '(1))) => #f)))
 
+(def (lowering-proof-publication-case)
+  (let* ((rules '((start (choice (repeat (literal "a"))
+                                (sequence (optional (token word)) (reference missing))))))
+         (bindings '()) (published '()) (events '())
+         (productions
+          (lower-rules rules 'start #f #f
+            (lambda (kind value proof)
+              (set! events (cons kind events))
+              (case kind
+                ((binding)
+                 (check (memq value bindings) => #f)
+                 (set! bindings (cons value bindings)))
+                ((production)
+                 (check (pair? proof) => #t)
+                 ;; A helper's physical identity must be published before any
+                 ;; rule that mentions it. Authored and missing names are separate.
+                 (for-each (lambda (operand)
+                   (let (symbol (base-symbol operand))
+                     (when (nonterminal-symbol? symbol)
+                       (let (name (nonterminal-name symbol))
+                         (unless (memq name '(start missing))
+                           (check (and (memq name bindings) #t) => #t))))))
+                   (production-rhs value))
+                 (set! published (cons value published))))))))
+    (check productions => (lower-rules rules 'start))
+    (check (map production-id (reverse published)) => (cdr (iota (length productions))))
+    (check (every eq? (reverse published) (cdr productions)) => #t)
+    (check (car (reverse events)) => 'binding))
+  ;; A failed proof sink propagates its original condition; it cannot publish
+  ;; a successful truncated replay receipt.
+  (let (failure (list 'proof-sink-failure))
+    (check (with-catch (lambda (condition) (eq? condition failure))
+             (lambda ()
+               (lower-rules '((start (empty))) 'start #f #f
+                 (lambda (_kind _value _proof) (raise failure)))
+               #f)) => #t)))
+
 (def (internal-name-isolation-case)
   ;; Both augmented and lowered helper names must avoid authored declarations.
   (for-each
@@ -563,6 +600,39 @@
            (check (core-item-production-id item layout) => (car coordinate))
            (check (core-item-dot item layout) => (cadr coordinate)))
          coordinates (iota 9))))))
+
+(def (dense-layout-refinement-case)
+  (for-each
+   (lambda (widths)
+     (let* ((rules (map (lambda (width id)
+                         (list (string->symbol (string-append "rule-" (number->string id)))
+                               (cons 'sequence (make-list width '(token word)))))
+                       widths (iota (length widths))))
+            (productions (lower-rules rules 'rule-0))
+            (table (production-table productions))
+            ;; Ordered flattening is intentional: the SDK append-map utility
+            ;; reverses each returned segment and is unsuitable for coordinates.
+            (coordinates (apply append (map (lambda (production)
+                           (map (lambda (dot) (list (production-id production) dot))
+                                (iota (+ 1 (length (production-rhs production)))))) productions))))
+       (let-values (((terminals _index) (production-terminal-catalog productions)))
+         (let* ((layout (make-item-layout table terminals))
+                (symbols (make-core-symbol-catalog table layout)))
+           (check (core-item-count layout) => (length coordinates))
+           (for-each
+            (lambda (coordinate code)
+              (let* ((id (car coordinate)) (dot (cadr coordinate))
+                     (rhs (production-rhs (vector-ref table id))))
+                (check (make-core-item id dot layout) => code)
+                (check (list (core-item-production-id code layout) (core-item-dot code layout)) => coordinate)
+                (check (vector-ref symbols code)
+                  => (and (< dot (length rhs)) (base-symbol (list-ref rhs dot))))
+                (when (< dot (length rhs))
+                  ;; The logical goto theorem uses this exact after-dot guard.
+                  (check (list (core-item-production-id (+ code 1) layout)
+                               (core-item-dot (+ code 1) layout)) => (list id (+ dot 1))))))
+            coordinates (iota (length coordinates)))))))
+   '((0) (0 0 0) (1 0 7 2 0) (64 1 0 3) (1 128 1 0))))
 
 (def (skew-item-space-case)
   (let* ((productions (lower-rules (skew-width-rules 128 64) 'source-file))
@@ -1196,6 +1266,10 @@
 
 (def resolved-grammar-test
   (test-suite "resolved grammar admission and CFG alternatives"
+    (test-case-add! (TestCase "native dense item layout refines ordered grammar coordinates and goto"
+                      dense-layout-refinement-case))
+    (test-case-add! (TestCase "lowering proof replay publishes bindings and preserves native identity"
+                      lowering-proof-publication-case))
     (test-case-add! (TestCase "physical names, emission ordinals and source occurrences agree"
                       emission-origin-alignment-case))
     (test-case-add! (TestCase "grammar derivation chart, scanner and LR tables compose on the shared model fixture"

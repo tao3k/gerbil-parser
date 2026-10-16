@@ -1142,3 +1142,110 @@ preparation amortization including per-request validation. Quint's
 =ReuseAdmission= checks source/grammar/plan invalidation, cancelled/failed
 completion and superseded ownership with independent mutation witnesses.
 Neither qualifies cross-edit subtree reuse or a runtime speedup.
+
+* Lowering proof production and operational LR construction
+
+The terminal-language projection follows the CFG obligations in the research
+basis and the LR construction/viable-prefix boundary above. It is not a PEG
+ordered-choice law. The actual =lower-rules= engine now has an optional proof
+sink after the existing origin observer. It publishes each helper's physical
+name and source expression before its productions, and attaches a recursive
+schema recipe to the actual emitted production object. The augmentation row is
+separate. Ordinary compilation does not request or allocate recipe trees.
+
+The producer covers atomic operands, empty/layout-end rules, n-ary sequences,
+n-ary choice inlining, optional branches, isolated repeat/repeat1 loops,
+shared-owner forwarding through private helpers, and field/alias/precedence
+projection. The recognition projection erases field, alias and precedence
+annotations and maps layout-end to epsilon. This does not establish AST,
+indentation, priority, conflict-resolution or dynamic-GLR effect preservation.
+
+=Names.Produced= describes syntactic generation, and =produced_recipe_checked=
+proves that arbitrary-depth generated recipes check successfully with their
+exact endpoints. =sequence_recipe_produced= and =choice_recipe_produced= cover
+arbitrary arity, including the empty-sequence base and absent empty-choice
+branch. The two repetition constructors require a justified recurrence recipe;
+a named recurrence uses =UniqueBody=, while a private helper uses identity.
+A sibling alternative cannot supply that unique-body witness. The atomic
+operand producer and =native_sequence_recipe_produced= require no supplied
+per-operand proof. =admitNative=
+consumes both lists completely and rejects missing or excess recipes.
+=admitted_native_root_sound= composes an admitted complete publication with
+source evaluation for arbitrary finite words and recursive grammars.
+
+The native fixture writer emits source rules, helper decoding, actual native
+rules and their generated recipes into =NativeFacts.lean=. Seventeen grammar
+families exercise every supported lowering branch, undefined references,
+duplicate authored names, reserved helper-looking names, dynamic precedence,
+empty choice and nested choices. Lean checks each publication and proves its
+source-language implication for all finite words. Native tests compare the
+complete generated module, preserve production object identity and order,
+check binding-before-use, and require proof-sink failures to propagate. These
+are implementation controls, not universal proof of Scheme evaluation.
+Negative Lean controls reject a wrong helper binding, changed endpoint,
+ambiguous named fold, invalid local schema step and truncated publication.
+
+The LR boundary now includes the actual =make-item-layout= recurrence:
+=denseOffset= models prefix offsets, and =denseCoordinates= models the ordered
+owner-vector fill. =dense_coordinate_roundtrip= covers arbitrary production
+counts and RHS widths, including epsilon productions. =decode_core_roundtrip=
+connects those coordinates to the ordered grammar table.
+=dense_goto_refines_advance= proves that the native integer increment is a
+logical shift precisely when the actual after-dot symbol exists. Native
+controls enumerate independent coordinates and symbol catalogs over uneven
+width families and check that completed items do not become shift premises.
+
+=ClosureTrace= starts at the kernel and publishes only predictions justified
+by an already published item. Its supported/retained-kernel invariants and
+=closure_trace_exact= derive least closure from operational history plus
+quiescence, rather than assume equality with the desired result.
+=goto_kernel_exact= connects executable filtering/increment to =moved=.
+=construction_traces_supported= then derives the graph obligations consumed
+by the existing viable-prefix proofs from initial/target construction traces.
+It permits arbitrary state identifiers and construction order. =LR1Trace= and
+=lr1_trace_exact= retain the full =Predicts= suffix-FIRST/nullable/inherited
+lookahead relation. =lr1_construction_traces_supported= composes the executable
+LR(1) goto-kernel operation and those histories through core erasure with the
+same viable-prefix graph theorem; no global FOLLOW approximation is assumed.
+
+The remaining correspondence obligations are explicit: connect every physical
+native edge and optimized prediction-template batch to those operational
+histories; prove state interning, follow partition refinement and conflict/table
+publication; and connect source normalization and fresh-name allocation to the
+recipe producer for arbitrary host executions. Existing name/ordinal/counter
+proofs and checked publications supply components, not that entire composition.
+The unchanged Quint =GrammarPipeline= owns publication/request ordering and the
+shared-loop mutation witness; Lean owns the unbounded derivational results.
+No performance change or CPU improvement is claimed by this work.
+
+
+** Qualification observations
+
+The changed engine and native fixture were rebuilt with GCC. Source-client
+qualification against those native dependencies passed 53 resolved-grammar
+cases in 5.48 seconds; the separate canonical LR owner passed 22 cases and the
+style owner passed six. Lean built all 67 targets, including the seventeen
+native publication implications and the new general producer/LR histories.
+The unchanged Quint pipeline passed eleven directed lifecycle/mutation tests.
+These checks qualify the stated boundaries; they do not close physical native
+state construction or establish a CPU improvement.
+
+The earlier native preparation silence timeout and the incorrect coordinate
+oracle remain failed observations. The oracle used the SDK =append-map=,
+which reverses each returned segment. Its replacement uses explicitly ordered
+=append= and =map=. A later optional compilation of the corrected test owner
+also hit the unchanged silence gate during GCC assembly; the successful
+source-client receipt is not presented as that compilation succeeding.
+
+The previous PR head's Ubuntu jobs passed. Its macOS semantic job hit the
+five-second silence gate before initial case output reached the supervisor.
+The exact uploaded binary subsequently passed the ranked-request group on the
+development host in 2.31 seconds, including checked record rejection; this does
+not reproduce or erase the cold-run failure. Native conformance test modules
+now emit real initialization start/completion boundaries through GSC's
+=-prelude=/=-postlude= options. Ordinary runtime objects and fixture helpers do
+not receive those expressions. Translation reuse includes the exact options
+and publishes its identity only after successful translation. The five
+conformance controls and a real native GSC probe verify those boundaries;
+there is no timer heartbeat or deadline increase. A new remote run remains
+required before calling the macOS red item repaired.

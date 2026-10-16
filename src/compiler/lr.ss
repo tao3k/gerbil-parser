@@ -266,17 +266,18 @@
 ;;       ;; => augmented production zero followed by ordered lowered productions
 ;;       ```
 ;;     %
-(def (lower-rules rules root (allow-dynamic? #f) (observe-origin #f))
+(def (lower-rules rules root (allow-dynamic? #f) (observe-origin #f) (observe-proof #f))
   (let ((next-id 1)
         (next-synthetic 0)
         (used-names (make-table test: eq?))
         (rule-counts (make-table test: eq?))
         (productions '()))
-    (def (emit-production lhs rhs action precedence owner path expression)
+    (def (emit-production lhs rhs action precedence owner path expression proof)
       (let (production
             (make-production next-id lhs rhs action precedence))
         (when observe-origin
           (observe-origin production owner (reverse path) expression))
+        (when observe-proof (observe-proof 'production production proof))
         (set! next-id (+ next-id 1))
         (set! productions (cons production productions))))
     ;; Internal names share the grammar namespace. Reserve authored rules and
@@ -313,6 +314,30 @@
             (cons (procedure (car rest) (child-path path index))
                   (loop (cdr rest) (+ index 1)))))
         (map (lambda (child) (procedure child #f)) children)))
+    ;; Proof replay uses the same production objects as normal lowering. Recipes
+    ;; erase AST/layout/precedence effects and certify terminal language only.
+    ;; The optional sink receives helper bindings before their emitted rules.
+    (def (identity symbols) (list 'identity symbols))
+    (def (body expression) (list 'expression expression))
+    (def (step expression children)
+      (list 'expand (body expression) children (identity '())))
+    (def (operand-proof expression)
+      (case (car expression)
+        ((field alias) (operand-proof (caddr expression)))
+        ((precedence) (identity (list (body expression))))
+        ((literal layout-start layout-next token)
+         (step expression (identity (list (list 'terminal (car expression) (cadr expression))))))
+        ((reference)
+         (step expression (identity (list (list 'named (cadr expression))))))
+        (else (identity (list (body expression))))))
+    (def (sequence-proof children)
+      (if (null? children) (step '(sequence) (identity '()))
+        (step (cons 'sequence children)
+              (list 'append (operand-proof (car children)) (sequence-proof (cdr children))))))
+    (def (choice-proof children index proof)
+      (step (cons 'choice children)
+            (if (zero? index) proof
+              (choice-proof (cdr children) (- index 1) proof))))
     (def (lower-symbol owner expression precedence path)
       (case (car expression)
         ((literal layout-start layout-next)
@@ -321,7 +346,10 @@
         ((reference) (list 'nonterminal (cadr expression)))
         (else
          (let (name (fresh owner))
-           (lower-to name owner expression precedence path)
+           (when observe-proof (observe-proof 'binding name expression))
+           (lower-to name owner expression precedence path #t
+                     (and observe-proof (lambda (proof) proof))
+                     (and observe-proof (identity (list (body expression)))))
            (list 'nonterminal name)))))
     (def (lower-operand owner expression precedence path)
       (case (car expression)
@@ -334,9 +362,11 @@
           (lower-operand owner (caddr expression) precedence (child-path path 0))
           (list 'alias (cadr expression))))
         (else (lower-symbol owner expression precedence path))))
-    (def (lower-to lhs owner expression precedence path (isolated? #t))
-      (def (emit lhs rhs action precedence)
-        (emit-production lhs rhs action precedence owner path expression))
+    (def (lower-to lhs owner expression precedence path (isolated? #t)
+                   (context #f) (recurrence #f))
+      (def (emit lhs rhs action precedence proof)
+        (emit-production lhs rhs action precedence owner path expression
+                         (and observe-proof (context proof))))
       (case (car expression)
         ((precedence)
          (let ((direction (cadr expression))
@@ -345,57 +375,68 @@
              (error "dynamic precedence requires selective GLR admission"
                     owner rank))
            (lower-to lhs owner (cadddr expression)
-                     (list direction rank) (child-path path 0) isolated?)))
+                     (list direction rank) (child-path path 0) isolated? context recurrence)))
         ((choice)
-         (if observe-origin
+         (if (or observe-origin observe-proof)
            (let loop ((children (cdr expression)) (index 0))
              (unless (null? children)
-               (lower-to lhs owner (car children) precedence (child-path path index) #f)
+               (lower-to lhs owner (car children) precedence (child-path path index) #f
+                         (and observe-proof
+                           (lambda (proof) (context (choice-proof (cdr expression) index proof))))
+                         #f)
                (loop (cdr children) (+ index 1))))
            (for-each (lambda (child) (lower-to lhs owner child precedence #f #f))
                      (cdr expression))))
-        ((empty) (emit lhs '() 'concat precedence))
+        ((empty) (emit lhs '() 'concat precedence
+                       (and observe-proof (step expression (identity '())))))
         ((layout-end)
          (emit lhs '() (if (null? (cdr expression)) 'layout-end expression)
-               precedence))
+               precedence (and observe-proof (step expression (identity '())))))
         ((sequence)
          (emit lhs
                (map-children (lambda (child path)
                                (lower-operand owner child precedence path))
                              (cdr expression) path)
-               'concat precedence))
+               'concat precedence (and observe-proof (sequence-proof (cdr expression)))))
         ((optional)
-         (emit lhs '() 'concat precedence)
+         (emit lhs '() 'concat precedence (and observe-proof (step expression (identity '()))))
          (emit lhs
                (list (lower-operand owner (cadr expression) precedence (child-path path 0)))
-               'pass precedence))
+               'pass precedence (and observe-proof (step expression (operand-proof (cadr expression))))))
         ((repeat repeat1)
          ;; A recursive left side must belong to this repetition alone. Choice
          ;; alternatives and repeated authored declarations share their left
          ;; side, so lower the loop through its own fresh helper in that case.
          (if (not isolated?)
            (emit lhs (list (lower-operand owner expression precedence path))
-                 'pass precedence)
+                 'pass precedence (and observe-proof (identity (list (body expression)))))
            (begin
              (when (eq? (car expression) 'repeat)
-               (emit lhs '() 'concat precedence))
+               (emit lhs '() 'concat precedence (and observe-proof (step expression (identity '())))))
              (let (child (lower-operand owner (cadr expression) precedence (child-path path 0)))
                (unless (eq? (car expression) 'repeat)
-                 (emit lhs (list child) 'pass precedence))
-               (emit lhs (list (list 'nonterminal lhs) child) 'concat precedence)))))
+                 (emit lhs (list child) 'pass precedence
+                       (and observe-proof (step expression (operand-proof (cadr expression))))))
+               (emit lhs (list (list 'nonterminal lhs) child) 'concat precedence
+                     (and observe-proof
+                       (step expression (list 'append recurrence (operand-proof (cadr expression))))))))))
         ((field)
          (emit lhs (list (lower-operand owner expression precedence path))
-               'pass precedence))
+               'pass precedence (and observe-proof (operand-proof expression))))
         ((alias)
          (emit lhs (list (lower-operand owner expression precedence path))
-               'pass precedence))
+               'pass precedence (and observe-proof (operand-proof expression))))
         ((literal layout-start layout-next token reference)
          (emit lhs (list (lower-symbol owner expression precedence path))
-               'pass precedence))
+               'pass precedence (and observe-proof (operand-proof expression))))
         (else (error "unsupported GrammarExpr in LR lowering" owner expression))))
     (for-each
      (lambda (row) (lower-to (car row) (car row) (cadr row) #f '()
-                             (= (table-ref rule-counts (car row)) 1)))
+                             (= (table-ref rule-counts (car row)) 1)
+                             (and observe-proof
+                               (lambda (proof)
+                                 (list 'expand (list 'named (car row)) proof (identity '()))))
+                             (and observe-proof (list 'fold-named (car row) (cadr row)))))
      rules)
     (cons (make-production 0 (or (claim-name '$accept) (fresh 'accept))
                            (list (list 'nonterminal root)) 'pass #f)

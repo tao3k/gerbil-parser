@@ -15,6 +15,7 @@
                  make-contextual-method make-contextual-role make-contextual-scan-rule)
         (only-in :gerbil-parser/src/compiler/contextual-parser-ir compile-contextual-parser)
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
+        (only-in :gerbil-parser/src/compiler/lr lr-spec-ref production-rhs)
         (only-in :gerbil-parser/src/runtime/lr-parser
                  lr-prepare lr-parse/prepared lr-parse/prepared/receipt
                  current-lr-event-program-enabled? lr-runtime-for-current-semantic-backend
@@ -26,7 +27,7 @@
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in :gerbil-parser/src/runtime/layout
                  make-layout-columns current-layout-columns current-layout-frames
-                 layout-after-end layout-current-action-row))
+                 layout-after-end layout-current-action-row prepare-layout-action-selector))
 (export layout-boundary-test)
 
 (begin
@@ -61,8 +62,66 @@
    (list (make-contextual-scan-rule 'word 'normal 'word '(identifier) 0 'keep))
    'normal '((body () ()))))
 
+(def (native-layout-fallback-origin-case)
+  ;; Precedence selects the recursive shift, but indentation may need one or
+  ;; both suppressed empty-body reductions in their original emission order.
+  (for-each
+   (lambda (additional)
+     (let ((rules `((root (alias Root (sequence (reference block) (token word))))
+                    (block (sequence (layout-start "|>") (reference body) (layout-end)))
+                    (body (choice (precedence right 1 (sequence (token word) (reference body)))
+                                  (precedence left 0 (empty)) ,@additional)))))
+       (for-each
+        (lambda (route)
+          (let* ((spec (compile-lr-spec rules 'root 'selective-glr #f route))
+                 (rows (lr-spec-ref spec 'actions))
+                 (indexed (list->vector (map index-action-row (vector->list rows))))
+                 (select (prepare-layout-action-selector rows indexed #f))
+                 (productions (lr-spec-ref spec 'productions)) (guards 0)
+                 (saved (map (lambda (row) (map (lambda (cell) (cons (car cell) (cdr cell))) row))
+                             (vector->list rows))))
+            (for-each
+             (lambda (state)
+               (for-each
+                (lambda (cell)
+                  (when (and (equal? (car cell) '(terminal token word)) (eq? (cadr cell) 'layout-guard))
+                    (set! guards (+ guards 1))
+                    (let* ((primary (caddr cell)) (fallback (cadddr cell))
+                           (reductions (if (eq? (car fallback) 'fork) (cdr fallback) (list fallback)))
+                           (token (make-token 'word "x" 0 1)))
+                      (check (car primary) => 'shift)
+                      (check (length reductions) => (+ 1 (length additional)))
+                      (for-each (lambda (reduction)
+                        (check (car reduction) => 'reduce)
+                        (check (> (cadr reduction) 0) => #t)
+                        (check (production-rhs (list-ref productions (cadr reduction))) => '())) reductions)
+                      (when (pair? (cdr reductions))
+                        (check (< (cadr (car reductions)) (cadr (cadr reductions))) => #t))
+                      (parameterize ((current-layout-columns (make-layout-columns "x")))
+                        (for-each
+                         (lambda (frames expected)
+                           (parameterize ((current-layout-frames frames))
+                             (check (cdr (layout-current-action-row (vector-ref indexed state) token #f)) => expected)
+                             (check (cdr (select state token)) => expected)))
+                         '(() ((100 . "outer")) ()) (list primary fallback primary))))))
+                (vector-ref rows state)))
+             (iota (vector-length rows)))
+            (check (> guards 0) => #t)
+            ;; A blocked body shift must close layout and leave x to the root.
+            (parameterize ((current-layout-columns (make-layout-columns "|>\nx"))
+                           (current-layout-frames '()))
+              (let-values (((_root rest)
+                            (lr-parse/prepared (lr-prepare spec)
+                              (list (make-token 'punctuation "|>" 0 2) (make-token 'word "x" 3 4)))))
+                (check rest => '())))
+            (check (vector->list rows) => saved)))
+        '(lalr canonical-lr1 partitioned-lr1 follow-partition-lr1))))
+   '(() ((precedence left -1 (empty))))))
+
 (def layout-boundary-test
   (test-suite "Grammar-owned layout closing boundaries"
+    (test-case "native layout fallback retains suppressed reduce origins and immutable rows"
+      (native-layout-fallback-origin-case))
     (test-case "layout continuations are rejected before contextual preparation"
       (let* ((machine closing-boundary-probe-parser)
              (runtime (parser-machine-runtime machine))

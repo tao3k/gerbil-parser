@@ -1425,3 +1425,117 @@ including physical-identity, renumbering, delivery and scratch-isolation
 controls. Lean kernel-checks the general theorems; the evidence collector's
 five host/source-identity controls also pass. These observations qualify the
 stated model and native controls, not whole-engine formal closure or CPU gain.
+
+* Finite storage, retained layout fallback and lookahead transport
+
+** Model composition and actual storage operations
+
+[[file:../../formal/ParserEngine/Construction.lean][Construction.lean]] now refines the earlier function-valued scratch model with
+finite =Array= storage. =vector_write_refines= proves a bounded write has the
+same read behavior as the logical update; its bound is explicit. In particular,
+reading an out-of-range slot as an empty default cannot justify an invalid
+write. =vector_clear_refines= proves arbitrary touched-key clearing, including
+duplicates, and =vector_clear_covered= derives empty storage from coverage.
+This law is polymorphic: action slots use an absent value, raw reductions use
+an empty list, and shift targets use absence. Native state/terminal zero
+remains a valid present identity.
+
+=vector_event_projection= proves, for every bounded event sequence, that the
+finite producer projects to =buildEventScratch=. =vector_event_publication=
+then derives action origins from copied-list reads and empty vector storage
+for the next state. No completed trace or coverage certificate is supplied.
+The finite model represents array reads/writes and immutable row values; it
+does not mechanize the Scheme heap, Gambit allocation or the C backend.
+Native correspondence still requires the producer's bounds, catalog ordering
+and copy discipline. The actual =build-actions= allocates each row with
+=map/cons= before clearing its three reusable vectors.
+
+** Layout fallback is a separate origin channel
+
+Ordinary precedence resolution can select a shift and suppress a reduction.
+[[file:../../src/compiler/lr-compiler.ss][build-actions]] retains every raw reduction for that terminal when layout is
+enabled. A selected shift and a nonempty raw list publish a =layout-guard=.
+[[file:../../src/runtime/layout.ss][layout-ordinary-entry]] chooses its primary shift when indentation permits it,
+and the retained reduction or reduction fork otherwise. An ordinary fork is
+filtered to exclude shifts when shifting is blocked.
+
+=publishLayout= and =selectLayout= express these actual branches.
+=raw_reductions_origin= derives fallback provenance from raw reduce events;
+it does not assume that fallback survived ordinary precedence resolution.
+=layout_replay_supported= composes event admission, concrete policy replay
+and either layout outcome into semantic cell support. =cellEvents= restores
+chronological order from the newest-first catalog before fallback publication;
+=cell_events_origin= retains terminal ownership. =vector_layout_publication= combines finite storage,
+resolved primary actions, same-cell raw fallbacks and scratch clearing in one
+arbitrary-event-sequence contract. Substituting =CellSupported= for its origin
+predicate connects the result to the existing table/request boundary.
+
+This origin theorem holds for both eligibility outcomes. It does not prove
+that native source columns, marker priority, frame push/pop or branch-local
+restoration compute the correct eligibility outcome, nor that precedence and
+layout preserve every canonical derivation. Those are separate language and
+request-context obligations.
+
+** Lookahead: activation, shift and quotient positions
+
+The LR paper's =FIRST(beta, inherited)= premise is retained by
+[[file:../../src/compiler/lr-lookahead.ss][propagate-lalr-lookaheads]]. Static suffix FIRST is emitted at first activation;
+a nullable suffix additionally forwards new inherited bits on every activation.
+=suffix_evidence_exact= proves the per-activation law, and
+=suffix_delivery_exact= proves its union for arbitrary finite delta histories.
+An empty history emits nothing. A nonnullable suffix never forwards an
+inherited EOF merely because its parent has one. =suffix_evidence_allowed=
+connects the masks to =Grammar.LookaheadAllowed= under explicit completed
+FIRST/nullable and terminal-decoding premises. =suffix_prediction_supported=
+then composes it with the real parent item, child production/lhs and zero dot
+into =LR1Closure=. =shifted_lookahead_retained= covers the distinct shift edge,
+which advances the dot without changing production or lookahead.
+
+[[file:../../src/compiler/lr-partition.ss][materialize-partition]] unions member masks at the same item position after
+choosing a group's representative core row. =union_masks_exact= proves the
+actual accumulator recurrence bit-for-bit for arbitrary masks and member
+counts. =quotient_lookahead_origin= additionally retains core-order alignment
+and CSR-style offsets: every merged bit has a canonical member with that same
+physical core at that position. Equal lengths or equal unordered core sets
+are insufficient. The alignment premise is therefore explicit, alongside the
+separate refinement/interner contracts; it is not inferred from a source hash.
+
+These results discharge transfer safety and exact finite union, not native
+fixed-point termination or a complete quotient/canonical language-equivalence
+proof. The existing worklist/quiescence theorems remain distinct owners of
+least-fixed-point completion. Canonical closure's full-mask queue and the
+forward/backward follow-partition graph producers still require their own
+whole-execution refinements.
+
+** Implementation controls and evidence
+
+The actual canonical/quotient builders are compared by recovering their state
+map from paired reachable transitions, independently of internal group IDs.
+The control checks physical core order, terminal catalogs, every merged mask
+against the exact canonical-member union, and the final offset. It covers a
+shared-lookahead grammar, the LR(1)-not-LALR fixture and a multi-context family.
+The independent symbolic closure oracle now also checks partitioned LR(1),
+alongside LALR, canonical LR(1) and follow-partition LR(1).
+
+The layout control compiles grammars with a higher-ranked recursive shift
+and either one or two lower-ranked empty-body reductions on all four LR
+routes. It finds the actual guards, checks nonzero physical fallback IDs and
+empty RHSs, checks reduction-fork emission order, compares ordinary and
+prepared selectors under allowed/blocked/allowed indentation, and verifies
+retained action rows remain unchanged. Complete requests block the body shift,
+close layout and consume the word in the root. The first complete-request
+draft reached the accept action but its concatenated semantic result had
+multiple children; the fixture now declares the intended single Root node.
+Initial malformed-binding and semantic-root transcripts are retained
+separately from successful qualification; no engine behavior was altered.
+
+Four native-engine/source-client owners run concurrently under the unchanged
+90-second total and five-second idle limits. The final ordered-fallback run passes all 97 cases in 24.0 seconds:
+canonical reference 25, resolved grammar 54, layout boundary 12, style contract
+6. GrammarPipeline passes 21 directed tests, including missing-clear,
+misaligned-core, repeated-activation and lost-raw-fallback witnesses. Lean
+kernel-checks the general contracts without =sorry= or additional axioms.
+The evidence collector binds the layout source and its test owner, and checks
+that changing that owner invalidates a prior snapshot. These are model/native
+correspondence controls, not CPU measurements or a claim of whole-engine
+formal closure. No runtime performance change is included.

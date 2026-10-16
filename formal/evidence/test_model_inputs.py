@@ -33,6 +33,8 @@ class ModelInputControls(unittest.TestCase):
             self.assertIn("formal/quint/Completion.qnt", quint.inputs)
             self.assertIn("formal/ParserEngine/Viable.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Construction.lean", lean.inputs)
+            self.assertIn("t/layout-boundary-test.ss", lean.inputs)
+            self.assertIn("t/layout-boundary-test.ss", quint.inputs)
             self.assertIn("formal/ParserEngine/RawRequest.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Grammar.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Request.lean", lean.inputs)
@@ -100,7 +102,7 @@ class ModelInputControls(unittest.TestCase):
             (root / "formal/quint/ReuseAdmission.qnt").write_text("changed protocol")
             self.assertNotEqual(first, snapshot(root, quint.inputs))
             for name in ("formal/quint/Completion.qnt", "formal/ParserEngine/NativeFacts.lean", "t/generate-grammar-model-facts.ss", "formal/quint/RawRequest.qnt", "src/compiler/lr-follow-automaton.ss", "formal/quint/GrammarPipeline.qnt", "src/compiler/lr-table.ss", "src/compiler/funcs.ss", "src/schema.ss", "src/ffi/schema.ss", "src/modules/parser/types.ss", "t/language-surface-test.ss", "src/compiler/language-artifact.ss", "t/language-artifact-test.ss", "src/compiler/lr-compiler.ss",
-                         "t/resolved-grammar-test.ss", "formal/quint/RequestFlow.qnt", "docs/research/parser-engine-formal-model.org",
+                         "t/resolved-grammar-test.ss", "t/layout-boundary-test.ss", "formal/quint/RequestFlow.qnt", "docs/research/parser-engine-formal-model.org",
                          "formal/quint/LookaheadScope.qnt", "formal/quint/ModuleAdmission.qnt",
                          "src/runtime/lr-parser/checkpoint.ss", "src/runtime/token.ss",
                          "src/language/module-input.ss", "t/fixtures/tla-sany-differential/preload.ss"):

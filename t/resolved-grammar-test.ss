@@ -13,6 +13,7 @@
         (only-in :gerbil-parser/src/compiler/lr-lookahead make-core-suffix-catalog
                  build-states-via-lr0 build-states-via-canonical-lr1)
         (only-in :gerbil-parser/src/compiler/lr-follow-automaton build-states-via-follow-partition-lr1)
+        (only-in :gerbil-parser/src/compiler/lr-partition build-states-via-partitioned-lr1)
         (only-in :gerbil-parser/src/compiler/lr-conflict-candidates initial-backward-follow-partitions)
         (only-in :gerbil-parser/src/compiler/normalize compile-grammar grammar-ir-ref compile-grammar/context normalized-grammar-ir normalized-grammar-source-map)
         (only-in :gerbil-parser/src/modules/parser/objects make-grammar make-grammar-role)
@@ -396,7 +397,7 @@
                   ;; completed native item or its in-range terminal index.
                   (check (member (list 0 1 '(terminal token impossible)) (vector-ref expected state)) => #f)))
                 (iota count)))))
-        (list build-states-via-lr0 build-states-via-canonical-lr1 build-states-via-follow-partition-lr1))))
+        (list build-states-via-lr0 build-states-via-canonical-lr1 build-states-via-partitioned-lr1 build-states-via-follow-partition-lr1))))
    (list (list grammar-model-rules 'start)
          (list lr1-not-lalr-rules 'source-file)
          (list shared-lookahead-rules 'source-file)

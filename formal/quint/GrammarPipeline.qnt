@@ -195,4 +195,37 @@ module GrammarPipeline {
       clearTouched(row,Set(0)) != List(-1,-1,-1)
   })
 
+  // Native storage writes are bounded; zero is a live value, not absence.
+  run finiteStoragePublicationTest = init.expect({
+    val scratch = List(-1,-1,-1).replaceAt(0,0).replaceAt(2,9)
+    val published = scratch
+    clearTouched(scratch,Set(0,2)) == List(-1,-1,-1) and
+      published == List(0,-1,9) and clearTouched(scratch,Set(0)) != List(-1,-1,-1)
+  })
+  pure def suffixTransfer(first:Set[int],nullable:bool,activated:bool,delta:Set[int]):Set[int] =
+    (if(activated) Set() else first).union(if(nullable) delta else Set())
+  run firstActivationAndNullableDeltaTest = init.expect(
+    suffixTransfer(Set(4),true,false,Set(0,70)) == Set(0,4,70) and
+      suffixTransfer(Set(4),true,true,Set(2)) == Set(2) and
+      suffixTransfer(Set(4),false,true,Set(0,70)) == Set())
+  type CoreLookahead = {core:int,looks:Set[int]}
+  pure def quotientPosition(rows:List[List[CoreLookahead]],position:int):Set[int] =
+    rows.foldl(Set(),(mask,row) => mask.union(row.nth(position).looks))
+  run quotientCoreAlignmentWitnessTest = init.expect({
+    val first = List({core:1,looks:Set(3)},{core:2,looks:Set(7)})
+    val aligned = List({core:1,looks:Set(5)},{core:2,looks:Set(9)})
+    val reversed = List(aligned.nth(1),aligned.nth(0))
+    quotientPosition(List(first,aligned),0) == Set(3,5) and
+      quotientPosition(List(first,reversed),0) == Set(3,9) and
+      first.nth(0).core != reversed.nth(0).core
+  })
+  run layoutFallbackMustRetainRawReductionsTest = init.expect({
+    val resolved = Set(100)
+    val rawReductions = Set(1,2)
+    val allowed = resolved
+    val blocked = rawReductions
+    allowed.union(blocked).subseteq(resolved.union(rawReductions)) and
+      not(blocked.subseteq(resolved)) and blocked != Set()
+  })
+
 }

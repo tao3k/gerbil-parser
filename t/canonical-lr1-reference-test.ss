@@ -35,8 +35,54 @@
                  unreachable-repeated-context-family-rules
                  inactive-core-conflict-rules))
 
-(import (only-in :gerbil-parser/src/compiler/lr-partition refine-canonical-partition)
+(import (only-in :gerbil-parser/src/compiler/lr-partition refine-canonical-partition build-states-via-partitioned-lr1)
         (only-in :std/vector/extensible ExtensibleVector-fill-pointer ExtensibleVector-ref))
+
+(def (quotient-lookahead-storage-case)
+  (for-each (lambda (rules)
+    (let* ((productions (lower-rules rules 'source-file)) (table (production-table productions)))
+      (let-values (((_nullable nullable) (compute-nullable productions)))
+        (let-values (((_first first) (compute-first productions nullable)))
+          (let-values (((states count masks offsets edges terminals _layout _symbols _visits _items)
+                        (build-states-via-canonical-lr1 productions table first nullable))
+                       ((merged group-count merged-masks merged-offsets merged-edges merged-terminals
+                                _merged-layout _merged-symbols _merged-visits _merged-items)
+                        (build-states-via-partitioned-lr1 productions table first nullable)))
+            (let ((owners (make-vector count #f))
+                  (expected (make-vector (vector-length merged-masks) 0)))
+              ;; Recover the quotient map from paired reachable transitions,
+              ;; independently of the implementation's interning/group IDs.
+              (let visit ((pending '((0 . 0))))
+                (unless (null? pending)
+                  (let* ((pair (car pending)) (state (car pair)) (group (cdr pair))
+                         (known (vector-ref owners state)))
+                    (if known
+                      (begin (check known => group) (visit (cdr pending)))
+                      (begin
+                        (vector-set! owners state group)
+                        (check (vector-ref states state) => (vector-ref merged group))
+                        (let (next (cdr pending))
+                          (for-each (lambda (edge)
+                            (when (= (car edge) state)
+                              (let (target (find (lambda (candidate)
+                                             (and (= (car candidate) group)
+                                                  (equal? (cadr candidate) (cadr edge)))) merged-edges))
+                                (check (not (not target)) => #t)
+                                (set! next (cons (cons (caddr edge) (caddr target)) next))))) edges)
+                          (visit next)))))))
+              (check terminals => merged-terminals)
+              (for-each (lambda (state)
+                (let (group (vector-ref owners state))
+                  (check (number? group) => #t)
+                  (for-each (lambda (position)
+                    (let (target (+ (vector-ref merged-offsets group) position))
+                      (vector-set! expected target
+                        (compiler-index-set-union (vector-ref expected target)
+                          (vector-ref masks (+ (vector-ref offsets state) position))))))
+                    (iota (length (vector-ref states state)))))) (iota count))
+              (check expected => merged-masks)
+              (check (vector-ref merged-offsets group-count) => (vector-length merged-masks))))))))
+    (list shared-lookahead-rules lr1-not-lalr-rules (lr1-context-family-rules 4))))
 
 (def (dirty-successor-composition-case)
   ;; A predecessor chain needs successive dirty rounds. Omitting successor
@@ -289,6 +335,8 @@
 
 (def canonical-lr1-reference-test
   (test-suite "canonical LR(1) reference"
+    (poo-flow-test-case "quotient lookaheads preserve physical core positions and exact member unions"
+      (quotient-lookahead-storage-case))
     (poo-flow-test-case "dirty successor delivery composes across predecessor rounds"
       (dirty-successor-composition-case))
     (poo-flow-test-case "transition splits retain a surviving canonical conflict witness"

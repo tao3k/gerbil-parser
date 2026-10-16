@@ -305,3 +305,21 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Construction.event_scratch_trace
 #print axioms ParserEngine.Construction.event_row_publication
 #print axioms ParserEngine.Construction.refined_signature_uniform
+
+#print axioms ParserEngine.Construction.vector_write_refines
+#print axioms ParserEngine.Construction.vector_clear_refines
+#print axioms ParserEngine.Construction.vector_clear_covered
+#print axioms ParserEngine.Construction.vector_event_projection
+#print axioms ParserEngine.Construction.vector_event_publication
+#print axioms ParserEngine.Construction.raw_reductions_origin
+#print axioms ParserEngine.Construction.layout_selection_origin
+#print axioms ParserEngine.Construction.layout_replay_supported
+#print axioms ParserEngine.Construction.union_masks_exact
+#print axioms ParserEngine.Construction.quotient_lookahead_origin
+#print axioms ParserEngine.Construction.suffix_evidence_exact
+#print axioms ParserEngine.Construction.suffix_delivery_exact
+#print axioms ParserEngine.Construction.suffix_evidence_allowed
+#print axioms ParserEngine.Construction.suffix_prediction_supported
+#print axioms ParserEngine.Construction.shifted_lookahead_retained
+#print axioms ParserEngine.Construction.cell_events_origin
+#print axioms ParserEngine.Construction.vector_layout_publication

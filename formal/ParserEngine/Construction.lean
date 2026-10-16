@@ -608,4 +608,320 @@ theorem event_row_publication {origin : Nat → Grammar.Action → Prop} {events
     exact cell_trace_supported history
   · exact scratch_clear_empty (event_scratch_covered events)
 
+/-- Finite native vector projection. Bounds are a write premise; an invalid
+write is never silently used to establish the logical update. -/
+def vectorRead (empty : α) (slots : Array α) (key : Nat) : α :=
+  slots[key]?.getD empty
+
+theorem vector_write_refines (empty : α) (slots : Array α) (key : Nat) (value : α)
+    (bound : key < slots.size) :
+    vectorRead empty (slots.setIfInBounds key value) =
+      (fun query => if query = key then value else vectorRead empty slots query) := by
+  funext query
+  by_cases same : query = key
+  · subst query
+    simp [vectorRead, bound]
+  · simp [vectorRead, same, Ne.symm same]
+
+def clearVector (empty : α) : Array α → List Nat → Array α
+  | slots, [] => slots
+  | slots, key :: rest => clearVector empty (slots.setIfInBounds key empty) rest
+
+theorem vector_clear_refines (empty : α) (slots : Array α) (touched : List Nat) :
+    ∀ key, vectorRead empty (clearVector empty slots touched) key =
+      if key ∈ touched then empty else vectorRead empty slots key := by
+  induction touched generalizing slots with
+  | nil => intro key; rfl
+  | cons head rest ih =>
+    intro key
+    rw [clearVector, ih]
+    by_cases later : key ∈ rest
+    · simp [later]
+    · by_cases same : key = head
+      · subst key
+        by_cases bound : head < slots.size
+        · simp [later, vectorRead, bound]
+        · simp [later, vectorRead, bound]
+      · simp [later, same, Ne.symm same, vectorRead]
+
+/-- The same storage law applies separately to action cells, raw-reduction
+lists and shift targets by selecting their empty values. -/
+theorem vector_clear_covered (empty : α) (slots : Array α) (touched : List Nat)
+    (covered : ∀ key, key ∉ touched → vectorRead empty slots key = empty) :
+    ∀ key, vectorRead empty (clearVector empty slots touched) key = empty := by
+  intro key
+  rw [vector_clear_refines]
+  by_cases present : key ∈ touched
+  · simp [present]
+  · simp [present, covered key present]
+
+def vectorEventRow (width : Nat) : List (Nat × Choice × RawEvent) → Array (Option Resolution)
+  | [] => Array.replicate width none
+  | (key, choice, event) :: rest =>
+      let previous := vectorEventRow width rest
+      let result := match vectorRead none previous key with
+        | none => Resolution.chosen (eventAction event)
+        | some before => installChoice choice before (eventAction event)
+      previous.setIfInBounds key (some result)
+
+theorem vector_event_size (width : Nat) (events : List (Nat × Choice × RawEvent)) :
+    (vectorEventRow width events).size = width := by
+  induction events with
+  | nil => simp [vectorEventRow]
+  | cons entry rest ih => simpa [vectorEventRow] using ih
+
+theorem vector_event_projection {width events}
+    (bounds : ∀ entry ∈ events, entry.1 < width) :
+    vectorRead none (vectorEventRow width events) = (buildEventScratch events).1 := by
+  induction events with
+  | nil =>
+    funext key
+    by_cases bound : key < width <;> simp [vectorEventRow, vectorRead, buildEventScratch, bound]
+  | cons entry rest ih =>
+    have earlier := ih (fun candidate member => bounds candidate (List.mem_cons_of_mem entry member))
+    have bound : entry.1 < (vectorEventRow width rest).size := by
+      rw [vector_event_size]
+      exact bounds entry (by simp)
+    simp only [vectorEventRow]
+    rw [vector_write_refines none _ _ _ bound, earlier]
+    rfl
+
+/-- A finite-vector producer refines the existing event-row producer, then
+publishes a copied list before clearing its reusable storage. -/
+theorem vector_event_publication {width events} {origin : Nat → Grammar.Action → Prop}
+    (bounds : ∀ entry ∈ events, entry.1 < width)
+    (sources : ∀ entry ∈ events, origin entry.1 (eventAction entry.2.2)) :
+    let slots := vectorEventRow width events
+    let touched := (buildEventScratch events).2
+    (∀ key result, slots.toList[key]? = some (some result) →
+      ∀ action ∈ selected result, origin key action) ∧
+    (∀ key, vectorRead none (clearVector none slots touched) key = none) := by
+  have projection := vector_event_projection bounds
+  constructor
+  · intro key result equation
+    have stored : vectorRead none (vectorEventRow width events) key = some result := by
+      simp only [Array.getElem?_toList] at equation
+      simp [vectorRead, equation]
+    rw [projection] at stored
+    have history := event_scratch_trace sources key
+    rw [stored] at history
+    exact cell_trace_supported history
+  · apply vector_clear_covered
+    intro key absent
+    rw [projection]
+    exact event_scratch_covered events key absent
+
+/-- Layout publication keeps the raw reductions that ordinary static conflict
+resolution may suppress. A fork is filtered at runtime without inventing a
+candidate; a guarded shift selects its retained reduction fallback. -/
+inductive LayoutCell where
+  | ordinary (result : Resolution)
+  | guarded (target : Nat) (reductions : List Grammar.Action)
+  deriving DecidableEq, Repr
+
+def isShift : Grammar.Action → Bool
+  | .shift _ => true
+  | _ => false
+
+def publishLayout (enabled : Bool) (primary : Resolution)
+    (reductions : List Grammar.Action) : LayoutCell :=
+  match primary with
+  | .chosen (.shift target) =>
+      if enabled && !reductions.isEmpty then .guarded target reductions else .ordinary primary
+  | _ => .ordinary primary
+
+def selectLayout (allowed : Bool) : LayoutCell → List Grammar.Action
+  | .ordinary result =>
+      if allowed then selected result else (selected result).filter (fun action => !isShift action)
+  | .guarded target reductions => if allowed then [.shift target] else reductions
+
+def rawReductions (events : List (Choice × RawEvent)) : List Grammar.Action :=
+  events.filterMap (fun entry => match entry.2 with
+    | .reduce item => some (.reduce item.production)
+    | _ => none)
+
+theorem raw_reductions_origin {events} {origin : Grammar.Action → Prop}
+    (sources : ∀ entry ∈ events, origin (eventAction entry.2)) :
+    ∀ action ∈ rawReductions events, origin action := by
+  intro action member
+  obtain ⟨entry, present, equation⟩ := List.mem_filterMap.mp member
+  have source := sources entry present
+  cases event : entry.2 with
+  | shift item terminal target => simp [event] at equation
+  | accept item => simp [event] at equation
+  | reduce item =>
+    simp only [event, Option.some.injEq] at equation
+    subst action
+    simpa [event, eventAction] using source
+
+theorem layout_selection_origin {origin : Grammar.Action → Prop} {primary reductions}
+    (primarySource : ∀ action ∈ selected primary, origin action)
+    (fallbackSource : ∀ action ∈ reductions, origin action)
+    (enabled allowed : Bool) :
+    ∀ action ∈ selectLayout allowed (publishLayout enabled primary reductions), origin action := by
+  cases primary with
+  | chosen action =>
+    cases action with
+    | shift target =>
+      cases enabled <;> cases allowed <;> cases reductions <;>
+        simp_all [publishLayout, selectLayout, selected, isShift]
+    | reduce production =>
+      cases allowed <;> simpa [publishLayout, selectLayout, selected, isShift] using primarySource
+    | accept =>
+      cases allowed <;> simpa [publishLayout, selectLayout, selected, isShift] using primarySource
+  | fork actions =>
+    cases allowed
+    · intro action member
+      exact primarySource action (List.mem_filter.mp member).1
+    · exact primarySource
+  | rejected => simp [publishLayout, selectLayout, selected]
+  | failed => simp [publishLayout, selectLayout, selected]
+
+theorem layout_replay_supported {g start augmented table state lookahead events result}
+    (admission : ∀ entry ∈ events,
+      admitEvent g start augmented table state lookahead entry.2 = true)
+    (execution : replayCandidates events none = some result) (enabled allowed : Bool) :
+    ∀ action ∈ selectLayout allowed (publishLayout enabled result (rawReductions events)),
+      CellSupported g start augmented table state lookahead action := by
+  have sources := fun entry present => admitted_event_supported (admission entry present)
+  have history := replay_candidates_trace sources
+    (show OptionalTrace (CellSupported g start augmented table state lookahead) none from True.intro)
+  rw [execution] at history
+  exact layout_selection_origin (cell_trace_supported history) (raw_reductions_origin sources) enabled allowed
+
+/-- The native member loop accumulates masks using OR. This recurrence keeps
+its seed explicit and applies to arbitrary group sizes and machine-word widths. -/
+def unionMasks (masks : Nat → Nat) : List Nat → Nat → Nat
+  | [], accumulated => accumulated
+  | member :: rest, accumulated => unionMasks masks rest (accumulated ||| masks member)
+
+theorem union_masks_exact (masks : Nat → Nat) (members : List Nat) (seed bit : Nat) :
+    (unionMasks masks members seed).testBit bit = true ↔
+      seed.testBit bit = true ∨ ∃ member ∈ members, (masks member).testBit bit = true := by
+  induction members generalizing seed with
+  | nil => simp [unionMasks]
+  | cons head rest ih =>
+    simp only [unionMasks, ih, Nat.testBit_or, Bool.or_eq_true, List.mem_cons]
+    constructor
+    · rintro ((original | headBit) | ⟨member, present, value⟩)
+      · exact Or.inl original
+      · exact Or.inr ⟨head, Or.inl rfl, headBit⟩
+      · exact Or.inr ⟨member, Or.inr present, value⟩
+    · rintro (original | ⟨member, present, value⟩)
+      · exact Or.inl (Or.inl original)
+      · rcases present with rfl | previous
+        · exact Or.inl (Or.inr value)
+        · exact Or.inr ⟨member, previous, value⟩
+
+/-- materialize-partition uses the same item position in every member state.
+Core-order alignment is essential, independent of mask membership. -/
+theorem quotient_lookahead_origin {members : List Nat} {cores : Nat → List Nat}
+    {representative : List Nat} {position core bit : Nat} {offsets masks : Nat → Nat}
+    (aligned : ∀ state ∈ members, cores state = representative)
+    (coordinate : representative[position]? = some core)
+    (present : (unionMasks (fun state => masks (offsets state + position)) members 0).testBit bit = true) :
+    ∃ state ∈ members, (cores state)[position]? = some core ∧
+      (masks (offsets state + position)).testBit bit = true := by
+  have evidence := (union_masks_exact _ members 0 bit).mp present
+  simp only [Nat.zero_testBit, Bool.false_eq_true, false_or] at evidence
+  obtain ⟨state, member, value⟩ := evidence
+  exact ⟨state, member, by rw [aligned state member]; exact coordinate, value⟩
+
+/-- FIRST is emitted on first activation only; nullable tails also propagate
+inherited deltas on every activation. Empty delivery does not activate a node. -/
+def suffixEvidence (first : Nat) (nullable activated : Bool) (delta : Nat) : Nat :=
+  if activated then (if nullable then delta else 0)
+  else if nullable then first ||| delta else first
+
+theorem suffix_evidence_exact (first delta bit : Nat) (nullable activated : Bool) :
+    (suffixEvidence first nullable activated delta).testBit bit = true ↔
+      (activated = false ∧ first.testBit bit = true) ∨
+      (nullable = true ∧ delta.testBit bit = true) := by
+  cases nullable <;> cases activated <;> simp [suffixEvidence, Nat.testBit_or]
+
+def deliverSuffix (first : Nat) (nullable : Bool) : Bool → List Nat → Nat
+  | _, [] => 0
+  | activated, delta :: rest =>
+      suffixEvidence first nullable activated delta ||| deliverSuffix first nullable true rest
+
+theorem suffix_delivery_exact (first bit : Nat) (nullable activated : Bool) (deltas : List Nat) :
+    (deliverSuffix first nullable activated deltas).testBit bit = true ↔
+      (activated = false ∧ deltas ≠ [] ∧ first.testBit bit = true) ∨
+      (nullable = true ∧ ∃ delta ∈ deltas, delta.testBit bit = true) := by
+  induction deltas generalizing activated with
+  | nil => simp [deliverSuffix]
+  | cons head rest ih =>
+    simp only [deliverSuffix, Nat.testBit_or, Bool.or_eq_true, suffix_evidence_exact, ih]
+    cases activated <;> cases nullable <;> simp_all [or_assoc, and_or_left]
+
+theorem suffix_evidence_allowed {g suffix inherited decoded first delta bit nullable activated}
+    (firstSound : first.testBit bit = true → ∃ token, decoded = some token ∧ First g suffix token)
+    (nullableSound : nullable = true → Nullable g suffix)
+    (deltaSound : delta.testBit bit = true → decoded = inherited)
+    (present : (suffixEvidence first nullable activated delta).testBit bit = true) :
+    LookaheadAllowed g suffix inherited decoded := by
+  rcases (suffix_evidence_exact first delta bit nullable activated).mp present with static | inheritedBit
+  · exact Or.inl (firstSound static.2)
+  · exact Or.inr ⟨nullableSound inheritedBit.1, deltaSound inheritedBit.2⟩
+
+/-- The mask-to-grammar bridge composes suffix transfer with LR(1) prediction,
+retaining the parent item, actual child production and zero-dot condition. -/
+theorem suffix_prediction_supported {g seed parent child name suffix first delta bit nullable activated}
+    (known : LR1Closure g seed parent)
+    (afterDot : parent.production.rhs.drop parent.dot = .nonterminal name :: suffix)
+    (member : child.production ∈ g) (lhs : child.production.lhs = name) (zero : child.dot = 0)
+    (firstSound : first.testBit bit = true →
+      ∃ token, child.lookahead = some token ∧ First g suffix token)
+    (nullableSound : nullable = true → Nullable g suffix)
+    (deltaSound : delta.testBit bit = true → child.lookahead = parent.lookahead)
+    (present : (suffixEvidence first nullable activated delta).testBit bit = true) :
+    LR1Closure g seed child :=
+  LR1Closure.predict known ⟨name, suffix, afterDot, member, lhs, zero,
+    suffix_evidence_allowed firstSound nullableSound deltaSound present⟩
+
+/-- Shifts transfer lookahead unchanged; no suffix-FIRST rule applies on that
+edge. The item advance and its inherited lookahead are composed explicitly. -/
+theorem shifted_lookahead_retained {parent child : Item} {symbol}
+    (step : Advances parent symbol child) :
+    child.lookahead = parent.lookahead ∧ child.production = parent.production ∧
+      child.dot = parent.dot + 1 := by
+  rw [step.2]
+  exact ⟨rfl, rfl, rfl⟩
+
+/-- Recover chronological order from the newest-first event catalog. Raw
+reductions belong to their own terminal slot, not merely somewhere in the state. -/
+def cellEvents (key : Nat) (events : List (Nat × Choice × RawEvent)) : List (Choice × RawEvent) :=
+  (events.filterMap (fun entry => if entry.1 = key then some entry.2 else none)).reverse
+
+theorem cell_events_origin {origin : Nat → Grammar.Action → Prop} {events key}
+    (sources : ∀ entry ∈ events, origin entry.1 (eventAction entry.2.2)) :
+    ∀ entry ∈ cellEvents key events, origin key (eventAction entry.2) := by
+  intro entry member
+  simp only [cellEvents, List.mem_reverse] at member
+  obtain ⟨physical, present, equation⟩ := List.mem_filterMap.mp member
+  by_cases same : physical.1 = key
+  · simp only [same, ite_true, Option.some.injEq] at equation
+    subst entry
+    simpa only [same] using sources physical present
+  · simp [same] at equation
+
+/-- Combined finite-storage/layout publication: both the resolved candidate and
+its suppressed fallback come from this cell's event producer. The next row's
+storage is empty, with no final-history or final-coverage premise. -/
+theorem vector_layout_publication {width events} {origin : Nat → Grammar.Action → Prop}
+    (bounds : ∀ entry ∈ events, entry.1 < width)
+    (sources : ∀ entry ∈ events, origin entry.1 (eventAction entry.2.2))
+    (enabled allowed : Bool) :
+    let slots := vectorEventRow width events
+    (∀ key result, slots.toList[key]? = some (some result) →
+      ∀ action ∈ selectLayout allowed
+        (publishLayout enabled result (rawReductions (cellEvents key events))), origin key action) ∧
+    (∀ key, vectorRead none (clearVector none slots (buildEventScratch events).2) key = none) := by
+  have publication := vector_event_publication bounds sources
+  constructor
+  · intro key result stored
+    exact layout_selection_origin (publication.1 key result stored)
+      (raw_reductions_origin (cell_events_origin sources)) enabled allowed
+  · exact publication.2
+
 end ParserEngine.Construction

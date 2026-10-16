@@ -245,3 +245,11 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Names.helpers_avoid_source
 #print axioms ParserEngine.Encoding.merge_delivered
 #print axioms ParserEngine.Encoding.queue_empty_exact
+
+#print axioms ParserEngine.Completion.register_count
+#print axioms ParserEngine.Completion.mutable_notification_exact
+#print axioms ParserEngine.Completion.mutable_prefix_nonnegative
+
+#print axioms ParserEngine.Completion.mutable_enables_exact
+
+#print axioms ParserEngine.Completion.counter_trace_exact

@@ -2,7 +2,9 @@
 ;;; Invariant: grammar values prove prototype ancestry and every public slot
 ;;; before object behavior or compiler normalization can observe them.
 
-(import (only-in :clan/poo/object .o .ref .slot? object? compute-precedence-list!)
+(import (only-in ../../schema +grammar-schema+ +grammar-ir-schema+
+                 +parser-ir-schema+ +parse-artifact-schema+ +diagnostic-schema+)
+        (only-in :clan/poo/object .o .ref .slot? object? compute-precedence-list!)
         (only-in :clan/poo/mop define-type element? raise-type-error)
         (only-in :core/types
                  PooFlowContract.
@@ -22,7 +24,7 @@
         ParserList
         GrammarRoleKind
         GrammarKind
-        GrammarSchemaV1
+        GrammarSchema
         GrammarRoleContract
         GrammarContract)
 
@@ -30,17 +32,6 @@
 (def +grammar-role-kind+ 'gerbil-parser-grammar-role)
 ;; : Symbol
 (def +grammar-kind+ 'gerbil-parser-grammar)
-;; : String
-(def +grammar-schema+ "gerbil-parser.grammar.v1")
-;; : String
-(def +grammar-ir-schema+ "gerbil-parser.grammar-ir.v1")
-;; : String
-(def +parser-ir-schema+ "gerbil-parser.parser-ir.v1")
-;; : String
-(def +parse-artifact-schema+ "gerbil-parser.parse-artifact.v1")
-;; : String
-(def +diagnostic-schema+ "gerbil-parser.diagnostic.v1")
-
 ;; : (-> Symbol Procedure Object Object PooFlowClassificationEvidence)
 (def (parser-scalar-classify identity predicate candidate context)
   (let (accepted? (predicate candidate))
@@ -81,12 +72,12 @@
                 (lambda (value) (eq? value +grammar-kind+))
                 candidate context)))
 
-;;; Invariant: public grammar objects publish only the frozen v1 schema.
-(define-type (GrammarSchemaV1 @ PooFlowContract.)
-  identity: 'gerbil-parser/grammar-schema-v1
+;;; Invariant: public grammar objects publish the schema declared in shared metadata.
+(define-type (GrammarSchema @ PooFlowContract.)
+  identity: 'gerbil-parser/grammar-schema
   .classify: (lambda (candidate context)
                (parser-scalar-classify
-                'gerbil-parser/grammar-schema-v1
+                'gerbil-parser/grammar-schema
                 (lambda (value) (equal? value +grammar-schema+))
                 candidate context)))
 
@@ -138,7 +129,7 @@
   proto: (parser-empty-prototype)
   responsibilities:
   (.o kind: GrammarKind
-      schema: GrammarSchemaV1
+      schema: GrammarSchema
       name: ParserSymbol
       parents: ParserList
       roles: ParserList

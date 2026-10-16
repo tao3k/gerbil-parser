@@ -2,7 +2,8 @@
 ;;; -*- Gerbil -*-
 ;;; Independent positive, negative, and concurrent admission for AOT IR files.
 
-(import (only-in :std/io/tempfile make-temporary-file-name)
+(import (only-in :gerbil-parser/src/schema compiler-generator-metadata)
+        (only-in :std/io/tempfile make-temporary-file-name)
         (only-in :std/sync/barrier
                  barrier-post! barrier-wait! make-barrier)
         (only-in :std/test check check-exception test-case test-suite)
@@ -344,6 +345,37 @@
            (materialize-compiled-language-artifact/output-dirs
              test-value (list root))
             true)))))
+    (test-case "generator identity is stable and revision metadata is admitted on reuse"
+      (let ((parser (compiler-generator-metadata 'parser))
+            (declaration (compiler-generator-metadata 'declaration)))
+        (check (cdr (assq 'name parser)) => 'gerbil-parser/lalr-generator)
+        (check (cdr (assq 'name declaration)) => 'gerbil-parser/language-declaration-generator)
+        (check (cdr parser) => (cdr declaration))
+        (check (cdr (assq 'repetition-owner parser)) => 'exclusive)
+        (check-exception (compiler-generator-metadata 'unknown) exception?))
+      (call-with-temporary-directory
+       (lambda (root)
+         (let ((grammar '((schema . "gerbil-parser.grammar-ir.v1") (grammar . metadata-control)))
+               (calls 0))
+           (def (compile)
+             (set! calls (+ calls 1))
+             '((schema . "gerbil-parser.parser-ir.v1") (grammar . metadata-control)))
+           (let-values (((_value _locator status)
+                         (compile-language-parser-artifact/output-dirs grammar compile (list root))))
+             (check status => 'miss))
+           (let* ((directory (path-expand "gerbil-parser/compiled-language-parser-cache" root))
+                  (path (path-expand (car (directory-files directory)) directory))
+                  (receipt (call-with-input-file path read)))
+             (check (cdr (assq 'generator receipt)) => (compiler-generator-metadata 'parser))
+             (check (assq 'generatorContract receipt) => #f)
+             (write-raw-file path
+               (serialize (map (lambda (row)
+                                 (if (eq? (car row) 'generator)
+                                   '(generator (name . gerbil-parser/lalr-generator)
+                                               (entry-root . authored-alias) (repetition-owner . shared)) row)) receipt)))
+             (check-exception
+               (compile-language-parser-artifact/output-dirs grammar compile (list root)) exception?)
+             (check calls => 1))))))
     (test-case "pre-isolation generator receipts cannot bypass the repaired lowering"
       (call-with-temporary-directory
        (lambda (root)

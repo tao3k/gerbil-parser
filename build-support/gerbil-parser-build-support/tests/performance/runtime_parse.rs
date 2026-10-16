@@ -10,7 +10,7 @@ use gerbil_parser_build_support::{
     RUNTIME_ENGINE_EVENT_TREE_HOT_PATH_SCENARIO_ID, runtime_engine_scenario_package,
 };
 #[path = "../fixtures/generated/arithmetic.rs"]
-mod arithmetic_v1;
+mod arithmetic;
 
 const ARITHMETIC_PARSE_COUNT: usize = 256;
 const EVENT_PARSE_COUNT: usize = 128;
@@ -25,7 +25,7 @@ fn runtime_engine_deterministic_hot_path() {
         let parse_started_at = Instant::now();
         let mut node_count = 0_u64;
         for _ in 0..ARITHMETIC_PARSE_COUNT {
-            let parsed = gerbil_parser_runtime::parse(&arithmetic_v1::LANGUAGE, black_box(source))
+            let parsed = gerbil_parser_runtime::parse(&arithmetic::LANGUAGE, black_box(source))
                 .expect("generated arithmetic engine must parse");
             node_count += parsed.syntax().descendants().count() as u64;
             black_box(parsed.syntax().text_range());
@@ -49,7 +49,7 @@ fn runtime_engine_event_tree_hot_path() {
     let scenario = scenario(RUNTIME_ENGINE_EVENT_TREE_HOT_PATH_SCENARIO_ID);
     let source = "x".repeat(EVENT_DEPTH);
     let mut events = Vec::with_capacity(2 * EVENT_DEPTH + EVENT_DEPTH + 2);
-    events.push(TreeEvent::StartNode(arithmetic_v1::LANGUAGE.root_kind));
+    events.push(TreeEvent::StartNode(arithmetic::LANGUAGE.root_kind));
     for index in 0..EVENT_DEPTH {
         events.push(TreeEvent::StartNode(1));
         events.push(TreeEvent::Token {
@@ -60,7 +60,7 @@ fn runtime_engine_event_tree_hot_path() {
     }
     events.extend(std::iter::repeat_n(TreeEvent::FinishNode, EVENT_DEPTH + 1));
     let sample =
-        gerbil_parser_runtime::build_syntax_events(&arithmetic_v1::LANGUAGE, &source, &events)
+        gerbil_parser_runtime::build_syntax_events(&arithmetic::LANGUAGE, &source, &events)
             .expect("sample event stream must build");
     assert_eq!(sample.root().descendants().count(), EVENT_DEPTH + 1);
 
@@ -68,7 +68,7 @@ fn runtime_engine_event_tree_hot_path() {
         let started_at = Instant::now();
         for _ in 0..EVENT_PARSE_COUNT {
             let index = gerbil_parser_runtime::build_syntax_events(
-                &arithmetic_v1::LANGUAGE,
+                &arithmetic::LANGUAGE,
                 black_box(&source),
                 black_box(&events),
             )

@@ -1,7 +1,7 @@
 (import (only-in :gerbil-parser/src/compiler/language-expander compile-language)
         (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; -*- Gerbil -*-
-;;; Boundary: executable witness for the concise v1 language authoring surface.
+;;; Boundary: executable witness for the concise language authoring surface.
 ;;; Invariant: inferred and explicit declarations share canonical admission and
 ;;; publish the same Grammar IR, Parser IR, and ParseArtifact contracts.
 
@@ -58,7 +58,7 @@
   (node SourceFile (field name token-name)))
 
 (begin
- (deflanguage concise-v1-witness
+ (deflanguage concise-witness
   (syntax
    (lexical
     (root source-file)
@@ -74,7 +74,7 @@
   (rules
    (source-file
     (named-node identifier))))
- (bind-fixture-grammar-release concise-v1-witness "concise-v1-witness" "v1" "concise-v1-witness.v1") )
+ (bind-fixture-grammar-release concise-witness "concise-witness" "v1" "concise-witness.v1") )
 
 ;;; Independent engine-IR control. This compiler entry is not a public author DSL.
 (compile-language explicit-v1-witness
@@ -139,7 +139,7 @@
                    (seq "(" helper ")" (field tail word))))))
  (bind-fixture-grammar-release transparent-fields-witness "transparent-fields" "v1" "transparent-fields.v1") )
 
-(def concise-v1-language-surface-tests
+(def concise-language-surface-tests
   (test-suite "concise v1 language surface"
     (test-case "transparent recursive references infer fields without crossing nodes"
       (check (assq 'Root (grammar-ir-ref transparent-fields-witness-grammar 'syntax-kinds))
@@ -165,51 +165,51 @@
        '("alpha" "+")))
     (test-case "infers the stable grammar and parser contracts"
       (let* ((source "alpha")
-             (artifact (parse-source concise-v1-witness-parser source)))
-        (check (grammar-ir-ref concise-v1-witness-grammar 'schema)
+             (artifact (parse-source concise-witness-parser source)))
+        (check (grammar-ir-ref concise-witness-grammar 'schema)
                => "gerbil-parser.grammar-ir.v1")
-        (check (grammar-ir-ref concise-v1-witness-grammar 'syntax-kinds)
+        (check (grammar-ir-ref concise-witness-grammar 'syntax-kinds)
                => '((SourceFile node (name))
                     (Whitespace token (text))
                     (Identifier token (text))
                     (Unknown token (text))))
-        (check (parser-ir-ref concise-v1-witness-parser-ir 'root-rule)
+        (check (parser-ir-ref concise-witness-parser-ir 'root-rule)
                => 'source-file)
         (check (bound-grammar-ir-ref
-                concise-v1-witness-bound-grammar-ir 'schema)
+                concise-witness-bound-grammar-ir 'schema)
                => "gerbil-parser.bound-grammar-ir.v1")
         (check (bound-grammar-ir-ref
-                concise-v1-witness-bound-grammar-ir 'expansionLineage)
+                concise-witness-bound-grammar-ir 'expansionLineage)
                => '(deflanguage named-node))
         (check (bound-grammar-ir-ref
-                concise-v1-witness-bound-grammar-ir 'bindingCount)
+                concise-witness-bound-grammar-ir 'bindingCount)
                => 15)
         (check (bound-grammar-ir-ref
-                concise-v1-witness-bound-grammar-ir 'referenceCount)
+                concise-witness-bound-grammar-ir 'referenceCount)
                => 12)
         (let ((source-binding
                (bound-grammar-ir-binding
-                concise-v1-witness-bound-grammar-ir 'rule 'source-file))
+                concise-witness-bound-grammar-ir 'rule 'source-file))
               (field-binding
                (bound-grammar-ir-binding
-                concise-v1-witness-bound-grammar-ir 'field 'name 'SourceFile)))
+                concise-witness-bound-grammar-ir 'field 'name 'SourceFile)))
           (check (bound-grammar-ir-ref source-binding 'references)
                  => '(((package . gerbil-parser)
-                       (grammar . concise-v1-witness-grammar)
+                       (grammar . concise-witness-grammar)
                        (namespace . terminal)
                        (name . identifier))))
           (check (cdr (assq 'path
                             (bound-grammar-ir-ref source-binding 'source)))
                  => (bound-grammar-ir-ref
-                     concise-v1-witness-bound-grammar-ir 'originModule))
+                     concise-witness-bound-grammar-ir 'originModule))
           (check (bound-grammar-ir-ref field-binding 'references)
                  => '(((package . gerbil-parser)
-                       (grammar . concise-v1-witness-grammar)
+                       (grammar . concise-witness-grammar)
                        (namespace . syntax-kind)
                        (name . SourceFile)))))
         (check (substring
                 (bound-grammar-ir-ref
-                 concise-v1-witness-bound-grammar-ir 'grammarDigest)
+                 concise-witness-bound-grammar-ir 'grammarDigest)
                 0 7)
                => "sha256:")
         (check (parser-ir-ref explicit-v1-witness-parser-ir 'schema)
@@ -227,16 +227,16 @@
       (check (literal-trie-witness "MATCHED suffix" 0) => 7)
       (check (literal-trie-witness "missing" 0) => #f))
     (test-case "mode dispatch keeps Unicode and fallback byte boundaries"
-      (let (tokens (lex-source concise-v1-witness-parser "α β?"))
+      (let (tokens (lex-source concise-witness-parser "α β?"))
         (check (map token-kind tokens)
                => '(identifier whitespace identifier unknown))
         (check (map token-start tokens) => '(0 2 3 5))
         (check (map token-end tokens) => '(2 3 5 6))))))
 
-(export concise-v1-language-surface-tests)
+(export concise-language-surface-tests)
 
 ;; gxtest discovers only exported names ending in -test.
-(def language-surface-test concise-v1-language-surface-tests)
+(def language-surface-test concise-language-surface-tests)
 (export language-surface-test)
 
 ;;; Generated source specializations may decline a shape and use ordinary LR.

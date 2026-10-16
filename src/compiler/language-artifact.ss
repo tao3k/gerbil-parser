@@ -1,7 +1,11 @@
 ;;; -*- Gerbil -*-
 ;;; Build-time declaration expansion and immutable language IR storage.
 
-(import (only-in ./lr current-grammar-source-map validate-resolved-repetitions lr-spec-ref)
+(import (only-in ../schema
+                 +parser-artifact-cache-schema+ +language-declaration-cache-schema+
+                 +lr-program-cache-schema+ +grammar-ir-schema+ +parser-ir-schema+
+                 +language-grammar-schema+ compiler-generator-metadata)
+        (only-in ./lr current-grammar-source-map validate-resolved-repetitions lr-spec-ref)
         (only-in ./lr-contextual-program compile-lr-contextual-program)
         (only-in ../grammar/algebra grammar-expression-header?)
         (only-in :gerbil/core/expander
@@ -34,20 +38,6 @@
         compile-language-declaration-artifacts
         compile-language-declaration-artifacts/output-dirs
         encode-compiled-language-artifact)
-
-(def +parser-artifact-cache-schema+
-  "gerbil-parser.parser-artifact-cache.v1")
-(def +parser-artifact-generator-contract+
-  "gerbil-parser.lalr1-generator.v3/repetition-owner-isolation")
-(def +language-declaration-cache-schema+
-  "gerbil-parser.language-declaration-cache.v1")
-(def +language-declaration-generator-contract+
-  "gerbil-parser.language-declaration-generator.v3/repetition-owner-isolation")
-
-;; v3 derives aliased entry roots independently of syntax catalog order.
-;; Both cache layers must regenerate when compiler semantics change.
-;; The lowering revision isolates shared repetition owners. Preserve artifact
-;; schemas while excluding pre-repair parser/declaration receipts from reuse.
 
 ;; : (-> Datum String)
 (def (serialize value)
@@ -167,7 +157,7 @@
 ;; all fields needed by its caller. Cache kinds differ only in their schema
 ;; and required locator fields.
 (def (read-cache-receipt relative-path output-dirs schema key required-fields
-                         invalid-message)
+                         invalid-message (generator #f))
   (let (path (find file-exists?
                    (map (lambda (root) (path-expand relative-path root))
                         output-dirs)))
@@ -181,6 +171,8 @@
                            (equal? (cache-receipt-field receipt 'schema)
                                    schema)
                            (equal? (cache-receipt-field receipt 'key) key)
+                           (or (not generator)
+                               (equal? (cache-receipt-field receipt 'generator) generator))
                            (andmap (lambda (field) (assq field receipt))
                                    required-fields))
                 (error invalid-message path receipt))
@@ -190,8 +182,8 @@
 (def (read-parser-cache-receipt key output-dirs)
   (read-cache-receipt
    (parser-cache-relative-path key) output-dirs
-   +parser-artifact-cache-schema+ key '(artifact)
-   "invalid compiled language parser cache receipt"))
+   +parser-artifact-cache-schema+ key '(artifact generator)
+   "invalid compiled language parser cache receipt" (compiler-generator-metadata 'parser)))
 
 ;; : (-> Alist Alist)
 (def (parser-artifact-with-materialization value)
@@ -208,13 +200,13 @@
   (let* ((key
           (sha256-text
            (serialize
-            (list +parser-artifact-generator-contract+ grammar))))
+            (list (compiler-generator-metadata 'parser) grammar))))
          (receipt (read-parser-cache-receipt key output-dirs)))
     (if receipt
       (let (locator (cache-receipt-field receipt 'artifact))
         (values
          (load-compiled-language-artifact/roots
-          "gerbil-parser.parser-ir.v1" locator output-dirs)
+          +parser-ir-schema+ locator output-dirs)
          locator
          'hit))
       (begin
@@ -229,7 +221,7 @@
                (cache-receipt
                 `((schema . ,+parser-artifact-cache-schema+)
                   (key . ,key)
-                  (generatorContract . ,+parser-artifact-generator-contract+)
+                  (generator . ,(compiler-generator-metadata 'parser))
                   (artifact . ,locator)))
                (serialized (serialize cache-receipt))
                (relative-path (parser-cache-relative-path key)))
@@ -284,8 +276,8 @@
 (def (read-declaration-cache-receipt key output-dirs)
   (read-cache-receipt
    (declaration-cache-relative-path key) output-dirs
-   +language-declaration-cache-schema+ key '(grammar bound parser)
-   "invalid compiled language declaration cache receipt"))
+   +language-declaration-cache-schema+ key '(grammar bound parser generator)
+   "invalid compiled language declaration cache receipt" (compiler-generator-metadata 'declaration)))
 
 ;;; Caches the complete declaration projection, not just the final parser IR.
 ;;; On a hit expansion receives receipt-bound content-addressed locators and avoids
@@ -297,7 +289,7 @@
   (let* ((key
           (sha256-text
            (serialize
-            (list +language-declaration-generator-contract+
+            (list (compiler-generator-metadata 'declaration)
                   declaration-identity grammar))))
          (receipt (read-declaration-cache-receipt key output-dirs)))
     (if receipt
@@ -319,8 +311,8 @@
              (cache-receipt
               `((schema . ,+language-declaration-cache-schema+)
                 (key . ,key)
-                (generatorContract
-                 . ,+language-declaration-generator-contract+)
+                (generator
+                 . ,(compiler-generator-metadata 'declaration))
                 (grammar . ,grammar-locator)
                 (bound . ,bound-locator)
                 (parser . ,parser-locator)))
@@ -558,7 +550,7 @@
             (field-sources syntax-rows))))
          (grammar
           (list
-           (cons 'schema "gerbil-parser.grammar-ir.v1")
+           (cons 'schema +grammar-ir-schema+)
            (cons 'grammar (syntax->datum grammar-name))
            (cons 'syntax-kinds (syntax->datum syntax-rows))
            (cons 'terminals (syntax->datum terminal-rows))
@@ -586,7 +578,7 @@
 ;;; immutable artifact publisher. A cache hit returns its locator without
 ;;; loading, copying, validating or hashing the backend instruction datum.
 (def (compile-lr-program-artifact parser-locator output-dirs)
-  (let* ((schema "gerbil-parser.lr-program-cache.v1")
+  (let* ((schema +lr-program-cache-schema+)
          (key (sha256-text (serialize (list schema parser-locator))))
          (relative-path (string-append "gerbil-parser/compiled-language-program-cache/"
                                        (sha256-identity-filename key) ".scm"))
@@ -595,7 +587,7 @@
     (if receipt
       (cache-receipt-field receipt 'program)
       (let* ((parser-ir (load-compiled-language-artifact/roots
-                         "gerbil-parser.parser-ir.v1" parser-locator output-dirs))
+                         +parser-ir-schema+ parser-locator output-dirs))
              (program (compile-lr-contextual-program parser-ir (cadr parser-locator)))
              (locator (materialize-compiled-language-artifact/output-dirs program output-dirs))
              (serialized (serialize `((schema . ,schema) (key . ,key) (program . ,locator)))))
@@ -610,7 +602,7 @@
   ;; current admission against its canonical nullable facts before publication;
   ;; this needs no lowering, fixed point or LR state reconstruction.
   (let* ((parser (load-compiled-language-artifact/roots
-                  "gerbil-parser.parser-ir.v1" parser-locator output-dirs))
+                  +parser-ir-schema+ parser-locator output-dirs))
          (spec (cdr (assq 'lr-spec parser)))
          (nullable (make-table test: eq?)))
     (for-each (lambda (name) (table-set! nullable name #t)) (lr-spec-ref spec 'nullable))
@@ -669,7 +661,7 @@
            (emission-section 'extras)
            (emission-section 'parser-entrypoints))
      (list define-binding language-binding
-           (append (list descriptor-binding "gerbil-parser.language-grammar.v1")
+           (append (list descriptor-binding +language-grammar-schema+)
                    identities (list grammar-binding ir-binding machine-binding #f))))))
 
 ;;; Native and imported author surfaces share canonical admission and publication.

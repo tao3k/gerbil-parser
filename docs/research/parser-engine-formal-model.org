@@ -801,6 +801,76 @@ explicit dependency admission completed the reconstruction. Final remote CI
 remains an independent gate for the pushed revision. None of these checks proves
 complete Scheme-to-model refinement or authorizes performance claims.
 
+*** Stable source identities and shared schema metadata
+
+Source files, namespaces, types, functions and language declaration bindings
+must keep stable names. Format versions and generator revisions belong to
+schema or metadata values. No release/schema upgrade is part of this change.
+
+[[file:../../src/schema.ss][The shared schema owner]] now declares the grammar/artifact/cache format
+identities and ABI version values. [[file:../../src/ffi/schema.ss][The FFI declaration module]] derives its
+C version query from those same values, including at macro expansion time.
+=GrammarSchema= is a stable POO contract identity whose classifier consumes the
+shared schema value. The concise-language witness and Rust arithmetic module
+also use stable names. The tracked first-party source inventory found no
+remaining version-bearing declaration or file path under the checked naming
+patterns; schema strings remain metadata rather than source identifiers.
+
+Generator identity is a stable name plus structured semantic metadata:
+=entry-root= is =authored-alias= and =repetition-owner= is =exclusive=. Both
+cache layers hash the complete metadata and store it in =generator=. Admission
+checks the metadata as well as schema, key and required fields. The old compound
+generator-name strings are no longer active identities. Historical metadata in
+negative fixtures remains available to prove that old receipts cannot bypass
+the current lowering. A new control changes the repetition-owner metadata under
+the same receipt key and verifies rejection without invoking the compiler again.
+
+Moving binding ownership requires recompiling native consumers. The initial
+mixed-product run failed ABI datum publication, and the extended grammar run
+found an old constructor still referring to its former schema binding. Both
+failures were retained; rebuilding all direct schema consumers repaired these
+routes. No compatibility alias or assertion weakening was introduced.
+
+*** Mutable registration and counter histories
+
+[[file:../../formal/ParserEngine/Completion.lean][Completion.lean]] now models the per-occurrence mutations in
+[[file:../../src/compiler/lr.ss][compute-completion]], beyond the previous aggregate subtraction identity.
+Clause-record IDs are distinct allocation identities, not published nonterminal
+IDs: multiple records may publish the same left side.
+
+- =register_count= derives the number of references to a mutable record from
+  its dependency occurrences for any finite, uniquely identified clause list.
+  Duplicate dependencies are retained; undefined names remain obligations.
+- =notified_counter= proves that a sequence of single integer decrements has
+  exactly the registered multiplicity effect. =notified_reverse= connects this
+  to the native builder's cons/reverse registration order. Integer subtraction
+  cannot conceal an underflow by clamping to zero.
+- =mutable_notification_exact= and =mutable_enables_exact= connect the resulting
+  record value and zero crossing to the original clause body.
+- =mutable_prefix_nonnegative= covers every intermediate prefix of the reversed
+  native notification order, rather than just its final value.
+- =counter_trace_exact= derives every active field's invariant from executable
+  initialization and arbitrary finite fresh-source delivery histories. The
+  caller does not provide a final counter equality or a successful certificate.
+
+Fresh-source delivery composes with the mask/publication boundary established
+above. Physical record allocation/alias mapping and the active-domain projection
+remain host representation premises. Disabled nullable fields, productive-domain
+shortcuts, publication callbacks and the complete joint scheduler still require
+their full composition. The theorem does not silently replace that work with a
+nullable-only argument. Full native lowering recipe generation and LR graph/
+table construction remain separate open obligations; performance work stays
+deferred.
+
+| Check | Local evidence |
+|-------+----------------|
+| Locked Lean build | 67 jobs; mutable registration, enabling and trace theorem axioms printed |
+| Completion lifecycle | Six directed controls; 1,000 traces capped at 20 steps |
+| DSL/metadata/ABI/style | Four owners, 36 cases, three workers, 13.97 seconds; all twenty ABI products match |
+| Resolved grammar and FFI | Two owners, 57 cases, two workers, 12.04 seconds |
+| Native C ABI and Rust bridge | GCC compilation from shared schema metadata completed |
+| Rust stable module name | Build-support test targets compile; no timing run executed |
+
 ** Completion gates before architecture optimization
 
 1. Specify the admitted DSL/grammar and scanner meaning, including effects and

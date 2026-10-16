@@ -1,4 +1,5 @@
 import ParserEngine.Grammar
+import Init.Data.List.Count
 
 /-! Publication certificates: finite rounds supply sound witnesses and closure
 supplies completeness. Exhausted fuel never implies a successful certificate. -/
@@ -290,5 +291,162 @@ example : checkFirst [⟨0, [.terminal 1, .nonterminal 1]⟩, ⟨1, [.nontermina
     [] [] 0 = false := by decide
 example : checkFirst [⟨0, [.terminal 1, .nonterminal 1]⟩, ⟨1, [.nonterminal 1]⟩]
     [] [(0, 1)] 4 = true := by decide
+
+/-- Clause identities stand for the distinct mutable records allocated during
+registration. Each dependency occurrence registers the same record once. -/
+def register (rows : List (Nat × List Nat)) (source : Nat) : List Nat :=
+  rows.flatMap fun row => List.replicate (occurrences row.2 source) row.1
+
+theorem register_absent (rows : List (Nat × List Nat)) (source record : Nat)
+    (absent : record ∉ rows.map Prod.fst) : record ∉ register rows source := by
+  intro member
+  obtain ⟨row, belongs, repeated⟩ := List.mem_flatMap.mp member
+  have equal := (List.mem_replicate.mp repeated).2
+  exact absent (equal ▸ List.mem_map_of_mem belongs)
+
+/-- Derives the registration multiplicity rather than assuming a vector count.
+No dependency set conversion may precede this native registration loop. -/
+theorem register_count {rows : List (Nat × List Nat)} (unique : (rows.map Prod.fst).Nodup)
+    {record dependencies} (member : (record, dependencies) ∈ rows) (source : Nat) :
+    (register rows source).count record = occurrences dependencies source := by
+  induction rows with
+  | nil => simp at member
+  | cons head tail ih =>
+    have nodup := List.nodup_cons.mp unique
+    rcases List.mem_cons.mp member with equal | member
+    · subst head
+      have absent := List.count_eq_zero.mpr (register_absent tail source record nodup.1)
+      change List.count record (List.replicate (occurrences dependencies source) record ++ register tail source) = _
+      rw [List.count_append, List.count_replicate_self, absent, Nat.add_zero]
+    · have different : head.1 ≠ record := by
+        intro equal
+        apply nodup.1
+        rw [equal]
+        exact List.mem_map_of_mem member
+      have rest := ih nodup.2 member
+      simpa [register, List.count_append, List.count_replicate, different] using rest
+
+/-- One mutation of an aliased dependent record. Int matches Scheme decrement:
+negative values are not silently clamped by Nat subtraction. -/
+def decrementCounter (counters : Nat → Int) (record : Nat) : Nat → Int :=
+  fun row => if row = record then counters row - 1 else counters row
+
+def notifyCounters (registered : List Nat) (counters : Nat → Int) : Nat → Int :=
+  registered.foldl decrementCounter counters
+
+theorem notified_counter (registered : List Nat) (counters : Nat → Int) (record : Nat) :
+    notifyCounters registered counters record = counters record - (registered.count record : Int) := by
+  induction registered generalizing counters with
+  | nil => simp [notifyCounters]
+  | cons head tail ih =>
+    change notifyCounters tail (decrementCounter counters head) record = _
+    rw [ih]
+    by_cases equal : head = record
+    · subst head
+      simp only [decrementCounter, ↓reduceIte, List.count_cons_self, Int.natCast_add, Int.natCast_one]
+      omega
+    · simp [decrementCounter, Ne.symm equal, List.count_cons_of_ne equal]
+
+/-- Native cons registration reverses the dependency-list order. The complete
+mutation result is independent of that reversal, including repeated aliases. -/
+theorem notified_reverse (events : List Nat) (counters : Nat → Int) :
+    notifyCounters events.reverse counters = notifyCounters events counters := by
+  funext record
+  simp only [notified_counter, List.count_reverse]
+
+/-- All registered notifications, including repeated record aliases, implement
+the semantic remaining-occurrence counter for an arbitrary fresh source. -/
+theorem mutable_notification_exact {rows : List (Nat × List Nat)}
+    (unique : (rows.map Prod.fst).Nodup) {record dependencies}
+    (member : (record, dependencies) ∈ rows) (delivered : List Nat) (source : Nat)
+    (fresh : source ∉ delivered) (counters : Nat → Int)
+    (before : counters record = (remaining dependencies delivered : Int)) :
+    notifyCounters (register rows source) counters record =
+      (remaining dependencies (source :: delivered) : Int) := by
+  rw [notified_counter, register_count unique member, before]
+  have balance := fresh_notification_counts_occurrences dependencies delivered source fresh
+  omega
+
+/-- A physical zero crossing enables exactly the original clause body. -/
+theorem mutable_enables_exact {rows : List (Nat × List Nat)}
+    (unique : (rows.map Prod.fst).Nodup) {record dependencies}
+    (member : (record, dependencies) ∈ rows) (delivered : List Nat) (source : Nat)
+    (fresh : source ∉ delivered) (counters : Nat → Int)
+    (before : counters record = (remaining dependencies delivered : Int)) :
+    notifyCounters (register rows source) counters record = 0 ↔
+      ∀ dependency ∈ dependencies, dependency ∈ source :: delivered := by
+  rw [mutable_notification_exact unique member delivered source fresh counters before]
+  constructor
+  · intro zero
+    exact (zero_remaining dependencies (source :: delivered)).mp (Int.ofNat.inj zero)
+  · intro ready
+    have zero := (zero_remaining dependencies (source :: delivered)).mpr ready
+    exact congrArg Int.ofNat zero
+
+/-- Every prefix of the actual per-occurrence mutation loop stays nonnegative.
+This rules out a transient underflow hidden by a final zero check. -/
+theorem mutable_prefix_nonnegative {rows : List (Nat × List Nat)}
+    (unique : (rows.map Prod.fst).Nodup) {record dependencies}
+    (member : (record, dependencies) ∈ rows) (delivered : List Nat) (source : Nat)
+    (fresh : source ∉ delivered) (counters : Nat → Int)
+    (before : counters record = (remaining dependencies delivered : Int))
+    (prefixEvents suffixEvents : List Nat)
+    (partition : (register rows source).reverse = prefixEvents ++ suffixEvents) :
+    0 ≤ notifyCounters prefixEvents counters record := by
+  rw [notified_counter, before]
+  have count : ((register rows source).reverse).count record = occurrences dependencies source := by
+    simpa only [List.count_reverse] using register_count unique member source
+  rw [partition, List.count_append] at count
+  have balance := fresh_notification_counts_occurrences dependencies delivered source fresh
+  omega
+
+/-- Initialization allocates one active counter for each distinct clause record.
+The ID is not the clause's published nonterminal: different records may publish
+the same nonterminal. Undefined names still occupy dependency positions. -/
+def initialCounters : List (Nat × List Nat) → Nat → Int
+  | [], _ => 0
+  | row :: tail, record => if record = row.1 then (row.2.length : Int) else initialCounters tail record
+
+theorem initial_counter {rows : List (Nat × List Nat)} (unique : (rows.map Prod.fst).Nodup)
+    {record dependencies} (member : (record, dependencies) ∈ rows) :
+    initialCounters rows record = (remaining dependencies [] : Int) := by
+  induction rows with
+  | nil => simp at member
+  | cons head tail ih =>
+    have nodup := List.nodup_cons.mp unique
+    rcases List.mem_cons.mp member with equal | member
+    · subst head
+      have empty : remaining dependencies [] = dependencies.length := by
+        unfold remaining
+        rw [List.filter_eq_self.mpr (by simp)]
+      simp [initialCounters, empty]
+    · have different : record ≠ head.1 := by
+        intro equal
+        apply nodup.1
+        rw [← equal]
+        exact List.mem_map_of_mem member
+      simpa [initialCounters, different] using ih nodup.2 member
+
+inductive CounterTrace (rows : List (Nat × List Nat)) : List Nat → (Nat → Int) → Prop where
+  | initial : CounterTrace rows [] (initialCounters rows)
+  | deliver {delivered counters source} (history : CounterTrace rows delivered counters)
+      (fresh : source ∉ delivered) : CounterTrace rows (source :: delivered)
+      (notifyCounters (register rows source).reverse counters)
+
+/-- Arbitrary finite mutation histories preserve every active clause counter.
+Initialization and preservation derive the counter invariant; the caller does
+not supply final counter equality, bounded examples or a final certificate. -/
+theorem counter_trace_exact {rows : List (Nat × List Nat)}
+    (unique : (rows.map Prod.fst).Nodup) {delivered counters}
+    (history : CounterTrace rows delivered counters) :
+    ∀ record dependencies, (record, dependencies) ∈ rows →
+      counters record = (remaining dependencies delivered : Int) := by
+  induction history with
+  | initial => exact fun _ _ member => initial_counter unique member
+  | @deliver delivered counters source history fresh ih =>
+    intro record dependencies member
+    rw [notified_reverse]
+    exact mutable_notification_exact unique member delivered source fresh counters
+      (ih record dependencies member)
 
 end ParserEngine.Completion

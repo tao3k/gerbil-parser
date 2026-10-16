@@ -8,7 +8,7 @@
         (only-in ../token
                  make-token token? token-end token-kind token-lexeme token-start)
         (only-in "./state.ss"
-                 make-lr-capture-children lr-capture-plan make-lr-capture-plan lr-runtime-capture-plans lr-runtime-capture-plans-set! lr-runtime-actions make-lr-capture-context lr-capture-context lr-capture-context-executor lr-capture-context-exit-state lr-runtime-table lr-runtime-reduction-widths make-lr-recognition-fragment lr-recognition-fragment lr-recognition-fragment? lr-recognition-fragment-runtime lr-recognition-fragment-production-id lr-recognition-fragment-children lr-recognition-fragment-start lr-recognition-fragment-end lr-recognition-fragment-token-count lr-recognition-fragment-offset lr-recognition-fragment-yield-cache lr-recognition-fragment-yield-cache-set! make-lr-recognition-view lr-recognition-view? lr-recognition-view-base lr-recognition-view-delta make-lr-terminal-yield-branch make-lr-terminal-yield-view lr-terminal-yield-view? lr-terminal-yield-view-base lr-terminal-yield-view-delta)
+                 lr-capture-plan make-lr-capture-plan lr-runtime-capture-plans lr-runtime-capture-plans-set! lr-runtime-actions make-lr-capture-context lr-capture-context lr-capture-context-executor lr-capture-context-exit-state lr-runtime-table lr-runtime-reduction-widths make-lr-recognition-fragment lr-recognition-fragment lr-recognition-fragment? lr-recognition-fragment-runtime lr-recognition-fragment-production-id lr-recognition-fragment-children lr-recognition-fragment-start lr-recognition-fragment-end lr-recognition-fragment-token-count lr-recognition-fragment-offset lr-recognition-fragment-yield-cache lr-recognition-fragment-yield-cache-set! make-lr-recognition-view lr-recognition-view? lr-recognition-view-base lr-recognition-view-delta make-lr-terminal-yield-branch make-lr-terminal-yield-view lr-terminal-yield-view? lr-terminal-yield-view-base lr-terminal-yield-view-delta)
         (only-in "./reduction.ss"
                  reduce-value))
 (export prepare-capture-plans capture-context-from-plan
@@ -193,7 +193,7 @@
                            (tokens 0) (start offset) (end offset))
                  (if (zero? left)
                    (cons (make-lr-recognition-fragment
-                          context (make-lr-capture-children children) lookahead value
+                          context children lookahead value
                           start end tokens offset (void)) remaining)
                    (let (piece (car remaining))
                      (with-capture-bounds piece (piece-start piece-end piece-count)

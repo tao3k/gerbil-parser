@@ -496,6 +496,36 @@ theorem packed_children_no_demand (width : Nat) (wide : 3 < width) :
 theorem packed_children_first_demand (width : Nat) :
     packedChildrenObjects width true = width + 2 := by simp [packedChildrenObjects, Nat.add_comm]
 
+/-- Native vector slots have distinct outer shapes. Operand identities abstract
+only admitted token/view/fragment objects, never a raw symbolic token kind. -/
+inductive CaptureVectorSlot (α : Type) where
+  | kind (name : Nat)
+  | lexeme (text : String)
+  | position (offset : Nat)
+  | operand (value : α)
+
+def captureVectorIsToken : List (CaptureVectorSlot α) → Bool
+  | [.kind _, .lexeme _, .position start, .position stop] => decide (start ≤ stop)
+  | _ => false
+
+theorem pending_capture_vector_is_not_token (children : List α) :
+    captureVectorIsToken (children.map CaptureVectorSlot.operand) = false := by
+  cases children <;> rfl
+
+/-- Erasing the one-field native descriptor keeps the owned array payload.
+The logical pending tag is represented by a non-token vector: each element is
+a capture operand, whereas a token vector begins with a symbolic kind and string
+lexeme. Native controls check that representation premise. -/
+def directPackedChildrenObjects (width : Nat) (demand : Bool) : Nat :=
+  1 + if demand then width else 0
+
+theorem direct_packed_one_fewer (width : Nat) (demand : Bool) :
+    directPackedChildrenObjects width demand + 1 = packedChildrenObjects width demand := by
+  cases demand <;> simp [directPackedChildrenObjects, packedChildrenObjects] <;> omega
+
+theorem direct_packed_observation (children : Array α) :
+    (forcePackedChildren (.pending children)).1 = children.toList := rfl
+
 /-- Snapshot the live kind and lexeme before deferring their pair allocation.
 Retaining a mutable token vector instead would not preserve this obligation. -/
 structure BoundarySnapshot (Lexeme : Type) where

@@ -156,3 +156,7 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 
 #print axioms ParserEngine.prepared_corpus_preserves
 #print axioms ParserEngine.corpus_preparations_saved
+
+#print axioms ParserEngine.Capture.direct_packed_one_fewer
+#print axioms ParserEngine.Capture.direct_packed_observation
+#print axioms ParserEngine.Capture.pending_capture_vector_is_not_token

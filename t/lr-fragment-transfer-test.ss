@@ -11,10 +11,10 @@
                  lr-initial-checkpoint lr-checkpoint-before-shift
                  lr-checkpoint-fragment-compatible?
                  lr-checkpoint-inject-fragment lr-checkpoint-resume lr-checkpoint-feed
-                 lr-recognition-fragment? lr-recognition-fragment-children lr-recognition-fragment-token-count
+                 lr-recognition-fragment? lr-recognition-fragment-children lr-recognition-fragment-token-count lr-recognition-fragment-start lr-recognition-fragment-end
                  lr-recognition-view? lr-recognition-view-base lr-recognition-view-delta
                  lr-recognition-project lr-recognition-relocate))
-(import (only-in :gerbil-parser/src/runtime/lr-parser/state lr-capture-children? lr-capture-plan-runtime lr-capture-plan-production-id lr-capture-plan-width lr-capture-plan-contexts lr-runtime-reduction-widths lr-recognition-fragment-lookahead lr-recognition-fragment-lookahead-cache lr-capture-context-lookahead-kind lr-recognition-fragment-yield-cache lr-recognition-fragment-children-cache lr-capture-context-runtime lr-capture-context-executor
+(import (only-in :gerbil-parser/src/runtime/lr-parser/state lr-capture-plan-runtime lr-capture-plan-production-id lr-capture-plan-width lr-capture-plan-contexts lr-runtime-reduction-widths lr-recognition-fragment-lookahead lr-recognition-fragment-lookahead-cache lr-capture-context-lookahead-kind lr-recognition-fragment-yield-cache lr-recognition-fragment-children-cache lr-capture-context-runtime lr-capture-context-executor
                  lr-capture-context-exit-state lr-runtime-actions-set! lr-runtime-capture-plans lr-runtime-goto-columns)
         (only-in :gerbil-parser/src/runtime/lr-parser/recognition lr-recognition-fragment-terminal-yield capture-context-from-plan prepare-capture-plans capture-reduction))
 (export lr-fragment-transfer-test)
@@ -158,11 +158,15 @@
              (captured (capture-transfer-root runtime tokens))
              (root (let loop ((piece captured))
                      (let (stored (lr-recognition-fragment-children-cache piece))
-                       (cond ((lr-capture-children? stored) piece)
+                       (cond ((and (vector? stored) (not (token? stored))) piece)
                              ((lr-recognition-fragment? stored) (loop stored))
                              (else (error "wide production was not retained as packed children")))))))
-        (check (lr-capture-children? (lr-recognition-fragment-children-cache root)) => #t)
+        (check (vector? (lr-recognition-fragment-children-cache root)) => #t)
         (check (void? (lr-recognition-fragment-yield-cache root)) => #t)
+        (check (token? (lr-recognition-fragment-children-cache root)) => #f)
+        (check (vector? (car tokens)) => #t)
+        (for-each (lambda (piece) (check (vector? piece) => #f))
+          (list root (lr-recognition-relocate (car tokens) 1)))
         (let* ((widths (lr-runtime-reduction-widths runtime))
                (id (find (lambda (id) (= (vector-ref widths id) 4)) (iota (vector-length widths))))
                (suffix (list (make-token 'identifier "outside" 20 27)))
@@ -179,6 +183,29 @@
           (check children => tokens)
           (check (eq? children (lr-recognition-fragment-children root)) => #t)
           (for-each (lambda (left right) (check (eq? left right) => #t)) children tokens))))
+    (test-case "ternary reductions preserve view geometry and untouched suffix"
+      (let* ((runtime (lr-prepare (compile-lr-spec
+                         '((source-file (alias SourceFile (sequence (token identifier) (token identifier)
+                                                                  (token identifier))))) 'source-file)))
+             (widths (lr-runtime-reduction-widths runtime))
+             (id (find (lambda (id) (= (vector-ref widths id) 3)) (iota (vector-length widths))))
+             (first (make-token 'identifier "a" 0 1))
+             (middle (lr-recognition-relocate (make-token 'identifier "b" 1 2) 10))
+             (last (make-token 'identifier "c" 12 13))
+             (pieces (list first middle last))
+             (suffix (list (make-token 'identifier "outside" 20 27)))
+             (result (capture-reduction (vector-ref (prepare-capture-plans runtime) id)
+                       (lambda _ #f) 0 (append (reverse pieces) suffix) #f 13 'value 1))
+             (fragment (car result)))
+        (check (eq? (cdr result) suffix) => #t)
+        (check (lr-recognition-fragment-children fragment) => pieces)
+        (check (lr-recognition-fragment-start fragment) => 0)
+        (check (lr-recognition-fragment-end fragment) => 13)
+        (check (lr-recognition-fragment-token-count fragment) => 3)
+        (let-values (((matches visits)
+                      (reference-transfer-yield fragment 0
+                        (list first (make-token 'identifier "b" 11 12) last))))
+          (check matches => #t))))
     (test-case "fresh capture defers its derived terminal index and repeated transfer queries share it"
       (let* ((grammar '((source-file (alias SourceFile (sequence (token identifier) (token identifier))))))
              (runtime (lr-prepare (compile-lr-spec grammar 'source-file)))

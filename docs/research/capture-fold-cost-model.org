@@ -800,3 +800,105 @@ establishes no incremental CPU gain. The earlier 8.61% remains an accumulated
 comparison to =459ec36=, not a countdown success. The countdown candidate is
 not admitted as an optimization. Runtime withdrawal and any subsequent child
 representation experiment require separate source and native receipts.
+
+
+* Independent qualification and direct owned-array payload
+
+** Prior implementation accepted on both platforms
+
+Exact-head run =38782642723= at =e3521693896cfcdf8904a76307514d351aa19b3b=
+completed successfully. Ubuntu and macOS semantics, generation, FFI and
+diagnostics passed; Ubuntu corpus and all three Rust jobs passed. Both unchanged
+complete-request CPU trials passed on Ubuntu. Trial one had before
+P10/P50/P90 0.951904/0.997084/1.041513, production
+0.917499/0.932543/0.945663, and after
+0.978259/1.002616/1.050103. Trial two had before
+0.953428/1.002670/1.042653, production
+0.923159/0.931701/0.943407, and after
+0.983116/0.998794/1.046193. The accumulated median reductions against
+=459ec36= are 6.75% and 6.83%, including complete fresh 64-record ASCII
+requests and natural GC. The earlier failed Ubuntu runs remain historical
+rejections; this receipt belongs to the exact later head. The uncommitted
+fixnum countdown experiment was absent from these CI products.
+
+** Remove the payload wrapper while retaining ownership
+
+The typed-width/countdown candidate and its dedicated width-domain regression
+are withdrawn after its direct predecessor comparison established no new CPU
+gain. The source-order ternary/view regression remains useful independently of
+that failed specialization and is retained.
+
+The next candidate stores the owned child vector directly in the private
+=children-cache= pending variant instead of a one-field record containing that
+vector. Empty/eager lists and unary operands keep their existing representation.
+The pending predicate requires a vector that fails the existing token protocol;
+recognition views and fragments are structure objects. A valid pending vector
+contains only capture operands, whereas a token begins with a symbolic kind
+and string lexeme. No recognition-stack tail is stored,
+and the vector is fresh for each wide reduction. First child observation still
+materializes and memoizes the exact source-order list; later observations return
+that same list object.
+
+The existing =PackedChildren= array model already represents this ownership and
+observation protocol. =direct_packed_observation= preserves its exact list
+projection; =direct_packed_one_fewer= removes one logical cold object from both
+unobserved and observed costs. The original owned-prefix/suffix-exclusion and
+warm-observation proofs remain applicable. Logical object counts do not prove
+native bytes or complete-request CPU. Native controls additionally check the
+representation-disjointness premise and cross-request independence.
+
+
+The first direct-vector native run failed in 23.448038 seconds: token vectors
+were incorrectly admitted as child arrays, breaking unary projection and
+incremental snapshot controls. Its assertion that tokens were structure objects
+was false. No CPU measurement was performed on that version. The correction
+uses the existing =token?= protocol and keeps the unary token vector intact;
+the representation control explicitly requires that tokens remain vectors and
+that the pending child vector is not a token. The original projection and
+source-index assertions are retained.
+
+
+** Native representation and allocation receipts
+
+The corrected native group passed 92 Cases in 20.734463 seconds, including the
+original unary, projection, incremental snapshot, ownership, suffix and stable
+list-identity controls. All 198 frozen metadata combinations passed in
+10.490312 seconds. Lean built all 56 targets; the model-input binding control
+and all nine directed capture-context Quint controls passed. The new
+=pending_capture_vector_is_not_token= theorem models the slot-shape separation;
+it is not an assertion that native vector code refines Lean automatically.
+
+The candidate and exact predecessor =48607f3= each ran the same phase replay with
+identical 256-request allocation windows. Three complete-request allocation-only
+samples per image all had zero collections: predecessor 133,591,760 bytes,
+candidate 132,805,328 bytes. This removes 786,432 bytes per 256 requests, or
+3072 bytes per complete request (approximately 0.59%). No-collection captured-LR
+samples changed from 49,344,848 to 48,558,416 bytes per 256 requests, a 1.59%
+reduction. Samples containing GC report no admitted allocated-byte total and
+are retained. The complete-request counters include scan, LR, capture,
+publication and validation; forced-yield replay also preserves the artifact.
+These are native byte-allocation receipts, not a CPU or GC-pause claim. The
+allocation-only controls collect before counting and publish no CPU claim;
+complete CPU qualification continues to include natural GC.
+
+** Complete-request CPU does not yet admit a new speed claim
+
+Against the direct predecessor, before P10/P50/P90 was
+0.975560/0.992571/1.004975, production was
+0.968487/0.990386/1.029642, and after was
+0.971783/0.996711/1.005044. Both controls passed, but the original CPU ceiling
+failed. The nominal 0.96% median difference is not an admitted incremental CPU
+benefit, and the upper percentile does not prove non-regression.
+
+Two planned local trials against the original frozen =459ec36= were retained.
+Trial one had before 0.949500/0.999522/1.049214, production
+0.894137/0.926555/1.007720, and after
+0.902051/0.998453/1.060333. Its controls were valid, but production P90 failed.
+Trial two had before 0.949492/1.008824/1.027192, production
+0.877217/0.912541/0.944058, and after
+0.893509/1.017647/1.076231. Its following control fell below 0.90, invalidating
+the trial despite the candidate percentile. Neither local trial is admitted.
+No unchanged local rerun, workload reduction, deadline extension or threshold
+change is used to turn these results into a pass. Independent exact-head Ubuntu
+qualification must establish the existing complete-request gate for this new
+representation; the prior implementation's successful CI cannot qualify it.

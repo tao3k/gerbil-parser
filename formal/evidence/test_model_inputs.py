@@ -22,12 +22,15 @@ class ModelInputControls(unittest.TestCase):
             lookahead.write_text("namespace Lookahead\nend Lookahead\n")
             request = root / "formal/ParserEngine/Request.lean"
             request.write_text("namespace Request\nend Request\n")
+            (root / "formal/ParserEngine/Grammar.lean").write_text("namespace Grammar\nend Grammar\n")
             lean, quint = model_checks(root)
             self.assertEqual((lean.claim, quint.claim), ("lean-model", "quint-protocol"))
+            self.assertIn("formal/ParserEngine/Grammar.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Request.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Reuse.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Capture.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Lookahead.lean", lean.inputs)
+            self.assertIn("formal/quint/GrammarPipeline.qnt", quint.inputs)
             self.assertIn("formal/quint/RequestFlow.qnt", quint.inputs)
             self.assertIn("formal/quint/LookaheadScope.qnt", quint.inputs)
             self.assertIn("formal/quint/ModuleAdmission.qnt", quint.inputs)
@@ -45,6 +48,10 @@ class ModelInputControls(unittest.TestCase):
                 self.assertIn("src/runtime/lr-parser/prepare.ss", check.inputs)
                 self.assertIn("src/runtime/lr-parser/entry.ss", check.inputs)
                 self.assertIn("t/canonical-lr1-reference-test.ss", check.inputs)
+                self.assertIn("t/resolved-grammar-test.ss", check.inputs)
+                self.assertIn("src/compiler/lr-table.ss", check.inputs)
+                self.assertIn("src/compiler/lr-compiler.ss", check.inputs)
+                self.assertIn("src/runtime/lr-action-index.ss", check.inputs)
                 self.assertIn("src/runtime/lr-stack-storage.ss", check.inputs)
                 self.assertIn("src/runtime/scan/regular.ss", check.inputs)
                 self.assertIn("t/ranked-regular-scanner-test.ss", check.inputs)
@@ -70,7 +77,8 @@ class ModelInputControls(unittest.TestCase):
             first = snapshot(root, quint.inputs)
             (root / "formal/quint/ReuseAdmission.qnt").write_text("changed protocol")
             self.assertNotEqual(first, snapshot(root, quint.inputs))
-            for name in ("formal/quint/RequestFlow.qnt", "docs/research/parser-engine-formal-model.org",
+            for name in ("formal/quint/GrammarPipeline.qnt", "src/compiler/lr-table.ss", "src/compiler/lr-compiler.ss",
+                         "t/resolved-grammar-test.ss", "formal/quint/RequestFlow.qnt", "docs/research/parser-engine-formal-model.org",
                          "formal/quint/LookaheadScope.qnt", "formal/quint/ModuleAdmission.qnt",
                          "src/runtime/lr-parser/checkpoint.ss", "src/runtime/token.ss",
                          "src/language/module-input.ss", "t/fixtures/tla-sany-differential/preload.ss"):

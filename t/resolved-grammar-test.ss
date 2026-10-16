@@ -2,7 +2,7 @@
 (import :std/test
         (only-in :std/test/base TestCase test-case-add!)
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
-        (only-in :gerbil-parser/src/compiler/lr lr-spec-ref current-grammar-source-map compute-nullable compute-first compute-productive compute-completion terminal-symbol?
+        (only-in :gerbil-parser/src/compiler/lr +lr-eof+ lr-spec-ref current-grammar-source-map compute-nullable compute-first compute-productive compute-completion terminal-symbol?
                  lower-rules production-lhs production-rhs production-table production-terminal-catalog
                  sequence-first sequence-nullable? base-symbol nonterminal-symbol? nonterminal-name)
         (only-in :gerbil-parser/src/compiler/funcs compiler-index-set-union)
@@ -12,8 +12,11 @@
         (only-in :gerbil-parser/src/compiler/lr-conflict-candidates initial-backward-follow-partitions)
         (only-in :gerbil-parser/src/compiler/normalize compile-grammar grammar-ir-ref compile-grammar/context normalized-grammar-ir normalized-grammar-source-map)
         (only-in :gerbil-parser/src/modules/parser/objects make-grammar make-grammar-role)
-        (only-in :gerbil-parser/src/runtime/lr-parser lr-parse lr-rejection-condition?)
-        (only-in :gerbil-parser/src/runtime/token make-token)
+        (only-in :gerbil-parser/src/runtime/lr-parser lr-parse lr-prepare lr-parse/prepared lr-rejection-condition?)
+        (only-in :gerbil-parser/src/runtime/lr-parser/prepare make-lr-action-selector)
+        (only-in :gerbil-parser/src/runtime/lr-action-index index-action-rows)
+        (only-in :gerbil-parser/src/runtime/scan make-ranked-lexical-scanner-factory)
+        (only-in :gerbil-parser/src/runtime/token make-token token-kind)
         (only-in :gerbil-parser/src/runtime/recognition
                  recognition-node-kind recognition-node-start recognition-node-end
                  recognition-node-children recognition-child-field recognition-child-value
@@ -25,8 +28,120 @@
                  acyclic-mixed-context-family-rules inactive-core-conflict-rules skew-width-rules))
 (export resolved-grammar-test)
 
+(def grammar-model-rules
+  '((start (alias Start (sequence (reference A) (token b))))
+    (A (choice (sequence (token a) (reference A)) (sequence)))))
+(def grammar-model-clauses '((start (A #\b)) (A (#\a A)) (A ())))
+
+;;; Independent finite CFG derivation relation. Facts are (lhs,start,end).
+;;; This uses neither lowered productions nor nullable/FIRST/LR tables.
+(def (derivation-chart-accepts? grammar start word)
+  (let ((facts (make-table test: equal?)) (limit (string-length word)))
+    (def (rhs? symbols at end)
+      (cond ((null? symbols) (= at end))
+            ((char? (car symbols))
+             (and (< at end) (char=? (car symbols) (string-ref word at))
+                  (rhs? (cdr symbols) (+ at 1) end)))
+            (else
+             (let split ((mid at))
+               (and (<= mid end)
+                    (or (and (table-ref facts (list (car symbols) at mid) #f)
+                             (rhs? (cdr symbols) mid end))
+                        (split (+ mid 1))))))))
+    (let converge ()
+      (let (changed? #f)
+        (for-each
+         (lambda (rule)
+           (for-each (lambda (at)
+             (for-each (lambda (end)
+               (let (key (list (car rule) at end))
+                 (when (and (not (table-ref facts key #f)) (rhs? (cadr rule) at end))
+                   (table-set! facts key #t) (set! changed? #t))))
+               (iota (+ 1 (- limit at)) at))) (iota (+ limit 1)))) grammar)
+        (when changed? (converge))))
+    (table-ref facts (list start 0 limit) #f)))
+
+(def (grammar-model-pipeline-case)
+  ;; The same S -> A b; A -> a A | epsilon fixture as GrammarPipeline.qnt.
+  (let* ((grammar grammar-model-clauses)
+         (rules grammar-model-rules)
+         (runtimes (map (lambda (route)
+                          (lr-prepare (compile-lr-spec rules 'start 'reject #f route)))
+                        '(canonical-lr1 follow-partition-lr1))))
+    (def (native-accepts? runtime tokens)
+      (with-catch
+       (lambda (condition)
+         (if (lr-rejection-condition? condition) #f (raise condition)))
+       (lambda ()
+         (let-values (((_root rest) (lr-parse/prepared runtime tokens))) (null? rest)))))
+    (let words ((word "") (remaining 4))
+      (let* ((tokens (map (lambda (at)
+                            (make-token (if (char=? (string-ref word at) #\a) 'a 'b)
+                                        (substring word at (+ at 1)) at (+ at 1)))
+                          (iota (string-length word))))
+             (expected (derivation-chart-accepts? grammar 'start word)))
+        (for-each (lambda (runtime) (check (native-accepts? runtime tokens) => expected)) runtimes))
+      (unless (zero? remaining)
+        (words (string-append word "a") (- remaining 1))
+        (words (string-append word "b") (- remaining 1))))
+    ;; Real ranked scanner -> real prepared parser. Longest beats rank; the
+    ;; equal-width/rank winner is the earlier declaration. Modes can remove it.
+    (let (factory (make-ranked-lexical-scanner-factory
+                   '(("a" a 99 0) ("aa" a 1 1) ("aa" a 1 2) ("b" b 99 3))))
+      (for-each
+       (lambda (mask)
+         (let ((scan (factory '() mask)) (tokens '()) (source "aab"))
+           (let loop ((at 0))
+             (unless (= at (string-length source))
+               (let (selected (scan source at))
+                 (check (and selected (> (cadr selected) at)) => #t)
+                 (when (= at 0)
+                   (check (cadr selected) => (if (vector-ref mask 1) 2 1))
+                   (check (cadddr selected) => (if (vector-ref mask 1) 1 0)))
+                 (set! tokens (cons (make-token (car selected) (substring source at (cadr selected))
+                                               at (cadr selected)) tokens))
+                 (loop (cadr selected)))))
+           (set! tokens (reverse tokens))
+           (check (map token-kind tokens) => (if (vector-ref mask 1) '(a b) '(a a b)))
+           (for-each (lambda (runtime) (check (native-accepts? runtime tokens) => #t)) runtimes)))
+       (list (vector #t #t #t #t) (vector #t #f #f #t))))))
+
+(def (table-support-counterexample-case)
+  ;; Schema-valid indices and reachable accept do not certify CFG semantics.
+  ;; Mutate one EOF action: accepting after a without the required trailing b.
+  (let* ((spec (compile-lr-spec grammar-model-rules 'start))
+         (actions (vector-copy (lr-spec-ref spec 'actions)))
+         (shift (cdr (assoc '(terminal token a) (vector-ref actions 0))))
+         (target (cadr shift)))
+    (vector-set! actions target
+      (cons (cons +lr-eof+ '(accept))
+            (filter (lambda (entry) (not (equal? (car entry) +lr-eof+))) (vector-ref actions target))))
+    (let (runtime (lr-prepare (cons (cons 'actions actions) spec)))
+      (let-values (((_root rest) (lr-parse/prepared runtime (list (make-token 'a "a" 0 1)))))
+        (check (null? rest) => #t)
+        (check (derivation-chart-accepts? grammar-model-clauses 'start "a") => #f)))))
+
+(def (state-sensitive-terminal-case)
+  (let* ((rows (vector '(((terminal literal "if") shift 0 #f)
+                         ((terminal token word) shift 1 #f))
+                      '(((terminal token word) shift 1 #f))))
+         (select (make-lr-action-selector rows (index-action-rows rows #f) #f #f))
+         (raw (make-token 'word "if" 0 2)))
+    (check (car (select 0 raw)) => '(terminal literal "if"))
+    (check (car (select 1 raw)) => '(terminal token word))))
+
+(def (first-is-not-productivity-case)
+  (let (productions (lower-rules
+                     '((start (sequence (literal "a") (reference dead)))
+                       (dead (reference dead))) 'start))
+    (let-values (((_nullable nullable _productive productive) (compute-completion productions)))
+      (let-values (((_rows first) (compute-first productions nullable)))
+        (check (table-ref nullable 'start #f) => #f)
+        (check (table-ref productive 'start #f) => #f)
+        (check (table-ref first 'start '()) => '((terminal literal "a")))))))
+
 ;;; Independent coordinates include epsilon, unary and uneven-width rules.
-;;; The expected enumeration is explicit, not decoded from the packed value.
+;;; Expected coordinates are not decoded from the packed value.
 (def (dense-item-coordinates-case)
   (let* ((productions (lower-rules '((start (sequence (literal "a") (literal "b") (literal "c")))
                                    (empty (sequence)) (short (literal "z"))) 'start))
@@ -678,6 +793,14 @@
 
 (def resolved-grammar-test
   (test-suite "resolved grammar admission and CFG alternatives"
+    (test-case-add! (TestCase "grammar derivation chart, scanner and LR tables compose on the shared model fixture"
+                      grammar-model-pipeline-case))
+    (test-case-add! (TestCase "schema-valid LR tables need a separate grammar-support obligation"
+                      table-support-counterexample-case))
+    (test-case-add! (TestCase "one raw token selects different grammar terminals across LR states"
+                      state-sensitive-terminal-case))
+    (test-case-add! (TestCase "FIRST retains a terminal prefix before an unproductive suffix"
+                      first-is-not-productivity-case))
     (test-case-add! (TestCase "dense item coordinates preserve epsilon and production boundaries"
                       dense-item-coordinates-case))
     (test-case-add! (TestCase "uneven rule widths allocate only actual dotted positions"

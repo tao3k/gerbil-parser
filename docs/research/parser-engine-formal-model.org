@@ -75,10 +75,10 @@ the transition and representation distinctions below.
 | Fortifying Macros: dependent declarations and author-level blame | Canonical declaration admission | No formal declaration-judgment model | Collect/check order, reference validity and original diagnostic ownership |
 | Compiled, Extensible, Multi-language DSLs: one admitted core with shared analyses | Canonical IR, compiler products and Loader | Prepared factory equivalence covers a consumer only | Extension/override elaboration and source-to-product consistency |
 | Parsing Expression Grammars: recognition algebra and rewrite premises | Grammar DSL and LR lowering | No PEG-to-CFG equivalence is claimed | State CFG/LR semantics explicitly; ordered choice laws cannot justify LR rewrites |
-| Abstract Interpretation: sound recursive derived facts | =src/compiler/lr.ss=: completion, nullable, FIRST | No least-fixed-point/derivation correspondence theorem | Soundness, completeness where required, convergence and suffix-fact consumers |
+| Abstract Interpretation: sound recursive derived facts | =src/compiler/lr.ss=: completion, nullable, FIRST | =Grammar.nullable_iff_derives=, nullable/FIRST least-closure laws and =first_reach= | Native occurrence/delta solver refinement, convergence, duplicate references and suffix-fact consumers |
 | Extensibility for the Masses: independent construct/operation extension | POO Loader and admitted IR consumers | LeanPoo retained factory selection, ordered reduction composition | Extension laws for whole grammar admission, not just selected actions |
 | Polymorphic Embedding of DSLs: interpretation and recursive analysis boundaries | Shared canonical compiler observations | No backend interpretation relation | Same admitted meaning across Scheme, generated C and Rust products |
-| Essence of LR Parsing: item/closure/goto and derivations (section 2) | =src/compiler/lr.ss= and runtime action/goto selection | Stack depth; new token-flow kernel below | Grammar derivations, table construction, selected-action legality and goto correspondence |
+| Essence of LR Parsing: item/closure/goto and derivations (section 2) | LR compiler and runtime action/goto selection | CFG derivations, item prediction/advance predicates and conditional table-driven trace theorem | Native closure/goto construction, viable prefixes, selected-cell support and acceptance-stack correspondence |
 | Essence of LR Parsing: staging, direct style/CPS, constructed results (sections 3--4) | Prepared plans, deterministic driver and fallback | Prepared action-chain equality; no residual parser refinement | Binding-time classification, dynamic branch semantics and specialization termination/size |
 | Essence of LR Parsing: conflicts and semantic actions (section 5) | Fork selection, dynamic precedence and reduction actions | Ordered local action semantics only | Branch choice/effects/rejection and complete semantic result preservation |
 | Efficient and Flexible Incremental Parsing: state matching versus sentential-form reuse (section 4.1) | =src/runtime/lr-parser/transfer.ss= | Key admission and terminal-prefix lemmas | Transfer guards must imply the same continuation, including lookahead and lexical/layout context |
@@ -94,9 +94,9 @@ receipt. All rows still require a checked Scheme abstraction relation.
 | Engine boundary | Present model | Missing composition / producer obligation |
 |-----------------+---------------+--------------------------------------------|
 | DSL/Loader -> canonical IR | Selected reduction factories | Admission judgments, POO extension semantics, hygiene and product consistency |
-| Grammar -> derived facts -> LR tables | Conditional prepared-plan lemmas | Derivation-based nullable/FIRST/closure/goto and conflict semantics |
-| Source -> ranked contextual scanner | Fold recognition/count identities | Longest/rank/tie policy, byte/character mapping, lexical modes, trivia and token admission |
-| Pending terminal -> action -> shift/reduce/capture | =Request.lean= / =RequestFlow.qnt=: ordered terminal conservation and depth over traces | Table-selected targets/widths, mutable native values and emitted AST correspondence |
+| Grammar -> derived facts -> LR tables | Derivation-based nullable/FIRST and item/cell-support model; bounded native chart comparison | Native fixed-point, item closure/goto and conflict construction refinement |
+| Source -> ranked contextual scanner | Longest/rank/declaration maximum over a complete supplied candidate set; fixed-terminal lexical/request composition | Native candidate completeness, raw-token/terminal relation, byte mapping, contextual modes and trivia |
+| Pending terminal -> action -> shift/reduce/capture | Grammar-annotated traces erase to =Request=; =GrammarPipeline= connects one real grammar, ranking and LR graph | General viable-prefix/RHS agreement, mutable native values, state-sensitive terminal matching and AST correspondence |
 | Deterministic driver -> fork/layout/recovery | Scope withdrawal and ownership fragments | Branch score/order, fuel exhaustion, effect isolation and failure frontier |
 | Recognition -> projection/tree | Local field/alias, sequence, capture lemmas | Complete projection induction, positions/relocation, nullable anchors and action effects |
 | Checkpoint -> transfer -> resumed request | Key equality, yield/prefix and history fragments | Same continuation outcome on success; exact original fallback on failed admission |
@@ -130,7 +130,7 @@ exhaustive model checking. Fault actions are excluded from the admitted step.
 Neither model asserts grammar acceptance, scan correctness, AST yield equality,
 native identity, progress or complete engine coverage.
 
-Local qualification for this model change: =lake build= completed 57 jobs;
+Historical qualification at =24e47d9=: =lake build= completed 57 jobs;
 =npm --prefix formal/quint test= passed 137 directed controls across 16 modules
 and 15 seeded invariant explorations; the evidence host/input controls passed
 four tests. =RequestFlow='s final ten controls and 1,000-sample exploration also
@@ -157,6 +157,139 @@ These obligations are now visible; the source-to-model simulation is still
 open. Counterexamples demonstrate that correct depth can coexist with reversed
 terminals, and that a valid prefix is not a complete request. They are model
 falsifiers, not claims that the production runtime has those faults.
+
+** Connected grammar, scanner and table foundation
+
+The new [[file:../../formal/ParserEngine/Grammar.lean][Grammar.lean]] starts at admitted base symbols. Its terminal
+ordinals denote grammar terminals, not raw token kinds. DSL hygiene, lowering
+of annotations and native ordinal encoding are outside that initial boundary.
+It connects the earlier request kernel to grammar meaning in one namespace:
+
+| Boundary | Definition / theorem | What it actually establishes |
+|----------+----------------------+------------------------------|
+| CFG -> finite terminal words | =Derives=, =derives_append= | Production membership and ordered contextual composition |
+| Empty derivation -> nullable | =nullable_iff_derives= | Both directions for the inductive nullable closure |
+| Grammar clauses -> fact environments | =nullable_least=, =first_least= | Semantic facts belong to any environment closed under the stated clauses; no native queue invariant is assumed proved |
+| FIRST -> reachable sentence prefix | =Rewrite=, =Reach=, =first_reach= | A reachable terminal prefix, without requiring the remaining sentence to be productive |
+| Nullable -> productive | =nullable_productive= | An empty finite derivation is a productivity witness; the converse is not asserted |
+| Nullable/FIRST -> LR(1) lookahead | =LookaheadAllowed=, =Predicts= | FIRST of the suffix plus inherited lookahead only when the suffix is nullable |
+| LR item -> goto/action support | =Advances=, =CellSupported=, =TableSupported= | Named semantic producer obligations; not a proof that the current compiler satisfies them |
+| Grammar frames -> capture contraction | =reduction_derives=, =erase_reduce= | Actual RHS symbol agreement preserves a grammatical frame and erases exactly to the earlier capture/request operation |
+| Table-driven finite request -> CFG result | =driven_trace_valid=, =table_driven_acceptance= | Selected shifts/reductions/gotos, admitted cells, RHS agreement and complete start-root premises compose |
+| Fixed lexical policy -> complete source claim | =Lexes=, =source_request_derivation= | A character-source segmentation and the same grammar-terminal request theorem compose without confusing characters with token ordinals |
+
+This applies the grammar/item/lookahead meanings of
+[[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing, section 2]], with an explicit stack representation.
+It does not claim equivalence to the paper's direct-style or CPS specializer.
+The least-closure statements use the distinction between semantic facts and
+closed abstract environments motivated by the
+[[https://www.di.ens.fr/~cousot/COUSOTpapers/publications.www/CousotCousot-POPL-77-ACM-p238--252-1977.pdf][abstract interpretation paper]]. They do not prove the native worklist's
+convergence, least solution or physical scheduling from file hashes.
+
+*** Scanner selection has a producer obligation
+
+=Preparation.ranked_fold_maximum= proves membership and weak maximum over the
+entire supplied admitted catalog. Its ordering is exclusive end, precedence,
+then lower declaration ordinal. Exact ties choose the right operand, matching
+=scan/lexical.ss:prefer=. This proof assumes neither speculative callback
+purity nor completeness of the native catalog. The native producer must still
+establish all legal candidates, eligibility masks and payload/ordinal identity.
+Character endpoints must not silently become byte endpoints.
+
+*** One shared executable fixture through the engine
+
+[[file:../../formal/quint/GrammarPipeline.qnt][GrammarPipeline.qnt]] uses =S -> A b; A -> a A | epsilon=. It connects nullable
+and FIRST publication, literal candidate enumeration/ranking, pending-token
+admission, a reference LR graph, nullable and repeated reductions, goto,
+acceptance and rejection. Its safety predicate checks graph edges, grammar
+frame yields, consumed/scanned token order and complete-publication conditions.
+The graph IDs are reference IDs, not an unproved native numeric-state mapping.
+
+The nine directed histories cover a wide lexical match, unit matches, nullable
+A, rejection, and missing-FIRST/wrong-goto/advanced-lookahead/reversed-yield/
+early-accept mutations. Deliberate mutations are excluded from admitted steps.
+The seeded 1,000-trace/40-step exploration is finite sampling, not exhaustive
+checking or a generic LR correctness theorem.
+
+The existing [[file:../../t/resolved-grammar-test.ss][resolved-grammar test owner]] supplies an independent finite CFG
+chart. Its facts =(lhs, start, end)= are derived from separate grammar clauses;
+it reads no lowered productions, nullable/FIRST sets or LR tables. Both native
+=canonical-lr1= and =follow-partition-lr1= paths are checked against the chart
+for all 31 words of length 0--4 over a/b. The same grammar is instantiated in
+=Grammar.Fixture=: nullable A and both FIRST(S) entries have derivation proofs,
+and =repeated_S= constructs a derivation of =a^n b= for arbitrary n. That is a
+positive semantic family witness, not unbounded native conformance or a proof
+that no other words can be accepted by a native backend. Separate actual ranked-scanner calls
+check longest/rank/order, mode masks, exact endpoints and the complete prepared
+parser with the resulting two-token or three-token stream. These finite checks
+bind a real route to the shared fixture; they do not discharge every generic
+producer premise in the Lean theorem.
+
+*** Two witnessed correspondence gaps
+
+1. *Table format admission is insufficient.* =validate-lr-tables= checks
+   dimensions, vocabulary, indices, row forms and reachable acceptance. A
+   deliberate EOF-action mutation still passes it and low-level
+   =lr-parse/prepared= accepts =a= for a grammar
+   requiring a trailing =b=. The independent derivation chart rejects that word.
+   =CellSupported= is a separate obligation. A completed item and a viable
+   stack must justify reductions; a start-root/EOF condition must justify
+   acceptance. The negative control does not claim that the normal compiler
+   produces the mutated table or that arbitrary tables must be recompiled on
+   every request. It disproves using schema admission as semantic evidence.
+2. *Raw tokens have state-dependent terminal interpretations.* The built-in
+   =make-lr-action-selector= tries exact literal, optional casefolded literal,
+   then token kind in the current state. The same immutable =word/"if"= token
+   selects a literal in one row and a token terminal in another. The new
+   =Lookahead.selectRaw= laws and =raw_terminal_is_state_sensitive= witness,
+   together with the real selector control, make this difference explicit.
+   =Grammar='s fixed-terminal trace cannot be claimed to cover all such paths.
+   A general refinement must relate raw tokens to terminal predicates per
+   selected row and retain the same pending raw token through reductions.
+
+The remaining producer obligations are therefore actionable: derive native
+nullable/FIRST worklist facts from the semantic closures; prove canonical item
+closure/goto and conflict construction; derive RHS agreement and the singleton
+start frame from viable-prefix invariants; and connect raw-token predicates,
+state-specific lookahead and scanner modes before lifting the fixed-terminal
+request theorem. GLR, layout, recovery, edits and ABI remain later compositions
+listed in the architecture ledger. Runtime tuning remains deferred.
+
+*** Preparation failures remain evidence
+
+The first local source qualification stopped before tests because an old
+compiled =lr1-construction= interface lacked the current =skew-width-rules=
+export. Rebuilding that fixture from source corrected preparation. An initial
+native test compilation then hit the unchanged five-second silence limit
+while GCC was compiling generated code. Enabling the repository's established
+GCC =-v -Q= progress and compiler verbosity completed the native build without
+changing compiler, optimization flags, total deadline or silence limit.
+The failed logs are retained separately; they are not semantic passes.
+
+A later build exposed buffering before those diagnostic lines reached the
+supervisor. The disposable compiler caller now uses the SDK's
+=port-settings-set!= with =buffering: #f= on stdout/stderr. This delivers actual
+compiler diagnostics immediately, with no periodic synthetic progress messages.
+The final build completed in 11.333 seconds with the same 90-second total and
+five-second silence limits. The earlier buffered build's 7.123-second
+=idle-timeout= remains a failed preparation record.
+
+Local qualification of the connected foundation:
+
+| Check | Result and scope |
+|-------+------------------|
+| Locked Lean =lake build= | 58 jobs; printed theorem axioms; no admitted native refinement |
+| Full Quint =npm test= | 146 directed controls, 17 modules, 16 seeded invariant explorations |
+| Shared grammar pipeline | Nine directed controls; 1,000 traces bounded at 40 steps |
+| Final Scheme resolved-grammar owner | 43 cases, 5.195 seconds, exit 0, no supervisor reason or missing receipt |
+| Evidence host/input controls | Four tests; new model/compiler/test input changes invalidate observations |
+
+The Scheme result includes the schema-valid semantic mutation and the
+state-sensitive raw-token witness. The negative controls establish that the
+stronger correspondence premises are necessary. They do not turn the current
+schema validator into a semantic checker. Runtime code and CPU benchmark
+admission are unchanged; the earlier CPU failure remains unqualified.
+
 
 ** Completion gates before architecture optimization
 

@@ -295,4 +295,49 @@ theorem direct_dispatch_transfers (queries : Nat) :
   unfold nestedSelectorCalls directSelectorCalls
   omega
 
+/-- Snapshot fields supplied to the built-in non-layout selector. Mutation
+and custom selector effects retain the separate producer obligations above. -/
+structure RawToken where
+  kind : Nat
+  lexeme : String
+  deriving DecidableEq, Repr
+
+structure SelectorRow (Entry : Type) where
+  eof : Option Entry
+  literal : String → Option Entry
+  casefold : String → Option Entry
+  token : Nat → Option Entry
+  insensitive : Bool
+
+def selectRaw (row : SelectorRow Entry) : Option RawToken → Option Entry
+  | none => row.eof
+  | some input => (row.literal input.lexeme).orElse fun _ =>
+      (if row.insensitive then row.casefold input.lexeme else none).orElse fun _ =>
+        row.token input.kind
+
+theorem exact_literal_precedes_kind (row : SelectorRow Entry) (input : RawToken)
+    (entry : Entry) (exactMatch : row.literal input.lexeme = some entry) :
+    selectRaw row (some input) = some entry := by simp [selectRaw, exactMatch]
+
+theorem token_fallback_after_literal_failure (row : SelectorRow Entry) (input : RawToken)
+    (noExact : row.literal input.lexeme = none)
+    (noFold : row.insensitive = false ∨ row.casefold input.lexeme = none) :
+    selectRaw row (some input) = row.token input.kind := by
+  rcases noFold with disabled | absent
+  · simp [selectRaw, noExact, disabled]
+  · simp [selectRaw, noExact, absent]
+
+/-- One immutable raw token can select different grammar terminals in different
+states. A state-independent kind/lexeme normalization is therefore insufficient. -/
+def literalState : SelectorRow Nat :=
+  ⟨none, fun text => if text = "if" then some 10 else none, fun _ => none,
+    fun kind => some kind, false⟩
+def tokenState : SelectorRow Nat :=
+  ⟨none, fun _ => none, fun _ => none, fun kind => some kind, false⟩
+
+theorem raw_terminal_is_state_sensitive :
+    selectRaw literalState (some ⟨1, "if"⟩) = some 10 ∧
+    selectRaw tokenState (some ⟨1, "if"⟩) = some 1 := by
+  simp [selectRaw, literalState, tokenState]
+
 end ParserEngine.Lookahead

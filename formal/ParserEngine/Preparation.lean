@@ -144,6 +144,72 @@ theorem certified_fallback_loses (start : Nat) (winner fallback : RankedMatch)
   · exact Or.inl longer
   · exact Or.inr ⟨by omega, priority⟩
 
+/-- Weak ranking is total, including equality of all three coordinates.
+A merge chooses the right candidate on exact ties, as lexical.ss:prefer does.
+This does not assume that the native scanner enumerates all legal candidates. -/
+def rankedAtLeast (winner other : RankedMatch) : Prop :=
+  other.finish < winner.finish ∨
+  (other.finish = winner.finish ∧
+    (other.rank < winner.rank ∨
+      (other.rank = winner.rank ∧ winner.ordinal ≤ other.ordinal)))
+
+instance (a b : RankedMatch) : Decidable (rankedAtLeast a b) :=
+  inferInstanceAs (Decidable (_ ∨ _))
+
+theorem ranked_total (a b : RankedMatch) : rankedAtLeast a b ∨ rankedAtLeast b a := by
+  unfold rankedAtLeast
+  omega
+
+theorem ranked_refl (a : RankedMatch) : rankedAtLeast a a := by
+  simp [rankedAtLeast]
+
+theorem ranked_trans {a b c : RankedMatch}
+    (ab : rankedAtLeast a b) (bc : rankedAtLeast b c) : rankedAtLeast a c := by
+  unfold rankedAtLeast at *
+  omega
+
+def mergeRanked (left right : RankedMatch) : RankedMatch :=
+  if rankedAtLeast right left then right else left
+
+theorem merge_ranked_member (left right : RankedMatch) :
+    mergeRanked left right = left ∨ mergeRanked left right = right := by
+  unfold mergeRanked
+  split <;> simp
+
+theorem merge_ranked_dominates (left right : RankedMatch) :
+    rankedAtLeast (mergeRanked left right) left ∧
+      rankedAtLeast (mergeRanked left right) right := by
+  unfold mergeRanked
+  split
+  · exact ⟨by assumption, ranked_refl _⟩
+  · exact ⟨ranked_refl _, (ranked_total left right).resolve_right (by assumption)⟩
+
+/-- The fold is a maximum of the ENTIRE supplied admitted catalog, with a
+membership witness. Candidate completeness is a separate producer obligation. -/
+theorem ranked_fold_maximum (entries : List RankedMatch) (initial : RankedMatch) :
+    entries.foldl mergeRanked initial ∈ initial :: entries ∧
+    ∀ candidate ∈ initial :: entries,
+      rankedAtLeast (entries.foldl mergeRanked initial) candidate := by
+  induction entries generalizing initial with
+  | nil => simp [ranked_refl]
+  | cons head tail ih =>
+    have prior := ih (mergeRanked initial head)
+    have dominates := merge_ranked_dominates initial head
+    constructor
+    · simp only [List.foldl_cons]
+      rcases List.mem_cons.mp prior.1 with selected | member
+      · rcases merge_ranked_member initial head with left | right
+        · simp_all
+        · simp_all
+      · exact List.mem_cons_of_mem _ (List.mem_cons_of_mem _ member)
+    · intro candidate member
+      simp only [List.foldl_cons]
+      rcases List.mem_cons.mp member with rfl | member
+      · exact ranked_trans (prior.2 _ (by simp)) dominates.1
+      · rcases List.mem_cons.mp member with rfl | member
+        · exact ranked_trans (prior.2 _ (by simp)) dominates.2
+        · exact prior.2 _ (List.mem_cons_of_mem _ member)
+
 /-- Selecting a subset preserves the winner only with an actual admitted
 witness for each omitted candidate, not a first-character hint alone. -/
 theorem omitted_fallback_has_witness (retained : List RankedMatch) (winner fallback : RankedMatch)

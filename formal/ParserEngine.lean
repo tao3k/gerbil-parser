@@ -1,3 +1,4 @@
+import ParserEngine.Grammar
 import ParserEngine.Request
 import ParserEngine.Lookahead
 import ParserEngine.Capture
@@ -172,3 +173,23 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Request.trace_valid
 #print axioms ParserEngine.Request.root_and_remainder
 #print axioms ParserEngine.Request.complete_root
+
+#print axioms ParserEngine.Grammar.nullable_iff_derives
+#print axioms ParserEngine.Grammar.nullable_least
+#print axioms ParserEngine.Grammar.first_least
+#print axioms ParserEngine.Grammar.first_reach
+#print axioms ParserEngine.Grammar.nullable_productive
+#print axioms ParserEngine.Grammar.eof_lookahead_requires_nullable
+#print axioms ParserEngine.Grammar.terminal_lookahead_has_derivation
+#print axioms ParserEngine.Grammar.erase_reduce
+#print axioms ParserEngine.Grammar.trace_valid
+#print axioms ParserEngine.Grammar.accepted_trace_derivation
+#print axioms ParserEngine.Grammar.table_driven_acceptance
+#print axioms ParserEngine.ranked_fold_maximum
+
+#print axioms ParserEngine.Grammar.source_request_derivation
+
+#print axioms ParserEngine.Lookahead.raw_terminal_is_state_sensitive
+#print axioms ParserEngine.Lookahead.exact_literal_precedes_kind
+
+#print axioms ParserEngine.Grammar.Fixture.repeated_S

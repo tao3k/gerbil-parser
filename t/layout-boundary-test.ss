@@ -4,7 +4,7 @@
 ;;; Explicit closing boundaries belong to the declaring language grammar.
 
 (import (only-in :gerbil-parser/t/fixtures/layout-columns wide-frame-roots closure-frame-roots
-                 host-slot-control host-mutex-control host-spin-backend host-max-processors)
+                 cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
         :std/test
         :gerbil-parser/src/grammar/algebra
         (only-in :gerbil-parser/src/language/grammar deflanguage)
@@ -251,6 +251,15 @@
 
 (def layout-boundary-test
   (test-suite "Grammar-owned layout closing boundaries"
+    (test-case "native ticket CAS distinguishes success, busy and unlock"
+      (check (host-ticket-control) => 0))
+    (test-case "compiled flonum cache writes retain values across opaque collection"
+      (for-each
+       (lambda (seed)
+         (check (cache-flonum-values seed (lambda () (##gc)))
+                => (list (+ seed 0.25) (* (+ seed 0.25) 2.0)
+                         (- (* (+ seed 0.25) 2.0) seed))))
+       '(0.5 -4.5 16777216.5)))
     (test-case "compiled host slot addresses agree after frame pointer adjustment"
       (check (host-slot-control) => 0))
     (test-case "host mutex imports writes made after OS thread creation"

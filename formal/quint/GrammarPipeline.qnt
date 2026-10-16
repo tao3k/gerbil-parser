@@ -580,4 +580,96 @@ module GrammarPipeline {
       hostViewsSafe(acquireHost(released,0))
   })
 
+  pure def assignEmpty(rows:List[int],index:int,value:int):{rows:List[int],ok:bool} =
+    if(index < 0 or index >= rows.length()) {rows:rows,ok:false}
+    else if(rows.nth(index) != -1) {rows:rows,ok:false}
+    else {rows:rows.replaceAt(index,value),ok:true}
+  run nativeContextAssignmentNeedsAnExistingEmptyCellTest = init.expect({
+    val entrySlots = List(-1,-1,-1)
+    val one = assignEmpty(entrySlots,2,70)
+    one.ok and one.rows.length() == 3 and one.rows.nth(2) == 70 and
+      not(assignEmpty(one.rows,2,80).ok) and
+      not(assignEmpty(entrySlots,entrySlots.length(),90).ok) and
+      not(assignEmpty(entrySlots,-1,90).ok)
+  })
+  run nativeTaskAndReturnContextsPartitionTheOriginalSlotsTest = init.expect({
+    val original = List(30,20,10)
+    0.to(3).forall(start => {
+      val taskSlots = reverseSlots(reverseSlots(original).slice(start,3))
+      val parentSlots = original.slice(3 - start,3)
+      taskSlots.length() == 3 - start and parentSlots.length() == start and
+        reverseSlots(parentSlots).concat(reverseSlots(taskSlots)) == reverseSlots(original)
+    })
+  })
+  type FpCell = {present:bool,location:int,dirty:bool,stamp:int,payload:int}
+  pure val emptyFp:FpCell = {present:false,location:0,dirty:false,stamp:0,payload:0}
+  pure def probeFp(rows:List[FpCell],location:int):List[FpCell] =
+    rows.foldl(List(),(found,cell) => if(found.length() == 0 and cell.present and cell.location == location)
+      List(cell) else found)
+  pure def flushFp(rows:List[FpCell],location:int):{rows:List[FpCell],events:List[FpCell]} =
+    rows.foldl({rows:List(),events:List()},(s,cell) =>
+      if(s.events.length() == 0 and cell.present and cell.location == location and cell.dirty)
+        {rows:s.rows.append({...cell,dirty:false}),events:List(cell)}
+      else {rows:s.rows.append(cell),events:s.events})
+  pure def invalidateFp(rows:List[FpCell],location:int):List[FpCell] =
+    rows.foldl(List(),(result,cell) => result.append(if(cell.present and cell.location == location) emptyFp else cell))
+  pure def insertFp(rows:List[FpCell],entryCell:FpCell):List[FpCell] = {
+    val scanned = rows.foldl({rows:List(),inserted:false},(s,cell) =>
+      if(not(s.inserted) and not(cell.present)) {rows:s.rows.append(entryCell),inserted:true}
+      else {rows:s.rows.append(cell),inserted:s.inserted})
+    if(scanned.inserted) scanned.rows else rows.append(entryCell).concat(rows.foldl(List(),(result,_cell) => result.append(emptyFp)))
+  }
+  run dirtyCacheReadWritesBackOnceAndInvalidationClearsAllAliasesTest = init.expect({
+    val value = {present:true,location:4,dirty:true,stamp:8,payload:123}
+    val once = flushFp(List(emptyFp,value,emptyFp),4)
+    once.events == List(value) and once.rows.nth(1).stamp == 8 and
+      not(once.rows.nth(1).dirty) and flushFp(once.rows,4).events == List() and
+      probeFp(invalidateFp(List(value,value),4),4) == List()
+  })
+  run cleanAndDirtyAliasWouldBreakTheProbeWritebackCorrespondenceTest = init.expect({
+    val clean = {present:true,location:4,dirty:false,stamp:7,payload:111}
+    val dirty = {...clean,dirty:true,stamp:8,payload:222}
+    probeFp(List(clean,dirty),4) == List(clean) and
+      flushFp(List(clean,dirty),4).events == List(dirty)
+  })
+  run cacheEntryReusesFirstHoleOrDoublesCapacityAndKeepsFreshStampTest = init.expect({
+    val left = {present:true,location:4,dirty:false,stamp:1,payload:11}
+    val right = {...left,location:5,stamp:2,payload:22}
+    val reused = insertFp(List(left,emptyFp,emptyFp),right)
+    val grown = insertFp(List(left),right)
+    reused == List(left,right,emptyFp) and grown == List(left,right,emptyFp) and
+      insertFp(List(),left) == List(left) and
+      probeFp(insertFp(invalidateFp(grown,4),{...left,stamp:3,dirty:true}),4).nth(0).stamp == 3
+  })
+  run staleTicketCASCannotEnterAHeldLockWithinTheNoWrapWindowTest = init.expect(
+    0.to(3).forall(currentTicket => currentTicket.to(currentTicket + 3).forall(nextTicket =>
+      0.to(currentTicket).forall(observed =>
+        (nextTicket == observed) implies (nextTicket == currentTicket)))))
+
+  run unlockWithWaitingTicketsIsAValidOwnerlessIntermediateStateTest = init.expect({
+    val currentTicket = 1
+    val nextTicket = 2
+    val owner = -1
+    currentTicket <= nextTicket and ((currentTicket == nextTicket) implies (owner == -1)) and
+      not((currentTicket == nextTicket) == (owner == -1))
+  })
+
+  type SpillCell = {variableId:int,pointer:int}
+  pure def lowestDead(rows:List[SpillCell],live:Set[int]):int =
+    rows.foldl({index:0,found:false},(s,cell) =>
+      if(s.found) s else if(live.contains(cell.variableId)) {index:s.index + 1,found:false}
+      else {...s,found:true}).index
+  pure def saveRegister(rows:List[SpillCell],live:Set[int],cell:SpillCell):List[SpillCell] = {
+    val destination = lowestDead(rows,live)
+    if(destination == rows.length()) rows.append(cell) else rows.replaceAt(destination,cell)
+  }
+  run repeatedRegisterSpillsReuseOnlyDeadSlotsAndPreserveEveryLiveCopyTest = init.expect({
+    val live = Set(10,20,30,40)
+    val original = List({variableId:0,pointer:0},{variableId:10,pointer:110},{variableId:5,pointer:105})
+    val copied = List({variableId:20,pointer:120},{variableId:30,pointer:130},{variableId:40,pointer:140})
+    val result = copied.foldl(original,(rows,cell) => saveRegister(rows,live,cell))
+    result == List(copied.nth(0),original.nth(1),copied.nth(1),copied.nth(2)) and
+      result.nth(1) == original.nth(1) and result.length() == 4
+  })
+
 }

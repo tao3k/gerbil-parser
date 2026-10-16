@@ -277,6 +277,557 @@ theorem internal_size_matches (empty ret : α) (slots regs : List α)
 
 end Slots
 
+namespace Contexts
+/-- All six fields of make-context; None in a slot is empty-var, not a missing
+physical cell. The cleared machine state is distinct from an active size-zero frame. -/
+structure Context where
+  stack : Slots.Context (Option Nat)
+  registers : List (Option Nat)
+  closed : List Nat
+  poll : Bool × Nat
+  entry : Option Nat
+
+def Valid (context : Context) : Prop := Slots.Valid context.stack
+
+def entry (size registers budget : Nat) (closed : List Nat) : Context :=
+  ⟨⟨size, List.replicate size none⟩, List.replicate registers none, closed, (false, budget), none⟩
+
+theorem entry_valid (size registers budget : Nat) (closed : List Nat) : Valid (entry size registers budget closed) := by
+  simp [Valid, Slots.Valid, entry]
+
+inductive Location where
+  | register (index : Nat)
+  | stack (slot : Nat)
+  deriving DecidableEq, Repr
+
+/-- pcontext assignment is admitted only for an existing empty cell. Source
+reg<=nb-regs alone is insufficient at equality; car/drop must also exist. -/
+def assign (context : Context) (where_ : Location) (identifier : Nat) : Option Context :=
+  match where_ with
+  | .register index => if context.registers[index]? = some none then
+      some {context with registers := context.registers.set index (some identifier)} else none
+  | .stack slot =>
+      if 0 < slot ∧ slot ≤ context.stack.declared ∧
+          context.stack.slots[context.stack.declared - slot]? = some none then
+        some {context with stack := ⟨context.stack.declared,
+          context.stack.slots.set (context.stack.declared - slot) (some identifier)⟩}
+      else none
+
+theorem assign_valid {before after : Context} (valid : Valid before) {where_ : Location} {identifier : Nat}
+    (accepted : assign before where_ identifier = some after) : Valid after := by
+  cases where_ with
+  | register index =>
+    simp only [assign] at accepted
+    split at accepted
+    · cases accepted; exact valid
+    · cases accepted
+  | stack slot =>
+    simp only [assign] at accepted
+    split at accepted
+    · cases accepted; simpa [Valid, Slots.Valid] using valid
+    · cases accepted
+
+def assignments : Context → List (Location × Nat) → Option Context
+  | context, [] => some context
+  | context, (where_, identifier) :: rest =>
+      (assign context where_ identifier).bind (fun updated => assignments updated rest)
+
+theorem assignments_valid {before after : Context} (valid : Valid before) (writes : List (Location × Nat))
+    (accepted : assignments before writes = some after) : Valid after := by
+  induction writes generalizing before with
+  | nil => simp [assignments] at accepted; cases accepted; exact valid
+  | cons step rest ih =>
+    simp only [assignments] at accepted
+    cases assigned : assign before step.1 step.2 with
+    | none => simp [assigned] at accepted
+    | some updated =>
+      simp only [assigned, Option.bind_some] at accepted
+      exact ih (assign_valid valid assigned) accepted
+
+inductive Machine where
+  | cleared
+  | active (context : Context)
+
+def snapshot : Machine → Option Context
+  | .cleared => none
+  | .active context => some context
+
+def restore (context : Context) : Machine := .active context
+
+theorem snapshot_restore (context : Context) : snapshot (restore context) = some context := rfl
+
+theorem clear_has_no_frame : snapshot .cleared = none := rfl
+
+/-- Task split and parent return context in gen-future: top/bottom pieces of
+one valid physical slot list, with their declared sizes derived separately. -/
+def task (context : Context) (start : Nat) : Slots.Context (Option Nat) :=
+  ⟨context.stack.declared - start, (context.stack.slots.reverse.drop start).reverse⟩
+def parent (context : Context) (start : Nat) : Slots.Context (Option Nat) :=
+  ⟨start, context.stack.slots.drop (context.stack.declared - start)⟩
+
+theorem task_valid {context : Context} (valid : Valid context) (start : Nat) : Slots.Valid (task context start) := by
+  simp only [Valid, Slots.Valid] at valid
+  simp [Slots.Valid, task, valid]
+
+theorem parent_valid {context : Context} (valid : Valid context) {start : Nat}
+    (inside : start ≤ context.stack.declared) : Slots.Valid (parent context start) :=
+  Slots.shrink_valid valid inside
+
+/-- The join constructor drops unused leading cells from a full-width row.
+The displacement producer must still supply exactly that full width. -/
+theorem join_valid (rows : List (Option Nat)) (maximum selected : Nat)
+    (width : rows.length = maximum) (bound : selected ≤ maximum) :
+    Slots.Valid (⟨selected, rows.drop (maximum - selected)⟩ : Slots.Context (Option Nat)) := by
+  simp only [Slots.Valid, List.length_drop]
+  omega
+def taskContext (context : Context) (start ret : Nat) : Context :=
+  {context with stack := task context start, registers := some ret :: context.registers.drop 1, closed := []}
+def parentContext (context : Context) (start : Nat) : Context :=
+  {context with stack := parent context start, registers := []}
+
+/-- Constructors compose from actual entry rows, not arbitrary prevalidated
+frame snapshots. Metadata validity beyond slot counts remains separate. -/
+inductive Constructed : Context → Prop where
+  | entry (size registers budget : Nat) (closed : List Nat) : Constructed (entry size registers budget closed)
+  | assign {before after} : Constructed before → (writes : List (Location × Nat)) →
+      (accepted : assignments before writes = some after) → Constructed after
+  | task {before} : Constructed before → (start ret : Nat) → (inside : start ≤ before.stack.declared) → (hasRegisters : before.registers ≠ []) →
+      Constructed (taskContext before start ret)
+  | parent {before} : Constructed before → (start : Nat) → (inside : start ≤ before.stack.declared) →
+      Constructed (parentContext before start)
+
+theorem constructed_valid {context : Context} (history : Constructed context) : Valid context := by
+  induction history with
+  | entry size registers budget closed => exact entry_valid size registers budget closed
+  | assign _ writes accepted ih => exact assignments_valid ih writes accepted
+  | task _ start ret inside hasRegisters ih => exact task_valid ih start
+  | parent _ start inside ih => exact parent_valid ih inside
+
+theorem constructed_layout {context : Context} (history : Constructed context) (empty : Option Nat) (size : Nat) :
+    (Slots.extendDeclared empty context.stack size).reverse = Slots.physical empty context.stack.slots size :=
+  Slots.declared_adapter (constructed_valid history) empty size
+
+end Contexts
+
+namespace Spill
+/-- Physical slots in increasing slot order. Liveness includes any closure-env
+promotion before selecting a dead destination. -/
+structure Cell where
+  variableId : Nat
+  value : Roots.Word
+  deriving DecidableEq, Repr
+
+def choose (live : Nat → Bool) : List Cell → Nat
+  | [] => 0
+  | cell :: rest => if live cell.variableId then choose live rest + 1 else 0
+
+theorem chosen_bound (live : Nat → Bool) (rows : List Cell) : choose live rows ≤ rows.length := by
+  induction rows with
+  | nil => simp [choose]
+  | cons cell rest ih => simp only [choose, List.length_cons]; split <;> omega
+
+theorem chosen_dead (live : Nat → Bool) (rows : List Cell) {cell : Cell}
+    (selected : rows[choose live rows]? = some cell) : live cell.variableId = false := by
+  induction rows with
+  | nil => simp [choose] at selected
+  | cons first rest ih =>
+    by_cases held : live first.variableId = true
+    · simpa [choose, held] using ih (by simpa [choose, held] using selected)
+    · simp only [choose, held, Bool.false_eq_true, ite_false, List.getElem?_cons_zero, Option.some.injEq] at selected
+      subst cell
+      exact Bool.eq_false_iff.mpr held
+
+/-- lowest-dead-slot chooses an existing dead slot or exactly the next new slot. -/
+def save (live : Nat → Bool) (rows : List Cell) (cell : Cell) : List Cell :=
+  if choose live rows < rows.length then rows.set (choose live rows) cell else rows ++ [cell]
+
+theorem saved_read (live : Nat → Bool) (rows : List Cell) (cell : Cell) :
+    (save live rows cell)[choose live rows]? = some cell := by
+  unfold save
+  split
+  · exact List.getElem?_set_self ‹_›
+  · have bound := chosen_bound live rows
+    have equal : choose live rows = rows.length := by omega
+    simp [equal]
+
+theorem live_read_preserved (live : Nat → Bool) (rows : List Cell) {index : Nat} {cell replacement : Cell}
+    (selected : rows[index]? = some cell) (held : live cell.variableId = true) :
+    (save live rows replacement)[index]? = some cell := by
+  have different : index ≠ choose live rows := by
+    intro equal
+    have dead := chosen_dead live rows (by simpa [equal] using selected)
+    rw [held] at dead
+    cases dead
+  unfold save
+  split
+  · rw [List.getElem?_set_ne different.symm]
+    exact selected
+  · have inside : index < rows.length := by
+      by_cases bound : index < rows.length
+      · exact bound
+      · have absent := List.getElem?_eq_none (Nat.le_of_not_gt bound)
+        rw [absent] at selected
+        cases selected
+    rw [List.getElem?_append_left inside]
+    exact selected
+
+theorem live_member_preserved (live : Nat → Bool) (rows : List Cell) {cell : Cell}
+    (member : cell ∈ rows) (held : live cell.variableId = true) (replacement : Cell) :
+    cell ∈ save live rows replacement := by
+  obtain ⟨index, selected⟩ := List.mem_iff_getElem?.mp member
+  exact List.mem_iff_getElem?.mpr ⟨index, live_read_preserved live rows selected held⟩
+
+def all (live : Nat → Bool) : List Cell → List Cell → List Cell
+  | rows, [] => rows
+  | rows, copy :: rest => all live (save live rows copy) rest
+
+/-- Arbitrarily many saves preserve both preexisting live slots and every live
+copied register, including when the frame extends repeatedly. -/
+theorem all_live_retained (live : Nat → Bool) (rows copies : List Cell) {cell : Cell}
+    (held : live cell.variableId = true) (present : cell ∈ rows ∨ cell ∈ copies) : cell ∈ all live rows copies := by
+  induction copies generalizing rows with
+  | nil => simpa [all] using present
+  | cons copy rest ih =>
+    apply ih (save live rows copy)
+    rcases present with old | copied
+    · exact Or.inl (live_member_preserved live rows old held copy)
+    · rcases List.mem_cons.mp copied with same | later
+      · subst cell
+        exact Or.inl (List.mem_iff_getElem?.mpr ⟨choose live rows, saved_read live rows copy⟩)
+      · exact Or.inr later
+end Spill
+
+namespace Cache
+structure Entry where
+  location : Nat
+  dirty : Bool
+  stamp : Nat
+  payload : Nat
+  deriving DecidableEq, Repr
+
+def clean (entry : Entry) : Entry := {entry with dirty := false}
+
+@[simp] theorem clean_location (entry : Entry) : (clean entry).location = entry.location := rfl
+
+theorem clean_of_clean (entry : Entry) (already : entry.dirty = false) : clean entry = entry := by
+  cases entry; simp_all [clean]
+
+def lookup (location : Nat) : List (Option Entry) → Option Entry
+  | [] => none
+  | none :: rest => lookup location rest
+  | some entry :: rest => if entry.location = location then some entry else lookup location rest
+
+def Unique : List (Option Entry) → Prop
+  | [] => True
+  | none :: rest => Unique rest
+  | some entry :: rest => lookup entry.location rest = none ∧ Unique rest
+
+/-- Exact early-return scan of targ-fp-cache-write-if-dirty. The optional
+emitted entry is the F64BOX writeback event, not an assumed boxed-memory value. -/
+def flush (location : Nat) : List (Option Entry) → List (Option Entry) × Option Entry
+  | [] => ([], none)
+  | none :: rest => let (updated, event) := flush location rest; (none :: updated, event)
+  | some entry :: rest =>
+      if entry.location = location ∧ entry.dirty = true then (some (clean entry) :: rest, some entry)
+      else let (updated, event) := flush location rest; (some entry :: updated, event)
+
+theorem flush_absent {location : Nat} (rows : List (Option Entry))
+    (absent : lookup location rows = none) : flush location rows = (rows, none) := by
+  induction rows with
+  | nil => rfl
+  | cons row rest ih =>
+    cases row with
+    | none => simpa [flush] using congrArg (fun result => (none :: result.1, result.2)) (ih absent)
+    | some entry =>
+      by_cases hit : entry.location = location
+      · simp [lookup, hit] at absent
+      · have restAbsent : lookup location rest = none := by simpa [lookup, hit] using absent
+        simp [flush, hit, ih restAbsent]
+
+/-- Uniqueness connects the probe's first entry to the first dirty write. A
+clean alias preceding a dirty alias would violate this correspondence. -/
+theorem flush_refines {location : Nat} (rows : List (Option Entry)) (unique : Unique rows) :
+    (flush location rows).2 = (lookup location rows).filter (fun entry => entry.dirty) ∧
+    lookup location (flush location rows).1 = (lookup location rows).map clean := by
+  induction rows with
+  | nil => simp [flush, lookup]
+  | cons row rest ih =>
+    cases row with
+    | none => simpa [flush, lookup] using ih unique
+    | some entry =>
+      obtain ⟨absent, uniqueRest⟩ := unique
+      by_cases hit : entry.location = location
+      · have noRest : lookup location rest = none := by simpa [hit] using absent
+        cases dirty : entry.dirty with
+        | false => simp [flush, lookup, hit, dirty, Option.filter, flush_absent rest noRest,
+            clean_of_clean entry dirty]
+        | true => simp [flush, lookup, hit, dirty, Option.filter]
+      · have result := ih uniqueRest
+        simpa [flush, lookup, hit] using result
+
+/-- Invalidation scans every cell, unlike the early-return writeback scan. -/
+def invalidate (location : Nat) : List (Option Entry) → List (Option Entry)
+  | [] => []
+  | none :: rest => none :: invalidate location rest
+  | some entry :: rest =>
+      (if entry.location = location then none else some entry) :: invalidate location rest
+
+theorem invalidate_absent (location : Nat) (rows : List (Option Entry)) :
+    lookup location (invalidate location rows) = none := by
+  induction rows with
+  | nil => rfl
+  | cons row rest ih =>
+    cases row with
+    | none => simpa [invalidate, lookup] using ih
+    | some entry =>
+      by_cases hit : entry.location = location <;> simp [invalidate, lookup, hit, ih]
+
+/-- First free cell reuse, with the original capacity as the terminal growth
+padding: a full vector of n cells becomes 2*n+1, not merely n+1. -/
+def insert (extra : Nat) (entry : Entry) : List (Option Entry) → List (Option Entry)
+  | [] => some entry :: List.replicate extra none
+  | none :: rest => some entry :: rest
+  | some old :: rest => some old :: insert extra entry rest
+
+theorem insert_lookup {location : Nat} (rows : List (Option Entry)) (entry : Entry) (extra : Nat)
+    (fresh : lookup location rows = none) (key : entry.location = location) :
+    lookup location (insert extra entry rows) = some entry := by
+  induction rows with
+  | nil => simp [insert, lookup, key]
+  | cons row rest ih =>
+    cases row with
+    | none => simp [insert, lookup, key]
+    | some old =>
+      by_cases hit : old.location = location
+      · simp [lookup, hit] at fresh
+      · simp [insert, lookup, hit, ih (by simpa [lookup, hit] using fresh)]
+
+def keys : List (Option Entry) → List Nat
+  | [] => []
+  | none :: rest => keys rest
+  | some entry :: rest => entry.location :: keys rest
+
+theorem lookup_none_iff (location : Nat) (rows : List (Option Entry)) :
+    lookup location rows = none ↔ location ∉ keys rows := by
+  induction rows with
+  | nil => simp [lookup, keys]
+  | cons row rest ih =>
+    cases row with
+    | none => simpa [lookup, keys] using ih
+    | some entry => by_cases hit : entry.location = location <;> simp [lookup, keys, hit, ih, Ne.symm]
+
+theorem unique_iff_keys (rows : List (Option Entry)) : Unique rows ↔ (keys rows).Nodup := by
+  induction rows with
+  | nil => simp [Unique, keys]
+  | cons row rest ih => cases row <;> simp [Unique, keys, ih, List.nodup_cons, lookup_none_iff]
+
+theorem flush_keys (location : Nat) (rows : List (Option Entry)) : keys (flush location rows).1 = keys rows := by
+  induction rows with
+  | nil => rfl
+  | cons row rest ih =>
+    cases row with
+    | none => simpa [flush, keys] using ih
+    | some entry => by_cases hit : entry.location = location ∧ entry.dirty = true <;> simp [flush, keys, hit, ih]
+
+theorem flush_unique {rows : List (Option Entry)} (unique : Unique rows) (location : Nat) :
+    Unique (flush location rows).1 := by
+  rw [unique_iff_keys, flush_keys]
+  exact (unique_iff_keys rows).mp unique
+
+theorem invalidate_keys (location : Nat) (rows : List (Option Entry)) :
+    keys (invalidate location rows) = (keys rows).filter (fun key => key != location) := by
+  induction rows with
+  | nil => rfl
+  | cons row rest ih =>
+    cases row with
+    | none => simpa [invalidate, keys] using ih
+    | some entry => by_cases hit : entry.location = location <;> simp [invalidate, keys, hit, ih]
+
+theorem invalidate_unique {rows : List (Option Entry)} (unique : Unique rows) (location : Nat) :
+    Unique (invalidate location rows) := by
+  rw [unique_iff_keys, invalidate_keys]
+  exact List.Pairwise.filter _ ((unique_iff_keys rows).mp unique)
+
+theorem insert_keys (rows : List (Option Entry)) (entry : Entry) (extra : Nat) :
+    keys (insert extra entry rows) = entry.location :: keys rows ∨
+      (keys (insert extra entry rows)).Perm (entry.location :: keys rows) := by
+  induction rows with
+  | nil =>
+    have padding : keys (List.replicate extra (none : Option Entry)) = [] := by
+      induction extra with
+      | zero => rfl
+      | succ n ih => simpa only [List.replicate_succ, keys] using ih
+    exact Or.inl (by simp [insert, keys, padding])
+  | cons row rest ih =>
+    cases row with
+    | none => exact Or.inl (by simp [insert, keys])
+    | some old =>
+      have perm : (keys (insert extra entry rest)).Perm (entry.location :: keys rest) :=
+        ih.elim (fun same => same ▸ List.Perm.refl _) id
+      exact Or.inr ((List.Perm.cons old.location perm).trans (List.Perm.swap _ _ _))
+
+theorem insert_unique {rows : List (Option Entry)} (unique : Unique rows) (entry : Entry) (extra : Nat)
+    (fresh : lookup entry.location rows = none) : Unique (insert extra entry rows) := by
+  have desired : (entry.location :: keys rows).Nodup :=
+    List.nodup_cons.mpr ⟨(lookup_none_iff _ _).mp fresh, (unique_iff_keys rows).mp unique⟩
+  rw [unique_iff_keys]
+  rcases insert_keys rows entry extra with same | perm
+  · simpa [same] using desired
+  · exact perm.nodup_iff.mpr desired
+
+/-- Source invalidate-before-dirty-enter establishes the uniqueness needed by
+future writebacks; it is not an additional caller certificate after every step. -/
+def replaceDirty (rows : List (Option Entry)) (location counter payload : Nat) : List (Option Entry) :=
+  insert rows.length ⟨location, true, counter + 1, payload⟩ (invalidate location rows)
+
+theorem replace_dirty_unique {rows : List (Option Entry)} (unique : Unique rows)
+    (location counter payload : Nat) : Unique (replaceDirty rows location counter payload) :=
+  insert_unique (invalidate_unique unique location) _ _ (invalidate_absent location rows)
+
+theorem replace_dirty_lookup (rows : List (Option Entry)) (location counter payload : Nat) :
+    lookup location (replaceDirty rows location counter payload) = some ⟨location, true, counter + 1, payload⟩ :=
+  insert_lookup _ _ _ (invalidate_absent location rows) rfl
+
+theorem full_growth (rows : List (Option Entry)) (entry : Entry) (extra : Nat)
+    (full : none ∉ rows) : (insert extra entry rows).length = rows.length + extra + 1 := by
+  induction rows with
+  | nil => simp [insert]
+  | cons row rest ih =>
+    cases row with
+    | none => simp at full
+    | some old =>
+      simp only [insert, List.length_cons]
+      have next := ih (by simpa using full)
+      omega
+
+def StampBound (counter : Nat) : List (Option Entry) → Prop
+  | [] => True
+  | none :: rest => StampBound counter rest
+  | some entry :: rest => entry.stamp ≤ counter ∧ StampBound counter rest
+
+theorem bound_mono {rows : List (Option Entry)} {before after : Nat}
+    (bound : StampBound before rows) (grows : before ≤ after) : StampBound after rows := by
+  induction rows with
+  | nil => trivial
+  | cons row rest ih => cases row <;> simp_all [StampBound]; omega
+
+theorem invalidate_bound {rows : List (Option Entry)} {counter : Nat}
+    (bound : StampBound counter rows) (location : Nat) : StampBound counter (invalidate location rows) := by
+  induction rows with
+  | nil => trivial
+  | cons row rest ih =>
+    cases row with
+    | none => exact ih bound
+    | some entry =>
+      by_cases hit : entry.location = location <;> simp_all [invalidate, StampBound]
+
+theorem flush_bound {rows : List (Option Entry)} {counter : Nat}
+    (bound : StampBound counter rows) (location : Nat) : StampBound counter (flush location rows).1 := by
+  induction rows with
+  | nil => trivial
+  | cons row rest ih =>
+    cases row with
+    | none => exact ih bound
+    | some entry =>
+      by_cases hit : entry.location = location ∧ entry.dirty = true
+      · simpa only [flush, ite_eq_left hit, StampBound, clean] using bound
+      · simpa only [flush, ite_eq_right hit, StampBound] using And.intro bound.1 (ih bound.2)
+
+theorem insert_bound {rows : List (Option Entry)} {counter : Nat} (bound : StampBound counter rows)
+    (entry : Entry) (fresh : entry.stamp ≤ counter) (extra : Nat) : StampBound counter (insert extra entry rows) := by
+  have padding : StampBound counter (List.replicate extra (none : Option Entry)) := by
+    induction extra with
+    | zero => trivial
+    | succ n ih => simpa only [List.replicate_succ, StampBound] using ih
+  induction rows with
+  | nil => exact ⟨fresh, padding⟩
+  | cons row rest ih => cases row <;> simp_all [insert, StampBound]
+
+/-- Procedure-local monotone stamp counter: allocation increments it; invalidation
+and writeback do not reset it. The initializer is the only reset boundary. -/
+inductive Trace : Nat → List (Option Entry) → Prop where
+  | initial : Trace 0 []
+  | invalidate {rows counter} : Trace counter rows → (location : Nat) → Trace counter (invalidate location rows)
+  | dirty {rows counter} : Trace counter rows → (location payload : Nat) →
+      Trace (counter + 1) (replaceDirty rows location counter payload)
+  | cold {rows counter} : Trace counter rows → (location payload : Nat) → (fresh : lookup location rows = none) →
+      Trace (counter + 1) (insert rows.length ⟨location, false, counter + 1, payload⟩ rows)
+  | flush {rows counter} : Trace counter rows → (location : Nat) → Trace counter (flush location rows).1
+
+theorem trace_unique {rows : List (Option Entry)} {counter : Nat} (trace : Trace counter rows) : Unique rows := by
+  induction trace with
+  | initial => trivial
+  | invalidate _ location ih => exact invalidate_unique ih location
+  | dirty _ location payload ih => exact replace_dirty_unique ih location _ payload
+  | cold _ location payload fresh ih => exact insert_unique ih _ _ fresh
+  | flush _ location ih => exact flush_unique ih location
+
+theorem trace_bound {rows : List (Option Entry)} {counter : Nat} (trace : Trace counter rows) : StampBound counter rows := by
+  induction trace with
+  | initial => trivial
+  | invalidate _ location ih => exact invalidate_bound ih location
+  | dirty _ location payload ih =>
+    exact insert_bound (bound_mono (invalidate_bound ih location) (by omega)) _ (by simp) _
+  | cold _ location payload fresh ih => exact insert_bound (bound_mono ih (by omega)) _ (by simp) _
+  | flush _ location ih => exact flush_bound ih location
+
+def writeback (box : Nat → Roots.Word) (memory : Nat → Roots.Word) : Option Entry → Nat → Roots.Word
+  | none => memory
+  | some entry => fun location => if location = entry.location then box entry.payload else memory location
+
+theorem dirty_read_materialized {rows : List (Option Entry)} (unique : Unique rows) {location : Nat}
+    {entry : Entry} (selected : lookup location rows = some entry) (dirty : entry.dirty = true)
+    (box : Nat → Roots.Word) (memory : Nat → Roots.Word) :
+    writeback box memory (flush location rows).2 entry.location = box entry.payload := by
+  have event := (flush_refines (location := location) rows unique).1
+  simp [selected, dirty, Option.filter] at event
+  simp [event, writeback]
+theorem lookup_bound {rows : List (Option Entry)} {counter location : Nat}
+    (bound : StampBound counter rows) {entry : Entry} (selected : lookup location rows = some entry) :
+    entry.stamp ≤ counter := by
+  induction rows with
+  | nil => simp [lookup] at selected
+  | cons row rest ih =>
+    cases row with
+    | none => exact ih bound selected
+    | some old =>
+      by_cases hit : old.location = location
+      · simp only [lookup, ite_eq_left hit, Option.some.injEq] at selected
+        subst entry
+        exact bound.1
+      · exact ih bound.2 (by simpa [lookup, hit] using selected)
+
+theorem new_stamp_fresh {rows : List (Option Entry)} {counter location : Nat} (history : Trace counter rows)
+    {entry : Entry} (selected : lookup location rows = some entry) : entry.stamp ≠ counter + 1 := by
+  have bounded := lookup_bound (trace_bound history) selected
+  omega
+
+theorem history_dirty_read {rows : List (Option Entry)} {counter location : Nat} (trace : Trace counter rows)
+    {entry : Entry} (selected : lookup location rows = some entry) (dirty : entry.dirty = true)
+    (box : Nat → Roots.Word) (memory : Nat → Roots.Word) :
+    writeback box memory (flush location rows).2 entry.location = box entry.payload :=
+  dirty_read_materialized (trace_unique trace) selected dirty box memory
+
+/-- One chain from an admitted cache history through the emitted F64BOX event
+and physical slot write into the existing signed map reader/root scanner. The
+box allocator's pointer result and compiler live decision remain explicit. -/
+theorem dirty_spill_signed {rows : List (Option Entry)} {counter location index root size width : Nat}
+    (history : Trace counter rows) {entry : Entry} (selected : lookup location rows = some entry)
+    (dirty : entry.dirty = true) (box : Nat → Roots.Word) (boxed : box entry.payload = .reference root)
+    (memory : Nat → Roots.Word) (heap : Int → Roots.Word) (base fp : Int) {flags : List Bool}
+    (positive : 0 < width) (live : flags[index]? = some true) (inside : index < size) :
+    let mask := FrameMaps.generate 1 0 flags
+    let payload := writeback box memory (flush location rows).2 entry.location
+    let written := Slots.store heap (Slots.emittedAddress base fp (index + 1 : Nat)) payload
+    ((BitVec.ofNat width (Encoding.field mask width (width * (index / width)))).sshiftRight
+      (index % width)).getLsbD 0 = true ∧ root ∈ Roots.frame mask 0 (Slots.scanWords written base size) := by
+  have value := history_dirty_read history selected dirty box memory
+  dsimp
+  rw [value, boxed]
+  exact (FrameMaps.emitted_signed_root positive live (Slots.stored_word_read heap base fp size index inside _)).2
+
+end Cache
+
 namespace Acquire
 /-- A location's version records all writes observed there. Mutex release
 publishes the owner view; a successful acquire imports that released view. -/
@@ -401,6 +952,8 @@ theorem no_smp_inference : acquireQualified .singleThread = false ∧
     acquireQualified .ticketPoll = false := by decide
 end Acquire
 
+
+
 namespace Publication
 /-- Epochs count complete immutable chunks, including end marker and link.
 The weak observer may see a pointer early; only admitted fences forbid that. -/
@@ -514,4 +1067,83 @@ theorem bounded_tickets_unique {initial first second modulus : Nat}
   rw [Nat.mod_eq_of_lt left, Nat.mod_eq_of_lt right]
   omega
 end Atomic
+namespace Ticket
+/-- Decoded no-wrap ticket state. The existing Atomic bounds admit physical
+fixnum encoding separately. A held ticket excludes other successful try-CAS. -/
+structure State where
+  nextTicket : Nat
+  currentTicket : Nat
+  memory : Acquire.State
+
+def Valid (s : State) : Prop := Acquire.Safe s.memory ∧ s.currentTicket ≤ s.nextTicket ∧
+  (s.currentTicket = s.nextTicket → s.memory.owner = none)
+
+/-- TRYLOCK2 reads current into temp then CASes next. Successful CAS is a
+GCC full-barrier RMW, so it imports the released view, unlike a plain poll. -/
+def tryAcquire (s : State) (worker : Nat) : Bool × State :=
+  if s.nextTicket = s.currentTicket then
+    (true, ⟨s.nextTicket + 1, s.currentTicket, Acquire.mutexAcquire s.memory worker⟩)
+  else (false, s)
+
+theorem try_success_safe {s : State} (valid : Valid s) {worker : Nat}
+    (equal : s.nextTicket = s.currentTicket) :
+    Acquire.Safe (tryAcquire s worker).2.memory := by
+  have free : s.memory.owner = none := valid.2.2 equal.symm
+  simpa [tryAcquire, equal] using Acquire.acquire_safe valid.1 free
+
+theorem try_failed_unchanged {s : State} {worker : Nat} (busy : s.nextTicket ≠ s.currentTicket) :
+    tryAcquire s worker = (false, s) := by simp [tryAcquire, busy]
+
+theorem try_success_observes {s : State} (valid : Valid s) {worker location : Nat}
+    (equal : s.nextTicket = s.currentTicket) :
+    s.memory.current location ≤ (tryAcquire s worker).2.memory.views worker location := by
+  have safe := try_success_safe valid (worker := worker) equal
+  have observed := safe.2 worker (by simp [tryAcquire, equal, Acquire.mutexAcquire]) location
+  simpa [tryAcquire, equal, Acquire.mutexAcquire] using observed
+/-- Current may advance between the initial volatile read and the CAS. Admit
+any past decoded observation, not just a snapshot of the latest current value. -/
+def tryObserved (s : State) (worker observed : Nat) : Bool × State :=
+  let receipt := Atomic.compareSwap s.nextTicket observed (observed + 1)
+  if receipt.1 = observed then
+    (true, ⟨receipt.2, s.currentTicket, Acquire.mutexAcquire s.memory worker⟩)
+  else (false, s)
+
+theorem stale_cas_success_safe {s : State} (valid : Valid s) {worker observed : Nat}
+    (past : observed ≤ s.currentTicket) (won : s.nextTicket = observed) :
+    Acquire.Safe (tryObserved s worker observed).2.memory := by
+  have equal : s.currentTicket = s.nextTicket := by have order := valid.2.1; omega
+  have free := valid.2.2 equal
+  simpa [tryObserved, Atomic.compareSwap, won] using Acquire.acquire_safe valid.1 free
+
+theorem stale_cas_fails {s : State} {worker observed : Nat}
+    (past : observed < s.nextTicket) : tryObserved s worker observed = (false, s) := by
+  have unequal : s.nextTicket ≠ observed := by omega
+  simp [tryObserved, Atomic.compareSwap, unequal]
+
+/-- Unlock may leave pending tickets and no current owner. Valid deliberately
+uses only empty-queue -> unowned, never the unsound converse. -/
+def unlock (s : State) (worker : Nat) : State :=
+  ⟨s.nextTicket, s.currentTicket + 1, Acquire.release s.memory worker⟩
+
+theorem unlock_valid {s : State} (valid : Valid s) {worker : Nat}
+    (owns : s.memory.owner = some worker) : Valid (unlock s worker) := by
+  have strict : s.currentTicket < s.nextTicket := by
+    have order := valid.2.1
+    by_cases equal : s.currentTicket = s.nextTicket
+    · have free := valid.2.2 equal
+      rw [owns] at free
+      cases free
+    · omega
+  refine ⟨Acquire.release_safe valid.1 owns, ?_, ?_⟩
+  · simp only [unlock]; omega
+  · simp [unlock, Acquire.release]
+
+theorem try_preserves_valid {s : State} (valid : Valid s) (worker : Nat) : Valid (tryAcquire s worker).2 := by
+  by_cases equal : s.nextTicket = s.currentTicket
+  · refine ⟨try_success_safe valid equal, ?_, ?_⟩
+    · simp [tryAcquire, equal]
+    · simp [tryAcquire, equal]
+  · simpa [tryAcquire, equal] using valid
+
+end Ticket
 end ParserEngine.Host

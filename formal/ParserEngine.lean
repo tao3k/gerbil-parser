@@ -508,3 +508,26 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Host.Acquire.no_smp_inference
 
 #print axioms ParserEngine.Host.Acquire.complete_handoff
+
+#print axioms ParserEngine.Host.Contexts.assignments_valid
+#print axioms ParserEngine.Host.Contexts.task_valid
+#print axioms ParserEngine.Host.Contexts.join_valid
+#print axioms ParserEngine.Host.Cache.flush_refines
+#print axioms ParserEngine.Host.Cache.dirty_read_materialized
+#print axioms ParserEngine.Host.Ticket.try_success_observes
+
+#print axioms ParserEngine.Host.Cache.trace_unique
+#print axioms ParserEngine.Host.Cache.trace_bound
+#print axioms ParserEngine.Host.Cache.history_dirty_read
+#print axioms ParserEngine.Host.Ticket.stale_cas_success_safe
+#print axioms ParserEngine.Host.Ticket.stale_cas_fails
+
+#print axioms ParserEngine.Host.Contexts.constructed_layout
+#print axioms ParserEngine.Host.Cache.dirty_spill_signed
+
+#print axioms ParserEngine.Host.Cache.new_stamp_fresh
+#print axioms ParserEngine.Host.Ticket.unlock_valid
+#print axioms ParserEngine.Host.Ticket.try_preserves_valid
+
+#print axioms ParserEngine.Host.Spill.all_live_retained
+#print axioms ParserEngine.Host.Spill.live_read_preserved

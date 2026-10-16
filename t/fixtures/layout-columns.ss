@@ -1,5 +1,5 @@
 ;;; Boxed-vector oracle, independent of packed storage and lookup dispatch.
-(export host-slot-control host-mutex-control host-spin-backend host-max-processors closure-frame-roots wide-frame-roots reference-layout-columns reference-packed-layout-columns layout-column-sources)
+(export cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors closure-frame-roots wide-frame-roots reference-layout-columns reference-packed-layout-columns layout-column-sources)
 
 (def (reference-layout-columns source)
   (let* ((bytes (string->utf8 source)) (size (u8vector-length bytes))
@@ -71,10 +71,10 @@
 
 ;;; Host macro controls execute in the same compiled fixture as the GC controls.
 ;;; The OS waiter touches only C-owned words, never Scheme values or a VM.
-(extern host-slot-control host-mutex-control host-spin-backend host-max-processors)
+(extern host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
 (begin-foreign
  (namespace ("gerbil-parser/t/fixtures/layout-columns#"
-             host-slot-control host-mutex-control host-spin-backend host-max-processors))
+             host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors))
  (c-declare #<<END-C
 #include <stdlib.h>
 static int parser_host_slot_control(void) {
@@ -96,6 +96,20 @@ static int parser_host_slot_control(void) {
     }
   }
   return 0;
+}
+static int parser_host_ticket_control(void) {
+  ___TICKETLOCK lock;
+  ___WORD temporary;
+  ___TICKETLOCK_INIT(lock);
+  if (!___TICKETLOCK_TRYLOCK2(lock.next_ticket, lock.current_ticket, temporary)) return 1;
+  if (lock.next_ticket != ___FIX(1) || lock.current_ticket != ___FIX(0)) return 2;
+  if (___TICKETLOCK_TRYLOCK2(lock.next_ticket, lock.current_ticket, temporary)) return 3;
+  if (lock.next_ticket != ___FIX(1) || lock.current_ticket != ___FIX(0)) return 4;
+  ___TICKETLOCK_UNLOCK(lock);
+  if (lock.current_ticket != ___FIX(1)) return 5;
+  if (!___TICKETLOCK_TRYLOCK2(lock.next_ticket, lock.current_ticket, temporary)) return 6;
+  ___TICKETLOCK_UNLOCK(lock);
+  return lock.next_ticket == lock.current_ticket ? 0 : 7;
 }
 #ifdef ___USE_POSIX_THREAD_SYSTEM
 struct parser_host_handoff {
@@ -142,7 +156,15 @@ static int parser_host_spin_backend(void) {
 }
 END-C
  )
+ (define host-ticket-control (c-lambda () int "parser_host_ticket_control"))
  (define host-slot-control (c-lambda () int "parser_host_slot_control"))
  (define host-mutex-control (c-lambda () int "parser_host_mutex_control"))
  (define host-spin-backend (c-lambda () int "parser_host_spin_backend"))
  (define host-max-processors (c-lambda () int "___result = ___MAX_PROCESSORS;")))
+
+;;; Intrinsic flonums are boxed/spilled before an opaque callback and read after it.
+(def (cache-flonum-values seed collect)
+  (let* ((left (##fl+ seed 0.25)) (right (##fl* left 2.0))
+         (difference (##fl- right seed)))
+    (collect)
+    (list left right difference)))

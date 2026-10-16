@@ -570,3 +570,17 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 
 #print axioms ParserEngine.Host.Boxing.trace_extent
 #print axioms ParserEngine.Host.HeapCheck.selected_snapshot_retains
+
+#print axioms ParserEngine.Host.Reservation.trace_shape
+#print axioms ParserEngine.Host.Reservation.reported_bound
+#print axioms ParserEngine.Host.Reservation.batch_conservation
+#print axioms ParserEngine.Host.Reservation.batch_potential
+#print axioms ParserEngine.Host.Reservation.prepared_bounds
+#print axioms ParserEngine.Host.Reservation.qualified_no_check_safe
+#print axioms ParserEngine.Host.Reservation.triggering_flush_fits
+#print axioms ParserEngine.Host.Reservation.native_budget_admits_reads
+#print axioms ParserEngine.Host.Reservation.accounting_bounds
+
+#print axioms ParserEngine.Host.Reservation.prepared_accounted_reads
+
+#print axioms ParserEngine.Host.Reservation.triggering_dirty_reads

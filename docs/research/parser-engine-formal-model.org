@@ -52,6 +52,7 @@ before selecting another runtime optimization.
 | Ticket CAS versus post-poll acquire | =TICKETLOCK_TRYLOCK2=, =TICKETLOCK_UNLOCK2= and normal wait macro | =Ticket.stale_cas_success_safe= covers arbitrary past current observations under no-wrap; failed stale CAS leaves state unchanged; =unlock_valid= admits ownerless handoff with queued waiters | GCC/ISA atomic implementation and no-wrap admission remain interfaces; Contended.ordinary_poll_not_universal exhibits a stale-read history under the explicit weak-observation projection; a universal native acquire proof is still absent |
 | Native operand decoding and copy denotation | Gambit =gsc/_gvmadt.scm= constructors, =enter-opnd=, =put-copy= and =targ-gen-copy= | =Operand.encode_decode= and =intern_preserves= cover all six tags and arbitrary tables; =destination_read= and =closure_aliases= resolve nested bases; =decoded_copy_readback= connects decoding, reads, writes and unrelated-place retention | =Table.extract_read= connects every observed prefix row to a physical pair; =append_snapshot= covers actual capacity growth and new-row writes; native tagged-datum/eqv? extraction, recursive fuel sufficiency, complete instruction emission, frame extension and return metadata sequencing remain |
 | Heap flonum allocation | =MEM_ALLOCATED_FLONUM_ALLOC=, =FLONUM_FROM_END= and =FLONUM_TO_BODY= | =Boxing.allocation_identity= derives header/payload writes; =trace_fresh= preserves ownership across arbitrary allocation histories; =cache_allocation_root= composes a dirty entry with fresh bounded storage and the emitted signed frame map | =Boxing.trace_retains= covers allocation and lower-address section selection under local ownership; =HeapCheck= follows the strict check/limit/collection short circuit and exact-bit relocation; free-list validity, complete heap-limit effects, collector byte copying, compiler reservation and pointer bounds remain |
+| Reported cache size, occupancy and heap reservation | Gambit =targ-fp-cache-enter=, =targ-heap-reserve-and-check=, =prepare_mem_pstate= and =lib/mem.h= | =Reservation.trace_shape= derives capacity from reported size; =batch_potential= conserves writeback potential; =qualified_no_check_safe= distinguishes six charged words from two actual words; =prepared_accounted_reads= and =triggering_dirty_reads= compose allocation traces and retained cells | Qualified 64-bit heap branch only; other primitive size bounds, complete instruction emission, selected live-frame production, native free-list/physical pointer validity and collector implementation |
 | Atomic old-value results and bounded tickets | Gambit =FETCH_AND_ADD_WORD=, =COMPARE_AND_SWAP_WORD= and ticket macros | =Atomic.compare_swap_success=, =compare_swap_failed= and =bounded_tickets_unique= separate old-value tests from physical wrap | GCC/backend code generation; logical operation linearization; fixnum scaling, overflow and maximum outstanding tickets |
 | Closure and captured continuation retention | =mark_continuation=, =mark_captured_continuation= and =scan= | =captured_frame_reached= and =path_reached= cover arbitrary-depth pointer paths; =discovered_path_relocated= composes them with relocation | Host copying, frame-link interpretation, physical registers and SMP synchronization |
 | Least strong marking closure | Strong-mark worklist and =mark_reachable_from_marked= | =program= generates root/edge rules; =CollectorSchedule.zero_workers_marking_exact= connects global worker termination to marking through pending ownership, including in-flight objects | C forwarding/notification effects must refine the generated history; lock and memory-order linearization remain explicit |
@@ -531,7 +532,9 @@ A matching Quint control retains the same producer history. This refutes the
 proposed identification of reported size with an occupancy upper bound; a
 finite witness is sufficient for that negative result. Since
 =targ-heap-reserve-and-check= uses the reported field, its reservation proof must
-retain this distinction. This is not yet a native out-of-bounds witness:
+retain this distinction. The following reservation extension resolves the
+qualified 64-bit no-check budget using the actual six-word compiler charge; the
+reported-size counterexample alone is not evidence of insufficient reservation. This is not yet a native out-of-bounds witness:
 compiler flushing, reserved words, section fudge and physical capacity must be
 composed before making a memory-safety conclusion. No counter or runtime gate
 is changed to conceal the discrepancy.
@@ -609,6 +612,8 @@ supply the absent acquire in this binary.
 
 **** Current qualification
 
+Historical qualification for the preceding physical/section adapter:
+
 - Lean: complete package passed, 72 build jobs, with standard logical axioms
   only. The general proofs above contain no =sorry= or custom native axiom.
 - Quint: 78 directed tests passed. New controls cover allocated-prefix failure,
@@ -631,6 +636,144 @@ supply the absent acquire in this binary.
   rejects the bound before slicing. Its failed receipt remains local evidence.
 - Parent =1185b3d= completed CI run =38883844344= successfully. The new revision
   requires its own CI result. No CPU or complete native-collector claim follows.
+
+*** Reservation correspondence and actual compiler controls
+
+This extension connects the reported-size producer, emitted allocation ledger,
+physical heap capacity and executed writebacks. It retains the same source
+identity. In addition to the target/cache sources above,
+[[https://github.com/gambit/gambit/blob/dcd677cd3e40860bdd27dfbdbf5e3ce46ab03813/gsc/_t-c-1.scm][the target size definitions]] and
+[[https://github.com/gambit/gambit/blob/dcd677cd3e40860bdd27dfbdbf5e3ce46ab03813/lib/mem.h][the native section configuration]] are explicit inputs to the argument.
+The fast-allocation research premise remains bounded allocation between checks
+with separately discovered live roots. No additional Appel full-paper result
+is imported: the author PDF still returned HTTP 403 in this reading.
+
+**** Four quantities and two word ledgers
+
+=Reservation.occupancy= counts actual present entries; =dirtyCount= counts the
+subset needing boxing. Capacity counts every physical vector cell. Reported
+size is the independent native record field. =Trace= covers initialization,
+entry, invalidation and dirty writeback. =trace_shape= proves either the empty
+initial state or =capacity+1=2*reported=. =reported_bound= then derives
+=dirty <= occupancy <= capacity <= 2*reported= for arbitrary histories. These
+are source-producer properties, not assumed equalities between counters.
+
+The previous three-entry example remains valid: reported two does not bound
+occupancy three. It does not establish a reservation defect. The installed
+GSC reports minimum word size four bytes and two portable header words;
+=targ-vector-of-64-bit-elements-space= rounds its conservative allocation
+allowance to eight-byte alignment. =compilerFlonumCharge 4 2= is therefore
+six words. The already qualified 64-bit non-handle =F64BOX= writes only two.
+
+Let A denote actual emitted heap words, R compiler-charged emitted words,
+D dirty entries and r reported size. =Accounting= generates both emitted
+ledgers and the separate floating charge counter; =accounting_bounds= derives
+=A<=R=. The qualified no-check proof is:
+
+#+begin_example
+D <= 2*r
+2*D <= 4*r <= 6*r
+A + 2*D <= R + 6*r <= 4096
+#+end_example
+
+The last comparison is the actual strict native trigger's untaken branch.
+=qualified_no_check_safe= proves it for arbitrary producer histories, including
+hole reuse and invalidation. A negative control using an equal two-word charge
+refutes that incorrect unit substitution; it is not a counterexample to the
+real six-word compiler charge. Other ABIs and the inactive boxing branches need
+their own size ratio and are not admitted automatically.
+
+**** From potential to executed allocations
+
+=flush_conservation= derives a one-unit dirty decrease for each emitted boxing
+event. =batch_conservation= covers arbitrary live-location sequences, including
+repeated and missing locations; already-clean entries do not emit another box.
+=batch_potential= conserves emitted words plus remaining dirty potential for one
+chosen word ledger. Compiler charges and actual words are never silently mixed.
+
+=executeReads= uses the earlier =CacheExecution.read=, not a separate abstract
+allocator. =read_preserves_potential= derives the exact hp/dirty conservation;
+=dirty_event_ready= supplies physical room before every real two-word allocation.
+=execute_reads_safe= constructs the complete =Boxing.Trace= for a batch.
+=prepared_accounted_reads= composes generated charge counters, reported-size
+history, C threshold geometry and all executed boxes, then derives freshness
+and retention of every previously owned cell. It does not request a supplied
+occupancy identity or an arbitrary emitted/reserved inequality at each step.
+
+For the triggering unboxed assignment, =dirty_replacement_growth= derives at
+most one additional dirty result from actual invalidate/insert algorithms.
+=triggering_dirty_reads= admits the resulting flush sequence using a maximum
+two-word potential increase. Thus this emitted operation is covered before the
+post-materialization heap check. =triggering_flush_fits= exposes the general
+bounded-instruction envelope for other opcodes; those bounds are still required.
+No native gate or compiler threshold is changed.
+
+**** Physical fudge, resumption and synchronization
+
+The reported native source has =MAX_NB_FRAME_SLOTS=8192= and
+=MSECTION_FUDGE=MAX_NB_FRAME_SLOTS+1+SUBTYPED_BODY=. In the qualified non-handle
+branch this is 8194 words; it is distinct from the compiler threshold 4096.
+The physical allocation limit has already excluded end-of-chunk marker space.
+=prepare_mem_pstate= computes:
+
+#+begin_example
+soft = hp + min(heap_available, physical_limit - hp - physical_fudge)
+#+end_example
+
+=prepared_bounds= derives =hp<=soft= and =soft+fudge<=physical_limit= under the
+explicit physical-room premise. =prepared_accounted_reads= permits any compiler
+reset cursor below that soft threshold. The GC return path guarantees fudge by
+selecting another section when required, then calls =prepare_mem_pstate=;
+=heap_limit= can also return after section reuse without GC. The kernel only
+raises overflow when both the limit handler requests collection and collection
+reports overflow, and may retry if the exception handler returns. A numeric
+heap request of zero is truthy in Scheme; it must not be decoded as =#f= in the
+remaining emission adapter.
+
+The physical-room proof, free-list ownership, full instruction-size coverage,
+register restoration and collector byte-copy relation remain native imports.
+The new reservation result does not itself prove those implementations.
+
+Ordinary ticket acquire remains a separate import. Source call-site inspection
+shows =ALLOC_MEM_LOCK= is elided under =SINGLE_THREADED_VMS=; chunk publication
+and stealing also guard their spinlock calls with that condition. In SMP,
+=USE_MUTEX_FOR_SPINLOCK= selects the mutex path; otherwise the normal ticket
+poll is used. Primitive locks have their own single-thread guard. Current SDK
+metadata reports the single-thread branch, while the existing C contention
+control explicitly exercises the normal ticket macro. Neither elided GC locks
+nor a successful C handoff supplies the missing acquire rule. The cited GCC
+volatile/legacy-atomic contracts and ARM ordering distinction remain unchanged;
+no compiler switch, mutex substitution or debug barrier is used to hide the gap.
+
+**** Qualification
+
+- Lean: complete package passed, 72 build jobs; new theorem dependencies use
+  only standard logical axioms, with no =sorry= or custom host axiom.
+- Quint: 84 directed tests passed. New controls cover all four cache quantities,
+  duplicate/missing writebacks, charge-unit substitution, generated counters,
+  physical-fudge geometry and exact allocation/dirty-potential conservation.
+  The existing =PipelineSafety= check remains a grammar check, not an ISA proof.
+- The new [[file:../../t/fixtures/compiler-reservation.ss][compiler control]] calls the installed GSC's actual =c#= procedures.
+  It executes 2,047 insertions, 1,023 invalidations and 1,023 refills, with 134
+  observations at small prefixes, growth boundaries and completed phases.
+  It also checks the actual reserve counters and compiler metadata. There is
+  no copied compiler implementation or replacement output emitter in this control.
+  One existing qualifier invocation reported 0.4316 seconds, exit zero,
+  under 30-second total and 5-second idle budgets. Changing the disposable
+  process's compiler charge to two was rejected with exit 70. That negative
+  receipt is retained; the SDK itself was not modified.
+- Layout and style controls passed 23+6=29 cases in 12.9050 seconds, normal exit
+  zero, with two suite workers under unchanged 90/5-second limits. These include
+  actual GCC =F64BOX= hp/bit-pattern checks, GC/copy retention and normal ticket
+  handoff. The earlier 59-case receipt is retained separately.
+- Five source/evidence controls passed; the compiler control is now part of both
+  Lean and Quint input manifests. The existing semantics CI job runs it once
+  per platform through the standard qualifier and retains its log.
+
+This closes the qualified no-check reservation import and one triggering
+flonum-result path. Complete emitter/opcode and GC/SMP correspondence remain
+in the shared ledger. No runtime performance optimization or CPU benefit is
+claimed by this extension.
 
 *** Physical placement and acquire qualification
 

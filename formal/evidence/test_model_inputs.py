@@ -40,6 +40,8 @@ class ModelInputControls(unittest.TestCase):
             self.assertIn("t/layout-boundary-test.ss", quint.inputs)
             self.assertIn("t/fixtures/layout-columns.ss", lean.inputs)
             self.assertIn("t/fixtures/layout-columns.ss", quint.inputs)
+            self.assertIn("t/fixtures/compiler-reservation.ss", lean.inputs)
+            self.assertIn("t/fixtures/compiler-reservation.ss", quint.inputs)
             self.assertIn("formal/ParserEngine/RawRequest.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Grammar.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Request.lean", lean.inputs)

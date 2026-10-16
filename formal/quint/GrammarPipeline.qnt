@@ -884,4 +884,70 @@ module GrammarPipeline {
     entered.reported == 2 and entered.rows.foldl(0,(count,cell) => count + (if(cell.present) 1 else 0)) == 3
   })
 
+  pure def occupiedFp(rows:List[FpCell]):int = rows.foldl(0,(count,cell) => count + (if(cell.present) 1 else 0))
+  pure def dirtyFp(rows:List[FpCell]):int = rows.foldl(0,(count,cell) => count + (if(cell.present and cell.dirty) 1 else 0))
+  pure def flushManyFp(rows:List[FpCell],locations:List[int]):{rows:List[FpCell],events:int} =
+    locations.foldl({rows:rows,events:0},(s,location) => {
+      val flushed = flushFp(s.rows,location)
+      {rows:flushed.rows,events:s.events + flushed.events.length()}
+    })
+  pure def portableFlonumCharge(wordBytes:int,headerWords:int):int =
+    (((8 + wordBytes + headerWords * wordBytes + 7) / 8) * 8) / wordBytes
+  run cacheLifecycleSeparatesReportedCapacityOccupancyAndDirtyPotentialTest = init.expect({
+    val history = 0.to(31).fold({reported:0,rows:List(),valid:true},(s,index) => {
+      val entry = {present:true,location:index * 8,dirty:true,stamp:index + 1,payload:index}
+      val entered = enterReportedCache({reported:s.reported,rows:s.rows},entry)
+      {reported:entered.reported,rows:entered.rows,valid:s.valid and
+        entered.rows.length() + 1 == entered.reported * 2 and
+        dirtyFp(entered.rows) <= occupiedFp(entered.rows) and occupiedFp(entered.rows) <= entered.rows.length() and
+        dirtyFp(entered.rows) * 2 <= entered.reported * portableFlonumCharge(4,2)}
+    })
+    val invalidated = invalidateFp(history.rows,8)
+    val flushed = flushFp(invalidated,16)
+    history.valid and flushed.rows.length() == history.rows.length() and
+      history.reported == 32 and dirtyFp(flushed.rows) == 30
+  })
+  run repeatedAndMissingFlushRequestsConserveDirtyBoxPotentialTest = init.expect({
+    val first = {present:true,location:0,dirty:true,stamp:1,payload:11}
+    val second = {...first,location:8,stamp:2,payload:22}
+    val third = {...first,location:16,stamp:3,payload:33}
+    val rows = List(first,second,third)
+    val flushed = flushManyFp(rows,List(0,0,8,16,16,99))
+    flushed.events == 3 and dirtyFp(flushed.rows) == 0 and
+      dirtyFp(flushed.rows) + flushed.events == dirtyFp(rows) and
+      7 + flushed.events * 2 + dirtyFp(flushed.rows) * 2 == 7 + dirtyFp(rows) * 2
+  })
+  run portableChargeClosesTheEqualUnitReportedSizeCounterexampleTest = init.expect({
+    val reported = 2
+    val occupied = 3
+    portableFlonumCharge(4,2) == 6 and reported * 2 <= 4 and occupied * 2 > 4 and
+      reported * portableFlonumCharge(4,2) > 4 and occupied * 2 <= reported * portableFlonumCharge(4,2)
+  })
+  pure def preparedThreshold(hp:int,physical:int,fudge:int,available:int):List[int] =
+    if(hp + fudge > physical) List() else List(hp + (if(available < physical - hp - fudge) available else physical - hp - fudge))
+  run preparedThresholdRetainsPhysicalFudgeAndRejectsMissingRoomTest = init.expect({
+    val physical = 65536 - 2
+    val threshold = preparedThreshold(1,physical,8194,100000).nth(0)
+    threshold + 8194 == physical and threshold >= 1 and
+      preparedThreshold(1,physical,8194,0) == List(1) and preparedThreshold(10,12,3,0) == List()
+  })
+  run sourceChargeUsesDistinctActualAndCompilerReservationLedgersTest = init.expect({
+    val events = List({actual:2,charge:6,floating:true},{actual:3,charge:5,floating:false},{actual:2,charge:6,floating:true})
+    val counted = events.foldl({actual:0,reserved:0,floating:0},(s,event) =>
+      {actual:s.actual + event.actual,reserved:s.reserved + event.charge,floating:s.floating + (if(event.floating) event.charge else 0)})
+    counted == {actual:7,reserved:17,floating:12} and
+      counted.actual <= counted.reserved and counted.floating <= counted.reserved
+  })
+  run physicalReadBatchKeepsItsHeapAndRemainingDirtyPotentialBoundTest = init.expect({
+    val first = {present:true,location:0,dirty:true,stamp:1,payload:11}
+    val second = {...first,location:1,stamp:2,payload:22}
+    val third = {...first,location:2,stamp:3,payload:33}
+    val original = {rows:List(first,second,third),memory:List(-1,-2,-3),hp:0,heap:List()}
+    val checked = List(0,0,1,2,2).foldl({state:original,safe:true},(s,location) => {
+      val after = readBoxedCache(s.state,location)
+      {state:after,safe:s.safe and after.hp + dirtyFp(after.rows) * 2 == 6}
+    })
+    checked.safe and checked.state.hp == 6 and checked.state.memory == List(0,2,4) and dirtyFp(checked.state.rows) == 0
+  })
+
 }

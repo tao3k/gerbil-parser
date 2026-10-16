@@ -270,6 +270,7 @@
   (let ((next-id 1)
         (next-synthetic 0)
         (used-names (make-table test: eq?))
+        (rule-counts (make-table test: eq?))
         (productions '()))
     (def (emit-production lhs rhs action precedence owner path expression)
       (let (production
@@ -300,6 +301,7 @@
     (table-set! used-names root #t)
     (for-each (lambda (row)
                 (table-set! used-names (car row) #t)
+                (table-set! rule-counts (car row) (+ 1 (table-ref rule-counts (car row) 0)))
                 (reserve-references (cadr row))) rules)
     ;; Paths are allocated only for an explicitly requested diagnostic replay.
     ;; Canonical productions retain their existing shape and ordering.
@@ -332,7 +334,7 @@
           (lower-operand owner (caddr expression) precedence (child-path path 0))
           (list 'alias (cadr expression))))
         (else (lower-symbol owner expression precedence path))))
-    (def (lower-to lhs owner expression precedence path)
+    (def (lower-to lhs owner expression precedence path (isolated? #t))
       (def (emit lhs rhs action precedence)
         (emit-production lhs rhs action precedence owner path expression))
       (case (car expression)
@@ -343,14 +345,14 @@
              (error "dynamic precedence requires selective GLR admission"
                     owner rank))
            (lower-to lhs owner (cadddr expression)
-                     (list direction rank) (child-path path 0))))
+                     (list direction rank) (child-path path 0) isolated?)))
         ((choice)
          (if observe-origin
            (let loop ((children (cdr expression)) (index 0))
              (unless (null? children)
-               (lower-to lhs owner (car children) precedence (child-path path index))
+               (lower-to lhs owner (car children) precedence (child-path path index) #f)
                (loop (cdr children) (+ index 1))))
-           (for-each (lambda (child) (lower-to lhs owner child precedence #f))
+           (for-each (lambda (child) (lower-to lhs owner child precedence #f #f))
                      (cdr expression))))
         ((empty) (emit lhs '() 'concat precedence))
         ((layout-end)
@@ -367,17 +369,20 @@
          (emit lhs
                (list (lower-operand owner (cadr expression) precedence (child-path path 0)))
                'pass precedence))
-        ((repeat)
-         (emit lhs '() 'concat precedence)
-         (emit lhs
-               (list (list 'nonterminal lhs)
-                     (lower-operand owner (cadr expression) precedence (child-path path 0)))
-               'concat precedence))
-        ((repeat1)
-         (let (child (lower-operand owner (cadr expression) precedence (child-path path 0)))
-           (emit lhs (list child) 'pass precedence)
-           (emit lhs (list (list 'nonterminal lhs) child)
-                 'concat precedence)))
+        ((repeat repeat1)
+         ;; A recursive left side must belong to this repetition alone. Choice
+         ;; alternatives and repeated authored declarations share their left
+         ;; side, so lower the loop through its own fresh helper in that case.
+         (if (not isolated?)
+           (emit lhs (list (lower-operand owner expression precedence path))
+                 'pass precedence)
+           (begin
+             (when (eq? (car expression) 'repeat)
+               (emit lhs '() 'concat precedence))
+             (let (child (lower-operand owner (cadr expression) precedence (child-path path 0)))
+               (unless (eq? (car expression) 'repeat)
+                 (emit lhs (list child) 'pass precedence))
+               (emit lhs (list (list 'nonterminal lhs) child) 'concat precedence)))))
         ((field)
          (emit lhs (list (lower-operand owner expression precedence path))
                'pass precedence))
@@ -389,7 +394,8 @@
                'pass precedence))
         (else (error "unsupported GrammarExpr in LR lowering" owner expression))))
     (for-each
-     (lambda (row) (lower-to (car row) (car row) (cadr row) #f '()))
+     (lambda (row) (lower-to (car row) (car row) (cadr row) #f '()
+                             (= (table-ref rule-counts (car row)) 1)))
      rules)
     (cons (make-production 0 (or (claim-name '$accept) (fresh 'accept))
                            (list (list 'nonterminal root)) 'pass #f)

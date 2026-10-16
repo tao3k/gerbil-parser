@@ -75,7 +75,7 @@ def model_checks(root: Path):
         Check("quint-protocol", ("npm", "test"),
               ("formal/quint/Completion.qnt", "formal/quint/RawRequest.qnt", "formal/quint/GrammarPipeline.qnt", "formal/quint/RequestFlow.qnt", "formal/quint/CaptureContext.qnt", "formal/quint/YieldMemo.qnt", "formal/quint/OwnedTerminal.qnt", "formal/quint/SparseCapture.qnt", "formal/quint/ModuleAdmission.qnt", "formal/quint/LookaheadScope.qnt", "formal/quint/CapturePlan.qnt", "formal/quint/HistoryCommit.qnt", "formal/quint/ReuseAdmission.qnt", "formal/quint/Publication.qnt", "formal/quint/TapeOwner.qnt", "formal/quint/FoldPlan.qnt", "formal/quint/IdlePlan.qnt", "formal/quint/RunPlan.qnt", "formal/quint/ConsumerScope.qnt", "formal/quint/package.json",
                "formal/quint/package-lock.json", "formal/quint/node_modules/@informalsystems/quint/package.json") + bridge_inputs + policy_inputs,
-              ("Completion", "RawRequest", "GrammarPipeline", "9 passing", "RequestFlow", "10 passing", "11 passing", "16 passing", "23 passing", "8 passing", "7 passing", "12 passing", "4 passing", "5 passing", "6 passing", "No violation found"), cwd="formal/quint"),
+              ("Completion", "RawRequest", "GrammarPipeline", "11 passing", "RequestFlow", "10 passing", "11 passing", "16 passing", "23 passing", "8 passing", "7 passing", "12 passing", "4 passing", "5 passing", "6 passing", "No violation found"), cwd="formal/quint"),
     )
 
 

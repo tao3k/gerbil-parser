@@ -1,5 +1,5 @@
 ;;; Regenerate typed proof inputs after an intentional native publication change.
-(import (only-in :gerbil-parser/t/resolved-grammar-test write-native-grammar-facts)
+(import (only-in :gerbil-parser/t/fixtures/lr1-construction write-native-grammar-facts)
         (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!))
 (export main)
 (def (main)

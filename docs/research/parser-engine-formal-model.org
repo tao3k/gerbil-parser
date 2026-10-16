@@ -93,8 +93,8 @@ receipt. All rows still require a checked Scheme abstraction relation.
 
 | Engine boundary | Present model | Missing composition / producer obligation |
 |-----------------+---------------+--------------------------------------------|
-| DSL/Loader -> canonical IR | Selected reduction factories; independent authored-DSL versus lowered-CFG span evaluation | Universal lowering/annotation/POO semantics, admission judgments and product consistency |
-| Grammar -> derived facts -> LR tables | Universal executable nullable/FIRST certificate soundness and completeness; kernel-checked native publications; independent global LR lookahead closure | Native control-flow refinement for all grammars, productive domain semantics, interning/partitioning and conflict completeness |
+| DSL/Loader -> canonical IR | Universal recursive DSL/schema derivation equivalence; native-rule syntactic simulation; independent native controls | Establish every native emitted-rule origin and name adapter, POO/AST effects, admission and product consistency |
+| Grammar -> derived facts -> LR tables | Arbitrary-program publication/notification proof; arbitrary-CFG nullable/FIRST Horn compilation and preparation composition; native publication and LR closure checks | Concrete bit/batch/index refinement, productive-domain semantics, termination bound, interning/partitioning and conflict completeness |
 | Source -> ranked contextual scanner | Longest/rank/declaration maximum over supplied candidates; raw-token predicates and certified row selection | Native candidate completeness, source-to-raw observations, byte mapping, contextual modes and trivia |
 | Pending raw token -> selected terminal -> shift/reduce/capture | =RawRequest= composes row selection, viable prefixes, derived RHS agreement and singleton acceptance; two executable protocol fixtures | Native transition refinement, mutable observations, layout/custom selectors and AST correspondence |
 | Deterministic driver -> fork/layout/recovery | Scope withdrawal and ownership fragments | Branch score/order, fuel exhaustion, effect isolation and failure frontier |
@@ -536,6 +536,142 @@ solver/graph implementation refinement, including productive admission and
 conflict/partition behavior. Checked finite native outputs close concrete
 premises; they do not establish full engine model closure. Performance work
 remains deferred.
+
+*** Universal lowering and preparation control flow
+
+This extension moves beyond equality certificates for four publications. Its
+main results quantify over arbitrary grammars, recursive derivations and finite
+input lengths. Finite Scheme/Quint controls continue to qualify the physical
+implementation; they are not the source of those universal results.
+
+The paper anchor is [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing, sections 2.1--2.2]]: parser
+behavior is specified against the grammar's derivation relation, with an
+isolated augmented start production. The source DSL must therefore preserve
+CFG derivations before an LR algorithm or specialization can be justified.
+The new proof is our lowering construction, not a theorem claimed by that
+paper, and no PEG ordered-choice law or specialization speed result is used.
+
+**** Recursive source DSL and emitted-rule correspondence
+
+[[file:../../formal/ParserEngine/Lowering.lean][Lowering.lean]] defines source evaluation and a production schema with
+intrinsic expression owners. =lowering_exact= and =named_lowering_exact= prove
+soundness and completeness for every finite recursive rule list, expression
+and terminal word. Constructors include failure/empty, terminal/reference,
+choice/sequence, optional, repeat/repeat1 and terminal-language-transparent
+annotations. =choice_list_exact= and =sequence_list_exact= connect arbitrary
+source arities to the binary induction. Empty choice is failure; empty sequence
+is epsilon. Nullable repeated children are permitted in the mathematical
+finite-derivation semantics; native admission policy is a separate judgment.
+
+This is a schema with scoped expression owners, not a claim that Scheme's
+physical names already have that type. The native bridge uses finite syntactic
+=Expansion= witnesses for emitted productions, including legal unit inlining
+and atomic operand erasure. =native_derivation_sound= and =native_root_sound=
+quantify over every native CFG and every input word satisfying that structural
+bridge. They do not take desired per-input language equality as a premise.
+
+Folding a named source rule into its defining expression additionally requires
+=UniqueBody=. One branch of a choice cannot supply that witness for the entire
+shared left side. =isolated_repeat_origin= and =isolated_repeat1_origin= prove
+the native self-recursive rule shape for arbitrary child expressions and
+recursive source contexts when the unique-body premise holds. AST fields,
+spans, dynamic precedence, lexical layout effects and an executable verifier for
+every native origin/name witness remain outside these terminal-language laws.
+
+**** Arbitrary finite worklists and CFG preparation
+
+[[file:../../formal/ParserEngine/Worklist.lean][Worklist.lean]] models complete publication and dependent notification,
+with separate =known=, =delivered= and =pending= lists. Publication admits a fact
+once. Initial scanning seeds empty-dependency clauses. Delivery removes pending
+work, records it as delivered and scans exactly the affected registered clauses.
+The invariants preserve sound known facts, pending/delivered accounting and
+closure over delivered dependencies. Queue order does not establish semantics.
+
+=quiescent_exact= derives least Horn meaning for an arbitrary finite program
+from its operational history and an empty final pending queue. The caller does
+not supply final closure, a successful equality certificate or a fact-set
+soundness assumption. The theorem does not prove a termination bound or turn
+fuel exhaustion into quiescence.
+
+[[file:../../formal/ParserEngine/Solver.lean][Solver.lean]] compiles the source-shaped programs from any =Grammar.CFG=:
+
+- Nullable clauses retain every nonterminal occurrence, discard terminal-blocked
+  nullable clauses and keep undefined references as unsatisfied dependencies.
+  =nullable_horn_exact= connects those clauses to =Grammar.Nullable=.
+- =notification_enables_exactly= connects native per-occurrence counter decrements
+  to the operational enabled test using the existing multiplicity theorem.
+- FIRST scans each nullable prefix, emits a seed for the encountered terminal
+  and propagates each nonterminal dependency over the finite terminal catalog.
+  =prefix_sequence= connects those edges to =Grammar.SequenceFirst=.
+- =named_first_in_catalog= proves that the catalog derived from grammar RHS
+  terminals covers every semantic FIRST fact. The caller need not guess a
+  bound on terminal ordinals.
+- =preparation_pipeline_exact= composes both operational histories in native
+  preparation order: FIRST consumes the completed nullable publication. Both
+  semantic conclusions follow without external final-fact certificates.
+
+These are algorithmic control-flow results for all grammars, rather than a
+finite execution of one example. Native bit masks, coalesced two-domain queue
+payloads, physical counters, table indexing and shared mutable records still
+need representation adapters to the proved transitions. Productive-domain
+shortcuts and native termination are not silently included in the nullable and
+FIRST claims. The independent native solver/LR controls remain the executable
+boundary checks for those adapters.
+
+**** Lowering defect found by the ownership proof
+
+The source =choice(repeat("a"), "b")= should denote =a* | b=. Previously,
+=lower-to= reused the choice's left side for the repeat branch and emitted:
+
+#+begin_example
+A -> epsilon | A a | b
+#+end_example
+
+That grammar admits =ba= and =baa=. The same defect affected repeat1,
+precedence-wrapped repetition and repeated authored declarations with the same
+left side. The new native authored-DSL comparison failed before the repair.
+
+[[file:../../src/compiler/lr.ss][lower-rules]] now threads an ownership constraint: choice alternatives share
+their left side; precedence preserves that constraint; fresh helpers are
+exclusive; an authored left side is exclusive only for a single declaration.
+A repetition under a shared left side emits through its own fresh helper.
+Ordinary isolated repetition retains production/action order. No compatibility
+mode, schema upgrade, new user declaration requirement or benchmark shortcut
+was introduced.
+
+The existing owner now checks actual emission-origin isolation and complete
+parse requests through LALR, canonical LR1 and follow-partition LR1. Repeated
+=a= and the =b= alternative succeed; =ba=, =baa=, =ab= and =bb= fail. The source
+chart also covers all 15 words through length three for twelve grammars. These
+controls witness the real repair; universal scope comes from the derivation and
+origin theorems above, with the remaining native adapter premises explicit.
+=GrammarPipeline= now retains both the old shared-owner counterexample and the
+private-owner positive control.
+
+**** CI and qualification closure
+
+The previous native CI failed the existing test AST contract because typed
+proof-input serialization lived in a =-test.ss= file. The serializer and shared
+grammar data now reside in the existing
+[[file:../../t/fixtures/lr1-construction.ss][LR construction fixture module]]. The test owner only compares values and
+the regeneration command imports that fixture directly. The AST restriction
+was retained unchanged; negative harness controls were not treated as defects.
+
+| Check | Result and scope |
+|-------+------------------|
+| Full locked Lean build | 65 jobs; new derivation, origin and operational theorem axioms printed |
+| Full Quint suite | 161 directed controls, 19 modules, 18 seeded invariant explorations |
+| Resolved grammar owner | 50 cases, including full repetition-isolation requests and emission origins |
+| Related native closure | Four owners, 88 cases: resolved grammar, fused reductions, canonical LR1 and AST style |
+| Native qualification | Three workers, 25.265 seconds, exit 0; four owner receipts present |
+| Native preparation | Official Gerbil compiler and GCC; unchanged 90-second total and five-second silence limits |
+
+The former shared-loop failure, a malformed new fixture declaration and proof/
+protocol authoring failures remain failures. This extension contains a
+correctness repair derived from the model and no CPU performance experiment.
+The whole engine is not declared model-closed: native name/origin generation,
+bit/batch adapters, productive/termination and later parser/ABI boundaries remain
+the next proof obligations. Performance optimization stays deferred.
 
 ** Completion gates before architecture optimization
 

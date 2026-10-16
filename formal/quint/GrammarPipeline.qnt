@@ -130,4 +130,20 @@ module GrammarPipeline {
     .then(Scan).then(Shift).then(Scan).then(EmptyA).then(WrongAdvance).expect(not(PipelineSafety))
   run wrongOrderWitnessTest = init.then(Nullable).then(FirstA).then(FirstS).then(Prepare)
     .then(Scan).then(Shift).then(Scan).then(EmptyA).then(ReduceA).then(Shift).then(WrongOrder).expect(not(PipelineSafety))
+  // The source lowering defect: A -> A a | epsilon | b admits b a.
+  // With a private loop R -> R a | epsilon and A -> R | b it does not.
+  // Lean's lowering/unique-owner laws quantify over all finite derivations;
+  // this bounded falsifier binds the former shared-owner interpretation.
+  type LoopLanguages = {root:Set[List[int]],loop:Set[List[int]]}
+  pure def loopRound(shared:bool,s:LoopLanguages):LoopLanguages = {
+    val basis = if(shared) s.root else s.loop
+    val expanded = s.loop.union(basis.map(word => word.append(1)))
+    {root:s.root.union(expanded),loop:expanded}
+  }
+  pure def loopUnroll(shared:bool):LoopLanguages =
+    0.to(3).fold({root:Set(List(),List(2)),loop:Set(List())},(s,index) => loopRound(shared,s))
+  run privateRepetitionOwnerTest = init.expect(
+    loopUnroll(false).root.contains(List(1,1,1)) and loopUnroll(false).root.contains(List(2))
+      and not(loopUnroll(false).root.contains(List(2,1))))
+  run sharedRepetitionOwnerWitnessTest = init.expect(loopUnroll(true).root.contains(List(2,1)))
 }

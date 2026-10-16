@@ -1,3 +1,5 @@
+import ParserEngine.Lowering
+import ParserEngine.Solver
 import ParserEngine.NativeFacts
 import ParserEngine.RawRequest
 import ParserEngine.Grammar
@@ -213,3 +215,12 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 
 #print axioms ParserEngine.Completion.fresh_notification_counts_occurrences
 #print axioms ParserEngine.Completion.zero_remaining
+
+#print axioms ParserEngine.Lowering.lowering_exact
+#print axioms ParserEngine.Lowering.named_lowering_exact
+#print axioms ParserEngine.Lowering.native_root_sound
+#print axioms ParserEngine.Worklist.quiescent_exact
+#print axioms ParserEngine.Solver.preparation_pipeline_exact
+
+#print axioms ParserEngine.Lowering.isolated_repeat_origin
+#print axioms ParserEngine.Lowering.isolated_repeat1_origin

@@ -23,7 +23,7 @@ class ModelInputControls(unittest.TestCase):
             request = root / "formal/ParserEngine/Request.lean"
             request.write_text("namespace Request\nend Request\n")
             (root / "formal/ParserEngine/Grammar.lean").write_text("namespace Grammar\nend Grammar\n")
-            for module in ("Viable", "RawRequest", "Completion", "NativeFacts"):
+            for module in ("Viable", "RawRequest", "Completion", "NativeFacts", "Lowering", "Worklist", "Solver"):
                 (root / f"formal/ParserEngine/{module}.lean").write_text(f"namespace {module}\nend {module}\n")
             lean, quint = model_checks(root)
             self.assertEqual((lean.claim, quint.claim), ("lean-model", "quint-protocol"))
@@ -84,7 +84,7 @@ class ModelInputControls(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 if not path.exists():
                     path.write_text("input")
-            for module in ("Viable", "RawRequest", "Completion", "NativeFacts"):
+            for module in ("Viable", "RawRequest", "Completion", "NativeFacts", "Lowering", "Worklist", "Solver"):
                 before = snapshot(root, lean.inputs)
                 (root / f"formal/ParserEngine/{module}.lean").write_text("changed graph/request premise")
                 self.assertNotEqual(before, snapshot(root, lean.inputs))

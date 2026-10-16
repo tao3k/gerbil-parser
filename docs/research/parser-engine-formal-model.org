@@ -93,8 +93,8 @@ receipt. All rows still require a checked Scheme abstraction relation.
 
 | Engine boundary | Present model | Missing composition / producer obligation |
 |-----------------+---------------+--------------------------------------------|
-| DSL/Loader -> canonical IR | Selected reduction factories | Admission judgments, POO extension semantics, hygiene and product consistency |
-| Grammar -> derived facts -> LR tables | Derivation-based nullable/FIRST and item/cell-support model; bounded native chart comparison | Native fixed-point, item closure/goto and conflict construction refinement |
+| DSL/Loader -> canonical IR | Selected reduction factories; independent authored-DSL versus lowered-CFG span evaluation | Universal lowering/annotation/POO semantics, admission judgments and product consistency |
+| Grammar -> derived facts -> LR tables | Universal executable nullable/FIRST certificate soundness and completeness; kernel-checked native publications; independent global LR lookahead closure | Native control-flow refinement for all grammars, productive domain semantics, interning/partitioning and conflict completeness |
 | Source -> ranked contextual scanner | Longest/rank/declaration maximum over supplied candidates; raw-token predicates and certified row selection | Native candidate completeness, source-to-raw observations, byte mapping, contextual modes and trivia |
 | Pending raw token -> selected terminal -> shift/reduce/capture | =RawRequest= composes row selection, viable prefixes, derived RHS agreement and singleton acceptance; two executable protocol fixtures | Native transition refinement, mutable observations, layout/custom selectors and AST correspondence |
 | Deterministic driver -> fork/layout/recovery | Scope withdrawal and ownership fragments | Branch score/order, fuel exhaustion, effect isolation and failure frontier |
@@ -402,6 +402,140 @@ the named certificates for every admitted grammar. Completeness, scanner modes,
 AST spans/actions, recovery and ABI observations remain separate ledger gaps.
 Model closure for the full engine is therefore not claimed, and architecture
 performance work remains gated by those obligations.
+
+*** Checked native publications and solver correspondence
+
+The earlier table-support check used the producer's own lookahead masks as
+premises. The new checks strengthen that boundary in three coordinated layers.
+They do not treat agreement between two views of one mask as an independent
+lookahead derivation.
+
+**** Executable completion certificates
+
+[[file:../../formal/ParserEngine/Completion.lean][Completion.lean]] implements finite nullable/FIRST derivation rounds and
+publication checkers. A check succeeds only when the supplied set equals a
+sound finite round *and* is closed under every grammar rule. Rounds retain set
+membership rather than duplicate derivation entries. Theorems
+=nullable_certificate_exact= and =first_certificate_exact= establish both
+soundness and completeness against =Grammar.Nullable= and =Grammar.First= for
+arbitrary supplied grammars and certificates. Neither theorem assumes the
+native queue has terminated correctly. An inadequate fuel value fails closed;
+no theorem treats exhaustion or a locally empty queue as publication evidence.
+
+The sequence operator is proved equivalent to =Grammar.SequenceFirst=.
+Nullable closure feeds FIRST leastness, and FIRST remains a terminal-prefix
+property when a later suffix is unproductive. Negative kernel checks reject
+self-supporting nullable/FIRST cycles, empty-fuel publication missing an epsilon
+consequence and omitted FIRST facts. A positive control retains FIRST for an
+unproductive suffix.
+
+The same module models the native clause counter as the number of *unresolved
+occurrences*, not the number of distinct dependencies. A fresh notification
+removes exactly the source's occurrence multiplicity. A duplicate notification
+changes no unresolved obligation. A zero counter means every dependency is
+known; an undefined name remains unresolved. Here =known= describes delivered
+facts, distinct from facts published but still pending in the native queue.
+These laws cover the mathematical counter update; they do not prove every
+Scheme mutation executes it correctly.
+
+[[file:../../formal/ParserEngine/NativeFacts.lean][NativeFacts.lean]] instantiates the checkers with four typed inputs generated
+from the actual native =lower-rules=, =compute-completion= and =compute-first=
+outputs. The fixtures cover epsilon/recursion, repeated dependencies and cycles,
+an unproductive suffix and undefined reference, and annotated optional/repeat
+lowering with a helper-name collision. The exported data retain production
+order and consistently encode named symbols into separate terminal/nonterminal
+constructors. For each fixture, Lean checks the Boolean certificate with
+=by decide= and derives exact semantic membership for all names and terminals.
+No =native_decide= trust extension, new axiom or admitted theorem is used.
+
+The existing Scheme owner independently regenerates the entire typed input
+module and compares it with the checked source. Thus a stale fixture, changed
+native publication, changed encoding or edited certificate declaration cannot
+silently preserve the qualification. These are small executable proof fixtures,
+not benchmark result reports. The explicit regeneration command is:
+
+#+begin_src sh
+gerbil env gxi t/generate-grammar-model-facts.ss
+cd formal && lake build
+#+end_src
+
+Regeneration alone is not acceptance: both the Lean checker and native
+conformance owner must subsequently pass. The encoder and bounded fixture
+coverage remain explicit implementation boundaries. This is not a formal
+interpreter for arbitrary Scheme source.
+
+**** Authored DSL and lowering meaning
+
+The Scheme =source-dsl-accepts?= oracle evaluates authored expression trees
+using span saturation over named references. It does not call lowering,
+nullable/FIRST, generated helpers or LR tables. Choice, sequence, optional,
+repeat/repeat1, references, literals, fixture token kinds and field/alias/static
+precedence wrappers are evaluated directly. Repeat admits only positive-width
+iterations after its empty case, preserving finite-word meaning without a
+nullable loop.
+
+For eight grammars and all 15 words over =a/b= through length three, the owner
+compares this meaning with a separate CFG span chart over actual lowered
+productions. The controls include epsilon, recursive cycles, undefined names,
+annotations and generated helper collisions. A removed mandatory suffix is
+witnessed as a semantic mismatch. This establishes bounded terminal-language
+correspondence; AST fields/spans, dynamic precedence, layout, DSL admission and
+a universal lowering theorem remain open.
+
+**** LR lookahead provenance independent of native masks
+
+The new symbolic tuple oracle reconstructs LR lookaheads from the augmented
+EOF seed and saturates the complete published transition graph. Its prediction
+step recomputes =FIRST(beta, inherited)= with independent nullable/FIRST
+reference solvers. It uses neither native suffix masks, packed increments,
+closure scratch arrays nor dependency queues. Symbolic lookaheads are compared
+in both directions against every decoded native state/item mask.
+
+Four grammars across LR0/LALR, canonical LR1 and follow-partition LR1 now pass
+this complete finite comparison, alongside the earlier graph-origin and
+ACTION/GOTO cell checks. The fourth fixture deliberately reaches an
+unproductive suffix through the low-level builder; it makes no public grammar
+admission claim. An invented terminal has no provenance. Graph IDs and edges
+are still supplied by the native constructor, so this does not prove native
+state interning, partition minimality, graph completeness or conflict policy.
+The earlier core-path and raw-request proofs retain those named premises.
+
+[[file:../../formal/quint/Completion.qnt][Completion.qnt]] aligns the publication lifecycle with =compute-completion=:
+all dependencies exist before draining; nullable/productive deltas coalesce per
+owner; queue entries are unique; repeated references decrement by multiplicity;
+undefined references remain blocked; publication waits for all seeded work to
+finish. Its invariant relates every counter to delivered facts. Directed
+histories exercise both seed orders and reject distinct-only counts, a missing
+publisher treated as satisfied, early publication and duplicate queue entries.
+Productive semantics beyond this fixture remain a separate proof obligation.
+
+Local qualification of the extension:
+
+| Check | Result and scope |
+|-------+------------------|
+| Locked Lean =lake build= | 62 jobs; counter/certificate/native-fixture axioms printed; no admitted proof |
+| Native completion publications | Four fixtures, eight kernel-decided certificates and eight derived exactness theorems |
+| Authored DSL/lowered CFG | 120 bounded language comparisons plus a semantic mutation witness |
+| Native LR lookaheads | Four grammars, three construction routes; all decoded items compared in both directions |
+| Scheme resolved-grammar owner | 49 cases, 5.117 seconds, exit 0, no supervisor reason or missing receipt |
+| Full Quint =npm test= | 159 directed controls, 19 modules, 18 seeded invariant explorations |
+| Solver lifecycle | Six directed controls; 1,000 traces capped at 20 steps |
+| Evidence host/input/product controls | Five tests; 400 Lean inputs and 105 Quint inputs form strict snapshots |
+| Regeneration entrypoint | Exit 0, receipt present, 4.747 seconds under the existing process gate |
+
+An initial exporter build failed on an undeclared =append-map= import. The
+failed result is retained. Complete exception diagnostics were written to a
+separate file before rethrowing the same exception; the error-output rejection,
+90-second total deadline and five-second silence deadline stayed enabled.
+Adding the official list-library import repaired preparation. Proof-authoring
+failures and the first invalid Quint API spelling are also not counted as
+passes. No runtime algorithm or CPU benchmark was changed in this extension.
+
+The remaining priority is universal source/lowering correspondence and native
+solver/graph implementation refinement, including productive admission and
+conflict/partition behavior. Checked finite native outputs close concrete
+premises; they do not establish full engine model closure. Performance work
+remains deferred.
 
 ** Completion gates before architecture optimization
 

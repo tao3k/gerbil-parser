@@ -48,7 +48,7 @@ def model_checks(root: Path):
                      "t/fixtures/tla-sany-differential/affinity-exclusive.ss",
                      "t/fixtures/tla-sany-differential/worker-exclusive-invalid.ss", "test-processes.ss", "src/compiler/bound-ir.ss", "t/bound-ir-index-test.ss", "t/rust-runtime-generation-test.ss",
                      "src/runtime/scan/lexical.ss", "src/runtime/scan/literal.ss", "src/runtime/scan/regular.ss", "t/ranked-regular-scanner-test.ss",
-                     "t/canonical-lr1-reference-test.ss", "t/resolved-grammar-test.ss", "t/fixtures/lr1-construction.ss", "src/compiler/lr.ss", "src/compiler/lr-compiler.ss", "src/compiler/lr-conflict-candidates.ss", "src/compiler/lr-table.ss", "src/compiler/lr-automaton.ss", "src/compiler/lr-lookahead.ss", "src/compiler/lr-follow-automaton.ss", "src/ffi/language-handles.ss", "scripts/tests/history-commit-test.ss",
+                     "t/generate-grammar-model-facts.ss", "formal/ParserEngine/NativeFacts.lean", "t/canonical-lr1-reference-test.ss", "t/resolved-grammar-test.ss", "t/fixtures/lr1-construction.ss", "src/compiler/lr.ss", "src/compiler/lr-compiler.ss", "src/compiler/lr-conflict-candidates.ss", "src/compiler/lr-table.ss", "src/compiler/lr-automaton.ss", "src/compiler/lr-lookahead.ss", "src/compiler/lr-follow-automaton.ss", "src/ffi/language-handles.ss", "scripts/tests/history-commit-test.ss",
                      "src/runtime/lr-parser/recognition.ss", "src/runtime/lr-parser/checkpoint.ss", "src/runtime/lr-parser/entry.ss",
                      "src/runtime/lr-parser/transfer.ss", "src/runtime/lr-parser/prepare.ss", "src/runtime/lr-action-index.ss", "src/runtime/parser.ss",
                      "src/runtime/lr-parser/batch.ss", "src/runtime/layout.ss", "src/runtime/lr-stack-storage.ss",
@@ -73,9 +73,9 @@ def model_checks(root: Path):
         Check("lean-model", ("lake", "build"), tuple(dict.fromkeys(lean_inputs + bridge_inputs + policy_inputs)),
               ("Build completed successfully",), cwd="formal"),
         Check("quint-protocol", ("npm", "test"),
-              ("formal/quint/RawRequest.qnt", "formal/quint/GrammarPipeline.qnt", "formal/quint/RequestFlow.qnt", "formal/quint/CaptureContext.qnt", "formal/quint/YieldMemo.qnt", "formal/quint/OwnedTerminal.qnt", "formal/quint/SparseCapture.qnt", "formal/quint/ModuleAdmission.qnt", "formal/quint/LookaheadScope.qnt", "formal/quint/CapturePlan.qnt", "formal/quint/HistoryCommit.qnt", "formal/quint/ReuseAdmission.qnt", "formal/quint/Publication.qnt", "formal/quint/TapeOwner.qnt", "formal/quint/FoldPlan.qnt", "formal/quint/IdlePlan.qnt", "formal/quint/RunPlan.qnt", "formal/quint/ConsumerScope.qnt", "formal/quint/package.json",
+              ("formal/quint/Completion.qnt", "formal/quint/RawRequest.qnt", "formal/quint/GrammarPipeline.qnt", "formal/quint/RequestFlow.qnt", "formal/quint/CaptureContext.qnt", "formal/quint/YieldMemo.qnt", "formal/quint/OwnedTerminal.qnt", "formal/quint/SparseCapture.qnt", "formal/quint/ModuleAdmission.qnt", "formal/quint/LookaheadScope.qnt", "formal/quint/CapturePlan.qnt", "formal/quint/HistoryCommit.qnt", "formal/quint/ReuseAdmission.qnt", "formal/quint/Publication.qnt", "formal/quint/TapeOwner.qnt", "formal/quint/FoldPlan.qnt", "formal/quint/IdlePlan.qnt", "formal/quint/RunPlan.qnt", "formal/quint/ConsumerScope.qnt", "formal/quint/package.json",
                "formal/quint/package-lock.json", "formal/quint/node_modules/@informalsystems/quint/package.json") + bridge_inputs + policy_inputs,
-              ("RawRequest", "GrammarPipeline", "9 passing", "RequestFlow", "10 passing", "11 passing", "16 passing", "23 passing", "8 passing", "7 passing", "12 passing", "4 passing", "5 passing", "6 passing", "No violation found"), cwd="formal/quint"),
+              ("Completion", "RawRequest", "GrammarPipeline", "9 passing", "RequestFlow", "10 passing", "11 passing", "16 passing", "23 passing", "8 passing", "7 passing", "12 passing", "4 passing", "5 passing", "6 passing", "No violation found"), cwd="formal/quint"),
     )
 
 

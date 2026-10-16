@@ -1,3 +1,4 @@
+import ParserEngine.NativeFacts
 import ParserEngine.RawRequest
 import ParserEngine.Grammar
 import ParserEngine.Request
@@ -205,3 +206,10 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Viable.lr1_graph_constructed
 
 #print axioms ParserEngine.RawRequest.builtin_action_and_terminal
+
+#print axioms ParserEngine.Completion.nullable_certificate_exact
+#print axioms ParserEngine.Completion.first_certificate_exact
+#print axioms ParserEngine.NativeFacts.fixture0_first_exact
+
+#print axioms ParserEngine.Completion.fresh_notification_counts_occurrences
+#print axioms ParserEngine.Completion.zero_remaining

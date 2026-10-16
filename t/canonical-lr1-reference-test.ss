@@ -291,7 +291,7 @@
   (parse-token-result spec (character-tokens text)))
 
 (def (prepared-result-parser spec)
-  ;; One immutable grammar/capability basis per sweep; requests still own fresh
+  ;; One fixed grammar/capability basis per sweep; requests still own fresh
   ;; token vectors and LR state, including recovery after a rejected word.
   (let (runtime (lr-prepare spec))
     (lambda (tokens)
@@ -838,6 +838,23 @@
                    (lr-spec-ref canonical 'state-count))
                => #t)
         (check (> (lr-spec-ref direct 'follow-block-count) 0) => #t)))
+    (poo-flow-test-case "prepared sweeps isolate successful and rejected requests"
+      (for-each
+       (lambda (route)
+         (let* ((spec (compile-lr-spec lr1-not-lalr-rules 'source-file 'reject #f route))
+                (parse (prepared-result-parser spec))
+                (first-input (character-tokens "acd"))
+                (first-result (parse first-input)))
+           (check (eq? first-result 'rejected) => #f)
+           (check (parse (character-tokens "acc")) => 'rejected)
+           (for-each
+            (lambda (text)
+              (let (tokens (character-tokens text))
+                (check (parse tokens) => (parse-token-result spec tokens))))
+            '("ace" "" "bcd" "acc" "bce" "acd"))
+           ;; A later rejection must not overwrite an earlier returned product.
+           (check first-result => (parse-token-result spec first-input))))
+       '(canonical-lr1 follow-partition-lr1)))
     (poo-flow-test-case "independent LR(1) contexts preserve parse products"
       (for-each
        (lambda (context-count)
@@ -847,7 +864,9 @@
                                   'canonical-lr1))
                 (direct
                  (compile-lr-spec rules 'source-file 'reject #f
-                                  'follow-partition-lr1)))
+                                  'follow-partition-lr1))
+                (parse-canonical (prepared-result-parser canonical))
+                (parse-direct (prepared-result-parser direct)))
            (check-exception (compile-lr-spec rules 'source-file) true)
            (check (lr-spec-ref canonical 'state-count)
                   => (lr-spec-ref direct 'state-count))
@@ -865,17 +884,17 @@
                    (let* ((tokens
                            (cons prefix-token
                                  (character-tokens body prefix-length)))
-                          (expected (parse-token-result canonical tokens)))
+                          (expected (parse-canonical tokens)))
                      (check (eq? expected 'rejected) => #f)
                      (check (equal? expected
-                                    (parse-token-result direct tokens))
+                                    (parse-direct tokens))
                             => #t)))
                  '("acd" "ace" "bcd" "bce"))
                 (let (tokens
                       (cons prefix-token
                             (character-tokens "acc" prefix-length)))
-                  (check (parse-token-result canonical tokens) => 'rejected)
-                  (check (parse-token-result direct tokens) => 'rejected))))
+                  (check (parse-canonical tokens) => 'rejected)
+                  (check (parse-direct tokens) => 'rejected))))
             (iota context-count))))
        '(4 16 32 48 64)))
     (poo-flow-test-case "state-local conflict candidates preserve parse products"
@@ -885,7 +904,9 @@
                                'canonical-lr1))
              (direct
               (compile-lr-spec rules 'source-file 'selective-glr #f
-                               'follow-partition-lr1)))
+                               'follow-partition-lr1))
+             (parse-canonical (prepared-result-parser canonical))
+             (parse-direct (prepared-result-parser direct)))
         (check (< (lr-spec-ref direct 'state-count)
                   (lr-spec-ref canonical 'state-count)) => #t)
         (check (> (lr-spec-ref direct 'follow-block-count) 0) => #t)
@@ -901,8 +922,8 @@
              (for-each
               (lambda (body)
                 (let (input (tokens body))
-                  (check (equal? (parse-token-result canonical input)
-                                 (parse-token-result direct input)) => #t)))
+                  (check (equal? (parse-canonical input)
+                                 (parse-direct input)) => #t)))
               '("axd" "axe" "bxxe" "bxe" "axf" "bxxd" ""))))
          '(0 15 31))))
     (poo-flow-test-case "mixed context family compresses forward follow blocks"
@@ -914,7 +935,9 @@
                                   'canonical-lr1))
                 (direct
                  (compile-lr-spec rules 'source-file 'reject #f
-                                  'follow-partition-lr1)))
+                                  'follow-partition-lr1))
+                (parse-canonical (prepared-result-parser canonical))
+                (parse-direct (prepared-result-parser direct)))
            (check (< (lr-spec-ref direct 'state-count)
                      (lr-spec-ref canonical 'state-count)) => #t)
            (check (< (lr-spec-ref direct 'follow-block-count)
@@ -931,11 +954,11 @@
                    (let* ((tokens
                           (cons prefix-token
                                  (character-tokens body prefix-length)))
-                          (expected (parse-token-result canonical tokens)))
+                          (expected (parse-canonical tokens)))
                      (check (eq? expected 'rejected)
                             => (if (member body '("acc" "cd")) #t #f))
                      (check (equal? expected
-                                    (parse-token-result direct tokens))
+                                    (parse-direct tokens))
                             => #t)))
                  '("acd" "ace" "bcd" "bce" "dd" "cdd" "acc" "cd"))))
             (iota context-count))))

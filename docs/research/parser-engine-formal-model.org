@@ -30,6 +30,69 @@ specification. This section is the shared coverage ledger. Extend this ledger
 and its connected models before another runtime optimization. Do not use a new
 local object-count identity as evidence that an architecture gap has closed.
 
+** Parser ownership, prepared requests and the macOS timeout
+
+Host implementation is outside this parser change. Gambit sources, compiler,
+collector, synchronization macros and SDK binaries must not be modified or
+rebuilt here. Their behavior is an explicit external premise of the parser's
+physical execution. Recording a premise does not establish it: the ordinary
+plain-poll visibility counterexample below remains unqualified and cannot be
+silently admitted as a successful acquire. No host repair or SDK deployment
+is claimed by this parser qualification.
+
+The [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][Essence of LR Parsing, sections 2--4]] distinguishes grammar-dependent
+parser structure from input-dependent execution. The present test correction
+uses the parser's existing preparation boundary. It does not implement the
+paper's partial evaluator or claim its performance results.
+
+| Obligation | Current parser code | Existing model / implementation evidence | Remaining premise |
+|------------+---------------------+-------------------------------------------+-------------------|
+| Preparation has a distinct owner | [[file:../../src/runtime/lr-parser/entry.ss][entry.ss]] defines =lr-parse= as =lr-prepare= followed by =lr-parse/prepared=; [[file:../../src/runtime/lr-parser/prepare.ss][prepare.ss]] validates tables and derives indices, lexical modes and reduction plans | The three test sweeps retain one preparation per fixed spec and compare the same canonical/direct products | Grammar/spec content, lexical policy and selected semantic capabilities must remain fixed during that sweep; this is not a global cache or a reuse rule for changed specifications |
+| Each request starts independently | [[file:../../src/runtime/lr-parser/checkpoint-base.ss][checkpoint-base.ss]] allocates a new checkpoint with states =(0)=, empty values, current tokens/rest, fresh counters and input end | =RawRequest.initial_valid= universally establishes the reference initial invariant; =independentPreparedRequestsTest= restarts after acceptance and rejection; a retained-frame mutation violates =RawSafety= | Native field-to-model decoding and the selected backend's fresh-state behavior are separate correspondence obligations |
+| Reductions retain pending raw input and ordered yields | [[file:../../src/runtime/lr-parser/checkpoint.ss][checkpoint.ss]] and recognition/reduction owners | =RawRequest.reduce_valid= and =Request.trace_valid= preserve admitted frame and token-flow invariants | Native production IDs, table support, selector meaning and physical storage still require their explicit admission |
+| Complete acceptance implies a derivation | Native EOF/start acceptance and canonical/direct test products | =RawRequest.complete_request= derives grammar membership for any admitted engine trace; the native sweeps compare full products, including typed rejection and empty input | =RawRequest.Engine= explicitly requires constructed graph, supported table, selected-action and matched-terminal certificates; a native table passing schema validation does not discharge these |
+| Reusing prepared metadata does not carry request state | [[file:../../t/canonical-lr1-reference-test.ss][prepared-result-parser and canonical controls]] create a fresh checkpoint on every invocation | The added native case runs success, rejection, more successes/empty input/rejection and rechecks an earlier returned product, against the cold entry on both canonical and direct routes | These are finite controls; they do not prove arbitrary mutable spec reuse, native compiler refinement or host memory safety |
+
+Runtime objects contain lazily derived caches; the entire runtime record is
+not claimed immutable. The test boundary fixes the grammar and preparation
+policy and reuses derived metadata. Tokens, stacks, counters, remainders and
+returned products remain request responsibilities. No previous request's
+checkpoint is reused by this change.
+
+*** Timeout diagnosis and bounded verification
+
+The failing macOS semantics job at revision =543812e= is run =38916765458=,
+job =117032251499=. Its last typed cause is
+=MODULE-BATCH-TIMEOUT t/canonical-lr1-reference-test.ss reason=total-budget=,
+during the mixed-context family. There is no failing parser assertion in that
+owner. Independent contexts, state-local conflict candidates and mixed contexts
+repeatedly called the cold entry for fixed tables, including all contexts up to
+128 in the last sweep. The correction uses the already existing prepared helper
+inside each grammar's lexical scope. It introduces no shared global cache.
+
+All context counts, words, accepted/rejected cases and product comparisons are
+retained. The ordinary entry still has independent coverage and is also the
+oracle in the new request-isolation case. Only typed parser rejection is caught;
+implementation and contract exceptions still fail the suite. The original
+90-second owner and 5-second progress budgets remain unchanged, as do worker
+scheduling and CI timeouts. This is a test-preparation correction, not a parser
+algorithm optimization or a complete-request CPU claim.
+
+The new Quint histories reuse the same static graph/selector and reset dynamic
+state through the existing initial actions. The positive history accepts,
+rejects, restarts, and accepts a different terminal interpretation. The negative
+history deliberately retains the previous stack/frames and violates the raw
+input conservation invariant. These histories qualify the protocol boundary;
+the real Scheme control is required separately.
+
+Local qualification of this parser-only change: the locked Lean package passes
+all 72 build jobs; =RawRequest.qnt= passes nine directed controls, including the
+two independent-request histories. The real canonical/style owners pass
+31+6=37 cases with two workers and CI LR tracing enabled, natural exit zero in
+15.4894 seconds under unchanged owner budgets. The model-input binding control
+also passes. These receipts establish the stated local checks; the new commit
+requires its own remote CI result. They are not CPU benchmark evidence.
+
 ** Unified representation correspondence
 
 This is the current composition ledger. Earlier qualification sections retain

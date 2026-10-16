@@ -92,4 +92,15 @@ module RawRequest {
   run globalTerminalWitnessTest = initWord.then(Shift).then(Reduce).then(WrongStateIndependentTerminal).expect(not(RawSafety))
   run acceptanceNeedsStartWitnessTest = init.then(Shift).then(WrongAccept).expect(not(RawSafety))
   run reductionOrderWitnessTest = init.then(Shift).then(Reduce).then(Shift).then(WrongReductionOrder).expect(not(RawSafety))
+  // The table/selector is shared; restart replaces all request-local state.
+  run independentPreparedRequestsTest = init.then(Shift).then(Reduce).then(Shift)
+    .then(Reduce).then(Accept).expect(RawSafety and q.phase == "complete")
+    .then(initInvalid).then(Shift).then(Reject).expect(RawSafety and q.phase == "rejected")
+    .then(initWord).expect(RawSafety and q.states == List(0) and q.frames == List())
+    .then(Shift).then(Reduce).then(Shift).then(Reduce).then(Accept)
+    .expect(RawSafety and terminalYield(q.frames) == List(2,4))
+  action WrongRestartKeepsFrames = q' = {...q,input:List(2,3),rest:List(2,3),phase:"running"}
+  run retainedPreviousRequestStateWitnessTest = init.then(Shift).then(Reduce)
+    .then(Shift).then(Reduce).then(Accept).then(WrongRestartKeepsFrames)
+    .expect(not(RawSafety))
 }

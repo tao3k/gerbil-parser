@@ -774,3 +774,15 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Host.ObjectClassification.classification_to_scan
 
 #print axioms ParserEngine.Host.ObjectClassification.memory_mask
+
+#print axioms ParserEngine.Host.TicketMachine.prefix_exact
+#print axioms ParserEngine.Host.TicketMachine.failed_poll
+#print axioms ParserEngine.Host.TicketMachine.poll_block
+#print axioms ParserEngine.Host.TicketMachine.failed_prefix
+#print axioms ParserEngine.Host.TicketMachine.successful_read
+#print axioms ParserEngine.Host.TicketMachine.forwarding_sub
+#print axioms ParserEngine.Host.TicketMachine.queue_link_before_fence
+#print axioms ParserEngine.Host.TicketMachine.empty_queue_no_link
+#print axioms ParserEngine.Host.TicketMachine.prefix_registers
+#print axioms ParserEngine.Host.TicketMachine.run_add
+#print axioms ParserEngine.Host.TicketMachine.pollRun_eq_run

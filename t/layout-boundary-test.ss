@@ -4,7 +4,7 @@
 ;;; Explicit closing boundaries belong to the declaring language grammar.
 
 (import (only-in :gerbil-parser/t/fixtures/layout-columns wide-frame-roots cyclic-pointer-roots mutual-closure-frame-roots closure-frame-roots
-                 cache-copy-flonum-values host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-classification-control host-object-kind host-object-subtype host-chunk-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
+                 cache-copy-flonum-values host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-classification-control host-object-kind host-object-subtype host-ordering-litmus host-ordering-layout-control host-chunk-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
         :std/test
         :gerbil-parser/src/grammar/algebra
         (only-in :gerbil-parser/src/language/grammar deflanguage)
@@ -251,6 +251,18 @@
 
 (def layout-boundary-test
   (test-suite "Grammar-owned layout closing boundaries"
+    (test-case "native ticket and queue byte offsets match the selected ISA model"
+      (check (host-ordering-layout-control) => 0))
+    (test-case "herd inputs preserve ticket allocation release and LDP link decoding"
+      (for-each (lambda (kind)
+        (let ((plain (host-ordering-litmus kind #f)) (acquire (host-ordering-litmus kind #t)))
+          (check (not (not (string-contains plain "LDADDAL"))) => #t)
+          (check (not (string-contains plain "LDAR ")) => #t)
+          (check (not (not (string-contains acquire "LDAR "))) => #t)
+          (check (not (not (string-contains plain "#16"))) => #t))) '(payload link))
+      (let (link (host-ordering-litmus 'link #f))
+        (check (not (not (string-contains link "LDP X8,X9,[X2]"))) => #t)
+        (check (not (not (string-contains link "LDR X10,[X8] ;\nMOV X5,#8 | SUB X12,X10,#3 ;\nLDADDAL X5,X11,[X1] | STR X12,[X2] ;\nNOP | DMB ISH"))) => #t)))
     (test-case "normal ticket handoff reads payload written after waiter allocation"
       (check (host-contended-control) => 0))
     (test-case "contended chunk handoff retains marker link and copied body"

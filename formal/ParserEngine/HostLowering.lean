@@ -3165,6 +3165,237 @@ theorem source_body_slice_rejects_stale
   ordered_slice_rejects_stale externalAcyclic
 end ChunkOrder
 
+namespace TicketMachine
+abbrev Word := BitVec 64
+abbrev Registers := Nat → Word
+
+def set (registers : Registers) (index : Nat) (value : Word) : Registers :=
+  fun other => if other = index then value else registers other
+
+inductive Event where
+  | allocate (address old delta : Word)
+  | read (address value : Word) (acquire : Bool)
+  | write (address value : Word)
+  | fence
+  deriving DecidableEq, Repr
+
+/-- Observation oracle, not a sequentially consistent memory axiom. Coherence,
+read-from and barriers are checked separately by the full ARM cat model. -/
+abbrev Oracle := Nat → Word → Word
+
+structure State where
+  registers : Registers
+  pc : Nat
+  zero : Bool
+  reads : Nat
+  events : List Event
+
+/-- Instruction effects of the actual GCC lock/payload prefix. Numeric cases
+are instruction positions, not schema versions. Unsupported PCs stutter only
+outside the qualified prefix; no general decoder admission follows. -/
+def step (_base : Word) (ticket : Word) (oracle : Oracle) (acquire : Bool) (state : State) : State :=
+  let regs := state.registers
+  match state.pc with
+  | 0 => {state with registers := set regs 1 (regs 0 + 8), pc := 1}
+  | 1 => {state with registers := set regs 2 8, pc := 2}
+  | 2 =>
+    {state with
+      registers := set regs 2 ticket
+      pc := 3
+      events := state.events ++ [.allocate (regs 1) ticket (regs 2)]}
+  | 3 =>
+    let value := oracle state.reads (regs 0)
+    {state with
+      registers := set regs 1 value
+      pc := 4
+      reads := state.reads + 1
+      events := state.events ++ [.read (regs 0) value acquire]}
+  | 4 => {state with zero := regs 1 == regs 2, pc := 5}
+  | 5 => {state with pc := if state.zero then 6 else 3}
+  | 6 =>
+    let address := regs 0 + 16
+    let value := oracle state.reads address
+    {state with
+      registers := set regs 1 value
+      pc := 7
+      reads := state.reads + 1
+      events := state.events ++ [.read address value false]}
+  | _ => state
+
+def run (base ticket : Word) (oracle : Oracle) (acquire : Bool) : Nat → State → State
+  | 0, state => state
+  | n + 1, state => run base ticket oracle acquire n (step base ticket oracle acquire state)
+
+theorem run_add (base ticket : Word) (oracle : Oracle) (acquire : Bool)
+    (first rest : Nat) (state : State) :
+    run base ticket oracle acquire (first + rest) state =
+      run base ticket oracle acquire rest (run base ticket oracle acquire first state) := by
+  induction first generalizing state with
+  | zero => simp only [Nat.zero_add, run]
+  | succ n ih => simp only [Nat.succ_add, run, ih]
+
+def initial (base : Word) : State := ⟨fun _ => base, 0, false, 0, []⟩
+
+def waiting (base ticket : Word) (reads : Nat) (events : List Event) : State :=
+  ⟨set (set (fun _ => base) 1 (base + 8)) 2 ticket, 3, false, reads, events⟩
+
+theorem prefix_exact (base ticket : Word) (oracle : Oracle) (acquire : Bool) :
+    run base ticket oracle acquire 3 (initial base) =
+      waiting base ticket 0 [.allocate (base + 8) ticket 8] := by
+  simp [run, step, initial, waiting, set]
+  funext index
+  simp only [set]
+  split <;> simp_all
+
+/-- Arbitrary incoming scratch registers and history: only x0 and the
+entry PC are prerequisites of this compiler prefix. -/
+theorem prefix_registers (base ticket : Word) (oracle : Oracle) (acquire : Bool)
+    (state : State) (pc : state.pc = 0) (address : state.registers 0 = base) :
+    let after := run base ticket oracle acquire 3 state
+    after.pc = 3 ∧ after.registers 0 = base ∧ after.registers 2 = ticket ∧
+      after.events = state.events ++ [.allocate (base + 8) ticket 8] := by
+  simp [run, step, pc, address, set]
+
+/-- Three actual instructions execute one source poll/C equality/backedge.
+Register x1 is scratch; x0 and the allocated ticket x2 are invariant. -/
+theorem failed_poll (base ticket : Word) (oracle : Oracle) (acquire : Bool)
+    (reads : Nat) (events : List Event) (different : oracle reads base ≠ ticket) :
+    let after := run base ticket oracle acquire 3 (waiting base ticket reads events)
+    after.pc = 3 ∧ after.reads = reads + 1 ∧ after.registers 0 = base ∧
+      after.registers 2 = ticket ∧
+      after.events = events ++ [.read base (oracle reads base) acquire] := by
+  simp [run, step, waiting, set, different]
+
+/-- C volatile-loop projection. Every failed observation is recorded; a
+successful observation is not erased from the history. No fairness is assumed. -/
+def sourcePolls (base : Word) (oracle : Oracle) (acquire : Bool) (first count : Nat) : List Event :=
+  match count with
+  | 0 => []
+  | n + 1 => .read base (oracle first base) acquire :: sourcePolls base oracle acquire (first + 1) n
+
+def pollRun (base ticket : Word) (oracle : Oracle) (acquire : Bool) : Nat → State → State
+  | 0, state => state
+  | n + 1, state => pollRun base ticket oracle acquire n (run base ticket oracle acquire 3 state)
+
+/-- Poll blocks are exactly the same small-step execution, not a second
+interpreter assumed equivalent to the actual branch loop. -/
+theorem pollRun_eq_run (base ticket : Word) (oracle : Oracle) (acquire : Bool)
+    (count : Nat) (state : State) :
+    pollRun base ticket oracle acquire count state =
+      run base ticket oracle acquire (3 * count) state := by
+  induction count generalizing state with
+  | zero => rfl
+  | succ n ih =>
+    rw [pollRun, ih, ← run_add]
+    congr 1
+    omega
+
+/-- Permit arbitrary scratch-register values at loop entry. A previous failed
+load overwrites x1; subsequent loop proofs must not assume it was reset. -/
+def LoopEntry (base ticket : Word) (state : State) : Prop :=
+  state.pc = 3 ∧ state.registers 0 = base ∧ state.registers 2 = ticket
+
+theorem poll_block (base ticket : Word) (oracle : Oracle) (acquire : Bool) (state : State)
+    (entry : LoopEntry base ticket state) :
+    let after := run base ticket oracle acquire 3 state
+    after.pc = (if oracle state.reads base = ticket then 6 else 3) ∧
+    after.reads = state.reads + 1 ∧ after.registers 0 = base ∧ after.registers 2 = ticket ∧
+    after.events = state.events ++ [.read base (oracle state.reads base) acquire] := by
+  rcases entry with ⟨pc, baseReg, ticketReg⟩
+  simp [run, step, pc, baseReg, ticketReg, set]
+
+/-- Arbitrary finite failed-poll prefixes, not only the single successful poll
+used in the external litmus. The full source loop and actual instruction loop
+produce the same current-word read history. -/
+theorem failed_prefix (base ticket : Word) (oracle : Oracle) (acquire : Bool)
+    (count : Nat) (state : State) (entry : LoopEntry base ticket state)
+    (failed : ∀ index, index < count → oracle (state.reads + index) base ≠ ticket) :
+    let after := pollRun base ticket oracle acquire count state
+    LoopEntry base ticket after ∧ after.reads = state.reads + count ∧
+    after.events = state.events ++ sourcePolls base oracle acquire state.reads count := by
+  induction count generalizing state with
+  | zero => simp [pollRun, sourcePolls, entry]
+  | succ n ih =>
+    have different : oracle state.reads base ≠ ticket := by simpa using failed 0 (by omega)
+    obtain ⟨pc, reads, baseReg, ticketReg, events⟩ := poll_block base ticket oracle acquire state entry
+    have nextEntry : LoopEntry base ticket (run base ticket oracle acquire 3 state) := by
+      simp only [LoopEntry, pc, ite_eq_right different, baseReg, ticketReg, and_self]
+    have tailFailed : ∀ index, index < n →
+        oracle ((run base ticket oracle acquire 3 state).reads + index) base ≠ ticket := by
+      intro index inside
+      rw [reads]
+      simpa [Nat.add_assoc, Nat.add_comm 1 index] using failed (index + 1) (by omega)
+    obtain ⟨loop, totalReads, fullTrace⟩ := ih (run base ticket oracle acquire 3 state) nextEntry tailFailed
+    refine ⟨loop, ?_, ?_⟩
+    · simpa only [pollRun] using (show (pollRun base ticket oracle acquire n (run base ticket oracle acquire 3 state)).reads = state.reads + (n + 1) by omega)
+    · simpa [pollRun, sourcePolls, events, reads, List.append_assoc] using fullTrace
+
+/-- Successful source poll followed by the actual payload load. The observation
+oracle may return an old payload: successful ticket equality does not justify
+silently replacing that read with the publisher's latest value. -/
+theorem successful_read (base ticket : Word) (oracle : Oracle) (acquire : Bool)
+    (state : State) (entry : LoopEntry base ticket state)
+    (matched : oracle state.reads base = ticket) :
+    let after := run base ticket oracle acquire 4 state
+    after.pc = 7 ∧ after.registers 1 = oracle (state.reads + 1) (base + 16) ∧
+    after.events = state.events ++ [.read base ticket acquire,
+      .read (base + 16) (oracle (state.reads + 1) (base + 16)) false] := by
+  rcases entry with ⟨pc, baseReg, ticketReg⟩
+  simp [run, step, pc, baseReg, ticketReg, matched, set, List.append_assoc]
+/-- GCC's queue suffix starts at byte offset 24: LDP head/tail, CMP,
+B.EQ, LDR link, SUB forwarding tag, STR head, DMB. The paired reads
+are kept separate in the trace; the cat checker supplies their ISA relations. -/
+structure QueueState where
+  head : Word
+  tail : Word
+  raw : Word
+  decoded : Word
+  events : List Event
+  deriving DecidableEq, Repr
+
+def queueSuffix (base : Word) (oracle : Oracle) (first : Nat) : QueueState :=
+  let head := oracle first (base + 24)
+  let tail := oracle (first + 1) (base + 32)
+  let paired := [.read (base + 24) head false, .read (base + 32) tail false]
+  if head = tail then ⟨head, tail, 0, 0, paired⟩ else
+    let raw := oracle (first + 2) head
+    let decoded := raw - 3
+    ⟨head, tail, raw, decoded,
+      paired ++ [.read head raw false, .write (base + 24) decoded, .fence]⟩
+
+/-- Source UNTAG_AS has the same unsigned modular SUB effect for the
+selected FORW encoding. No well-formed pointer or imported visibility is
+inferred from this arithmetic equality. -/
+theorem forwarding_sub (pointer : Word) : (pointer + 3) - 3 = pointer := by
+  exact BitVec.add_sub_cancel pointer 3
+
+/-- The barrier follows the raw-link read and head update. It cannot be
+silently inserted before that read in a C-to-ISA correspondence argument. -/
+theorem queue_link_before_fence (base : Word) (oracle : Oracle) (first : Nat)
+    (nonempty : oracle first (base + 24) ≠ oracle (first + 1) (base + 32)) :
+    let head := oracle first (base + 24)
+    let raw := oracle (first + 2) head
+    let after := queueSuffix base oracle first
+    after.raw = raw ∧ after.decoded = raw - 3 ∧
+    after.events = [.read (base + 24) head false,
+      .read (base + 32) (oracle (first + 1) (base + 32)) false,
+      .read head raw false, .write (base + 24) (raw - 3), .fence] := by
+  unfold queueSuffix
+  dsimp only
+  rw [ite_eq_right nonempty]
+  exact ⟨rfl, rfl, rfl⟩
+
+/-- Equality branches out without decoding an unobserved link. -/
+theorem empty_queue_no_link (base : Word) (oracle : Oracle) (first : Nat)
+    (empty : oracle first (base + 24) = oracle (first + 1) (base + 32)) :
+    (queueSuffix base oracle first).events.length = 2 := by
+  unfold queueSuffix
+  dsimp only
+  rw [ite_eq_left empty]
+  rfl
+
+end TicketMachine
+
 namespace Contended
 /-- Separate payload-read satisfaction from the later ticket observation. This
 projection admits speculative stale payloads; it is not the full ARM model. -/

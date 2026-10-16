@@ -64,6 +64,113 @@ before selecting another runtime optimization.
 | Splits invalidate every reader | [[file:../../src/compiler/lr-follow-automaton.ss][backward dependency builder]] | =built_reverse_member= models successive reverse-row writes; =metadata_edge_member= and =metadata_reader_notified= connect metadata reads to notifications | Decode native metadata and admitted vector bounds, including admitted source-core presence |
 | Core-level invalidation safely approximates vertex dependencies | The same backward scheduler and final-index publication | =projected_notification= and =clean_outgoing_transport= preserve inactive successor-signature equivalence under arbitrary ID renumbering | Every changed target core must be reported; partition groups must remain inside one core |
 
+*** Ticket polling and visibility before forwarding-link decode
+
+This section supersedes the earlier four-event slice for the selected ordinary
+AArch64 ticket path. It does not supersede the remaining compiler, C language,
+collector ownership or root-discovery obligations. The source owner remains
+Gambit's ticket macros and =mem.c= at the baseline recorded below. The source
+order and the current GCC-generated fixture are checked together.
+
+The [[https://www.cl.cam.ac.uk/~pes20/armv8-mca/armv8-mca-draft.pdf][ARMv8 MCA paper]] separates read observations from ordering. We therefore
+keep three distinct layers: source-loop observations, actual selected instruction
+effects and the full selected [[https://diy.inria.fr/www/][herd7 AArch64 model]]. A matching volatile
+poll does not acquire visibility by definition in any of these adapters.
+
+| Native source operation | Inspected GCC AArch64 effects | Correspondence and boundary |
+|-------------------------+-------------------------------+-----------------------------|
+| Allocate a ticket | =ADD +8; MOV #8; LDADDAL= | =TicketMachine.prefix_registers= covers arbitrary incoming scratch registers and history; actual SDK FIX/field offsets are tested |
+| Volatile current-ticket loop | =LDR; CMP; B.NE= | =poll_block= and =failed_prefix= preserve every observation for any finite failed prefix; =pollRun_eq_run= connects blocks to the same small-step interpreter; no termination or fairness is assumed |
+| Exit and protected payload read | Matching branch followed by =LDR +16= | =successful_read= retains the oracle's observed payload; it does not replace it with a newer publication |
+| Queue empty recheck | =LDP +24; CMP; B.EQ= | =empty_queue_no_link= excludes link decode on the equal branch; paired reads remain subject to the full ISA model |
+| Forwarding-link decode and head update | =LDR [head]; SUB #3; STR +24; DMB ISH= | =queue_link_before_fence= retains this exact read/write/fence order; =forwarding_sub= proves modular tag cancellation separately from pointer validity |
+| Unlock | =MOV #8; LDADDAL [current]= | Both threads' actual release/acquire RMWs are included in the external programs; their later position cannot retroactively order the earlier link load |
+
+=host-ordering-layout-control= checks 64-bit words, =FIX(1)= equal to eight, the null
+forwarding encoding =3=, current/next offsets =0/8=, payload offset =16= and
+queue head/tail/chunk offsets =24/32/40= against the actual compiled SDK.
+This is a layout control, not a complete C or compiler correctness theorem.
+
+**** Full selected memory-model controls
+
+The Scheme producer =host-ordering-litmus= in
+[[file:../../t/fixtures/layout-columns.ss][the native fixture]] generates the payload and decoded-link programs with
+plain or acquire polls. The [[file:../../t/layout-boundary-test.ss][Scheme controls]] check layout and retained
+instruction boundaries. To reproduce, write the returned string to an owned
+output port and run it with herd7's AArch64 model:
+
+#+begin_src scheme
+(import :gerbil-parser/t/fixtures/layout-columns)
+(call-with-output-file "ticket-link.litmus"
+  (lambda (port) (display (host-ordering-litmus 'link #f) port)))
+;; 'payload selects the scalar control; #t selects the LDAR model control.
+#+end_src
+
+The owner already holds ticket zero. The waiter allocates ticket eight. An
+owner-side zero-add RMW must observe next-ticket sixteen before publication,
+so the selected witness cannot be explained as an uncontended allocation.
+Both unlock RMWs remain present. The decoded-link program also retains LDP,
+the empty branch, encoded-null initialization, pointer tagging, SUB, head
+writeback and the reader's later DMB. Registers and independent object bases
+are renamed; the scalar fixture's nonzero payload is abstracted to 42.
+The link outcome is measured before later body traversal.
+
+| Executed program | Stale outcome | Positive / negative | herd input hash |
+|------------------+---------------+---------------------+-----------------|
+| =ticket_contended= | Sometimes | 1 / 3 | =8a981af6a47f1f81139e82c242f45ede= |
+| =ticket_contended_acquire= | Never | 0 / 3 | =0d3af0b7d11fa1cf0a46294b83821106= |
+| =ticket_chunk_decode= | Sometimes | 1 / 4 | =45b85f106f3d78f514b40ec2bd616886= |
+| =ticket_chunk_decode_acquire= | Never | 0 / 3 | =dbe84dcd16a530d698c65ca45997f56a= |
+
+The generated final inputs match the executed bytes by SHA-256:
+
+| Producer selection | SHA-256 |
+|--------------------+---------|
+| ='payload #f= | =186f67f372296f79dc7f0e9f056da5fe776dd79b7db7c44821f10f3bcabd1356= |
+| ='payload #t= | =b1f47142d3fe4efd705522b95a1fe980f5ea89349fed1289e2585c148faa91e5= |
+| ='link #f= | =622ef9eb20e6beca859bef1fa91d3292b91dfdc94b24236850201583fea4b652= |
+| ='link #t= | =7b4f07906860a97fc8501cb78c5fe43477cc287c3775f6a95f201ce719aa06c6= |
+
+The checker reports =Assuming-common-inner-shareable-domain=. The selected
+6434-byte top-level cat text has SHA-256
+=645c6a73876d2a6aa5076bd61aca35c254a51b16d411205958834353fbae2738=;
+it includes =aarch64hwreqs.cat= and =enumerations.cat=. This is the official
+web checker's selected model, not a locally pinned include-closure/toolchain
+receipt. A future checker upgrade must rerun these inputs. The simpler LDP
+projection also allowed stale link (1/2), and the untagged ticket/link projection
+allowed it (1/4); neither substitutes for the decoded program above.
+
+The positive acquire controls change only LDR to LDAR at the matching poll,
+plus the test name. They are explanatory model controls, not an SDK patch.
+The general missing premise is a read-order/import edge after the observed
+owner release and before link decode. An earlier ticket-allocation acquire,
+control dependence, LDP alone, or a barrier after decode does not supply it.
+
+**** Admission consequence and remaining work
+
+The selected plain-poll AArch64 instruction protocol admits stale protected
+reads in the full selected model. Consequently a universally positive ordinary
+acquire refinement cannot be completed for that protocol as it stands. The
+existing acquire theorem remains conditional on imported visibility. Do not
+admit this path by interpreting a successful native handoff as that premise.
+
+The C source uses legacy atomic extensions and a volatile poll, so this result
+is not a C11 data-race-freedom theorem or a whole-GCC translation theorem. Native
+pointer provenance, all GC object/queue lifecycles, compiler reordering and the
+other ISA/backends remain separate obligations. A host correctness repair must
+first establish the before-decode import and then rerun these controls with the
+actual changed SDK. No local engine optimization is justified by this result.
+
+Local qualification: the locked Lean package builds all 72 jobs with explicit
+axiom listings and no admitted host axiom; Quint has 133 directed controls.
+The final Scheme/native/style run passes 32+6=38 cases with two workers and
+natural exit zero in 15.1316 seconds under unchanged 90/5-second budgets.
+The evidence-input binding control also passes. The prior missing-module import
+failure is retained in local logs, followed by correction to the SDK's existing
+core string API. These are correctness controls, not CPU optimization evidence.
+At inspection, PR revision =7ee122e= has passed all scheduled Ubuntu, Rust
+and macOS jobs (run =38912571057=). A new commit needs its own remote CI result.
+
 *** Forwarding, pointer scans and GVM dispatch composition
 
 The seven-family inventory below remains the current closure boundary. This

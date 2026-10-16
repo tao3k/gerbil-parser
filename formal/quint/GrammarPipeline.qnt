@@ -774,6 +774,17 @@ module GrammarPipeline {
     firstPoll.stage == "held" and firstPoll.published > epochAtAllocation
   })
 
+  // Instruction/C loop observations; this is not an ARM memory oracle.
+  pure def ticketPollBlocks(observed:List[int],ticket:int):{held:bool,reads:int,pcs:List[int]} =
+    observed.foldl({held:false,reads:0,pcs:List()},(s,value) =>
+      if(s.held) s else {held:value == ticket,reads:s.reads + 1,
+        pcs:s.pcs.concat(List(3,4,5))})
+  run failedPollsAndMatchingExitRetainEveryVolatileObservationTest = init.expect({
+    val result = ticketPollBlocks(List(0,0,0,8,16),8)
+    result.held and result.reads == 4 and result.pcs.length() == 12 and
+      ticketPollBlocks(List(0,0,0),8).held == false and
+      ticketPollBlocks(List(8),8).reads == 1
+  })
   type PhysicalOperandPair = {present:bool,firstKind:int,firstValue:int,secondKind:int,secondValue:int}
   pure val unusedOperand:PhysicalOperandPair = {present:false,firstKind:0,firstValue:0,secondKind:0,secondValue:0}
   pure def observeOperandPair(pair:PhysicalOperandPair):List[NativeOperandRow] = {

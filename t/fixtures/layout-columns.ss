@@ -1,5 +1,5 @@
 ;;; Boxed-vector oracle, independent of packed storage and lookup dispatch.
-(export cache-copy-flonum-values host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-classification-control host-object-kind host-object-subtype host-chunk-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors cyclic-pointer-roots mutual-closure-frame-roots closure-frame-roots wide-frame-roots reference-layout-columns reference-packed-layout-columns layout-column-sources)
+(export host-ordering-litmus cache-copy-flonum-values host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-classification-control host-object-kind host-object-subtype host-ordering-layout-control host-chunk-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors cyclic-pointer-roots mutual-closure-frame-roots closure-frame-roots wide-frame-roots reference-layout-columns reference-packed-layout-columns layout-column-sources)
 
 (def (reference-layout-columns source)
   (let* ((bytes (string->utf8 source)) (size (u8vector-length bytes))
@@ -93,12 +93,13 @@
 
 ;;; Host macro controls execute in the same compiled fixture as the GC controls.
 ;;; The OS waiter touches only C-owned words, never Scheme values or a VM.
-(extern host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-classification-control host-object-kind host-object-subtype host-chunk-control host-contended-control host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
+(extern host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-classification-control host-object-kind host-object-subtype host-ordering-layout-control host-chunk-control host-contended-control host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
 (begin-foreign
  (namespace ("gerbil-parser/t/fixtures/layout-columns#"
-             host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-classification-control host-object-kind host-object-subtype host-chunk-control host-contended-control host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors))
+             host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-classification-control host-object-kind host-object-subtype host-ordering-layout-control host-chunk-control host-contended-control host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors))
  (c-declare #<<END-C
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
 /* Owned arenas exercise the actual SDK tag and CAS macros. This does not call
    mem.c's collector or qualify SMP publication of an unfinished copied body. */
@@ -286,6 +287,15 @@ struct parser_host_chunk_queue {
   ___WORD chunk[4];
   int status;
 };
+static int parser_host_ordering_layout_control(void) {
+  return sizeof(___WORD) == 8 && ___FIX(1) == 8 && ___TAG(0, ___FORW) == 3 &&
+    offsetof(struct parser_host_contended, lock.current_ticket) == 0 &&
+    offsetof(struct parser_host_contended, lock.next_ticket) == 8 &&
+    offsetof(struct parser_host_contended, payload) == 16 &&
+    offsetof(struct parser_host_chunk_queue, head) == 24 &&
+    offsetof(struct parser_host_chunk_queue, tail) == 32 &&
+    offsetof(struct parser_host_chunk_queue, chunk) == 40 ? 0 : 1;
+}
 static void *parser_host_chunk_reader(void *argument) {
   struct parser_host_chunk_queue *state = argument;
   ___WORD *link;
@@ -390,6 +400,7 @@ END-C
  (define host-flonum-address
    (c-lambda (scheme-object) unsigned-long-long
      "___result = ___CAST(___U64,___FLONUM_TO_BODY(___arg1));"))
+ (define host-ordering-layout-control (c-lambda () int "parser_host_ordering_layout_control"))
  (define host-chunk-control (c-lambda () int "parser_host_chunk_control"))
  (define host-classification-control (c-lambda () int "parser_host_classification_control"))
  (define host-object-kind (c-lambda (scheme-object) int "parser_host_object_kind"))
@@ -417,3 +428,15 @@ END-C
     (set! left (if select-right? right left))
     (collect)
     (list left right)))
+
+;;; Emit to an owned output port, e.g. (display (host-ordering-litmus 'link #f) port).
+;;; The LDAR variant is a model control, not an installed SDK replacement.
+(def (host-ordering-litmus kind acquire?)
+  (case kind
+    ((payload) (if acquire?
+      "AArch64 ticket_contended_acquire\n{\nnext=8; current=0; payload=0;\n0:X0=next; 0:X1=current; 0:X2=payload;\n1:X0=next; 1:X1=current; 1:X2=payload;\n}\nP0 | P1 ;\nMOV X3,#0 | MOV X3,#8 ;\nLDADDAL X3,X4,[X0] | LDADDAL X3,X4,[X0] ;\nCMP X4,#16 | LDAR X5,[X1] ;\nB.NE L0 | CMP X5,X4 ;\nMOV X3,#42 | B.NE L1 ;\nSTR X3,[X2] | LDR X6,[X2] ;\nMOV X3,#8 | MOV X3,#8 ;\nLDADDAL X3,X5,[X1] | LDADDAL X3,X7,[X1] ;\nL0:NOP | L1:NOP ;\nexists (0:X4=16 /\\ 1:X4=8 /\\ 1:X5=8 /\\ 1:X6=0)\n"
+      "AArch64 ticket_contended\n{\nnext=8; current=0; payload=0;\n0:X0=next; 0:X1=current; 0:X2=payload;\n1:X0=next; 1:X1=current; 1:X2=payload;\n}\nP0 | P1 ;\nMOV X3,#0 | MOV X3,#8 ;\nLDADDAL X3,X4,[X0] | LDADDAL X3,X4,[X0] ;\nCMP X4,#16 | LDR X5,[X1] ;\nB.NE L0 | CMP X5,X4 ;\nMOV X3,#42 | B.NE L1 ;\nSTR X3,[X2] | LDR X6,[X2] ;\nMOV X3,#8 | MOV X3,#8 ;\nLDADDAL X3,X5,[X1] | LDADDAL X3,X7,[X1] ;\nL0:NOP | L1:NOP ;\nexists (0:X4=16 /\\ 1:X4=8 /\\ 1:X5=8 /\\ 1:X6=0)\n"))
+    ((link) (if acquire?
+      "AArch64 ticket_chunk_decode_acquire\n{\nuint64_t q[2]={link,link}; link=3; chunk=42; next=8; current=0;\n0:X0=next; 0:X1=current; 0:X2=q; 0:X3=link; 0:X4=chunk;\n1:X0=next; 1:X1=current; 1:X2=q;\n}\nP0 | P1 ;\nMOV X5,#0 | MOV X5,#8 ;\nLDADDAL X5,X6,[X0] | LDADDAL X5,X6,[X0] ;\nCMP X6,#16 | LDAR X7,[X1] ;\nB.NE L0 | CMP X7,X6 ;\nADD X13,X4,#3 | B.NE L1 ;\nSTR X13,[X3] | LDP X8,X9,[X2] ;\nDMB ISH | CMP X8,X9 ;\nSTR X4,[X2,#8] | B.EQ L1 ;\nDMB ISH | LDR X10,[X8] ;\nMOV X5,#8 | SUB X12,X10,#3 ;\nLDADDAL X5,X11,[X1] | STR X12,[X2] ;\nNOP | DMB ISH ;\nNOP | MOV X5,#8 ;\nNOP | LDADDAL X5,X11,[X1] ;\nL0:NOP | L1:NOP ;\nexists (0:X6=16 /\\ 1:X6=8 /\\ 1:X7=8 /\\ 1:X9=chunk /\\ 1:X10=3)\n"
+      "AArch64 ticket_chunk_decode\n{\nuint64_t q[2]={link,link}; link=3; chunk=42; next=8; current=0;\n0:X0=next; 0:X1=current; 0:X2=q; 0:X3=link; 0:X4=chunk;\n1:X0=next; 1:X1=current; 1:X2=q;\n}\nP0 | P1 ;\nMOV X5,#0 | MOV X5,#8 ;\nLDADDAL X5,X6,[X0] | LDADDAL X5,X6,[X0] ;\nCMP X6,#16 | LDR X7,[X1] ;\nB.NE L0 | CMP X7,X6 ;\nADD X13,X4,#3 | B.NE L1 ;\nSTR X13,[X3] | LDP X8,X9,[X2] ;\nDMB ISH | CMP X8,X9 ;\nSTR X4,[X2,#8] | B.EQ L1 ;\nDMB ISH | LDR X10,[X8] ;\nMOV X5,#8 | SUB X12,X10,#3 ;\nLDADDAL X5,X11,[X1] | STR X12,[X2] ;\nNOP | DMB ISH ;\nNOP | MOV X5,#8 ;\nNOP | LDADDAL X5,X11,[X1] ;\nL0:NOP | L1:NOP ;\nexists (0:X6=16 /\\ 1:X6=8 /\\ 1:X7=8 /\\ 1:X9=chunk /\\ 1:X10=3)\n"))
+    (else (error "unknown host ordering protocol" kind))))

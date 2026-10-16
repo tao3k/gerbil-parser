@@ -3,7 +3,8 @@
 ;;; -*- Gerbil -*-
 ;;; Explicit closing boundaries belong to the declaring language grammar.
 
-(import (only-in :gerbil-parser/t/fixtures/layout-columns wide-frame-roots closure-frame-roots)
+(import (only-in :gerbil-parser/t/fixtures/layout-columns wide-frame-roots closure-frame-roots
+                 host-slot-control host-mutex-control host-spin-backend host-max-processors)
         :std/test
         :gerbil-parser/src/grammar/algebra
         (only-in :gerbil-parser/src/language/grammar deflanguage)
@@ -250,9 +251,16 @@
 
 (def layout-boundary-test
   (test-suite "Grammar-owned layout closing boundaries"
+    (test-case "compiled host slot addresses agree after frame pointer adjustment"
+      (check (host-slot-control) => 0))
+    (test-case "host mutex imports writes made after OS thread creation"
+      (check (host-mutex-control) => 0)
+      (let ((backend (host-spin-backend)) (processors (host-max-processors)))
+        (check (and (memv backend '(0 1 2)) (> processors 0)) => #t)
+        (when (= backend 0) (check processors => 1))))
     (test-case "compiled closure environments retain future uses across collection"
       (closure-frame-gc-case))
-    (test-case "generated wide live frames retain every slot during parallel collection"
+    (test-case "generated wide live frames retain every slot across worker collections"
       (wide-frame-gc-case))
     (test-case "actual layout continuations survive GC and repeated dynamic reentry"
       (layout-continuation-gc-case))

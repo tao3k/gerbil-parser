@@ -41,8 +41,10 @@ before selecting another runtime optimization.
 
 | Mechanism and research premise | Actual implementation owner | General model correspondence | Remaining host obligation |
 |--------------------------------+-----------------------------+------------------------------+---------------------------|
-| Strong pointer reachability from roots | Gambit =targ-build-gc-map=, chunk emitter and =mem.c:mark_frame= | =FrameMaps.emitted_signed_root= derives emitted storage and retained roots from compiler live decisions; cursor, signed-literal and paired/trailing-word lemmas connect the C reader | AST free-variable soundness, physical variable placement and faithful extraction of every host root bank |
-| Future uses retain closure environments | Gambit =compute-live-vars-at-each-expr= and =frame-live?= | =Liveness.before_exact= and =boundary_suffix= derive every actual evaluation suffix; =future_capture_root= composes captured use with environment selection and generated root maps | Free-variable extraction and =arg-eval-order= semantic correctness; register/slot identity and byte-level frame placement |
+| Strong pointer reachability from roots | Gambit =targ-build-gc-map=, chunk emitter and =mem.c:mark_frame= | =FrameMaps.emitted_signed_root= derives emitted storage and retained roots from compiler live decisions; cursor, signed-literal and paired/trailing-word lemmas connect the C reader | AST free-variable soundness, native context validity, pointer bounds and faithful extraction of every host root bank |
+| Future uses retain closure environments | Gambit =compute-live-vars-at-each-expr= and =frame-live?= | =Liveness.before_exact= and =boundary_suffix= derive every actual evaluation suffix; =future_capture_root= composes captured use with environment selection and generated root maps | Free-variable extraction and =arg-eval-order= semantic correctness; validity of native contexts, spill/cache writes, pointer bounds and object decoding |
+| Physical frame slot construction and addresses | Gambit =extend-vars=, =targ-loc=, =FP_STK=, =FP_ADJFP= and =RETI_CFS_TO_FS= | =Slots.physical_exact= covers padding/truncation/reversal; =future_capture_stored= derives placement and reads from generated stores; =internal_size_matches= and saved-register/return lemmas cover arbitrary ABI constants | Native context construction/restore must satisfy declared-size validity; cache flush, actual register spills and bounded pointer arithmetic remain external |
+| Successful mutex acquire imports protected writes | POSIX =MUTEX_LOCK= / =MUTEX_UNLOCK= and condition-variable reacquisition | =Acquire.complete_handoff= derives arbitrary-worker/location visibility from an empty initial state and the write/release/successful-acquire history | POSIX contract and actual call/return decoding are trusted interfaces; native ticket polling is not admitted by this theorem |
 | Ordered chunk publication and unique reservation | Gambit =end_heap_chunk=, GCC =__sync= route and locked steal recheck | =Publication.trace_safe= covers arbitrary admitted histories; =reservation_visible= composes payload visibility with queued/held conservation; =distinct_reservations= excludes two adjacent claims of a unique queue head | Faithful C memory observations, immutable chunk/epoch decoding, acquire behavior and global queue uniqueness |
 | Atomic old-value results and bounded tickets | Gambit =FETCH_AND_ADD_WORD=, =COMPARE_AND_SWAP_WORD= and ticket macros | =Atomic.compare_swap_success=, =compare_swap_failed= and =bounded_tickets_unique= separate old-value tests from physical wrap | GCC/backend code generation; logical operation linearization; fixnum scaling, overflow and maximum outstanding tickets |
 | Closure and captured continuation retention | =mark_continuation=, =mark_captured_continuation= and =scan= | =captured_frame_reached= and =path_reached= cover arbitrary-depth pointer paths; =discovered_path_relocated= composes them with relocation | Host copying, frame-link interpretation, physical registers and SMP synchronization |
@@ -109,9 +111,11 @@ closed-variable list, including the Scheme-truthy empty list. The model records
 this truth value without confusing an empty list with false.
 =future_capture_root= connects any future captured use to environment retention
 and the existing map producer/root consumer; =future_capture_signed= extends
-that chain through serialized fields and the signed C cursor. Its explicit slot-to-word premise
-is a remaining physical placement obligation, not a certificate inferred from
-finite testing. The compiled =closure-frame-roots= control retains two closure
+that chain through serialized fields and the signed C cursor. Its explicit
+slot-to-word premise is now discharged in =Slots.future_capture_stored= by source layout operations and physical address
+identities. Native context validity, pointer bounds and actual spill/cache
+behavior remain distinct obligations, not certificates inferred from testing.
+The compiled =closure-frame-roots= control retains two closure
 environments across an opaque GC callback and collects again before accessing
 them in both orders. The existing wide compiled-frame and actual continuation
 controls remain in the same suite.
@@ -152,13 +156,110 @@ modulo tickets inside an explicit no-wrap window. The normal lock then waits
 using a volatile load of =current=, with no explicit post-wait barrier in that
 macro. A full barrier on ticket allocation before waiting is not, by itself,
 a proof of acquire ordering after a later owner's unlock. Architecture/compiler
-ordering for that path, the mutex alternative, and patched-binary identity are
-still open adapters. This is an identified proof gap, not a demonstrated native
+ordering for that ticket path and patched-binary identity remain open adapters.
+The POSIX mutex alternative is modeled below relative to its successful-call
+synchronization contract. This is an identified proof gap, not a demonstrated native
 race, and no runtime synchronization change is made on that basis.
+
+*** Physical placement and acquire composition
+
+=Slots.extend= follows both branches of the target's =extend-vars=: prepend
+empty variables when growing, drop leading variables when shrinking. After
+reversal, =physical_exact= derives the retained low slots followed by high-slot
+padding for arbitrary lists and requested sizes. =physical_retained= and
+=physical_padding= establish indexed readback, rather than assuming a correct
+final permutation. The compiler stores frame size separately from its slot
+list; =Context.Valid= makes their agreement explicit. =push_valid= and
+=shrink_valid= prove the corresponding frontend mutations preserve it, and
+=declared_adapter= connects that validity to the target operation. Other native
+context constructors, replacement and restoration still need admission to this
+same invariant; the existence of a size field alone is not proof.
+
+The generated stack operand is =STK(slot - targ-proc-fp)=. =FP_STK= subtracts
+that operand from the current pointer. =emitted_scanned= derives agreement with
+physical scanner slot =index + 1=; =collector_base= derives the frame-base
+recovery in =mark_continuation=. =emitted_byte_address= retains arbitrary word
+width instead of silently treating words as bytes. The model uses mathematical
+addresses, so C object bounds, alignment and overflow remain native premises.
+=stored_word_read= derives actual readback from a modeled generated write;
+=future_capture_stored= composes this with resize/reversal, liveness, serialized
+map fields and the signed GC cursor. The former read/placement certificates are
+not additional inputs of this theorem.
+
+Internal returns concatenate aligned ordinary slots, saved GVM registers in
+register order, the return variable and trailing padding. The register source
+list is reversed before applying =extend-vars= and reversed again afterward;
+ordinary slots have only the latter reversal. =saved_register_at= and
+=return_variable_at= retain this distinction and the inclusive live band.
+=alignment_covers= and =internal_size_matches= derive agreement with
+=RETI_CFS_TO_FS= for arbitrary positive alignment and reserve constants. These
+proofs do not certify every native register push or dirty-cache flush.
+
+The research basis additionally includes the abstract, introduction and scope
+statement of [[https://www.cl.cam.ac.uk/~pes20/weakmemory/cacm.pdf][x86-TSO: A Rigorous and Usable Programmer's Model for x86 Multiprocessors]].
+It separates processor-family memory behavior and compiler effects; its x86
+spinlock result is not transferred to this AArch64 SDK. The normative interface
+for the modeled mutex route is POSIX
+[[https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/V1_chap04.html#tag_04_15_02][Memory Synchronization]] and
+[[https://pubs.opengroup.org/onlinepubs/9799919799/functions/pthread_mutex_lock.html][pthread mutex lock/unlock]]. The indexed synchronization clauses were available;
+direct full-page fetches were denied, so no full standard reading is claimed.
+
+=Acquire= tracks per-location write versions, released views, each worker's
+observed view and the mutex owner. An owned write advances its location in both
+the memory and owner view. Release exports the owner's view; a successful
+mutex acquire imports the released view. The invariant states that an owner
+observes every current protected location, or that an unowned mutex retains
+those versions for the next owner. =complete_handoff= derives visibility from
+the empty initial state through arbitrary finite write/release/acquire histories.
+It takes no final visibility certificate. This is a refinement relative to the
+POSIX synchronization contract, not a proof of a libc mutex implementation,
+condition-variable wakeup progress or arbitrary racing C reads.
+
+=plain_poll_counterexample= shows why merely observing a later ticket does not
+supply this import operation in a weak observation model. It does not prove that
+the native ticket lock fails on a particular processor. Backend classification
+keeps single-thread execution, successful POSIX synchronization and unresolved
+ticket polling separate; =no_smp_inference= prevents treating the first or last
+as a qualified SMP acquire. No compiler flag or synchronization primitive was
+changed to make this result pass.
+
+The compiled host metadata control reports =spin-backend=0= and
+=max-processors=1= for the currently tested SDK. Earlier two-Scheme-worker GC
+receipts must therefore not be read as multi-processor collector acceptance.
+The new OS-thread mutex control is separate: while holding the actual Gambit
+=___MUTEX=, the producer creates a waiter, then writes 32 C-owned words and
+unlocks. The waiter reads them only after successful lock acquisition. Thread
+creation precedes the tested writes and cannot publish them. No Scheme pointer
+or VM entry is shared with this C waiter. A second control invokes actual
+=FP_SET_STK=, =FP_ADJFP= and =FP_STK= macros across 128 pointer adjustments and
+96 slots, preserving the metadata slot and checking address/value agreement.
+
+*** Physical placement and acquire qualification
+
+- Lean: complete package passed, 71 build jobs, with standard logical axioms
+  only. The new proofs contain no =sorry=, custom host axiom or =native_decide=.
+- Quint: 54 directed tests passed. Five new controls cover resized indices,
+  saved-register/return order, adjusted addresses, transitive multi-location
+  mutex handoffs and a stale post-poll view. Nonowner mutations and overlapping
+  acquisitions are also rejected in the handoff control. The existing
+  =PipelineSafety= check additionally passed 1,000 sampled traces of at most
+  40 steps; that check does not enumerate native weak-memory executions.
+- Scheme: canonical LR, layout boundary and style modules passed together,
+  30 + 18 + 6 = 54 cases, 26.6966 seconds, normal exit zero, under the unchanged
+  90-second total and 5-second idle limits. The GCC-built fixture executed both
+  host macro controls as well as the existing compiled closure/wide-frame and
+  continuation controls. This is local acceptance, not macOS/Ubuntu CI closure.
+- Evidence admission controls passed five tests, including timeout, failed exit
+  and source/native drift rejection. Existing input binding already includes
+  the modified host model, fixture and test owner.
+
+The remaining host obligations in the ledger are still open. In particular,
+this work does not certify native ticket acquire, every frame mutation or all
+installed patch bytes. No parser runtime performance optimization is included.
 
 *** Host liveness and publication qualification
 
-Current local qualification, separate from earlier receipts:
+Historical qualification for the initial host liveness/publication adapter:
 
 - Lean: the imported host adapter and complete package build passed, 71 build
   jobs. Printed theorem dependencies contain only Lean's standard logical axioms;
@@ -232,7 +333,9 @@ that theorem's conclusion.
 The compiled control lives in the existing
 [[file:../../t/fixtures/layout-columns.ss][layout-columns fixture]], which already belongs to native conformance preparation.
 A macro generates 96 independent heap roots retained across an opaque callback.
-Two workers exercise them around GC. The emitted C was inspected: it contains
+Two Scheme workers exercise them around GC; the current compiled metadata
+control identifies a single-thread VM, so this is not an SMP GC receipt.
+The emitted C was inspected: it contains
 out-of-line normal and internal return descriptors, including a 97-slot normal
 frame and multiword maps with negative all-one literals. The runner confirms
 loading the compiled fixture object. Source interpretation alone is not the

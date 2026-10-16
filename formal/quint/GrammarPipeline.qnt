@@ -517,4 +517,67 @@ module GrammarPipeline {
     0.to(7).forall(a => 0.to(7).forall(b => (a % 8 == b % 8) == (a == b))) and
       0 % 8 == 8 % 8)
 
+  pure def reverseSlots(rows:List[int]):List[int] =
+    rows.foldl(List(),(result,value) => List(value).concat(result))
+  pure def resizeSlots(rows:List[int],capacity:int):List[int] = {
+    val padding = 0.to(capacity - rows.length() - 1).fold(List(),(result,_i) => List(-1).concat(result))
+    val start = if(rows.length() > capacity) rows.length() - capacity else 0
+    reverseSlots(padding.concat(rows.slice(start,rows.length())))
+  }
+  run sourceSlotResizePreservesRetainedIndicesAndPadsHighSlotsTest = init.expect(
+    0.to(6).forall(capacity => {
+      val rows = resizeSlots(List(30,20,10),capacity)
+      rows.length() == capacity and rows.indices().forall(i =>
+        rows.nth(i) == (if(i < 3) List(10,20,30).nth(i) else -1))
+    }))
+  run savedRegisterAndReturnSlotsHaveDifferentOffsetsTest = init.expect({
+    val aligned = resizeSlots(List(30,20,10),4)
+    val saved = resizeSlots(reverseSlots(List(70,80)),3)
+    val internal = aligned.concat(saved).append(99).append(-1)
+    internal == List(10,20,30,-1,70,80,-1,99,-1) and
+      internal.nth(4 + 3) == 99
+  })
+  run emittedAddressAgreesWithCollectorBaseAndSlotTest = init.expect(
+    (-4).to(4).forall(base => 0.to(8).forall(fp => 1.to(6).forall(slot =>
+      (base - fp) - (slot - fp) == base - slot and
+        (base - fp) - (-fp) == base))))
+  type HostViews = {current:List[int],released:List[int],views:List[List[int]],owner:int}
+  // Build joins in list order, independent of Set iteration order.
+  pure def importViews(a:List[int],b:List[int]):List[int] =
+    a.foldl({values:List(),index:0},(s,value) =>
+      {values:s.values.append(if(value > b.nth(s.index)) value else b.nth(s.index)),index:s.index + 1}).values
+  pure def acquireHost(s:HostViews,worker:int):HostViews =
+    if(s.owner != -1) s else {...s,owner:worker,
+      views:s.views.replaceAt(worker,importViews(s.views.nth(worker),s.released))}
+  pure def writeHost(s:HostViews,worker:int,location:int):HostViews =
+    if(s.owner != worker) s else {
+      val version = s.current.nth(location) + 1
+      {...s,current:s.current.replaceAt(location,version),
+        views:s.views.replaceAt(worker,s.views.nth(worker).replaceAt(location,version))}
+    }
+  pure def releaseHost(s:HostViews,worker:int):HostViews =
+    if(s.owner != worker) s else {...s,owner:-1,released:importViews(s.released,s.views.nth(worker))}
+  pure def hostViewsSafe(s:HostViews):bool = s.current.indices().forall(location =>
+    if(s.owner == -1) s.current.nth(location) <= s.released.nth(location)
+    else s.current.nth(location) <= s.views.nth(s.owner).nth(location))
+  pure val freshHost:HostViews = {current:List(0,0),released:List(0,0),
+    views:List(List(0,0),List(0,0),List(0,0)),owner:-1}
+  run mutexHandoffsTransitivelyImportAllProtectedLocationsTest = init.expect({
+    val first = writeHost(acquireHost(freshHost,0),0,0)
+    val second = writeHost(acquireHost(releaseHost(first,0),1),1,1)
+    val third = acquireHost(releaseHost(second,1),2)
+    hostViewsSafe(first) and hostViewsSafe(second) and hostViewsSafe(third) and
+      third.views.nth(2) == List(1,1) and
+      writeHost(first,1,1) == first and releaseHost(first,1) == first and
+      acquireHost(first,1) == first
+  })
+  run ticketPollCannotImportAReleaseThatFollowedItsEarlierFenceTest = init.expect({
+    val allocated = acquireHost(freshHost,1)
+    val released = releaseHost(writeHost(allocated,1,0),1)
+    // Worker 0's earlier ticket allocation saw only the initial version.
+    val polling = {...released,owner:0}
+    hostViewsSafe(released) and not(hostViewsSafe(polling)) and
+      hostViewsSafe(acquireHost(released,0))
+  })
+
 }

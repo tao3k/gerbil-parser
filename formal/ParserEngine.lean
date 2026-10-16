@@ -494,3 +494,17 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Host.Atomic.bounded_tickets_unique
 #print axioms ParserEngine.Host.Liveness.future_capture_signed
 #print axioms ParserEngine.Host.Publication.end_chunk_safe
+
+#print axioms ParserEngine.Host.Slots.physical_exact
+#print axioms ParserEngine.Host.Slots.future_capture_stored
+#print axioms ParserEngine.Host.Slots.saved_register_at
+#print axioms ParserEngine.Host.Slots.return_variable_at
+#print axioms ParserEngine.Host.Acquire.owner_observes
+#print axioms ParserEngine.Host.Acquire.plain_poll_counterexample
+
+#print axioms ParserEngine.Host.Slots.declared_adapter
+#print axioms ParserEngine.Host.Slots.emitted_byte_address
+#print axioms ParserEngine.Host.Slots.internal_size_matches
+#print axioms ParserEngine.Host.Acquire.no_smp_inference
+
+#print axioms ParserEngine.Host.Acquire.complete_handoff

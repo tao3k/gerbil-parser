@@ -1,3 +1,4 @@
+import ParserEngine.Host
 import ParserEngine.Representation
 import ParserEngine.Operational
 import ParserEngine.Construction
@@ -482,3 +483,14 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 
 #print axioms ParserEngine.Representation.CollectorSchedule.counter_bound
 #print axioms ParserEngine.Representation.CollectorSchedule.counter_fits
+
+#print axioms ParserEngine.Host.Liveness.before_exact
+#print axioms ParserEngine.Host.Liveness.boundary_suffix
+#print axioms ParserEngine.Host.Liveness.future_capture_root
+#print axioms ParserEngine.Host.Publication.observed_payload
+#print axioms ParserEngine.Host.Publication.distinct_reservations
+#print axioms ParserEngine.Host.Atomic.tickets_unique
+#print axioms ParserEngine.Host.Publication.reservation_visible
+#print axioms ParserEngine.Host.Atomic.bounded_tickets_unique
+#print axioms ParserEngine.Host.Liveness.future_capture_signed
+#print axioms ParserEngine.Host.Publication.end_chunk_safe

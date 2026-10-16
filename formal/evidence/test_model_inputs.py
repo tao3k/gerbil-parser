@@ -23,7 +23,7 @@ class ModelInputControls(unittest.TestCase):
             request = root / "formal/ParserEngine/Request.lean"
             request.write_text("namespace Request\nend Request\n")
             (root / "formal/ParserEngine/Grammar.lean").write_text("namespace Grammar\nend Grammar\n")
-            for module in ("Viable", "RawRequest", "Completion", "NativeFacts", "Lowering", "Worklist", "Solver", "Encoding", "Names", "Construction", "Operational"):
+            for module in ("Viable", "RawRequest", "Completion", "NativeFacts", "Lowering", "Worklist", "Solver", "Encoding", "Names", "Construction", "Operational", "Host"):
                 (root / f"formal/ParserEngine/{module}.lean").write_text(f"namespace {module}\nend {module}\n")
             lean, quint = model_checks(root)
             self.assertEqual((lean.claim, quint.claim), ("lean-model", "quint-protocol"))
@@ -34,6 +34,7 @@ class ModelInputControls(unittest.TestCase):
             self.assertIn("formal/ParserEngine/Viable.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Construction.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Operational.lean", lean.inputs)
+            self.assertIn("formal/ParserEngine/Host.lean", lean.inputs)
             self.assertIn("t/layout-boundary-test.ss", lean.inputs)
             self.assertIn("t/layout-boundary-test.ss", quint.inputs)
             self.assertIn("t/fixtures/layout-columns.ss", lean.inputs)

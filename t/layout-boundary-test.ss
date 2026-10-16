@@ -3,7 +3,7 @@
 ;;; -*- Gerbil -*-
 ;;; Explicit closing boundaries belong to the declaring language grammar.
 
-(import (only-in :gerbil-parser/t/fixtures/layout-columns wide-frame-roots)
+(import (only-in :gerbil-parser/t/fixtures/layout-columns wide-frame-roots closure-frame-roots)
         :std/test
         :gerbil-parser/src/grammar/algebra
         (only-in :gerbil-parser/src/language/grammar deflanguage)
@@ -158,6 +158,20 @@
       (parameterize ((current-layout-frames '()))
         (check (layout-after-end #f) => #f)))))
 
+(def (closure-frame-gc-case)
+  (for-each
+   (lambda (order)
+     (let* ((seed (vector order))
+            (readers (closure-frame-roots seed (lambda () (thread-yield!) (##gc))))
+            (first (if order (car readers) (cdr readers)))
+            (second (if order (cdr readers) (car readers))))
+       (##gc)
+       (check (car (first)) => (if order 'left 'right))
+       (check (car (second)) => (if order 'right 'left))
+       (check (eq? (cdr (first)) seed) => #t)
+       (check (eq? (cdr (second)) seed) => #t)))
+   '(#t #f)))
+
 (def (wide-frame-gc-case)
   (def (exercise worker)
     (for-each
@@ -236,6 +250,8 @@
 
 (def layout-boundary-test
   (test-suite "Grammar-owned layout closing boundaries"
+    (test-case "compiled closure environments retain future uses across collection"
+      (closure-frame-gc-case))
     (test-case "generated wide live frames retain every slot during parallel collection"
       (wide-frame-gc-case))
     (test-case "actual layout continuations survive GC and repeated dynamic reentry"

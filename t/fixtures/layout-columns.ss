@@ -1,5 +1,5 @@
 ;;; Boxed-vector oracle, independent of packed storage and lookup dispatch.
-(export wide-frame-roots reference-layout-columns reference-packed-layout-columns layout-column-sources)
+(export closure-frame-roots wide-frame-roots reference-layout-columns reference-packed-layout-columns layout-column-sources)
 
 (def (reference-layout-columns source)
   (let* ((bytes (string->utf8 source)) (size (u8vector-length bytes))
@@ -60,3 +60,11 @@
 
 (def (wide-frame-roots seed collect)
   (with-wide-frame-roots seed collect))
+
+;;; The returned closures are the only post-callback owners of these pairs.
+;;; Two environments and an opaque callback exercise future-use propagation.
+(def (closure-frame-roots seed collect)
+  (let* ((left (cons 'left seed)) (right (cons 'right seed))
+         (read-left (lambda () left)) (read-right (lambda () right)))
+    (collect)
+    (cons read-left read-right)))

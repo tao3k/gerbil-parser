@@ -476,4 +476,45 @@ module GrammarPipeline {
       not(workerOwnership(after,1))
   })
 
+  // Source branch controls for _front.scm and _gvm.scm; not a CFG approximation.
+  pure def liveBefore(base:Set[int],force:Set[int],steps:List[Set[int]]):Set[int] =
+    steps.foldl(base,(live,uses) => live.union(force).union(uses))
+  run forcedLivenessIncludesPlaceholderButNotFinalBoundaryTest = init.expect(
+    liveBefore(Set(1),Set(2),List(Set())) == Set(1,2) and
+      liveBefore(Set(1),Set(2),List()) == Set(1))
+  run actualEvaluationSuffixMustOwnItsBoundaryTest = init.expect({
+    val original = List(Set(1),Set(2))
+    val scheduled = List(Set(2),Set(1))
+    liveBefore(Set(),Set(),List(scheduled.nth(1))) == Set(1) and
+      liveBefore(Set(),Set(),List(original.nth(1))) != Set(1)
+  })
+  pure def closureEnvironmentLive(explicit:bool,closed:Set[int],live:Set[int]):bool =
+    explicit or closed.exists(variable => live.contains(variable))
+  pure def returnUses(tailReason:bool,ret:int):Set[int] = if(tailReason) Set(ret) else Set()
+  run capturedUseRetainsEnvironmentAndTailReturnIsConditionalTest = init.expect(
+    closureEnvironmentLive(false,Set(5,6),Set(6)) and
+      closureEnvironmentLive(true,Set(),Set()) and
+      not(closureEnvironmentLive(false,Set(5,6),Set(7))) and
+      liveBefore(Set(),Set(),List(returnUses(true,99))) == Set(99) and
+      liveBefore(Set(),Set(),List(returnUses(false,99))) == Set())
+  type ChunkVisibility = {initialized:int,visible:int,tail:int}
+  pure def chunkSafe(s:ChunkVisibility):bool = s.tail <= s.visible and s.visible <= s.initialized
+  run atomicTailWithoutPayloadFenceIsUnsafeTest = init.expect(
+    not(chunkSafe({initialized:1,visible:0,tail:1})) and
+      chunkSafe({initialized:1,visible:1,tail:1}))
+  pure def takeLocked(queue:List[int]):{picked:List[int],remaining:List[int]} =
+    if(queue.length() == 0) {picked:List(),remaining:List()}
+    else {picked:List(queue.head()),remaining:queue.tail()}
+  run lockedRecheckMustDiscardOptimisticQueueHeadTest = init.expect({
+    val observedBeforeLock = List(7)
+    val first = takeLocked(observedBeforeLock)
+    val second = takeLocked(first.remaining)
+    first.picked == List(7) and second.picked == List() and
+      // Reusing the optimistic head duplicates the first thief's reservation.
+      takeLocked(observedBeforeLock).picked == first.picked
+  })
+  run ticketUniquenessRequiresNoWrapBoundTest = init.expect(
+    0.to(7).forall(a => 0.to(7).forall(b => (a % 8 == b % 8) == (a == b))) and
+      0 % 8 == 8 % 8)
+
 }

@@ -34,13 +34,17 @@ local object-count identity as evidence that an architecture gap has closed.
 
 This is the current composition ledger. Earlier qualification sections retain
 historical evidence; they do not supersede the obligations below. The shared
-representation owner is [[file:../../formal/ParserEngine/Representation.lean][Representation.lean]], composed with the existing
+representation owner is [[file:../../formal/ParserEngine/Representation.lean][Representation.lean]] and its
+[[file:../../formal/ParserEngine/Host.lean][host producer adapters]], composed with the existing
 [[file:../../formal/ParserEngine/Operational.lean][operational algorithms]] and [[file:../../formal/ParserEngine/Worklist.lean][notification semantics]]. Complete this chain
 before selecting another runtime optimization.
 
 | Mechanism and research premise | Actual implementation owner | General model correspondence | Remaining host obligation |
 |--------------------------------+-----------------------------+------------------------------+---------------------------|
-| Strong pointer reachability from roots | Gambit =targ-build-gc-map=, chunk emitter and =mem.c:mark_frame= | =FrameMaps.emitted_signed_root= derives emitted storage and retained roots from compiler live decisions; cursor, signed-literal and paired/trailing-word lemmas connect the C reader | Soundness of GVM liveness/variable placement and faithful extraction of every host root bank |
+| Strong pointer reachability from roots | Gambit =targ-build-gc-map=, chunk emitter and =mem.c:mark_frame= | =FrameMaps.emitted_signed_root= derives emitted storage and retained roots from compiler live decisions; cursor, signed-literal and paired/trailing-word lemmas connect the C reader | AST free-variable soundness, physical variable placement and faithful extraction of every host root bank |
+| Future uses retain closure environments | Gambit =compute-live-vars-at-each-expr= and =frame-live?= | =Liveness.before_exact= and =boundary_suffix= derive every actual evaluation suffix; =future_capture_root= composes captured use with environment selection and generated root maps | Free-variable extraction and =arg-eval-order= semantic correctness; register/slot identity and byte-level frame placement |
+| Ordered chunk publication and unique reservation | Gambit =end_heap_chunk=, GCC =__sync= route and locked steal recheck | =Publication.trace_safe= covers arbitrary admitted histories; =reservation_visible= composes payload visibility with queued/held conservation; =distinct_reservations= excludes two adjacent claims of a unique queue head | Faithful C memory observations, immutable chunk/epoch decoding, acquire behavior and global queue uniqueness |
+| Atomic old-value results and bounded tickets | Gambit =FETCH_AND_ADD_WORD=, =COMPARE_AND_SWAP_WORD= and ticket macros | =Atomic.compare_swap_success=, =compare_swap_failed= and =bounded_tickets_unique= separate old-value tests from physical wrap | GCC/backend code generation; logical operation linearization; fixnum scaling, overflow and maximum outstanding tickets |
 | Closure and captured continuation retention | =mark_continuation=, =mark_captured_continuation= and =scan= | =captured_frame_reached= and =path_reached= cover arbitrary-depth pointer paths; =discovered_path_relocated= composes them with relocation | Host copying, frame-link interpretation, physical registers and SMP synchronization |
 | Least strong marking closure | Strong-mark worklist and =mark_reachable_from_marked= | =program= generates root/edge rules; =CollectorSchedule.zero_workers_marking_exact= connects global worker termination to marking through pending ownership, including in-flight objects | C forwarding/notification effects must refine the generated history; lock and memory-order linearization remain explicit |
 | One denotation across scalar and field masks | [[file:../../src/compiler/funcs.ss][compiler-index-set-for-each]] | =Masks.callback_unique=, =field_address_injective= and =field_callback_exact= connect every bit to one field; =frame_field_exact= uses that same decoder for root maps | Signed Scheme primitive decoding, lowest-bit selection and physical callback loop refinement |
@@ -80,9 +84,106 @@ probe branches were re-read from that baseline's =lib/mem.c=. The corresponding
 =include/gambit.h.in= supply the target map generator, frame decisions, generic
 hash dispatch and physical macros. A matching
 reported baseline is not proof that all installed patch bytes equal that
-source. The modeled map generator is not a proof of the preceding GVM liveness
-analysis, C compilation, FFI pinning or SMP memory model. No complete Gambit
+source. The modeled map generator and frontend liveness adapter do not prove AST
+free-variable extraction, physical variable placement, C compilation, FFI
+pinning or the full SMP memory model. No complete Gambit
 collector correctness claim follows from the source inspection.
+
+*** GVM liveness, atomicity and weak observation
+
+The host adapter follows the reported Gambit baseline's
+[[https://github.com/gambit/gambit/blob/dcd677cd3e40860bdd27dfbdbf5e3ce46ab03813/gsc/_front.scm][frontend]] and
+[[https://github.com/gambit/gambit/blob/dcd677cd3e40860bdd27dfbdbf5e3ce46ab03813/gsc/_gvm.scm][GVM frame decisions]].
+This is a recursive expression-boundary calculation, not an invented CFG
+use/kill solver. Its result has one more boundary than expressions. Every
+nonfinal boundary adds =force-live=, including a false placeholder. A return
+placeholder adds =ret-var= only for a tail reason; an ordinary expression adds
+its bound free variables. The final boundary is exactly the incoming live set.
+Lists represent varsets extensionally by membership; duplicate/order identities
+are not claimed. =boundary_suffix= applies after the actual argument schedule
+has been chosen. Reusing indices from the original order is not justified.
+
+=frame-live?= treats the closure environment specially: either the environment
+itself or any live captured variable retains it. The successful result is the
+closed-variable list, including the Scheme-truthy empty list. The model records
+this truth value without confusing an empty list with false.
+=future_capture_root= connects any future captured use to environment retention
+and the existing map producer/root consumer; =future_capture_signed= extends
+that chain through serialized fields and the signed C cursor. Its explicit slot-to-word premise
+is a remaining physical placement obligation, not a certificate inferred from
+finite testing. The compiled =closure-frame-roots= control retains two closure
+environments across an opaque GC callback and collects again before accessing
+them in both orders. The existing wide compiled-frame and actual continuation
+controls remain in the same suite.
+
+For concurrency, the research basis is the authors' project overview for
+[[https://www.cl.cam.ac.uk/~pes20/cpp/][Mathematizing C++ Concurrency]]: concurrent semantics must account for compiler
+and hardware relaxed-memory behavior. This reading covers that overview, not a
+transfer of its complete C11 formalization or x86 validation to Gambit.
+The actual inspected route uses GCC legacy =__sync= operations, rather than
+assuming C11 relaxed atomics. GCC documents
+[[https://gcc.gnu.org/onlinedocs/gcc/_005f_005fsync-Builtins.html][old-value fetch-add/CAS and the full synchronize barrier]]. Its
+[[https://gcc.gnu.org/onlinedocs/gcc/Volatiles.html][volatile documentation]] explicitly does not order nonvolatile memory through a
+volatile access. These source-specific contracts remain below the logical
+linearization boundary; no new axiom asserts compiler correctness.
+
+=Publication= distinguishes initialized chunk epochs, observer-visible payloads
+and the published tail. A write can advance initialization without visibility.
+An unfenced atomic tail update has a checked unsafe counterexample. The first
+=end_heap_chunk= barrier flushes chunk content, end marker and link before the
+tail update. The second barrier follows that update; it stutters in this
+payload-safety projection. Visibility progress and condition-variable wakeups
+are not proved by a stuttering safety projection. =end_chunk_safe= derives the
+producer branch without assuming its resulting invariant. =trace_safe= then
+preserves the invariant through arbitrary admitted finite histories, and
+=reservation_visible= connects a published queue head to both visible payload
+and the existing queued/held ownership permutation.
+
+The steal path's optimistic head check is not a reservation. The current head
+must be read again after obtaining the lock. =distinct_reservations= proves
+adjacent removals cannot claim the same chunk when the queue has unique IDs.
+It does not establish that native allocation and queues preserve global ID
+uniqueness. The collector's strong and weak phases use distinct counters; this
+strong-root proof does not silently combine those phases.
+
+The ticket macros require a separate boundary. Fetch-add returns the old ticket;
+unlock uses another fetch-add. =bounded_tickets_unique= only admits physical
+modulo tickets inside an explicit no-wrap window. The normal lock then waits
+using a volatile load of =current=, with no explicit post-wait barrier in that
+macro. A full barrier on ticket allocation before waiting is not, by itself,
+a proof of acquire ordering after a later owner's unlock. Architecture/compiler
+ordering for that path, the mutex alternative, and patched-binary identity are
+still open adapters. This is an identified proof gap, not a demonstrated native
+race, and no runtime synchronization change is made on that basis.
+
+*** Host liveness and publication qualification
+
+Current local qualification, separate from earlier receipts:
+
+- Lean: the imported host adapter and complete package build passed, 71 build
+  jobs. Printed theorem dependencies contain only Lean's standard logical axioms;
+  no custom host-correctness axiom, =sorry= or =native_decide= is used.
+- Quint: 49 directed GrammarPipeline tests passed, including six added controls
+  for placeholder/final boundaries, scheduled suffixes, captured environments,
+  unfenced payload publication, locked rechecks and ticket wrap. These bounded
+  controls do not replace the arbitrary-list/history Lean proofs. The existing
+  =PipelineSafety= invariant also passed 1,000 sampled traces, at most 40 steps
+  each; that invariant does not explore new native weak-memory executions.
+- Scheme: canonical LR reference, layout boundary and test-style modules passed
+  together: 30 + 16 + 6 = 52 cases, 27.4836 seconds, normal exit zero under the
+  existing 90-second total and 5-second idle limits. The fixture was compiled
+  with the reported GCC SDK before running the source test owners.
+- Generated C inspection confirms two =ALLOC_CLO(1UL)= allocations, each with
+  its pair in a closure field, before the opaque callback; the shared closure
+  body reads that captured field. This qualifies the exercised fixture route,
+  not all frontend branches or weak-memory outcomes.
+- Evidence admission controls passed five tests, including timeout, nonzero
+  exit and source/native-product drift rejection. The host module is discovered
+  by the existing Lean input glob; compiled fixtures remain explicit inputs.
+
+The remaining obligations in the unified ledger remain blocking for a complete
+native refinement claim. No parser runtime algorithm or performance benchmark
+was changed as part of this qualification.
 
 *** Host producer and consumer composition
 

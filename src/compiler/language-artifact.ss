@@ -38,14 +38,16 @@
 (def +parser-artifact-cache-schema+
   "gerbil-parser.parser-artifact-cache.v1")
 (def +parser-artifact-generator-contract+
-  "gerbil-parser.lalr1-generator.v3")
+  "gerbil-parser.lalr1-generator.v3/repetition-owner-isolation")
 (def +language-declaration-cache-schema+
   "gerbil-parser.language-declaration-cache.v1")
 (def +language-declaration-generator-contract+
-  "gerbil-parser.language-declaration-generator.v3")
+  "gerbil-parser.language-declaration-generator.v3/repetition-owner-isolation")
 
 ;; v3 derives aliased entry roots independently of syntax catalog order.
 ;; Both cache layers must regenerate when compiler semantics change.
+;; The lowering revision isolates shared repetition owners. Preserve artifact
+;; schemas while excluding pre-repair parser/declaration receipts from reuse.
 
 ;; : (-> Datum String)
 (def (serialize value)

@@ -344,6 +344,48 @@
            (materialize-compiled-language-artifact/output-dirs
              test-value (list root))
             true)))))
+    (test-case "pre-isolation generator receipts cannot bypass the repaired lowering"
+      (call-with-temporary-directory
+       (lambda (root)
+         (let* ((grammar '((schema . "gerbil-parser.grammar-ir.v1") (grammar . old-generator)))
+                (identity '(source-map-v1))
+                (parser-count 0) (bound-count 0))
+           (def (seed directory contract inputs fields)
+             (let* ((key (sha256-text (call-with-output-string
+                                       (lambda (port) (write (cons contract inputs) port)))))
+                    (path (path-expand (string-append "gerbil-parser/" directory "/"
+                                           (sha256-identity-filename key) ".scm") root)))
+               (create-directory* (path-directory path))
+               (call-with-output-file path
+                 (lambda (port)
+                   (write (append `((schema . ,(if (equal? directory "compiled-language-parser-cache")
+                                                  "gerbil-parser.parser-artifact-cache.v1"
+                                                  "gerbil-parser.language-declaration-cache.v1"))
+                                    (key . ,key) (generatorContract . ,contract)) fields) port)))
+               path))
+           (def (parser)
+             (set! parser-count (+ parser-count 1))
+             '((schema . "gerbil-parser.parser-ir.v1") (grammar . new-generator)))
+           (def (bound)
+             (set! bound-count (+ bound-count 1))
+             '((schema . "gerbil-parser.bound-grammar-ir.v1") (grammar . new-generator)))
+           (let ((old-parser (seed "compiled-language-parser-cache" "gerbil-parser.lalr1-generator.v3"
+                                  (list grammar) '((artifact . stale-parser))))
+                 (old-declaration (seed "compiled-language-declaration-cache"
+                                       "gerbil-parser.language-declaration-generator.v3"
+                                       (list identity grammar)
+                                       '((grammar . stale-grammar) (bound . stale-bound) (parser . stale-parser)))))
+             (let-values (((value _locator status)
+                           (compile-language-parser-artifact/output-dirs grammar parser (list root))))
+               (check status => 'miss)
+               (check (cdr (assq 'grammar value)) => 'new-generator))
+             (let-values (((_grammar _bound _parser status)
+                           (compile-language-declaration-artifacts/output-dirs identity grammar bound parser (list root))))
+               (check status => 'miss))
+             (check parser-count => 1)
+             (check bound-count => 1)
+             (check (file-exists? old-parser) => #t)
+             (check (file-exists? old-declaration) => #t))))))
     (test-case "parser generation is reused across fresh expansion calls"
       (call-with-temporary-directory
        (lambda (root)

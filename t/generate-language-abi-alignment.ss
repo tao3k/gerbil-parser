@@ -1,13 +1,14 @@
 ;;; -*- Gerbil -*-
 ;;; Native ABI fixture publication has a build owner separate from test assertions.
-(import (prefix-in (only-in :gerbil-parser/src/ffi/language-artifact-codec bind-language-abi abi-descriptor-payload abi-parse-binary-payload) codec-)
+(import (only-in :std/encoding/hex hex-encode)
+        (prefix-in (only-in :gerbil-parser/src/ffi/language-artifact-codec bind-language-abi abi-descriptor-payload abi-parse-binary-payload) codec-)
         (only-in :gerbil-parser/language-support/entry language-metadata-ref)
         (only-in :clan/poo/object .ref)
         (only-in :gerbil-parser/t/fixtures/language-entries language-entry-pairs)
         (only-in :gerbil-parser/language-support/development language-loader-fixtures)
         (only-in :gerbil-parser/language-support/fixture syntax-fixture-source)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-success?))
-(export write-language-abi-alignment!)
+(export write-language-abi-alignment! report-language-abi-mismatch!)
 ;;; Each native backend is checked from its configured public parser descriptor.
 (def (write-language-abi-alignment! output)
   (def (emit-bytes port bytes)
@@ -40,3 +41,20 @@
               '(accepted rejected))))
         language-entry-pairs)))
   (displayln "LANGUAGE-ABI-ALIGNMENT-GENERATED") (force-output))
+
+;; Diagnostic output belongs to this fixture owner, not a -test.ss assertion.
+;; Keep exact-byte admission in the caller and report only a bounded window.
+(def (report-language-abi-mismatch! actual expected)
+  (let (extent (min (u8vector-length actual) (u8vector-length expected)))
+    (let find ((at 0))
+      (if (and (< at extent) (= (u8vector-ref actual at) (u8vector-ref expected at)))
+        (find (+ at 1))
+        (begin
+          (displayln "ABI-BYTE-MISMATCH offset=" at
+            " actual-bytes=" (u8vector-length actual)
+            " expected-bytes=" (u8vector-length expected))
+          (displayln "ABI-ACTUAL " (hex-encode actual (max 0 (- at 32))
+                                    (min (u8vector-length actual) (+ at 64))))
+          (displayln "ABI-EXPECTED " (hex-encode expected (max 0 (- at 32))
+                                      (min (u8vector-length expected) (+ at 64))))
+          (force-output))))))

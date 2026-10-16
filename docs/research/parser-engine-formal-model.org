@@ -757,6 +757,50 @@ list helper and failed; the official list import repaired it. The unchanged
 or parser performance optimization was introduced. New proof modules and the
 actual bit-primitive source are included in evidence invalidation controls.
 
+**** Fresh-source identity and CI repair
+
+The previous CI had two independent failures: the isolated ABI task omitted the
+project dependency environment, and its expected GQL parser identity preceded
+the shared-repetition repair. The dependency-environment fix was integrated
+from the concurrent PR revision. Later diagnostic output in =-test.ss= violated
+the existing AST contract; reporting now belongs to the fixture generator,
+while the assertion remains in the test. No admission rule was weakened.
+
+A cached local ABI pass initially concealed the stale compiler identity.
+Independent reconstruction from the exact stored Grammar IR with the current
+compiler reproduced Ubuntu's GQL digest. Comparing the old and fresh Parser IR
+identified =lr-spec= as the only changed section. Ten reconstructions covering
+nine distinct LR grammar inputs found no additional identity changes. Only the
+GQL descriptor digest and its binary header digest were updated; source, token
+records, AST events and accepted/rejected expectations were retained. Complete
+Scheme byte parity and Rust admission subsequently passed for all twenty cases.
+
+Both parser and complete-declaration cache keys now carry the explicit
+=repetition-owner-isolation= generator revision. Artifact and loader schemas
+remain unchanged. The new regression seeds both historical generator receipts
+and proves they cannot skip current compilation; it also checks that the
+historical receipts remain present. Existing positive reuse controls still
+require a single compilation and a subsequent cache hit. The cache failure was
+an implementation/source correspondence defect, not a performance experiment.
+
+| Check | Current local evidence |
+|-------+------------------------|
+| Locked Lean build | 67 jobs; new theorem axiom dependencies printed; no admitted proof |
+| Completion lifecycle | Six directed controls and 1,000 traces capped at 20 steps |
+| Native grammar/LR/style | Four owners, 89 cases, three workers, 34.14 seconds |
+| ABI/cache/style closure | Three owners, 26 cases, three workers, 14.01 seconds; exact twenty-product parity |
+| Fresh compiler identity | Ten reconstructions, 11.36 seconds; GQL change independently reproduced |
+| Rust ABI consumer | One test admitting all twenty accepted/rejected products |
+| Evidence controls | Five tests; 408 Lean inputs and 108 Quint inputs bound by strict snapshots |
+
+The initial local ABI attempts failed on incomplete source-test products and
+then a missing loadable fixture closure. Those failures were retained; complete
+native fixture preparation resolved them before byte-parity admission. The
+immediate fresh-rebuild child termination was retained as a failed attempt;
+explicit dependency admission completed the reconstruction. Final remote CI
+remains an independent gate for the pushed revision. None of these checks proves
+complete Scheme-to-model refinement or authorizes performance claims.
+
 ** Completion gates before architecture optimization
 
 1. Specify the admitted DSL/grammar and scanner meaning, including effects and

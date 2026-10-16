@@ -31,6 +31,23 @@
         (try
           (let (product (path-expand "language-artifacts.bin" directory))
             (write-language-abi-alignment! product)
-            (check (equal? (call-with-input-file product read-all-as-u8vector)
-                           (text-fixture-bytes)) => #t))
+            (let* ((actual (call-with-input-file product read-all-as-u8vector))
+                   (expected (text-fixture-bytes))
+                   (extent (min (u8vector-length actual) (u8vector-length expected))))
+              ;; Keep exact-byte admission. A bounded failure receipt identifies
+              ;; the first differing field instead of hiding it behind #f.
+              (unless (equal? actual expected)
+                (let find ((at 0))
+                  (if (and (< at extent) (= (u8vector-ref actual at) (u8vector-ref expected at)))
+                    (find (+ at 1))
+                    (begin
+                      (displayln "ABI-BYTE-MISMATCH offset=" at
+                        " actual-bytes=" (u8vector-length actual)
+                        " expected-bytes=" (u8vector-length expected))
+                      (displayln "ABI-ACTUAL " (hex-encode actual (max 0 (- at 32))
+                                                (min (u8vector-length actual) (+ at 64))))
+                      (displayln "ABI-EXPECTED " (hex-encode expected (max 0 (- at 32))
+                                                  (min (u8vector-length expected) (+ at 64))))
+                      (force-output)))))
+              (check (equal? actual expected) => #t)))
           (finally (delete-file-or-directory directory #t)))))))

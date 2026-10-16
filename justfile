@@ -455,7 +455,44 @@ run-backend-baseline binary requests receipt:
     test "$(grep -c '^[(]backend-baseline.v1 ' '{{receipt}}')" = 20
 
 report-backend-baseline directory:
-    gxi t/benchmarks/backend-baseline/report.ss "{{directory}}"
+    gxi t/benchmarks/backend-baseline/report.ss "{{directory}}" > "{{directory}}/report.log" 2>&1
+    grep -q '^MATCHED-BASELINE-REPORT-OK;' "{{directory}}/report.log"
+    ! grep -Eq 'ERROR|FAILED|FAILURE' "{{directory}}/report.log"
+    cat "{{directory}}/report.log"
+
+prepare-org-backend-baseline program output:
+    mkdir -p "{{output}}"
+    gxi t/benchmarks/backend-baseline/prepare-org.ss "{{program}}" "{{output}}"
+
+emit-org-rust-baseline ir output:
+    cargo run --locked -p gerbil-parser-build-support --example emit_org_fold -- "{{ir}}" > "{{output}}"
+
+link-org-scheme-baseline output load_path:
+    GERBIL_PATH="{{output}}/sdk" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O -exe -o "{{output}}/scheme-vm" t/benchmarks/backend-baseline/org-scheme.ss
+
+link-org-rust-baseline output runtime sha:
+    ORG_FOLD_RUST_SOURCE="{{output}}/org-fold.rs" rustc --edition=2024 -C opt-level=3 -C lto=thin -L dependency="{{parent_directory(runtime)}}" --extern gerbil_parser_runtime="{{runtime}}" --extern sha2="{{sha}}" t/benchmarks/backend-baseline/org-driver.rs -o "{{output}}/rust-aot"
+
+run-org-backend-baseline binary requests fixtures grammar receipt:
+    test ! -e "{{receipt}}"
+    test ! -e "{{receipt}}.resources"
+    /usr/bin/time {{if os() == "macos" { "-l" } else { "-v" }}} "{{binary}}" "{{requests}}" 20 "{{fixtures}}" "{{grammar}}" > "{{receipt}}" 2> "{{receipt}}.resources"
+    grep -q '^BACKEND-BASELINE-COMPLETE$' "{{receipt}}"
+    test "$(grep -c '^[(]backend-baseline.v1 ' '{{receipt}}')" = 20
+
+test-backend-baseline-report directory:
+    gxi t/benchmarks/backend-baseline/report-controls.ss "{{directory}}" > "{{directory}}/report-controls.log" 2>&1
+    grep -q '^BACKEND-REPORT-CONTROLS-OK$' "{{directory}}/report-controls.log"
+    test "$(grep -c '^REPORT-REJECT-OK ' '{{directory}}/report-controls.log')" = 4
+
+diagnose-org-fold-baseline binary fixtures grammar receipt:
+    test ! -e "{{receipt}}"
+    /usr/bin/time {{if os() == "macos" { "-l" } else { "-v" }}} "{{binary}}" 1000 20 "{{fixtures}}" "{{grammar}}" diagnostic > "{{receipt}}" 2> "{{receipt}}.resources"
+    grep -q '^BACKEND-BASELINE-COMPLETE$' "{{receipt}}"
+    test "$(grep -c '^[(]org-fold-diagnostic.v1 ' '{{receipt}}')" = 20
+
+report-org-fold-cost directory:
+    gxi t/benchmarks/backend-baseline/org-cost-report.ss "{{directory}}"
 
 # Reports each complete language batch sample without a shell timing wrapper.
 benchmark-versioned-matched label="current" samples="20":

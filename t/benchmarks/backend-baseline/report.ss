@@ -48,8 +48,11 @@
                          (eq? (field right 'backend) 'scheme-vm)
                          (= (field left 'requests) count) (= (field right 'requests) count)
                          (= (field left 'concurrency) 1) (= (field right 'concurrency) 1)
+                         (or (not (assq 'mode right)) (eq? (field right 'mode) 'baseline))
                          (every (lambda (key) (equal? (field left key) (field right key)))
-                           '(batch grammar corpus-sha256 input-bytes boundary)))
+                           (if (assq 'output-sha256 left)
+                             '(batch grammar corpus-sha256 input-bytes boundary output-sha256 output-bytes)
+                             '(batch grammar corpus-sha256 input-bytes boundary))))
               (error "backend corpus or execution boundaries differ" count)))
           rust scheme)
         (for-each
@@ -63,4 +66,4 @@
                 (median (map (cut field <> 'throughput-requests/s) rows)) " " rss)))
           (list rust scheme) (list rust-path scheme-path))))
     '(1000 10000 100000))
-  (displayln "MATCHED-BASELINE-REPORT-OK; serial arithmetic only, not Org/FFI/Tokio/SMP acceptance"))
+  (displayln "MATCHED-BASELINE-REPORT-OK; measured workload only, not downstream/FFI/Tokio/SMP acceptance"))

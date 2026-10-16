@@ -43,6 +43,34 @@ separate baselines, not an optimization, backend equivalence or a new VM SLA.
 The historical Fold gate below remains an explicitly unachieved target;
 neither this arithmetic result nor model success promotes a real-Org baseline.
 
+* Real Org Fold backend baseline
+
+The [[file:t/benchmarks/backend-baseline/ORG.org][complete Org Fold protocol]] now compares the full shared Org declaration,
+not arithmetic or the outline demo. Both backends produce OEV1; all sixty
+paired changing-input batches match their input and complete output digests.
+This measures Fold and tape materialization, NOT public Org graph projection,
+FFI/Tokio/Python delivery or SMP parallelism. Serial sampling is not an SMP skip.
+
+Parser =58faa58=, upstream Rust IR =2c82b845=; local macOS arm64 measurements,
+twenty batches per backend/load. Wall includes stream validation; per-request
+P95/P99 exclude hashing. Values are batch medians; RSS is whole-process peak.
+
+| Backend   | Requests/batch | Wall (ms) | P95 (us) | P99 (us) | Requests/s | Peak RSS (bytes) |
+|-----------+----------------+-----------+----------+----------+------------+------------------|
+| Rust AOT  |           1000 |    76.001 |  114.459 |  124.292 |      13158 |          4014080 |
+| Scheme VM |           1000 |    34.827 |   51.000 |   62.000 |      28713 |         31113216 |
+| Rust AOT  |          10000 |   763.780 |  114.771 |  126.000 |      13093 |         13664256 |
+| Scheme VM |          10000 |   341.066 |   50.000 |   59.500 |      29320 |        105693184 |
+| Rust AOT  |         100000 |  8166.499 |  116.146 |  140.438 |      12245 |        107741184 |
+| Scheme VM |         100000 |  3634.205 |   51.000 |   66.500 |      27517 |        788316160 |
+
+Rust is slower on this full declaration despite being faster on arithmetic;
+the arithmetic result cannot establish real Fold performance. Neither product
+meets the historical throughput goal. No runtime optimization or target waiver
+is admitted by this benchmark-only change; previous qualified baselines remain.
+[[file:t/benchmarks/backend-baseline/receipts/20261016-org/][Raw batch/resource and diagnostic receipts]] are retained alongside the
+[[file:t/benchmarks/backend-baseline/ORG.org][source identity, boundaries and GC/RSS diagnosis]].
+
 * Experimental Fold qualification (not accepted)
 
 The engine-owned [[file:t/benchmarks/parser-throughput/README.org][parser throughput qualification protocol]]

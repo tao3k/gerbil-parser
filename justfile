@@ -432,11 +432,11 @@ test-language-abi-alignment:
     gerbil compile -O {{if os() == "macos" { "-ld-options '-Wl,-undefined,dynamic_lookup'" } else { "" }}} src/ffi/language-abi-context.ss
     gerbil compile -O src/ffi/event-binary.ss src/ffi/language-artifact-codec.ss t/generate-language-abi-alignment.ss t/language-abi-alignment-test.ss
     gerbil test -v 5 t/language-abi-alignment-test.ss > .data/language-abi-alignment-test.log 2>&1
-    test "$(rg --count '^NATIVE-ALIGNMENT-CASE ' .data/language-abi-alignment-test.log)" = 20
-    rg --quiet '^CASE-OK accepted and rejected language products match the Rust fixture exactly$' .data/language-abi-alignment-test.log
-    rg --quiet '^OK$' .data/language-abi-alignment-test.log
-    ! rg --quiet 'ERROR|FAILED|FAILURE' .data/language-abi-alignment-test.log
-    rg '^CASE-OK |^HARNESS-OK|^OK$' .data/language-abi-alignment-test.log
+    test "$(grep -c '^NATIVE-ALIGNMENT-CASE ' .data/language-abi-alignment-test.log)" = 20
+    grep -q '^CASE-OK accepted and rejected language products match the Rust fixture exactly$' .data/language-abi-alignment-test.log
+    grep -q '^OK$' .data/language-abi-alignment-test.log
+    ! grep -Eq 'ERROR|FAILED|FAILURE' .data/language-abi-alignment-test.log
+    grep -E '^CASE-OK |^HARNESS-OK|^OK$' .data/language-abi-alignment-test.log
 
 # Reports each complete language batch sample without a shell timing wrapper.
 benchmark-versioned-matched label="current" samples="20":

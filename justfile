@@ -438,6 +438,25 @@ test-language-abi-alignment:
     ! grep -Eq 'ERROR|FAILED|FAILURE' .data/language-abi-alignment-test.log
     grep -E '^CASE-OK |^HARNESS-OK|^OK$' .data/language-abi-alignment-test.log
 
+build-rust-backend-baseline output:
+    mkdir -p "{{output}}"
+    cargo bench --locked -p gerbil-parser-runtime --bench backend-baseline --no-run --message-format=json > "{{output}}/cargo-build.jsonl"
+
+build-scheme-backend-baseline output:
+    mkdir -p "{{output}}"
+    gerbil compile -O t/benchmarks/parser-throughput/protocol.ss
+    gerbil compile -O -exe -o "{{output}}/scheme-vm" t/benchmarks/backend-baseline/scheme.ss
+
+run-backend-baseline binary requests receipt:
+    test ! -e "{{receipt}}"
+    test ! -e "{{receipt}}.resources"
+    /usr/bin/time {{if os() == "macos" { "-l" } else { "-v" }}} "{{binary}}" "{{requests}}" 20 > "{{receipt}}" 2> "{{receipt}}.resources"
+    grep -q '^BACKEND-BASELINE-COMPLETE$' "{{receipt}}"
+    test "$(grep -c '^[(]backend-baseline.v1 ' '{{receipt}}')" = 20
+
+report-backend-baseline directory:
+    gxi t/benchmarks/backend-baseline/report.ss "{{directory}}"
+
 # Reports each complete language batch sample without a shell timing wrapper.
 benchmark-versioned-matched label="current" samples="20":
     gerbil env gxi -:max-heap=1G,debug=q t/benchmarks/versioned-languages/matched-batch.ss {{label}} {{samples}}

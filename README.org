@@ -12,6 +12,37 @@ This is an active implementation and research project. Supported syntax and
 portable products are qualified per language and target; a shared authoring
 interface does not imply complete language coverage or backend parity.
 
+* Separate backend baselines
+
+The [[file:t/benchmarks/backend-baseline/README.org][matched backend protocol]] measures the same changing arithmetic sources
+with parsing and lossless text reconstruction, serially. This is NOT Org Fold,
+FFI/Tokio/Python acceptance or an SMP test. No SMP feature is blanket skipped.
+Scheme is an optimized Gerbil executable running on the VM, not Rust AOT.
+
+Local macOS arm64 measurements on 2026-10-16, parser =04e2cdb= and bridge IR
+=2c82b845=, have twenty complete batches per backend/load. Grammar and all
+sixty paired corpus digests agree. Wall, per-request P95/P99 and throughput
+below are medians of twenty batches; RSS is the peak of the whole process.
+
+| Backend   | Requests/batch | Wall (ms) | P95 (us) | P99 (us) | Requests/s | Peak RSS (bytes) |
+|-----------+----------------+-----------+----------+----------+------------+------------------|
+| Rust AOT  |           1000 |     4.370 |    4.375 |    5.146 |     228845 |          2244608 |
+| Scheme VM |           1000 |    19.073 |   12.000 |  643.000 |      52511 |         33865728 |
+| Rust AOT  |          10000 |    44.535 |    4.500 |    5.459 |     224543 |          4079616 |
+| Scheme VM |          10000 |   149.806 |   12.000 |   20.500 |      66753 |         46710784 |
+| Rust AOT  |         100000 |   455.274 |    4.583 |    6.688 |     219648 |         18415616 |
+| Scheme VM |         100000 |  1285.035 |   12.000 |   18.000 |      77820 |        166772736 |
+
+Rust input String/vector reserved capacity is 68000/680000/6800000 bytes per
+batch respectively, excluding corpus, outputs, sampler and runtime. It is
+not a total memory measurement; Scheme capacity is unavailable, not zero.
+The Scheme 1000-request P99 observation is retained, not excluded as noise;
+its cause is not established by this baseline. Different clocks and the full
+roundtrip boundary are documented in the protocol. These results establish
+separate baselines, not an optimization, backend equivalence or a new VM SLA.
+The historical Fold gate below remains an explicitly unachieved target;
+neither this arithmetic result nor model success promotes a real-Org baseline.
+
 * Experimental Fold qualification (not accepted)
 
 The engine-owned [[file:t/benchmarks/parser-throughput/README.org][parser throughput qualification protocol]]

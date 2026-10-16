@@ -150,6 +150,19 @@
           (check first => (list token))
           (check (eq? first (lr-recognition-fragment-children root)) => #t)
           (check (eq? (car first) token) => #t))))
+    (test-case "unary token mutation cannot change the private child storage variant"
+      (let (runtime (lr-prepare (compile-lr-spec '((source-file (token identifier))) 'source-file)))
+        (for-each
+          (lambda (kind)
+            (let* ((token (make-token 'identifier "a" 0 1))
+                   (root (capture-transfer-root runtime (list token))))
+              (vector-set! token 0 kind)
+              (vector-set! token 2 -1)
+              (let (children (lr-recognition-fragment-children root))
+                (check children => (list token))
+                (check (eq? (car children) token) => #t)
+                (check (eq? children (lr-recognition-fragment-children root)) => #t))))
+          (list #f 'changed 42 "kind" (vector 'nested)))))
     (test-case "packed children retain ownership across requests and materialize once"
       (let* ((runtime (lr-prepare (compile-lr-spec
                          '((source-file (alias SourceFile (sequence (token identifier) (token identifier)

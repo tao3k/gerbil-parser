@@ -902,3 +902,93 @@ No unchanged local rerun, workload reduction, deadline extension or threshold
 change is used to turn these results into a pass. Independent exact-head Ubuntu
 qualification must establish the existing complete-request gate for this new
 representation; the prior implementation's successful CI cannot qualify it.
+
+
+* Stable storage identity under token mutation
+
+The =77417a0= candidate's predicate based on =token?= is insufficient for cold
+unary observations after mutation. A previously admitted token can fail that
+predicate after its kind or position changes, yet the original representation
+still returns a one-element list containing that same token vector. Deciding
+the storage variant from current token validity would instead reinterpret its
+fields as children. Valid-input controls alone do not establish this stronger
+observation boundary. The preceding candidate's byte and CPU receipts do not
+qualify the correction below.
+
+The final direct array therefore reserves slot zero for one opaque private
+identity, allocated once per module. Operands occupy slots one through width.
+Classification compares only that identity, independently of token validity.
+The identity is not part of a legitimate token kind; fabricated access to
+private engine storage is outside the token interface. There is still one owned
+array and no per-capture descriptor object. Filling the array uses the positive
+countdown directly as its storage index, leaving slot zero unchanged. Logical
+prefix ownership applies to its operand payload.
+
+Lean models the marker as a distinct slot constructor. The payload theorem
+removes exactly the marker; the token-disjointness theorem and
+=unary_vector_mutation_keeps_storage_kind= separate ordinary or malformed unary
+heads from the private identity. Native controls mutate kind and position before
+the first child observation and preserve the exact original token object and
+memoized list. They retain the existing valid token, view, suffix and cross-request
+controls. The getter delegates to the SDK's =vector->list= with start index one;
+a direct runtime probe verified that range operation. No custom list traversal
+or extra temporary marker list cell is required.
+
+The marker adds one array slot compared with =77417a0=. Object-count proofs
+still remove the descriptor, but native byte savings must be measured again.
+The earlier 3072-byte complete-request reduction is not transferred to this
+representation, and earlier CPU qualification cannot admit this source revision.
+
+
+** Stable-identity qualification receipts
+
+The final implementation passed 93 native Cases in 20.907116 seconds and all
+198 frozen metadata combinations in 9.917341 seconds. Lean built 56 targets,
+including the tagged payload and token-mutation obligations; model-input
+binding controls passed. Source positions, terminal totals, semantic values,
+source-order children and suffix identity remain unchanged.
+
+The first allocation replay printed all its assertions and three matching
+133,067,472-byte complete-request observations, then failed process completion:
+=exit=143=, =reason=idle-timeout=, elapsed 24.034070 seconds. Its success marker
+alone is not admission. The corrected invocation uses the repository's existing
+=test-child-process-exit!= only after the completed disposable child's assertions
+and receipts. That fixture explicitly excludes native library teardown from the
+test phase. This does not repair or diagnose SDK shutdown internals and changes
+neither watchdog nor parser work.
+
+With the same corrected caller on both images, candidate replay passed in
+9.641539 seconds and frozen wrapped implementation =48607f3= passed in
+7.101036 seconds. These elapsed times are not a matched speed comparison.
+All three complete-request allocation-only windows per image had zero GC:
+133,591,760 bytes for the wrapped implementation and 133,067,472 bytes for the
+tagged direct array. The measured reduction is 524,288 bytes per 256 requests,
+or 2048 bytes per complete request (approximately 0.39%). No-collection
+captured-LR windows changed from 49,344,848 to 48,820,560 bytes, approximately
+1.06% less. The extra marker slot reduces the savings compared with =77417a0=;
+no native byte-size assumption is substituted for these counters.
+
+** Stable-identity CPU controls
+
+The comparison image remains the accepted wrapped implementation =48607f3=,
+not the intermediate mutation-sensitive =77417a0=. Against that image, before
+P10/P50/P90 was 0.968713/0.993854/1.061709, production was
+0.973965/0.997306/1.091640, and after was
+0.936147/0.998434/1.015085. Both controls were valid; the original CPU ceiling
+failed. This does not prove incremental CPU benefit or non-regression.
+
+Two planned local trials against frozen =459ec36= were retained without an
+unchanged retry. Trial one had before 0.952052/1.000882/1.037995, production
+0.890721/0.927430/0.953067, and after
+0.898030/1.006275/1.060123. Both the candidate ceiling and following-control
+floor failed. Trial two had before 0.947844/1.001023/1.060295, production
+0.875966/0.916234/0.946444, and after
+0.896420/0.997640/1.059423. The following control invalidates that trial.
+Neither is an admitted local complete-request CPU result.
+
+For comparison, the intermediate =77417a0= independently passed Ubuntu's two
+complete-request CPU trials in run =38835355213=. Production P50/P90 was
+0.927372/0.936161 and 0.939029/0.946150, with valid controls. That evidence
+belongs to the intermediate source and its valid-input workload; it does not
+establish the later mutation invariant or qualify the final tagged source.
+Final exact-head qualification must run again before a CPU acceptance claim.

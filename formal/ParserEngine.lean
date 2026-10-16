@@ -160,3 +160,6 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Capture.direct_packed_one_fewer
 #print axioms ParserEngine.Capture.direct_packed_observation
 #print axioms ParserEngine.Capture.pending_capture_vector_is_not_token
+#print axioms ParserEngine.Capture.tagged_capture_vector_payload
+#print axioms ParserEngine.Capture.tagged_capture_vector_is_not_token
+#print axioms ParserEngine.Capture.unary_vector_mutation_keeps_storage_kind

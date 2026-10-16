@@ -1,9 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; lr-parser: state owner. Private execution state and named algorithms.
 
-(import (only-in ../token token?))
-
-(export lr-capture-plan make-lr-capture-plan
+(export make-lr-capture-child-vector
+        lr-capture-plan make-lr-capture-plan
         lr-capture-plan-runtime lr-capture-plan-production-id lr-capture-plan-width lr-capture-plan-contexts
         lr-capture-context make-lr-capture-context
         lr-capture-context-runtime lr-capture-context-executor
@@ -197,8 +196,14 @@
   transparent: #t final: #t)
 ;;; Owned packed children contain only the current production's operands.
 ;;; No recognition-stack link or unrelated suffix escapes into this payload.
-;;; A non-token vector is the private pending variant. Tokens remain plain
-;;; vectors; their symbol/lexeme prefix cannot be a vector of capture operands.
+;;; An opaque identity in slot zero is stable even when a unary token becomes
+;;; invalid after capture. The marker is private; only operand slots escape as
+;;; the materialized child list. No per-capture wrapper record is allocated.
+(def +lr-capture-children-tag+ (gensym 'lr-capture-children))
+(definline (make-lr-capture-child-vector count) => :t
+  (let (children (make-vector (+ count 1)))
+    (vector-set! children 0 +lr-capture-children-tag+)
+    children))
 (defstruct lr-recognition-fragment
   (context children-cache lookahead-cache value start end token-count offset yield-cache)
   transparent: #t final: #t)
@@ -212,8 +217,9 @@
   (let (stored piece.children-cache)
     (if (or (pair? stored) (null? stored)) stored
       (let (children
-              (if (and (vector? stored) (not (token? stored)))
-                (vector->list stored)
+              (if (and (vector? stored) (> (vector-length stored) 0)
+                       (eq? (vector-ref stored 0) +lr-capture-children-tag+))
+                (vector->list stored 1)
                 (list stored)))
         (lr-recognition-fragment-children-cache-set! piece children)
         children))))

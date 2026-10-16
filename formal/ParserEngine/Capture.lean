@@ -499,6 +499,7 @@ theorem packed_children_first_demand (width : Nat) :
 /-- Native vector slots have distinct outer shapes. Operand identities abstract
 only admitted token/view/fragment objects, never a raw symbolic token kind. -/
 inductive CaptureVectorSlot (α : Type) where
+  | privateTag
   | kind (name : Nat)
   | lexeme (text : String)
   | position (offset : Nat)
@@ -512,10 +513,28 @@ theorem pending_capture_vector_is_not_token (children : List α) :
     captureVectorIsToken (children.map CaptureVectorSlot.operand) = false := by
   cases children <;> rfl
 
+/-- An opaque private identity keeps storage classification independent of
+mutable token fields. Supplying that private identity is outside token admission. -/
+def captureVectorIsPending : List (CaptureVectorSlot α) → Bool
+  | .privateTag :: _ => true
+  | _ => false
+
+theorem tagged_capture_vector_payload (children : List α) :
+    (CaptureVectorSlot.privateTag :: children.map CaptureVectorSlot.operand).drop 1 =
+      children.map CaptureVectorSlot.operand := rfl
+
+theorem tagged_capture_vector_is_not_token (children : List α) :
+    captureVectorIsToken (.privateTag :: children.map CaptureVectorSlot.operand) = false := rfl
+
+theorem unary_vector_mutation_keeps_storage_kind (head : CaptureVectorSlot α)
+    (tail : List (CaptureVectorSlot α)) (privateIdentity : head ≠ .privateTag) :
+    captureVectorIsPending (head :: tail) = false := by
+  cases head <;> simp_all [captureVectorIsPending]
+
 /-- Erasing the one-field native descriptor keeps the owned array payload.
-The logical pending tag is represented by a non-token vector: each element is
-a capture operand, whereas a token vector begins with a symbolic kind and string
-lexeme. Native controls check that representation premise. -/
+The logical pending tag is represented by a private identity in slot zero;
+remaining slots hold capture operands. Native controls establish that mapping.
+These costs count objects, not the additional marker slot in native bytes. -/
 def directPackedChildrenObjects (width : Nat) (demand : Bool) : Nat :=
   1 + if demand then width else 0
 

@@ -1,11 +1,11 @@
 ;;; Resolved grammar semantics must be checked before target state construction.
 (import :std/test
         (only-in :std/misc/ports read-all-as-string)
-        (only-in :std/list/list append-map)
+        (only-in :std/list/list append-map take)
         (only-in :std/test/base TestCase test-case-add!)
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
         (only-in :gerbil-parser/src/compiler/lr +lr-eof+ lr-spec-ref current-grammar-source-map compute-nullable compute-first compute-productive compute-completion terminal-symbol?
-                 lower-rules production-lhs production-rhs production-table production-terminal-catalog
+                 lower-rules production-id production-lhs production-rhs production-table production-terminal-catalog
                  sequence-first sequence-nullable? base-symbol nonterminal-symbol? nonterminal-name)
         (only-in :gerbil-parser/src/compiler/funcs compiler-index-set-union compiler-index-set-member?)
         (only-in :gerbil-parser/src/compiler/lr-automaton make-item-layout make-core-symbol-catalog
@@ -437,6 +437,52 @@
          (list shared-lookahead-rules 'source-file)
          (list '((start (sequence (literal "x") (reference $accept)))
                  ($accept (literal "a"))) 'start))))
+
+;; Mirrors the model's physical boundary: the callback observes the same
+;; production in ordinal order and identifies a real authored occurrence.
+(def (emission-origin-alignment-case)
+  (def (source-at expression path)
+    (if (null? path) expression
+      (let* ((kind (car expression))
+             (children (case kind
+                         ((choice sequence) (cdr expression))
+                         ((optional repeat repeat1) (list (cadr expression)))
+                         ((field alias) (list (caddr expression)))
+                         ((precedence) (list (cadddr expression)))
+                         (else '())))
+             (index (car path)))
+        (and (< index (length children)) (source-at (list-ref children index) (cdr path))))))
+  (let* ((reserved (map (lambda (index) (string->symbol (string-append "$start." (number->string index))))
+                        (iota 128)))
+         ;; Half are declared; half are deliberately undefined references. Both
+         ;; groups must be reserved before any helper or augmentation is claimed.
+         (rules (cons
+                 (list 'start
+                   (list 'alias 'Start
+                     (list 'choice
+                       '(sequence (optional (literal "a"))
+                                  (repeat1 (sequence (field word (token word)) (literal "b"))))
+                       (cons 'sequence (map (lambda (name) (list 'reference name)) (cons '$accept reserved))))))
+                 (map (lambda (name) (list name '(empty))) (take reserved 64))))
+         (observed '())
+         (productions
+           (lower-rules rules 'start #f
+             (lambda (production owner path expression)
+               (check (any (lambda (row)
+                             (and (eq? owner (car row)) (equal? expression (source-at (cadr row) path)))) rules) => #t)
+               (set! observed (cons production observed))))))
+    (check (lower-rules rules 'start) => productions)
+    (check (map production-id productions) => (iota (length productions)))
+    (check (every (lambda (pair) (eq? (car pair) (cadr pair)))
+                    (map list (reverse observed) (cdr productions))) => #t)
+    (for-each
+     (lambda (production)
+       (let (name (production-lhs production))
+         (unless (assq name rules)
+           (check (memq name (cons '$accept reserved)) => #f)))) productions)
+    ;; The source occurrence comparison must reject a stale/wrong child path.
+    (check (source-at '(sequence (literal "a") (literal "b")) '(1)) => '(literal "b"))
+    (check (equal? '(literal "a") (source-at '(sequence (literal "a") (literal "b")) '(1))) => #f)))
 
 (def (internal-name-isolation-case)
   ;; Both augmented and lowered helper names must avoid authored declarations.
@@ -1150,6 +1196,8 @@
 
 (def resolved-grammar-test
   (test-suite "resolved grammar admission and CFG alternatives"
+    (test-case-add! (TestCase "physical names, emission ordinals and source occurrences agree"
+                      emission-origin-alignment-case))
     (test-case-add! (TestCase "grammar derivation chart, scanner and LR tables compose on the shared model fixture"
                       grammar-model-pipeline-case))
     (test-case-add! (TestCase "schema-valid LR tables need a separate grammar-support obligation"

@@ -93,8 +93,8 @@ receipt. All rows still require a checked Scheme abstraction relation.
 
 | Engine boundary | Present model | Missing composition / producer obligation |
 |-----------------+---------------+--------------------------------------------|
-| DSL/Loader -> canonical IR | Universal recursive DSL/schema derivation equivalence; native-rule syntactic simulation; independent native controls | Establish every native emitted-rule origin and name adapter, POO/AST effects, admission and product consistency |
-| Grammar -> derived facts -> LR tables | Arbitrary-program publication/notification proof; arbitrary-CFG nullable/FIRST Horn compilation and preparation composition; native publication and LR closure checks | Concrete bit/batch/index refinement, productive-domain semantics, termination bound, interning/partitioning and conflict completeness |
+| DSL/Loader -> canonical IR | Universal recursive DSL/schema derivation equivalence; native-rule syntactic simulation; independent native controls | Generate/check every native emitted-rule recipe and name decoder, POO/AST effects, admission and product consistency |
+| Grammar -> derived facts -> LR tables | Arbitrary-program publication/notification proof; arbitrary-CFG nullable/FIRST Horn compilation and preparation composition; native publication and LR closure checks | Complete mutable counter/index refinement, productive-domain semantics, termination bound, interning/partitioning and conflict completeness |
 | Source -> ranked contextual scanner | Longest/rank/declaration maximum over supplied candidates; raw-token predicates and certified row selection | Native candidate completeness, source-to-raw observations, byte mapping, contextual modes and trivia |
 | Pending raw token -> selected terminal -> shift/reduce/capture | =RawRequest= composes row selection, viable prefixes, derived RHS agreement and singleton acceptance; two executable protocol fixtures | Native transition refinement, mutable observations, layout/custom selectors and AST correspondence |
 | Deterministic driver -> fork/layout/recovery | Scope withdrawal and ownership fragments | Branch score/order, fuel exhaustion, effect isolation and failure frontier |
@@ -672,6 +672,90 @@ correctness repair derived from the model and no CPU performance experiment.
 The whole engine is not declared model-closed: native name/origin generation,
 bit/batch adapters, productive/termination and later parser/ABI boundaries remain
 the next proof obligations. Performance optimization stays deferred.
+
+*** Native names, checked origins and coalesced masks
+
+This extension retains the grammar/derivation contract of [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR
+Parsing, sections 2.1--2.2]]: physical representations must preserve grammar
+symbols, productions and derivations. The paper does not prove our allocator,
+bit operations or mutable queue; the following are separate implementation
+correspondence obligations and machine-checked results.
+
+**** Names and production provenance
+
+[[file:../../formal/ParserEngine/Names.lean][Names.lean]] models =claim-name= success, collision retry, and counter
+advancement in [[file:../../src/compiler/lr.ss][lower-rules]]. For every allocation history:
+
+- =unique_names= and =binding_functional= establish unique physical bindings;
+  distinct helpers may legitimately decode to the same expression owner.
+- =helpers_avoid_source= reserves the root, every authored declaration and
+  every reference, including undefined references and later declarations.
+  Safety does not depend on a helper's printed spelling.
+- =observer_alignment= and =ordinal_alignment= preserve the reverse emission
+  tape, the callback's exact production, and contiguous positive production IDs
+  for arbitrary emission counts. Augmentation is a separate production-zero step.
+
+The executable =verify= checker recursively constructs =Lowering.Expansion=
+proofs from local schema rules, append/inlining recipes and uniquely owned
+named-body folds. =admitOrigin= compares both checked endpoints with the actual
+physical production under its name decoder. =checked_native_root_sound=
+composes successful checks with the source DSL derivation theorem for any
+grammar, recipe depth and terminal word. It assumes checked syntactic recipes,
+not final language equality. Controls reject invalid schema rows, ambiguous
+named folding and a changed physical RHS with an unchanged recipe.
+
+The remaining producer obligation is to generate/check these recipes for every
+actual Scheme lowering branch, supply the physical-name decoder, and account
+for augmentation and AST/layout effects. The existing diagnostic callback's
+owner/path/expression label alone is not a proof recipe. Allocation termination,
+source occurrence conversion and observer side effects are not silently proved.
+
+**** Bit representations and owner queues
+
+[[file:../../formal/ParserEngine/Encoding.lean][Encoding.lean]] represents nonnegative arbitrary precision masks with =Nat=.
+=difference_fresh=, =delta_conservation= and =delta_disjoint= characterize
+new-bit publication. =singleton_membership= connects nonzero intersection with
+a shifted singleton to bit membership. =field_member= and =field_complete=
+cover extraction for any positive field width and arbitrary bit address, without
+a fixed fixnum bound. =merge_delivered= proves that coalescing does not erase
+already delivered bits. Correct Scheme integer primitives remain a host premise;
+these laws do not yet prove the entire direct/field iterator's callback order.
+
+=publish_queue_valid= and =drain_queue_valid= preserve unique queued owners
+and the equivalence between queue membership and a nonzero pending row.
+=queue_empty_exact= derives actual mask quiescence. Clearing happens before
+callbacks, so a fresh bit can requeue the same owner without creating duplicates.
+The finite coordinate catalog is explicit; its coverage must come from the
+producer, not from an arbitrary chosen bound.
+
+=clear_owner_partition= derives a batch/rest partition from row clearing.
+=mask_notification_valid= connects that decoding to the worklist's validity
+invariant without assuming the partition. =batch_quiescent_exact= derives
+least Horn meaning for every batch size and queue order. Finally,
+[[file:../../formal/ParserEngine/Solver.lean][batched_preparation_exact]] composes batched nullable and FIRST histories
+with arbitrary-CFG semantics and the grammar-derived terminal catalog.
+
+Native occurrence-counter arithmetic still needs its complete mutable
+registration/delivery simulation; productive-domain shortcuts, iterator order,
+termination bounds and LR interning/partition/conflict construction remain
+explicit gaps. A nullable-only history must not be presented as a proof of the
+joint nullable/productive implementation.
+
+**** Concrete checks and evidence boundaries
+
+The existing resolved-grammar owner now checks 128 helper-looking declarations
+and references, including undefined names, deterministic lowering, callback
+object identity, ordinal order and authored source paths. The existing canonical
+LR1 owner checks bit traversal across host fields, sparse gaps and reentrant
+callbacks. These controls qualify the source adapters; the general theorems above
+do not follow from enumerating those examples.
+
+The local GCC/native run used three workers: four owners, 89 cases, 34.14 seconds,
+exit zero and all owner receipts. The first new test build used an unimported
+list helper and failed; the official list import repaired it. The unchanged
+90-second total and five-second idle watchdogs were retained. No CPU benchmark
+or parser performance optimization was introduced. New proof modules and the
+actual bit-primitive source are included in evidence invalidation controls.
 
 ** Completion gates before architecture optimization
 

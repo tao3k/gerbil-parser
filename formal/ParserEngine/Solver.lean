@@ -1,4 +1,4 @@
-import ParserEngine.Worklist
+import ParserEngine.Encoding
 
 /-! Connect the operational Horn worklist to the nullable fragment of the
 native completion solver for every CFG, including cycles and missing names. -/
@@ -286,5 +286,30 @@ theorem preparation_pipeline_exact (g : CFG) (nullable : Worklist.State Nat)
       (∀ name token, (name, token) ∈ first.known ↔ First g [.nonterminal name] token) := by
   have nullableExact := nullable_control_flow_exact g nullable nullableHistory nullableFinished
   exact ⟨nullableExact, first_control_flow_exact g nullable.known nullableExact first firstHistory firstFinished⟩
+
+/-- Batched completion and FIRST retain the same source semantics. The masks
+adapter constructs BatchTrace steps by clear_owner_partition; final semantic
+closure is derived here rather than supplied as a certificate. -/
+theorem batched_preparation_exact (g : CFG) (nullable : Worklist.State Nat)
+    (first : Worklist.State (Nat × Nat))
+    (nullableHistory : Worklist.BatchTrace (nullableProgram g) (Worklist.initial (nullableProgram g)) nullable)
+    (nullableFinished : nullable.pending = [])
+    (firstHistory : Worklist.BatchTrace (firstProgram g nullable.known (terminalCatalog g))
+      (Worklist.initial (firstProgram g nullable.known (terminalCatalog g))) first)
+    (firstFinished : first.pending = []) :
+    (∀ name, name ∈ nullable.known ↔ Nullable g [.nonterminal name]) ∧
+      (∀ name token, (name, token) ∈ first.known ↔ First g [.nonterminal name] token) := by
+  have nullableExact : ∀ name, name ∈ nullable.known ↔ Nullable g [.nonterminal name] := by
+    intro name
+    rw [Worklist.batch_quiescent_exact _ nullable nullableHistory nullableFinished]
+    exact nullable_horn_exact g name
+  refine ⟨nullableExact, ?_⟩
+  intro name token
+  rw [Worklist.batch_quiescent_exact _ first firstHistory firstFinished]
+  constructor
+  · exact first_horn_sound g nullable.known (terminalCatalog g) nullableExact (name, token)
+  · intro semantic
+    exact (first_horn_exact g nullable.known (terminalCatalog g) nullableExact name token
+      (named_first_in_catalog semantic)).mpr semantic
 
 end ParserEngine.Solver

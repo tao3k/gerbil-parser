@@ -23,7 +23,7 @@ class ModelInputControls(unittest.TestCase):
             request = root / "formal/ParserEngine/Request.lean"
             request.write_text("namespace Request\nend Request\n")
             (root / "formal/ParserEngine/Grammar.lean").write_text("namespace Grammar\nend Grammar\n")
-            for module in ("Viable", "RawRequest", "Completion", "NativeFacts", "Lowering", "Worklist", "Solver"):
+            for module in ("Viable", "RawRequest", "Completion", "NativeFacts", "Lowering", "Worklist", "Solver", "Encoding", "Names"):
                 (root / f"formal/ParserEngine/{module}.lean").write_text(f"namespace {module}\nend {module}\n")
             lean, quint = model_checks(root)
             self.assertEqual((lean.claim, quint.claim), ("lean-model", "quint-protocol"))
@@ -84,7 +84,7 @@ class ModelInputControls(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 if not path.exists():
                     path.write_text("input")
-            for module in ("Viable", "RawRequest", "Completion", "NativeFacts", "Lowering", "Worklist", "Solver"):
+            for module in ("Viable", "RawRequest", "Completion", "NativeFacts", "Lowering", "Worklist", "Solver", "Encoding", "Names"):
                 before = snapshot(root, lean.inputs)
                 (root / f"formal/ParserEngine/{module}.lean").write_text("changed graph/request premise")
                 self.assertNotEqual(before, snapshot(root, lean.inputs))
@@ -95,7 +95,7 @@ class ModelInputControls(unittest.TestCase):
             first = snapshot(root, quint.inputs)
             (root / "formal/quint/ReuseAdmission.qnt").write_text("changed protocol")
             self.assertNotEqual(first, snapshot(root, quint.inputs))
-            for name in ("formal/quint/Completion.qnt", "formal/ParserEngine/NativeFacts.lean", "t/generate-grammar-model-facts.ss", "formal/quint/RawRequest.qnt", "src/compiler/lr-follow-automaton.ss", "formal/quint/GrammarPipeline.qnt", "src/compiler/lr-table.ss", "src/compiler/lr-compiler.ss",
+            for name in ("formal/quint/Completion.qnt", "formal/ParserEngine/NativeFacts.lean", "t/generate-grammar-model-facts.ss", "formal/quint/RawRequest.qnt", "src/compiler/lr-follow-automaton.ss", "formal/quint/GrammarPipeline.qnt", "src/compiler/lr-table.ss", "src/compiler/funcs.ss", "src/compiler/lr-compiler.ss",
                          "t/resolved-grammar-test.ss", "formal/quint/RequestFlow.qnt", "docs/research/parser-engine-formal-model.org",
                          "formal/quint/LookaheadScope.qnt", "formal/quint/ModuleAdmission.qnt",
                          "src/runtime/lr-parser/checkpoint.ss", "src/runtime/token.ss",

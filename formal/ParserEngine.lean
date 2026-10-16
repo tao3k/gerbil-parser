@@ -1,3 +1,5 @@
+import ParserEngine.Names
+import ParserEngine.Encoding
 import ParserEngine.Lowering
 import ParserEngine.Solver
 import ParserEngine.NativeFacts
@@ -224,3 +226,22 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 
 #print axioms ParserEngine.Lowering.isolated_repeat_origin
 #print axioms ParserEngine.Lowering.isolated_repeat1_origin
+
+#print axioms ParserEngine.Encoding.delta_conservation
+#print axioms ParserEngine.Encoding.field_complete
+#print axioms ParserEngine.Worklist.batch_quiescent_exact
+
+#print axioms ParserEngine.Names.unique_names
+#print axioms ParserEngine.Names.reserved_not_helper
+#print axioms ParserEngine.Names.ordinal_alignment
+#print axioms ParserEngine.Names.checked_native_root_sound
+#print axioms ParserEngine.Worklist.mask_notification_valid
+
+#print axioms ParserEngine.Solver.batched_preparation_exact
+
+#print axioms ParserEngine.Encoding.publish_queue_valid
+#print axioms ParserEngine.Encoding.drain_queue_valid
+
+#print axioms ParserEngine.Names.helpers_avoid_source
+#print axioms ParserEngine.Encoding.merge_delivered
+#print axioms ParserEngine.Encoding.queue_empty_exact

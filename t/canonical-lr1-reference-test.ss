@@ -14,7 +14,7 @@
                  production-rhs production-table production-terminal-catalog)
         (only-in :gerbil-parser/src/compiler/lr-automaton
                  build-lr0-automaton make-item-layout make-core-symbol-catalog
-                 core-item-production-id core-item-dot)
+                 core-item-production-id core-item-dot core-item-count)
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
         (only-in :gerbil-parser/src/compiler/lr-conflict-candidates
                  forward-reachable-follow-masks
@@ -37,6 +37,45 @@
 
 (import (only-in :gerbil-parser/src/compiler/lr-partition refine-canonical-partition build-states-via-partitioned-lr1)
         (only-in :std/vector/extensible ExtensibleVector-fill-pointer ExtensibleVector-ref))
+
+(def (canonical-interning-domain-case)
+  (for-each
+   (lambda (rules)
+     (let* ((productions (lower-rules rules 'source-file)) (table (production-table productions)))
+       (let-values (((_nullable nullable) (compute-nullable productions)))
+         (let-values (((_first first) (compute-first productions nullable)))
+           (let-values (((states count masks offsets edges terminals layout _symbols visits _items)
+                         (build-states-via-canonical-lr1 productions table first nullable)))
+             (let ((keys (make-table test: equal?)) (edge-keys (make-table test: equal?)))
+               (check visits => count)
+               (for-each (lambda (state)
+                 (let ((dense (make-vector (core-item-count layout) 0)) (actual '())
+                       (position (vector-ref offsets state)))
+                   (for-each (lambda (core)
+                     (let (mask (vector-ref masks position))
+                       (check (> mask 0) => #t)
+                       (check (< mask (arithmetic-shift 1 (vector-length terminals))) => #t)
+                       (check (vector-ref dense core) => 0)
+                       (vector-set! dense core mask)
+                       (set! actual (cons (cons core mask) actual))
+                       (set! position (+ position 1)))) (vector-ref states state))
+                   (let (normalized (filter-map (lambda (core)
+                                     (let (mask (vector-ref dense core))
+                                       (and (> mask 0) (cons core mask))))
+                                   (iota (vector-length dense))))
+                     (check (reverse actual) => normalized)
+                     (check (table-ref keys normalized #f) => #f)
+                     (table-set! keys normalized state)
+                     (check (table-ref keys normalized #f) => state)))) (iota count))
+               (for-each (lambda (edge)
+                 (let (key (list (car edge) (cadr edge)))
+                   (check (table-ref edge-keys key #f) => #f)
+                   (table-set! edge-keys key #t)
+                   (check (< (car edge) count) => #t)
+                   (check (< (caddr edge) count) => #t))) edges)
+               (##gc)
+               (check (table-length keys) => count)))))))
+   (list shared-lookahead-rules lr1-not-lalr-rules (lr1-context-family-rules 4))))
 
 (def (partition-termination-bound-case)
   ;; This is an operation bound, not a timing assertion. The real dirty loop
@@ -303,7 +342,11 @@
                 (let dot-loop ((dot 0))
                   (when (<= dot (length
                                  (production-rhs (vector-ref table id))))
-                    (let (blocks (vector-ref partitions (+ start dot)))
+                    (let ((blocks (vector-ref partitions (+ start dot))) (seen 0))
+                      (for-each (lambda (block)
+                        (check (> (cdr block) 0) => #t)
+                        (check (bitwise-and seen (cdr block)) => 0)
+                        (set! seen (compiler-index-set-union seen (cdr block)))) blocks)
                       (check
                        (foldl (lambda (block mask)
                                 (compiler-index-set-union mask (cdr block)))
@@ -371,6 +414,8 @@
 
 (def canonical-lr1-reference-test
   (test-suite "canonical LR(1) reference"
+    (poo-flow-test-case "native canonical keys inhabit their finite matrix catalogue and intern once"
+      (canonical-interning-domain-case))
     (poo-flow-test-case "native partition rounds satisfy the finite dense-group bound"
       (partition-termination-bound-case))
     (poo-flow-test-case "native lookahead delivery stays within its finite item-terminal domain"

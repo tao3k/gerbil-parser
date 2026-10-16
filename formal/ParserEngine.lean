@@ -347,3 +347,57 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Operational.Layout.token_final_byte_in_bounds
 
 #print axioms ParserEngine.Operational.Scheduling.stale_publication_noop
+
+#print axioms ParserEngine.Operational.Collection.frozen_survives
+
+#print axioms ParserEngine.Operational.Collection.identity_survives
+
+#print axioms ParserEngine.Operational.Collection.private_owner_survives
+
+#print axioms ParserEngine.Operational.Collection.suspended_publication_survives
+
+#print axioms ParserEngine.Operational.Reentry.crossing_decomposes
+
+#print axioms ParserEngine.Operational.Reentry.resume_captured_path
+
+#print axioms ParserEngine.Operational.Reentry.same_path_has_no_crossings
+
+#print axioms ParserEngine.Operational.Reentry.repeated_resume
+
+#print axioms ParserEngine.Operational.Reentry.captured_context_restored
+
+#print axioms ParserEngine.Operational.Reentry.captured_column_survives
+
+#print axioms ParserEngine.Operational.Backward.buckets_mass
+
+#print axioms ParserEngine.Operational.Backward.buckets_nonempty
+
+#print axioms ParserEngine.Operational.Backward.refined_vertices
+
+#print axioms ParserEngine.Operational.Backward.changed_grows
+
+#print axioms ParserEngine.Operational.Canonical.matrix_is_enumerated
+
+#print axioms ParserEngine.Operational.Canonical.intern_catalogue_bound
+
+#print axioms ParserEngine.Operational.Canonical.closure_enqueue_decreases
+
+#print axioms ParserEngine.Operational.Canonical.existing_never_requeues
+
+#print axioms ParserEngine.Operational.Canonical.novel_intern_decreases
+
+#print axioms ParserEngine.Operational.Canonical.intern_accounting
+
+#print axioms ParserEngine.Operational.Canonical.drain_decreases
+
+#print axioms ParserEngine.Operational.Canonical.completed_processes_catalogue
+
+#print axioms ParserEngine.Operational.Backward.round_bound
+
+#print axioms ParserEngine.Operational.Canonical.expand_rank_le
+
+#print axioms ParserEngine.Operational.Canonical.finish_quiescent
+
+#print axioms ParserEngine.Operational.Canonical.finish_processes_all_keys
+
+#print axioms ParserEngine.Operational.Canonical.catalogue_count

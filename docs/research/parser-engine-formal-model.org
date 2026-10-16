@@ -1675,3 +1675,142 @@ atomic-write, stale-publication, scope-exit and recursion-guard falsifiers.
 The new proof module is part of the evidence snapshot and source-change
 invalidation controls. Model, native control and CI evidence remain distinct.
 No local runtime performance optimization is included.
+
+
+* Collection, continuation reentry and distinct LR schedulers
+
+This extension follows the paper-to-implementation obligations above. The LR
+item and finite terminal domains remain those of the existing research basis;
+GC and dynamic extent are additional Scheme runtime obligations, not results
+attributed to an LR paper. The universal algorithms are in
+[[file:../../formal/ParserEngine/Operational.lean][Operational.lean]], the executable counterexamples in
+[[file:../../formal/quint/GrammarPipeline.qnt][GrammarPipeline.qnt]], and the implementation controls in
+[[file:../../t/canonical-lr1-reference-test.ss][canonical reference tests]] and
+[[file:../../t/layout-boundary-test.ss][layout boundary tests]]. These models add no parser dispatch or runtime
+performance change.
+
+** Reachability, relocation and suspended roots
+
+=Collection.Reachable= follows pair edges and vector slots from an explicit
+root set. =Relocation= requires each reachable cell to be copied with renamed
+references and the address map to be injective on reachable objects.
+=frozen_survives= preserves a published immutable tree by induction over its
+heap representation. =identity_survives= preserves equality of live references;
+=private_owner_survives= preserves separation from retained live owners.
+
+A numeric allocation frontier is not invariant under a moving collector.
+The post-collection ownership statement therefore uses renamed live reference
+sets, rather than comparing relocated addresses with the old frontier.
+=suspended_publication_survives= explicitly includes captured continuation
+roots alongside active roots. Omitting a suspended root prevents application
+of the theorem; Quint includes that invalid-root-set control.
+
+This is a collector contract, not a verification of Gambit's collector,
+root discovery, foreign-pointer pinning or concurrent collection. Opaque atom
+values carry no modeled heap references. The theorem does not permit foreign
+mutation of a published tree.
+
+** Dynamic extent and repeated reentry
+
+=Reentry.commonPath= compares activation identities along the two wind paths.
+Equal parameter values do not establish a shared activation. =resume= checks
+and exits departed activations from inside to outside, preserves the shared
+prefix, then enters target activations from outside to inside.
+=resume_captured_path= derives the resulting stack through these operations;
+=repeated_resume= admits repeated use of the same captured path without a
+one-shot flag. =captured_context_restored= selects the captured layout context.
+=captured_column_survives= connects its column reference to the relocation
+contract and the captured root set.
+
+The native control captures a continuation in the real LR action selector
+following a layout shift, escapes the inner parameter scope, forces GC, and
+resumes that continuation twice. Both resumed requests finish parsing, with
+inner frame/column contents restored and outer frame/column identities and
+contents restored on return. Inner wind hooks run three times in each
+direction, while the shared outer extent enters and exits once. The action
+rows are compared with an independent recursive pair snapshot after GC.
+
+The logical activation environment follows the engine's scoped parameter
+bindings. Arbitrary mutation of captured parameter cells and arbitrary effects
+of wind hooks are outside this model. This is not a complete Scheme
+continuation interpreter, a proof of forced thread termination, or a Rust
+cancellation proof.
+
+** Backward follow-block refinement
+
+The actual backward builder in
+[[file:../../src/compiler/lr-follow-automaton.ss][lr-follow-automaton.ss]] computes successor-signature buckets inside each
+old block. Its changed flag means that at least one old block produced more
+than one bucket. Initial blocks in
+[[file:../../src/compiler/lr-conflict-candidates.ss][lr-conflict-candidates.ss]] are created from actual follow bits and are
+nonempty. The model retains that essential premise.
+
+=Backward.insert= and =buckets= construct the buckets; =buckets_mass= proves
+exact occurrence preservation and =buckets_nonempty= proves each emitted
+bucket is nonempty. =refine= never merges different old blocks.
+=changed_grows= derives strict block-count growth from the constructed bucket
+predicate, rather than assuming that any changed flag implies progress.
+=rounds= recomputes signatures at every round and recurses on the measure
+=vertices - blocks=. =round_bound= bounds the complete run by the initial
+measure plus one. Quint demonstrates why empty old blocks invalidate that
+argument. Native controls check positive, pairwise-disjoint block masks and
+exact coverage of each core's forward follow mask.
+
+Native bitset enumeration, successor-index equality, cache invalidation and
+active dependency scheduling remain representation and producer obligations.
+The round theorem alone does not prove these adapters or semantic quiescence.
+
+** Canonical closure and interning
+
+The canonical closure in
+[[file:../../src/compiler/lr-lookahead.ss][lr-lookahead.ss]] can append an owner already pending when new mask bits
+arrive. This differs from the coalesced LALR scheduler. The canonical model
+retains duplicate queue entries: =closure_enqueue_decreases= proves progress
+with =2 * remaining facts + pending owners= because every publication consumes
+at least one fresh fact. A stale publication is unchanged.
+
+For physical core count C and terminal count T, =matrices= enumerates every
+length-C mask vector bounded by 2^T. =catalogue= converts them to sparse keys,
+omitting zero masks in physical core order. =native_key_admitted= proves
+membership for arbitrary bounded input vectors; =catalogue_count= derives
+catalogue size (2^T)^C. This is a finite upper bound, not an expected state count
+or a performance claim. Native tests reconstruct dense vectors from real
+canonical states and check their normalized sparse keys, mask bounds, key
+uniqueness, state zero and transition endpoints.
+
+=Canonical.intern= reuses existing keys without enqueueing them and appends
+only novel keys. =Admitted= carries unique discovered keys, catalogue
+membership and =pending + processed = discovered=. =admit=, =removeHead= and
+=expand= preserve those invariants. =finish= runs the complete drain/expand
+loop by well-founded recursion on
+=2 * (catalogue size - discovered keys) + pending owners=.
+=finish_quiescent= derives an empty queue and =finish_processes_all_keys=
+derives equality of final processed and discovered counts. These results do
+not assume a final execution certificate supplied by the caller.
+
+Targets must be finite, catalogue-admitted and generated by a terminating
+callback. Relating native hash tables, queue identities and target generation
+to these operations remains a source-level refinement obligation. In
+particular, the native builder's returned state count is not an independently
+instrumented dequeue count; the test does not use it as such. Neither the
+catalogue bound nor queue accounting proves language completeness or conflict
+resolution semantics.
+
+** Qualification and remaining composition boundary
+
+Lean builds successfully across 69 jobs, with the theorem axiom audit retaining
+standard Lean logic and no custom axioms, =sorry= or =native_decide=.
+GrammarPipeline passes 33 directed tests, including suspended-root omission,
+relocated ownership, wind activation identity, duplicate canonical queue
+entries, empty backward blocks and reuse of state zero. Five evidence-input,
+host-control and collector tests pass.
+
+The four native owners run concurrently under the existing 90-second total
+and five-second idle limits: canonical reference 28, resolved grammar 55,
+layout boundary 14 and style contract 6, for 103 passing cases in 41.0 seconds.
+After strengthening the independent pair snapshot, all 20 affected layout and
+style cases pass again in 12.0 seconds. These receipts establish exercised
+implementation behavior; they do not discharge universal collector or native
+representation premises. Whole-engine model closure remains open at those
+explicit adapters. No CPU improvement is claimed or benchmark substituted for
+those proof obligations.

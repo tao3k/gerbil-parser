@@ -26,6 +26,7 @@
                  make-success-parse-artifact
                  parse-artifact-success? parse-artifact-valid? parse-artifact-roundtrip)
         (only-in :gerbil-parser/src/runtime/token make-token)
+        (only-in :gerbil-parser/src/runtime/recognition recognition-node-kind)
         (only-in :gerbil-parser/src/runtime/layout
                  make-layout-columns current-layout-columns current-layout-frames
                  layout-after-end layout-current-action-row prepare-layout-action-selector))
@@ -156,8 +157,71 @@
       (parameterize ((current-layout-frames '()))
         (check (layout-after-end #f) => #f)))))
 
+(def (layout-continuation-gc-case)
+  (def (copy-pairs value)
+    (if (pair? value) (cons (copy-pairs (car value)) (copy-pairs (cdr value))) value))
+  ;; Capture inside the actual GLR/layout driver after its marker shift. The
+  ;; suspended parameter binding, not an extra root variable, owns inner columns.
+  (let* ((rules '((root (alias Root (sequence (reference block) (token word))))
+                 (block (sequence (layout-start "|>") (reference body) (layout-end)))
+                 (body (choice (precedence right 1 (sequence (token word) (reference body)))
+                               (precedence left 0 (empty))))))
+         (spec (compile-lr-spec rules 'root 'selective-glr))
+         (base (lr-prepare spec)) (published (copy-pairs (vector->list (lr-spec-ref spec 'actions))))
+         (outer-columns (make-layout-columns "outer")) (outer-frames '((100 . "outer")))
+         (outer-values (u32vector->list outer-columns))
+         (resume #f) (escape #f) (resumes 0) (visits 0) (completed 0)
+         (outer-before 0) (outer-after 0) (inner-before 0) (inner-after 0)
+         (runtime (lr-runtime-with-action-selector base
+           (lambda (rows index insensitive? layout?)
+             (let (select (make-lr-action-selector rows index insensitive? layout?))
+               (lambda (state token)
+                 (when (and (not resume) (pair? (current-layout-frames)))
+                   (call/cc (lambda (continuation) (set! resume continuation) (escape 'suspended)))
+                   (set! visits (+ visits 1))
+                   (check (current-layout-frames) => '((1 . "|>")))
+                   (check (u32vector->list (current-layout-columns)) => '(0 1 2 0 1))
+                   (##gc)
+                   (check (vector->list (lr-spec-ref spec 'actions)) => published))
+                 (select state token)))))))
+    (dynamic-wind
+     (lambda () (set! outer-before (+ outer-before 1)))
+     (lambda ()
+       (parameterize ((current-layout-columns outer-columns) (current-layout-frames outer-frames))
+         (let ((result
+                (call/cc
+                 (lambda (exit)
+                   (set! escape exit)
+                   (dynamic-wind
+                    (lambda ()
+                      (set! inner-before (+ inner-before 1))
+                      (check (eq? (current-layout-columns) outer-columns) => #t))
+                    (lambda ()
+                      (parameterize ((current-layout-columns (make-layout-columns "|>\nx"))
+                                     (current-layout-frames '()))
+                        (let-values (((root rest) (lr-parse/prepared runtime
+                                      (list (make-token 'punctuation "|>" 0 2) (make-token 'word "x" 3 4)))))
+                          (check rest => '())
+                          (check (recognition-node-kind root) => 'Root)
+                          'accepted)))
+                    (lambda ()
+                      (set! inner-after (+ inner-after 1))
+                      (check (eq? (current-layout-columns) outer-columns) => #t)))))))
+           (check (eq? (current-layout-columns) outer-columns) => #t)
+           (check (eq? (current-layout-frames) outer-frames) => #t)
+           (check (u32vector->list outer-columns) => outer-values)
+           (when (eq? result 'accepted) (set! completed (+ completed 1)))
+           (when (< resumes 2)
+             (set! resumes (+ resumes 1))
+             (##gc)
+             (resume 'again)))))
+     (lambda () (set! outer-after (+ outer-after 1))))
+    (check (list visits completed inner-before inner-after outer-before outer-after) => '(2 2 3 3 1 1))))
+
 (def layout-boundary-test
   (test-suite "Grammar-owned layout closing boundaries"
+    (test-case "actual layout continuations survive GC and repeated dynamic reentry"
+      (layout-continuation-gc-case))
     (test-case "layout branch exceptions restore owned outer columns and frames"
       (layout-unwind-exception-case))
     (test-case "native layout fallback retains suppressed reduce origins and immutable rows"

@@ -292,4 +292,72 @@ module GrammarPipeline {
     partitionContinues(4,2,3) and not(partitionContinues(4,2,2)) and
       not(partitionContinues(4,3,4)) and not(partitionContinues(4,3,2)))
 
+  pure def renameHeapObject(object:HeapObject,rho:List[int]):HeapObject =
+    {...object,refs:object.refs.foldl(List(),(refs,address) => refs.append(rho.nth(address)))}
+  pure def copiedRoots(before:List[HeapObject],after:List[HeapObject],rho:List[int],roots:Set[int]):bool =
+    roots.forall(root => if(after.indices().contains(rho.nth(root)))
+      after.nth(rho.nth(root)) == renameHeapObject(before.nth(root),rho) else false)
+  run suspendedRootsMustSurviveCollectionTest = init.expect({
+    val before = List({tag:"pair",refs:List(1,1),atom:0},
+      {tag:"atom",refs:List(),atom:7},{tag:"vector",refs:List(0),atom:0})
+    val rho = List(1,0,2)
+    val activeOnly = List(renameHeapObject(before.nth(1),rho),renameHeapObject(before.nth(0),rho))
+    val retained = activeOnly.append(renameHeapObject(before.nth(2),rho))
+    copiedRoots(before,activeOnly,rho,Set(0,1)) and
+      not(copiedRoots(before,activeOnly,rho,Set(0,1,2))) and
+      copiedRoots(before,retained,rho,Set(0,1,2)) and retained.nth(1).refs == List(0,0)
+  })
+  pure def moveOwner(owner:int):int = if(owner == 0) 7 else if(owner == 3) 0 else owner
+  run relocationMustNotReuseNumericFrontierTest = init.expect(
+    3 >= 2 and moveOwner(3) < 2 and
+      not(Set(0).map(moveOwner).contains(moveOwner(3))) and moveOwner(0) != moveOwner(3))
+  pure def sharedWindLength(current:List[int],target:List[int]):int = {
+    val shortest = if(current.length() < target.length()) current.length() else target.length()
+    current.indices().filter(i => if(i < target.length()) current.nth(i) != target.nth(i) else false)
+      .fold(shortest,(shared,i) => if(i < shared) i else shared)
+  }
+  pure def reverseWind(path:List[int]):List[int] = path.foldl(List(),(rest,owner) => List(owner).concat(rest))
+  run continuationCrossingUsesActivationIdentityTest = init.expect({
+    val current = List(1,2,3)
+    val target = List(1,4)
+    val shared = sharedWindLength(current,target)
+    reverseWind(current.slice(shared,current.length())) == List(3,2) and
+      target.slice(shared,target.length()) == List(4) and
+      sharedWindLength(current,current) == current.length()
+  })
+  pure def closureQueuePublication(s:QueueBudget,owner:int,incoming:Set[int]):QueueBudget =
+    if(s.remaining.intersect(incoming) == Set()) s
+    else {remaining:s.remaining.exclude(incoming),queued:s.queued.append(owner)}
+  run canonicalClosureDuplicateQueueStillProgressesTest = init.expect({
+    val before = {remaining:Set(1,70),queued:List(4)}
+    val after = closureQueuePublication(before,4,Set(70))
+    after.queued == List(4,4) and queueRank(after) < queueRank(before) and
+      closureQueuePublication(after,4,Set(70)) == after and
+      queuePublication(before,4,Set(70)).queued == List(4)
+  })
+  pure def backwardSignature(vertex:int):int = if(vertex == 1) 1 else 0
+  pure def backwardBuckets(block:Set[int]):List[Set[int]] =
+    block.map(backwardSignature).fold(List(),(groups,key) =>
+      groups.append(block.filter(vertex => backwardSignature(vertex) == key)))
+  pure def backwardMass(blocks:List[Set[int]]):int = blocks.foldl(0,(total,block) => total + block.size())
+  run backwardChangedRequiresNonemptyBlocksTest = init.expect({
+    val before = List(Set(0,1,2),Set(3,4))
+    val after = before.foldl(List(),(groups,block) => groups.concat(backwardBuckets(block)))
+    val invalid = List(Set(),Set(0,1))
+    val invalidAfter = invalid.foldl(List(),(groups,block) => groups.concat(backwardBuckets(block)))
+    after.length() > before.length() and backwardMass(after) == backwardMass(before) and
+      backwardBuckets(Set(0,1)).length() > 1 and invalidAfter.length() == invalid.length()
+  })
+  type CanonicalRegistry = {keys:List[List[int]],pending:List[int],processed:int}
+  pure def internMatrix(s:CanonicalRegistry,key:List[int]):CanonicalRegistry =
+    if(s.keys.indices().exists(i => s.keys.nth(i) == key)) s
+    else {...s,keys:s.keys.append(key),pending:s.pending.append(s.keys.length())}
+  run canonicalInterningReusesZeroAndOnlyQueuesNewKeysTest = init.expect({
+    val before = {keys:List(List(1,0)),pending:List(),processed:1}
+    val after = internMatrix(before,List(0,1))
+    internMatrix(before,List(1,0)) == before and after.pending == List(1) and
+      after.pending.length() + after.processed == after.keys.length() and
+      internMatrix(after,List(0,1)) == after
+  })
+
 }

@@ -4,7 +4,7 @@
 ;;; Explicit closing boundaries belong to the declaring language grammar.
 
 (import (only-in :gerbil-parser/t/fixtures/layout-columns wide-frame-roots cyclic-pointer-roots mutual-closure-frame-roots closure-frame-roots
-                 cache-copy-flonum-values host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
+                 cache-copy-flonum-values host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-classification-control host-object-kind host-object-subtype host-chunk-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
         :std/test
         :gerbil-parser/src/grammar/algebra
         (only-in :gerbil-parser/src/language/grammar deflanguage)
@@ -253,6 +253,30 @@
   (test-suite "Grammar-owned layout closing boundaries"
     (test-case "normal ticket handoff reads payload written after waiter allocation"
       (check (host-contended-control) => 0))
+    (test-case "contended chunk handoff retains marker link and copied body"
+      (check (host-chunk-control) => 0))
+    (test-case "native raw headers classify every admitted tag and subtype"
+      (check (host-classification-control) => 0))
+    (test-case "rooted managed values retain their classification through collections"
+      (for-each (lambda (value)
+        (check (host-object-kind value) => 0)
+        (check (host-object-subtype value) => -1)) '(#f #t 0 42 #\a))
+      (let ((values (list (cons 'classification 17) (make-vector 3 'payload)
+                          (make-string 13 #\x) (make-f64vector 3 1.25)))
+            (subtypes '(1 0 19 29)))
+        (let collect ((cycle 0))
+          (when (< cycle 4)
+            (let (before (f64vector-ref (##process-statistics) 6))
+              (##gc)
+              (check (> (f64vector-ref (##process-statistics) 6) before) => #t))
+            (for-each (lambda (value subtype)
+              (check (not (not (memv (host-object-kind value) '(1 2 4)))) => #t)
+              (check (host-object-subtype value) => subtype)) values subtypes)
+            (check (car values) => '(classification . 17))
+            (check (vector->list (cadr values)) => '(payload payload payload))
+            (check (caddr values) => (make-string 13 #\x))
+            (check (f64vector->list (cadddr values)) => '(1.25 1.25 1.25))
+            (collect (+ cycle 1))))))
     (test-case "actual forwarding tags and losing CAS preserve owned storage"
       (check (host-forwarding-control) => 0))
     (test-case "actual heap flonum boxing retains bit patterns and previous allocations"

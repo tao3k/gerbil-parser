@@ -1246,5 +1246,76 @@ module GrammarPipeline {
         selected.size() == words - freeStart and
         not(continuationScanControl(words).contains(0)) and continuationScanControl(words).size() == words - 1
     })))
+  // Mirrors mark_array dispatch under the qualified low-bit memory predicate.
+  pure def nativeObjectControl(word:int,header:int,tagBits:int,present:bool):str =
+    if(word % 2 == 0) "immediate" else if(not(present)) "unmapped" else {
+      val kind = header % 8
+      if(kind == 0) "movable" else if(kind == 5) "still"
+      else if(kind % power2(tagBits) == 3) "forwarded" else if(kind == 6) "permanent" else "invalid"
+    }
+  run immediateClassificationNeverNeedsHeaderTest = init.expect(
+    0.to(15).forall(value => nativeObjectControl(value * 2,0,3,false) == "immediate" and
+      nativeObjectControl(value * 2,7,3,true) == "immediate"))
+  run referenceWithMissingHeaderIsRejectedTest = init.expect(
+    0.to(15).forall(value => nativeObjectControl(value * 2 + 1,0,3,false) == "unmapped"))
+  run nativeHeaderDispatchSeparatesForwardingStillAndInvalidTagsTest = init.expect(
+    nativeObjectControl(1,0,3,true) == "movable" and nativeObjectControl(1,5,3,true) == "still" and
+      nativeObjectControl(1,6,3,true) == "permanent" and nativeObjectControl(1,3,3,true) == "forwarded" and
+      nativeObjectControl(1,7,2,true) == "forwarded" and nativeObjectControl(1,7,3,true) == "invalid" and
+      nativeObjectControl(1,1,3,true) == "invalid" and nativeObjectControl(1,2,3,true) == "invalid")
+  run packedHeaderRoundTripsTagSubtypeAndPartialWordsTest = init.expect(
+    List(0,1,7,8,9,104).foldl(true,(valid,bytes) => valid and 0.to(31).forall(subtype =>
+      0.to(7).forall(kind => {
+        val packedHeader = bytes * 256 + subtype * 8 + kind
+        packedHeader % 8 == kind and (packedHeader / 8) % 32 == subtype and (packedHeader + 7 * 256) / 2048 == (bytes + 7) / 8
+      }))))
+  run stillMarkSchedulesOnlyOnceWithinCollectionCycleTest = init.expect({
+    val after = List(1,1,1,1,1).foldl({marked:false,scheduled:0},(s,visit) =>
+      if(s.marked) s else {marked:true,scheduled:s.scheduled + 1})
+    after.marked and after.scheduled == 1
+  })
+  pure def enqueueEndedChunkControl(start:int,cursor:int,scan:int):bool =
+    cursor + 1 != start and not(start <= scan and scan < cursor + 1)
+  run markerIncrementMakesPayloadEmptinessDifferentFromQueueGuardTest = init.expect(
+    not(enqueueEndedChunkControl(4,4,4)) and enqueueEndedChunkControl(4,4,0) and
+      enqueueEndedChunkControl(4,4,5) and not(enqueueEndedChunkControl(4,8,7)))
+  type ChunkReadControl = {tail:int,linkView:int,bodyView:int,markerView:int,sampled:int}
+  pure def readChunkLinkControl(s:ChunkReadControl):ChunkReadControl = {...s,sampled:s.linkView}
+  pure def importChunkControl(s:ChunkReadControl,epoch:int):ChunkReadControl =
+    {...s,linkView:epoch,bodyView:epoch,markerView:epoch}
+  run lateReaderBarrierCannotRepairEarlierLinkDecodeTest = init.expect(
+    1.to(16).forall(epoch => {
+      val before = {tail:epoch,linkView:0,bodyView:0,markerView:0,sampled:-1}
+      val after = importChunkControl(readChunkLinkControl(before),epoch)
+      after.bodyView == epoch and after.markerView == epoch and after.linkView == epoch and after.sampled == 0 and
+        after.sampled != after.tail
+    }))
+  run visibilityImportedBeforeLinkDecodeAdmitsSnapshotTest = init.expect(
+    1.to(16).forall(epoch => {
+      val before = {tail:epoch,linkView:0,bodyView:0,markerView:0,sampled:-1}
+      val after = readChunkLinkControl(importChunkControl(before,epoch))
+      after.sampled == after.tail and after.bodyView == epoch and after.markerView == epoch
+    }))
+  run writerBarriersAreNotAReaderVisibilityAdmissionTest = init.expect({
+    val writer = {copied:true,marker:true,linked:true,firstFence:true,tail:7,secondFence:true}
+    val observer = {tail:writer.tail,linkView:0,bodyView:0,markerView:0,sampled:-1}
+    writer.firstFence and writer.secondFence and readChunkLinkControl(observer).sampled != observer.tail
+  })
+  type ChunkOrderEdge = {source:int,target:int}
+  pure def chunkOrderEdges(readerOrdered:bool):Set[ChunkOrderEdge] =
+    Set({source:1,target:2},{source:2,target:3},{source:0,target:1}).union(
+      if(readerOrdered) Set({source:3,target:0}) else Set())
+  pure def chunkOrderClosure(readerOrdered:bool):Set[ChunkOrderEdge] =
+    0.to(3).fold(chunkOrderEdges(readerOrdered),(relation,round) => relation.union(
+      relation.fold(Set(),(composed,left) => composed.union(
+        relation.filter(right => left.target == right.source).map(right => {source:left.source,target:right.target})))))
+  run plainMessagePassingSliceHasNoOrderedBeforeCycleTest = init.expect(
+    chunkOrderClosure(false).forall(edge => edge.source != edge.target))
+  run readerOrderingClosesStaleMessagePassingCycleTest = init.expect(
+    chunkOrderClosure(true).contains({source:1,target:1}) and
+      chunkOrderClosure(true).contains({source:0,target:0}))
+  run sourceReaderFenceOrdersBodyButNotEarlierLinkTest = init.expect(
+    not(chunkOrderClosure(3 < 1).contains({source:1,target:1})) and
+      chunkOrderClosure(3 < 5).contains({source:1,target:1}))
 
 }

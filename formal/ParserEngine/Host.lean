@@ -956,7 +956,9 @@ end Acquire
 
 namespace Publication
 /-- Epochs count complete immutable chunks, including end marker and link.
-The weak observer may see a pointer early; only admitted fences forbid that. -/
+This is an admitted snapshot interface: fence imports completed visibility,
+not merely execution of a writer-side C barrier. ChunkPublication refines
+writer/reader ordering before any native execution can admit this interface. -/
 structure State where
   initialized : Nat
   visible : Nat
@@ -977,8 +979,9 @@ theorem fence_safe {s : State} (h : Safe s) : Safe (fence s) := by
 theorem fenced_publication_safe (s : State) : Safe (publishTail (fence (writeChunk s))) := by
   simp [Safe, publishTail, fence, writeChunk]
 
-/-- end_heap_chunk has a second barrier after updating the tail. In this
-payload-safety projection that barrier stutters; wakeup progress is not claimed. -/
+/-- Abstract complete snapshot publication. Native end_heap_chunk has two
+writer barriers, but they alone do not construct this visibility admission;
+the reader must import the link before decoding it. Wakeup is not modeled. -/
 def endChunk (s : State) : State := fence (publishTail (fence (writeChunk s)))
 
 theorem end_chunk_safe (s : State) : Safe (endChunk s) :=

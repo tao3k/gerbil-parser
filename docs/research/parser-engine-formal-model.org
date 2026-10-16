@@ -183,6 +183,110 @@ The existing repeated-collection theorem still requires a full relocation
 contract per cycle; this extension does not claim to have derived that whole
 contract for the native collector.
 
+**** Raw object classification and phase-specific GC publication
+
+This refinement keeps the paper, reported native source and executable controls
+in one ledger. The Gambit source baseline remains
+=dcd677cd3e40860bdd27dfbdbf5e3ce46ab03813=. The installed SDK is a separately
+qualified patched build; baseline source identity is not equality of its bytes.
+
+| Actual producer/consumer | General correspondence | Native control and admission boundary |
+|--------------------------+------------------------+---------------------------------------|
+| =MEM_ALLOCATED=, =BODY0=, =HD_TYP= and =mark_array= | =ObjectClassification.classify= checks the low-bit predicate before an optional physical header load. =immediate_never_reads_header= is independent of the entire heap. =native_header_dispatch= covers every header pattern for two/three tag bits, preserving MOVABLE0/STILL/FORW/PERM distinctions. | 215,040 combinations exercise actual SDK memory/header macros over eight object low tags, eight header tags, 32 subtypes and 105 byte counts. The native control rejects unsupported NaN-boxed/self-tagging memory predicates. Missing physical headers are unadmitted dereferences, not successful runtime validation. |
+| =MAKE_HD=, =HD_SUBTYPE= and =HD_WORDS= | =packed_decode= covers arbitrary counts; =packed_word_decode= connects 64-bit fields and ceiling division under explicit signed-construction and rounding bounds. =header_mask= and =memory_mask= connect C bit masks to the numeric decoder. The physical load address uses the actual BODY0 tag-clearing mask and reference offset. | Native controls include partial-word byte counts. Pointer provenance, actual allocation capacity and other ABI variants remain explicit inputs. |
+| =scan= subtype dispatch after marking | =shape= connects numeric subtype codes to the existing selector. =classification_to_scan= composes actual header lookup, scheduled MOVABLE0/STILL admission and field bounds. STILL pairs scan both fields; MOVABLE0 pairs skip the field already tail-marked. =repeated_still_visit_once= covers arbitrary repeated visits within one collection cycle. | Managed pairs, vectors, strings and numeric vectors retain kinds, subtypes and payloads after each of four counted collections. Native CAS linearization, mark reset between cycles, frame metadata and weak postprocessing remain separate obligations. |
+| Copy loop followed by =end_heap_chunk= | =ChunkPublication.copied_body_and_marker= composes the actual copy-word model with the following marker write for every body slot. =enqueue_exact= derives the post-marker queue guard, including empty payloads and currently scanned chunks. | The marker increments the cursor before the source emptiness test. An empty payload is not automatically an absent queue item; the scan interval decides whether to enqueue it. Physical marker capacity and queue ownership remain admissions. |
+| Queue publication and =scan_complete_heap_chunk= | =ChunkPublication= distinguishes copied body, end marker, link write, both writer fences, tail publication, tail observation, link decode, head update, reader fence and body scan. =link_requires_prior_visibility= identifies the missing pre-decode observation condition. | An owned native queue uses unchanged SDK ticket/barrier/tag macros, forces a waiter to allocate before publication, and checks link, header, payload and marker. This is a source-protocol control, not execution of =mem.c= or a complete SMP collector proof. |
+
+Invalid-header behavior is not silently strengthened. The actual diagnostic
+branch is conditional on enabled consistency checking; a release build may
+ignore an unsupported allocated header. =effect= distinguishes that case from
+PERM and from an unmapped pointer. The model refuses to use either as a valid
+heap-classification premise; it does not claim the native runtime traps all
+malformed pointers.
+
+***** Publication is not a global writer-side visibility flag
+
+The earlier =Publication= owner is now explicitly documented as an admitted
+snapshot interface. Its =fence= transition imports visibility; executing one C
+writer barrier does not automatically construct that transition. The new owner
+separates each reader observation rather than changing the definition to make a
+native pass appear stronger.
+
+Pinned source order in =scan_movable_objs_to_scan= and the stealing path is:
+
+#+begin_example
+tail/head recheck -> load and decode *head -> update head
+                  -> SHARED_MEMORY_BARRIER -> unlock -> scan body
+#+end_example
+
+Consequently, a later barrier may protect the body scan while leaving the
+previous link decode outside that ordering. =late_import_retains_link= and
+=ordinary_reader_gap= prove that even granting a full published-view import
+afterward cannot change the already sampled link. =acquire_before_link=
+instead derives the link observation from a complete admitted ownership
+history, without taking final visibility as a caller-provided certificate.
+
+Fresh GCC ARM64 lowering of the owned reader agrees with the source order:
+ordinary ticket =ldr= polling, =ldp= head/tail recheck, =ldr= link decode,
+head update, =dmb ish=, unlock RMW, then body/marker reads. The earlier ticket
+allocation is =ldaddal=. The original simple waiter still has no post-poll
+acquire before its protected payload load. These are controls on the installed
+macros; neither object proves every C/ISA execution of the collector.
+
+***** Paper ordering slice and ordinary contended acquire
+
+The [[https://www.cl.cam.ac.uk/~pes20/armv8-mca/armv8-mca-draft.pdf][ARMv8 paper]] separates observations from dependency, atomic and barrier
+ordering. =ChunkOrder= records a four-event message-passing slice: data write,
+writer-ordered tail write, tail read from that publication, and a stale data
+read from initialization. The stale read contributes a from-read edge back to
+the published data write. Adding tail-read-to-data-read ordering closes an
+external ordered-before cycle and rejects that candidate under acyclicity.
+Without that edge the slice has an explicit increasing rank, so this particular
+cycle argument cannot reject it.
+
+The source fence occurs between link decode and body scan. The same general
+cycle theorem therefore distinguishes the two reads: it rejects stale body
+observation under the admitted external-order contract, while leaving the
+link-read slice open. Acyclicity of this subgraph is not a proof that the whole
+ARM candidate is allowed; full dependencies, coherence, LSE, C race admission
+and compiler translation still require checking. The paper's Section 11 example
+uses a different Linux API and is not a reproduced failure of this SDK.
+
+The [[https://gcc.gnu.org/onlinedocs/gcc/Volatiles.html][GCC volatile contract]] supplies no ordinary-memory barrier. Its
+[[https://gcc.gnu.org/onlinedocs/gcc/_005f_005fsync-Builtins.html][legacy atomic contract]] does supply full-barrier operations for the selected
+macros, but a ticket allocation before the owner's later publication does not
+supply an ordering edge at the matching poll. The source obligation is now
+localized: establish imported queue-link visibility before decoding it, along
+with complete ownership and payload publication. A local successful handoff,
+backend selection or a later fence cannot discharge that earlier observation.
+
+***** Qualification and remaining closure boundary
+
+- Lean: the complete 72-job package and explicit axiom listings; only standard
+  logical axioms, with no admitted host axiom or =native_decide=.
+- Quint: 132 directed controls, adding raw classification, packed headers,
+  nonmoving visits, post-marker enqueue decisions, early/late imports and the
+  paper ordering slice with distinct link/body reads.
+- GCC/GC and style: 30+6=36 cases, two workers, natural exit zero in 8.9966
+  seconds under unchanged 90/5-second budgets. Each managed-object collection
+  advances the collector counter and rechecks both metadata and payloads.
+- Native queue and ordinary waiter lowering is inspected from the current
+  rebuilt fixture; source ordering is preserved, rather than repaired inside
+  the control. No hardware failure is claimed from its passing result.
+- At inspection, the sole PR revision =73b8a4f= has three successful Rust jobs;
+  Ubuntu preparation/semantics/FFI/generation/corpus and macOS preparation
+  have passed. macOS execution jobs are queued, with no red completed job.
+  Local evidence is separate from the next revision's remote CI result.
+
+The primitive classification, copy/marker and conditional ordering proofs are
+now connected. Complete native pointer provenance, allocator/mark lifecycle,
+queue coherence, weak/frame traversal and compiler/ISA acquire refinement remain
+open. Ordinary contended acquire is not proved safe for arbitrary protected
+reads; the GC link-read obligation is more specific than the old scalar snapshot
+model exposed. No runtime optimization, lock backend change or installed SDK
+patch is part of this refinement.
+
 **** Entry/return, apply fusion and special-object scan refinement
 
 This extension follows the same paper/source/model/control chain. The reported

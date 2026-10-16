@@ -2801,6 +2801,370 @@ theorem selected_fields_in_bounds (shape : Shape) (words index : Nat)
 
 end SpecialScan
 
+namespace ObjectClassification
+/-- Qualified non-NaN-boxed ABI with a low-bit memory predicate. The native control
+rejects other SDK configurations instead of reading immediate bits as pointers. -/
+inductive Kind where
+  | immediate | movable | still | forwarded | permanent | invalid | unmapped
+  deriving DecidableEq, Repr
+
+def fromHeader (tagBits : Nat) (head : BitVec 64) : Kind :=
+  let kind := head.toNat % 8
+  if kind = 0 then .movable else if kind = 5 then .still
+  else if kind % 2^tagBits = 3 then .forwarded
+  else if kind = 6 then .permanent else .invalid
+
+def bodyAddress (tagBits : Nat) (referenceBytes word : BitVec 64) : BitVec 64 :=
+  (word &&& ~~~(BitVec.ofNat 64 (2^tagBits - 1))) + referenceBytes
+
+def classify (tagBits : Nat) (referenceBytes word : BitVec 64)
+    (load : BitVec 64 → Option (BitVec 64)) : Kind :=
+  if word.toNat % 2 = 0 then .immediate else
+    match load (bodyAddress tagBits referenceBytes word - (8 : BitVec 64)) with
+    | none => .unmapped
+    | some head => fromHeader tagBits head
+
+theorem immediate_never_reads_header (tagBits : Nat) (referenceBytes word : BitVec 64)
+    (even : word.toNat % 2 = 0) (left right : BitVec 64 → Option (BitVec 64)) :
+    classify tagBits referenceBytes word left = .immediate ∧
+    classify tagBits referenceBytes word left = classify tagBits referenceBytes word right := by
+  simp [classify, even]
+
+theorem missing_reference_header_rejected (tagBits : Nat) (referenceBytes word : BitVec 64)
+    (odd : word.toNat % 2 ≠ 0) (load : BitVec 64 → Option (BitVec 64))
+    (missing : load (bodyAddress tagBits referenceBytes word - (8 : BitVec 64)) = none) :
+    classify tagBits referenceBytes word load = .unmapped := by
+  unfold classify
+  rw [ite_eq_right odd, missing]
+
+/-- Release builds do not necessarily diagnose invalid allocated headers:
+mark_array's else branch reports only under enabled consistency diagnostics.
+An unmapped address is outside C dereference admission, never PERM. -/
+inductive Effect where
+  | unchanged | copy | scheduleStill | redirect | reportInvalid | ignoreInvalid | unadmittedDereference
+  deriving DecidableEq, Repr
+
+def effect (diagnostics : Bool) : Kind → Effect
+  | .immediate | .permanent => .unchanged
+  | .movable => .copy
+  | .still => .scheduleStill
+  | .forwarded => .redirect
+  | .invalid => if diagnostics then .reportInvalid else .ignoreInvalid
+  | .unmapped => .unadmittedDereference
+
+theorem invalid_is_not_permanent (head : BitVec 64) (tagBits : Nat)
+    (invalid : fromHeader tagBits head = .invalid) :
+    fromHeader tagBits head ≠ .permanent ∧ effect false (fromHeader tagBits head) = .ignoreInvalid := by
+  simp [invalid, effect]
+
+theorem native_header_dispatch (tagBits : Nat) (admitted : tagBits = 2 ∨ tagBits = 3)
+    (head : BitVec 64) :
+    (fromHeader tagBits head = .movable ↔ head.toNat % 8 = 0) ∧
+    (fromHeader tagBits head = .still ↔ head.toNat % 8 = 5) ∧
+    (fromHeader tagBits head = .forwarded ↔ head.toNat % 2^tagBits = 3) ∧
+    (fromHeader tagBits head = .permanent ↔ head.toNat % 8 = 6) := by
+  have bounds := Nat.mod_lt head.toNat (by decide : 0 < 8)
+  have cases : head.toNat % 8 = 0 ∨ head.toNat % 8 = 1 ∨ head.toNat % 8 = 2 ∨
+      head.toNat % 8 = 3 ∨ head.toNat % 8 = 4 ∨ head.toNat % 8 = 5 ∨
+      head.toNat % 8 = 6 ∨ head.toNat % 8 = 7 := by omega
+  rcases admitted with rfl | rfl <;>
+    rcases cases with h | h | h | h | h | h | h | h <;>
+      simp [fromHeader, h] <;> omega
+
+/-- MAKE_HD uses five subtype bits above three header bits. This mathematical
+packing corresponds to unsigned C only while the addition does not overflow. -/
+def packed (bytes subtype kind : Nat) : Nat := bytes * 256 + subtype * 8 + kind
+
+theorem packed_decode (bytes subtype kind : Nat) (subtypeBound : subtype < 32)
+    (kindBound : kind < 8) :
+    packed bytes subtype kind % 8 = kind ∧
+    (packed bytes subtype kind / 8) % 32 = subtype ∧
+    (packed bytes subtype kind + 7 * 256) / 2048 = (bytes + 7) / 8 := by
+  unfold packed
+  omega
+
+theorem header_mask (head : BitVec 64) : (head &&& 7).toNat = head.toNat % 8 := by
+  rw [BitVec.toNat_and]
+  exact Nat.and_two_pow_sub_one_eq_mod head.toNat 3
+
+/-- Positive signed-header admission avoids undefined signed construction and
+also proves the collector's unsigned rounding addition does not wrap. -/
+theorem packed_word_decode (bytes subtype kind : Nat) (subtypeBound : subtype < 32)
+    (kindBound : kind < 8) (signedFits : packed bytes subtype kind + 1792 < 2^63) :
+    let head := BitVec.ofNat 64 (packed bytes subtype kind)
+    (head &&& 7).toNat = kind ∧
+    (head.toNat / 8) % 32 = subtype ∧
+    (head + (1792 : BitVec 64)).toNat / 2048 = (bytes + 7) / 8 := by
+  have fits : packed bytes subtype kind < 2^64 := by omega
+  have roundedFits : packed bytes subtype kind + 1792 < 2^64 := by omega
+  have value : (BitVec.ofNat 64 (packed bytes subtype kind)).toNat = packed bytes subtype kind := by
+    simp [BitVec.toNat_ofNat, Nat.mod_eq_of_lt fits]
+  dsimp only
+  obtain ⟨tag, subtypeRead, countRead⟩ := packed_decode bytes subtype kind subtypeBound kindBound
+  refine ⟨?_, ?_, ?_⟩
+  · rw [header_mask, value]; exact tag
+  · rw [value]; exact subtypeRead
+  · rw [BitVec.toNat_add, value]
+    change (packed bytes subtype kind + 1792) % 2^64 / 2048 = (bytes + 7) / 8
+    rw [Nat.mod_eq_of_lt roundedFits]
+    exact countRead
+
+/-- The native low-bit MEM_ALLOCATED predicate is exactly the arithmetic
+predicate used before any header access, for every 64-bit object word. -/
+theorem memory_mask (word : BitVec 64) : (word &&& 1).toNat = word.toNat % 2 := by
+  rw [BitVec.toNat_and]
+  exact Nat.and_two_pow_sub_one_eq_mod word.toNat 1
+
+structure ScanContext where
+  traverseWeak : Bool
+  allocatedKeys : Bool
+  weakKeys : Bool
+  weakValues : Bool
+  closureFreeStart : Nat
+  frameSlots : List Nat
+
+/-- The branch table is extracted from scan, not the earlier mark_array
+header dispatch. STILL bodies are scanned but do not take the MOVABLE0 tail
+shortcut. PERM bodies never enter this scan through the marker's worklist. -/
+def shape (subtype words headerKind : Nat) (context : ScanContext) : SpecialScan.Shape :=
+  if 18 ≤ subtype ∧ subtype ≤ 31 then .opaque
+  else if subtype = 8 ∨ subtype = 9 then .name
+  else if subtype = 13 then
+    if words = 3 then .will context.traverseWeak
+    else .hashTable context.allocatedKeys context.weakKeys context.weakValues 5 6
+  else if subtype = 11 then .continuation
+  else if subtype = 10 then .frame context.frameSlots
+  else if subtype = 14 then .closure context.closureFreeStart
+  else .ordinary (headerKind == 0 && decide (subtype ≤ 5))
+
+theorem still_pair_scans_both_fields (context : ScanContext) :
+    SpecialScan.offsets (shape 1 2 5 context) 2 = [0, 1] := by simp [shape, SpecialScan.offsets, List.range_succ]
+
+theorem movable_pair_tail_requires_first_mark (context : ScanContext) :
+    SpecialScan.offsets (shape 1 2 0 context) 2 = [1] := by simp [shape, SpecialScan.offsets, List.range_succ]
+
+theorem decoded_fields_in_bounds (subtype words headerKind index : Nat) (context : ScanContext)
+    (valid : SpecialScan.Valid (shape subtype words headerKind context) words)
+    (selected : index ∈ SpecialScan.offsets (shape subtype words headerKind context) words) :
+    index < words := SpecialScan.selected_fields_in_bounds _ _ _ valid selected
+
+/-- Nonmoving references keep their raw object tag/address. A STILL mark may
+schedule a scan once; the one-way mark state is per collection cycle. -/
+inductive StillMark where
+  | unmarked | queued
+  deriving DecidableEq, Repr
+structure Marker where
+  mark : StillMark
+  scheduled : Nat
+  deriving DecidableEq, Repr
+
+def visitStill (state : Marker) : Marker :=
+  match state.mark with
+  | .unmarked => ⟨.queued, state.scheduled + 1⟩
+  | .queued => state
+
+def visitMany : Nat → Marker → Marker
+  | 0, state => state
+  | n + 1, state => visitStill (visitMany n state)
+
+theorem repeated_still_visit_once (visits : Nat) :
+    visitMany (visits + 1) ⟨.unmarked, 0⟩ = ⟨.queued, 1⟩ := by
+  induction visits with
+  | zero => rfl
+  | succ n ih => rw [visitMany, ih]; rfl
+
+/-- Source-to-selector composition for bodies the marker actually schedules.
+MOVABLE0 and STILL can reach scan; permanent/forwarded/invalid headers cannot
+be silently admitted by this theorem. Header load and physical layout remain
+explicit inputs rather than a final scan-correctness certificate. -/
+theorem classification_to_scan (tagBits : Nat) (tagAdmission : tagBits = 2 ∨ tagBits = 3)
+    (referenceBytes word head : BitVec 64) (load : BitVec 64 → Option (BitVec 64))
+    (allocated : word.toNat % 2 ≠ 0)
+    (read : load (bodyAddress tagBits referenceBytes word - (8 : BitVec 64)) = some head)
+    (scheduled : head.toNat % 8 = 0 ∨ head.toNat % 8 = 5)
+    (context : ScanContext) (words : Nat)
+    (valid : SpecialScan.Valid (shape ((head.toNat / 8) % 32) words (head.toNat % 8) context) words) :
+    (classify tagBits referenceBytes word load = .movable ∨
+     classify tagBits referenceBytes word load = .still) ∧
+    ∀ index, index ∈ SpecialScan.offsets (shape ((head.toNat / 8) % 32) words (head.toNat % 8) context) words →
+      index < words := by
+  constructor
+  · unfold classify
+    rw [ite_eq_right allocated, read]
+    dsimp only
+    obtain ⟨movable, still, _, _⟩ := native_header_dispatch tagBits tagAdmission head
+    rcases scheduled with moving | nonmoving
+    · exact Or.inl (movable.mpr moving)
+    · exact Or.inr (still.mpr nonmoving)
+  · intro index selected
+    exact SpecialScan.selected_fields_in_bounds _ _ _ valid selected
+
+end ObjectClassification
+
+namespace ChunkPublication
+/-- The end marker is written only after the full movable copy loop. An
+explicit fresh marker cell follows the body, not a Boolean readiness flag. -/
+def endMemory (memory : CollectorCopy.Memory) (oldHeader newHeader count : Nat)
+    (header forwarding marker : BitVec 64) : CollectorCopy.Memory :=
+  CollectorCopy.write (CollectorCopy.move memory oldHeader newHeader header forwarding count)
+    (newHeader + count + 1) (some marker)
+
+theorem copied_body_and_marker (memory : CollectorCopy.Memory) (oldHeader newHeader count : Nat)
+    (header forwarding marker : BitVec 64)
+    (separate : oldHeader + count + 1 ≤ newHeader ∨ newHeader + count + 1 ≤ oldHeader) :
+    endMemory memory oldHeader newHeader count header forwarding marker (newHeader + count + 1) = some marker ∧
+    ∀ index, index < count →
+      endMemory memory oldHeader newHeader count header forwarding marker (newHeader + 1 + index) =
+        memory (oldHeader + 1 + index) := by
+  constructor
+  · simp [endMemory, CollectorCopy.write]
+  · intro index inside
+    have different : newHeader + 1 + index ≠ newHeader + count + 1 := by omega
+    simp only [endMemory, CollectorCopy.write, ite_eq_right different]
+    exact CollectorCopy.moved_payload memory oldHeader newHeader count header forwarding separate index inside
+
+/-- end_heap_chunk tests emptiness after incrementing past its marker. Even an
+empty payload has a marker; currently scanned chunks must not also be queued. -/
+def enqueue (start cursor scan : Nat) : Bool :=
+  decide (cursor + 1 ≠ start) && !(decide (start ≤ scan) && decide (scan < cursor + 1))
+
+theorem enqueue_exact (start cursor scan : Nat) (bounds : start ≤ cursor) :
+    enqueue start cursor scan = true ↔ scan < start ∨ cursor + 1 ≤ scan := by
+  simp [enqueue]
+  omega
+
+/-- Explicit projection of both writer barriers and the reader's operations.
+The reader fence occurs after dereferencing the queue link. Its ordering
+contract cannot be used retroactively for that link load. -/
+inductive Event where
+  | copyBody | endMarker | linkWrite | writerFence | tailWrite | unlock
+  | tailRead | linkRead | headWrite | readerFence | scanBody
+  deriving DecidableEq, Repr
+
+def writer : List Event := [.copyBody, .endMarker, .linkWrite, .writerFence,
+  .tailWrite, .writerFence, .unlock]
+def reader : List Event := [.tailRead, .linkRead, .headWrite, .readerFence, .unlock, .scanBody]
+
+theorem reader_link_precedes_fence : reader[1]? = some .linkRead ∧
+    reader[3]? = some .readerFence ∧ reader[5]? = some .scanBody := by decide
+
+/-- Epochs denote observations, not pointer addresses. Capturing a link value
+is separate from subsequently improving the observer's view. Location 0 is the
+queue link; location 1 is the copied payload. -/
+structure Reader where
+  observedTail : Nat
+  view : Acquire.View
+  sampledLink : Option Nat
+
+def readLink (state : Reader) : Reader := {state with sampledLink := some (state.view 0)}
+
+/-- A deliberately strong fence admission imports the entire published view.
+Even granting this stronger effect cannot repair an already decoded link.
+A native compiler/ISA fence law is not assumed by this definition. -/
+def importAfter (published : Acquire.View) (state : Reader) : Reader :=
+  {state with view := Acquire.join state.view published}
+
+def GoodLink (state : Reader) : Prop := state.sampledLink = some state.observedTail
+
+theorem late_import_retains_link (published : Acquire.View) (state : Reader) :
+    (importAfter published (readLink state)).sampledLink = some (state.view 0) := rfl
+
+theorem link_requires_prior_visibility (published : Acquire.View) (state : Reader) :
+    GoodLink (importAfter published (readLink state)) ↔ state.view 0 = state.observedTail := by
+  simp [GoodLink, importAfter, readLink]
+
+theorem ordinary_reader_gap (epoch : Nat) (positive : 0 < epoch) :
+    let published : Acquire.View := fun _ => epoch
+    let before : Reader := ⟨epoch, fun _ => 0, none⟩
+    let after := importAfter published (readLink before)
+    after.observedTail = epoch ∧ after.view 0 = epoch ∧ after.view 1 = epoch ∧ ¬ GoodLink after := by
+  simp [importAfter, readLink, Acquire.join, GoodLink]
+  omega
+
+/-- Successful admitted ownership histories provide the missing import before
+link decoding. This theorem consumes the host acquire protocol, not a Boolean
+backend name or the fact that an uncontended test happened to pass. -/
+theorem acquire_before_link {state : Acquire.State} (history : Acquire.Trace Acquire.initial state)
+    (worker epoch : Nat) (owns : state.owner = some worker) (published : epoch ≤ state.current 0)
+    (bounded : state.views worker 0 ≤ epoch) :
+    GoodLink (readLink ⟨epoch, state.views worker, none⟩) := by
+  have sees := Acquire.complete_handoff history owns published
+  simp only [GoodLink, readLink, Option.some.injEq]
+  omega
+
+/-- Prior snapshot readiness remains an explicit premise at the C boundary.
+The old scalar publication model may be admitted only after the actual reader
+has imported the copied data, marker and link before their respective reads. -/
+def AdmitsSnapshot (chunk : Nat) (beforeLink beforeBody : Acquire.View) : Prop :=
+  chunk ≤ beforeLink 0 ∧ chunk ≤ beforeBody 1 ∧ chunk ≤ beforeBody 2
+
+theorem snapshot_needs_link (chunk : Nat) (beforeLink beforeBody : Acquire.View)
+    (admitted : AdmitsSnapshot chunk beforeLink beforeBody) : chunk ≤ beforeLink 0 := admitted.1
+end ChunkPublication
+
+namespace ChunkOrder
+/-- Four-role message-passing slice of the paper's external ordered-before
+relation. publish is writer bob, observed is external rf, and stale is external
+fr (the data read chose the initialization preceding the published write).
+Other ARM relations and C data-race admission are not erased by this slice. -/
+inductive Event where
+  | writeData | writeTail | readTail | readData
+  deriving DecidableEq, Repr
+
+inductive Edge (readerOrdered : Bool) : Event → Event → Prop where
+  | publish : Edge readerOrdered .writeData .writeTail
+  | observed : Edge readerOrdered .writeTail .readTail
+  | stale : Edge readerOrdered .readData .writeData
+  | reader (ordered : readerOrdered = true) : Edge readerOrdered .readTail .readData
+
+inductive Path (readerOrdered : Bool) : Event → Event → Prop where
+  | one {a b} : Edge readerOrdered a b → Path readerOrdered a b
+  | next {a b c} : Path readerOrdered a b → Edge readerOrdered b c → Path readerOrdered a c
+
+def rank : Event → Nat
+  | .readData => 0
+  | .writeData => 1
+  | .writeTail => 2
+  | .readTail => 3
+
+theorem plain_edge_increases {a b : Event} (edge : Edge false a b) : rank a < rank b := by
+  cases edge <;> simp [rank] at *
+
+theorem plain_path_increases {a b : Event} (path : Path false a b) : rank a < rank b := by
+  induction path with
+  | one edge => exact plain_edge_increases edge
+  | next _ edge ih => exact Nat.lt_trans ih (plain_edge_increases edge)
+
+theorem unordered_slice_acyclic (event : Event) : ¬ Path false event event := by
+  intro path
+  have impossible := plain_path_increases path
+  omega
+
+theorem ordered_stale_cycle : Path true .writeData .writeData :=
+  .next (.next (.next (.one .publish) .observed) (.reader rfl)) .stale
+
+/-- Acq/barrier ordering before the selected read forbids this stale candidate
+under external ob acyclicity. No such ordering is inferred from a plain poll. -/
+theorem ordered_slice_rejects_stale
+    (externalAcyclic : ∀ event, ¬ Path true event event) : False :=
+  externalAcyclic .writeData ordered_stale_cycle
+
+/-- Source reader: tail read 0, link read 1, head write 2, barrier 3,
+unlock 4, body scan 5. The full barrier orders tail-to-body, not tail-to-link.
+The allocation RMW precedes the contended owner's publication. -/
+def readAfterFence (index : Nat) : Bool := decide (3 < index)
+
+theorem native_reader_boundaries :
+    readAfterFence 1 = false ∧ readAfterFence 5 = true := by decide
+
+theorem source_link_slice_open (event : Event) : ¬ Path (readAfterFence 1) event event :=
+  unordered_slice_acyclic event
+
+theorem source_body_slice_rejects_stale
+    (externalAcyclic : ∀ event, ¬ Path (readAfterFence 5) event event) : False :=
+  ordered_slice_rejects_stale externalAcyclic
+end ChunkOrder
+
 namespace Contended
 /-- Separate payload-read satisfaction from the later ticket observation. This
 projection admits speculative stale payloads; it is not the full ARM model. -/

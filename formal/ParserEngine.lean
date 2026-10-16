@@ -720,3 +720,57 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.Host.EntryDispatch.later_source_retained
 
 #print axioms ParserEngine.Host.SpecialScan.selected_fields_in_bounds
+
+#print axioms ParserEngine.Host.ObjectClassification.immediate_never_reads_header
+
+#print axioms ParserEngine.Host.ObjectClassification.missing_reference_header_rejected
+
+#print axioms ParserEngine.Host.ObjectClassification.native_header_dispatch
+
+#print axioms ParserEngine.Host.ObjectClassification.packed_decode
+
+#print axioms ParserEngine.Host.ObjectClassification.header_mask
+
+#print axioms ParserEngine.Host.ObjectClassification.still_pair_scans_both_fields
+
+#print axioms ParserEngine.Host.ObjectClassification.movable_pair_tail_requires_first_mark
+
+#print axioms ParserEngine.Host.ObjectClassification.decoded_fields_in_bounds
+
+#print axioms ParserEngine.Host.ObjectClassification.repeated_still_visit_once
+
+#print axioms ParserEngine.Host.ChunkPublication.copied_body_and_marker
+
+#print axioms ParserEngine.Host.ChunkPublication.enqueue_exact
+
+#print axioms ParserEngine.Host.ChunkPublication.reader_link_precedes_fence
+
+#print axioms ParserEngine.Host.ChunkPublication.late_import_retains_link
+
+#print axioms ParserEngine.Host.ChunkPublication.link_requires_prior_visibility
+
+#print axioms ParserEngine.Host.ChunkPublication.ordinary_reader_gap
+
+#print axioms ParserEngine.Host.ChunkPublication.acquire_before_link
+
+#print axioms ParserEngine.Host.ChunkPublication.snapshot_needs_link
+
+#print axioms ParserEngine.Host.ChunkOrder.unordered_slice_acyclic
+
+#print axioms ParserEngine.Host.ChunkOrder.ordered_stale_cycle
+
+#print axioms ParserEngine.Host.ChunkOrder.ordered_slice_rejects_stale
+
+#print axioms ParserEngine.Host.ChunkOrder.native_reader_boundaries
+
+#print axioms ParserEngine.Host.ChunkOrder.source_link_slice_open
+
+#print axioms ParserEngine.Host.ChunkOrder.source_body_slice_rejects_stale
+
+#print axioms ParserEngine.Host.ObjectClassification.invalid_is_not_permanent
+
+#print axioms ParserEngine.Host.ObjectClassification.packed_word_decode
+
+#print axioms ParserEngine.Host.ObjectClassification.classification_to_scan
+
+#print axioms ParserEngine.Host.ObjectClassification.memory_mask

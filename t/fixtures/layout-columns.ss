@@ -1,5 +1,5 @@
 ;;; Boxed-vector oracle, independent of packed storage and lookup dispatch.
-(export cache-copy-flonum-values host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors cyclic-pointer-roots mutual-closure-frame-roots closure-frame-roots wide-frame-roots reference-layout-columns reference-packed-layout-columns layout-column-sources)
+(export cache-copy-flonum-values host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-classification-control host-object-kind host-object-subtype host-chunk-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors cyclic-pointer-roots mutual-closure-frame-roots closure-frame-roots wide-frame-roots reference-layout-columns reference-packed-layout-columns layout-column-sources)
 
 (def (reference-layout-columns source)
   (let* ((bytes (string->utf8 source)) (size (u8vector-length bytes))
@@ -93,15 +93,62 @@
 
 ;;; Host macro controls execute in the same compiled fixture as the GC controls.
 ;;; The OS waiter touches only C-owned words, never Scheme values or a VM.
-(extern host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-contended-control host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
+(extern host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-classification-control host-object-kind host-object-subtype host-chunk-control host-contended-control host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
 (begin-foreign
  (namespace ("gerbil-parser/t/fixtures/layout-columns#"
-             host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-contended-control host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors))
+             host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-classification-control host-object-kind host-object-subtype host-chunk-control host-contended-control host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors))
  (c-declare #<<END-C
 #include <stdlib.h>
 #include <string.h>
 /* Owned arenas exercise the actual SDK tag and CAS macros. This does not call
    mem.c's collector or qualify SMP publication of an unfinished copied body. */
+/* Raw classification never dereferences an immediate. Object loads below are
+   only used for rooted, managed Scheme values supplied by the FFI. */
+static int parser_host_header_kind(___WORD object, ___WORD head) {
+  if (!___MEM_ALLOCATED(object)) return 0;
+  int kind = ___HD_TYP(head);
+  if (kind == ___MOVABLE0) return 1;
+  if (kind == ___STILL) return 2;
+  if (___TESTTYPE(kind, ___FORW)) return 3;
+  if (kind == ___PERM) return 4;
+  return 5; /* rejected header, not an implicit permanent object */
+}
+static int parser_host_classification_control(void) {
+#if defined(___NAN_BOXING) || ___FLONUM_SELF_TAGGING_TAGS > 2
+  return 1; /* unsupported memory predicate, not a skipped success */
+#else
+  if (sizeof(___WORD) != 8 || (___TB != 2 && ___TB != 3) || ___SB != 5) return 2;
+  for (int low = 0; low < 8; ++low) {
+    for (int kind = 0; kind < 8; ++kind) {
+      for (int subtype = 0; subtype < 32; ++subtype) {
+        for (int bytes = 0; bytes <= 104; ++bytes) {
+          ___WORD head = ___MAKE_HD(bytes, subtype, kind);
+          if (___HD_TYP(head) != kind || ___HD_SUBTYPE(head) != subtype ||
+              ___HD_BYTES(head) != bytes || ___HD_WORDS(head) != (bytes + 7) / 8) return 3;
+          int expected;
+          if (!(low % 2)) expected = 0;
+          else if (kind == 0) expected = 1;
+          else if (kind == 5) expected = 2;
+          else if (kind % (1 << ___TB) == 3) expected = 3;
+          else if (kind == 6) expected = 4;
+          else expected = 5;
+          if (parser_host_header_kind(low, head) != expected) return 4;
+        }
+      }
+    }
+  }
+  return 0;
+#endif
+}
+static int parser_host_object_kind(___SCMOBJ object) {
+  if (!___MEM_ALLOCATED(object)) return 0;
+  return parser_host_header_kind(object, ___HEADER(object));
+}
+static int parser_host_object_subtype(___SCMOBJ object) {
+  if (!___MEM_ALLOCATED(object)) return -1;
+  return ___HD_SUBTYPE(___HEADER(object));
+}
+
 static int parser_host_forwarding_control(void) {
   ___WORD arena[24];
   if (sizeof(___WORD) != 8) return 1;
@@ -229,6 +276,66 @@ static int parser_host_contended_control(void) {
   if (pthread_join(waiter, NULL)) abort();
   return state.status;
 }
+/* End-chunk publication/recheck protocol using the unchanged SDK operations.
+   This is an owned queue fixture, not a replacement collector or an ISA proof. */
+struct parser_host_chunk_queue {
+  ___TICKETLOCK lock;
+  ___WORD anchor;
+  ___WORD *head;
+  ___WORD *tail;
+  ___WORD chunk[4];
+  int status;
+};
+static void *parser_host_chunk_reader(void *argument) {
+  struct parser_host_chunk_queue *state = argument;
+  ___WORD *link;
+  ___TICKETLOCK_LOCK(state->lock);
+  if (state->head == state->tail) {
+    state->status = 1;
+    ___TICKETLOCK_UNLOCK(state->lock);
+    return NULL;
+  }
+  /* Keep the source order: decode the link before the reader barrier. */
+  link = ___UNTAG_AS(*state->head, ___FORW);
+  state->head = link;
+  ___SHARED_MEMORY_BARRIER();
+  ___TICKETLOCK_UNLOCK(state->lock);
+  if (link != state->chunk) { state->status = 2; return NULL; }
+  if (link[1] != ___MAKE_HD_WORDS(1, ___sVECTOR) || link[2] != ___FIX(42) ||
+      link[3] != ___TAG(0, ___FORW)) state->status = 3;
+  return NULL;
+}
+static int parser_host_chunk_control(void) {
+  struct parser_host_chunk_queue state;
+  pthread_t reader;
+  ___TICKETLOCK_INIT(state.lock);
+  state.anchor = ___TAG(0, ___FORW);
+  state.head = &state.anchor;
+  state.tail = &state.anchor;
+  for (int i = 0; i < 4; ++i) state.chunk[i] = ___FIX(0);
+  state.status = 0;
+  ___TICKETLOCK_LOCK(state.lock);
+  if (pthread_create(&reader, NULL, parser_host_chunk_reader, &state)) {
+    ___TICKETLOCK_UNLOCK(state.lock); return 4;
+  }
+  int attempts;
+  for (attempts = 0; attempts < 1000000; ++attempts) {
+    if (___FETCH_AND_ADD_WORD(&state.lock.next_ticket, 0) == ___FIX(2)) break;
+    sched_yield();
+  }
+  if (attempts == 1000000) abort();
+  state.chunk[1] = ___MAKE_HD_WORDS(1, ___sVECTOR);
+  state.chunk[2] = ___FIX(42);
+  state.chunk[3] = ___TAG(0, ___FORW);
+  *state.tail = ___TAG(state.chunk, ___FORW);
+  ___SHARED_MEMORY_BARRIER();
+  state.tail = state.chunk;
+  ___SHARED_MEMORY_BARRIER();
+  ___TICKETLOCK_UNLOCK(state.lock);
+  if (pthread_join(reader, NULL)) abort();
+  return state.status;
+}
+
 struct parser_host_handoff {
   ___MUTEX lock;
   ___WORD payload[32];
@@ -283,6 +390,10 @@ END-C
  (define host-flonum-address
    (c-lambda (scheme-object) unsigned-long-long
      "___result = ___CAST(___U64,___FLONUM_TO_BODY(___arg1));"))
+ (define host-chunk-control (c-lambda () int "parser_host_chunk_control"))
+ (define host-classification-control (c-lambda () int "parser_host_classification_control"))
+ (define host-object-kind (c-lambda (scheme-object) int "parser_host_object_kind"))
+ (define host-object-subtype (c-lambda (scheme-object) int "parser_host_object_subtype"))
  (define host-forwarding-control (c-lambda () int "parser_host_forwarding_control"))
  (define host-boxing-control (c-lambda () int "parser_host_boxing_control"))
  (define host-contended-control (c-lambda () int "parser_host_contended_control"))

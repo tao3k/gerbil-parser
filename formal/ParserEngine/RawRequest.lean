@@ -320,4 +320,69 @@ theorem complete_from_constructed (engine : Engine Raw) (endOffset : Raw → Nat
   exact complete_request engine tokens last trace complete selected
 end Entry
 
+namespace Backend
+/-- Branch order of lr-runtime-for-current-semantic-backend. Cache publication
+and allocation are external to this pure adapter, not silently proved here. -/
+def select (enabled alreadyEvent : Bool) (runtime : Runtime)
+    (cached : Option Runtime) (eligible : Bool) (build : Runtime → Runtime) : Runtime :=
+  if !enabled || alreadyEvent then runtime else
+    match cached with
+    | some selected => selected
+    | none => if !eligible then runtime else build runtime
+
+/-- A cache hit requires the same decoded parser engine as its owner. The
+native cache field has no validation guard; its producer must establish this.
+Semantic reducers/AST allocation are deliberately outside the engine view. -/
+theorem kernel_preserved (kernel : Runtime → Kernel) (enabled alreadyEvent : Bool)
+    (runtime : Runtime) (cached : Option Runtime) (eligible : Bool) (build : Runtime → Runtime)
+    (cacheSound : ∀ selected, cached = some selected → kernel selected = kernel runtime)
+    (buildSound : kernel (build runtime) = kernel runtime) :
+    kernel (select enabled alreadyEvent runtime cached eligible build) = kernel runtime := by
+  unfold select
+  split
+  · rfl
+  · cases cached with
+    | some selected => exact cacheSound selected rfl
+    | none =>
+      dsimp
+      split
+      · rfl
+      · exact buildSound
+
+/-- The cached branch precedes eligibility. This is a correspondence fact,
+not an admission rule for stale or foreign cache entries. -/
+theorem cached_before_eligibility (runtime selected : Runtime) (eligible : Bool)
+    (build : Runtime → Runtime) :
+    select true false runtime (some selected) eligible build = selected := by
+  simp [select]
+
+/-- Compose backend selection, the actual zero-state constructor adapter and
+arbitrary accepted traces. Native engine decoding, cache ownership, table and
+selector certificates, and physical host execution remain explicit boundaries. -/
+theorem complete_request (kernel : Runtime → Engine Raw)
+    (enabled alreadyEvent : Bool) (runtime : Runtime) (cached : Option Runtime)
+    (eligible : Bool) (build : Runtime → Runtime)
+    (cacheSound : ∀ selected, cached = some selected → kernel selected = kernel runtime)
+    (buildSound : kernel (build runtime) = kernel runtime)
+    (endOffset : Raw → Nat) (tokens : List Raw) (observe : Bool)
+    (entryZero : (kernel runtime).graph.entry = 0) (last : Config Raw)
+    (trace : Trace (kernel (select enabled alreadyEvent runtime cached eligible build))
+      (Entry.construct (select enabled alreadyEvent runtime cached eligible build)
+        endOffset tokens observe false).config last)
+    (complete : last.rest = [])
+    (accepted : (kernel (select enabled alreadyEvent runtime cached eligible build)).select
+      (last.states.headD 0) none = some (none, .accept)) :
+    ∃ terminals, Derives (kernel runtime).grammar [.nonterminal (kernel runtime).start] terminals ∧
+      Relates (kernel runtime).realizesToken terminals tokens := by
+  have same := kernel_preserved kernel enabled alreadyEvent runtime cached eligible build
+    cacheSound buildSound
+  rw [same] at trace accepted
+  have startEq : (Entry.construct
+      (select enabled alreadyEvent runtime cached eligible build) endOffset tokens observe false).config =
+      initial (kernel runtime) tokens := by
+    simp [Entry.construct, initial, entryZero]
+  rw [startEq] at trace
+  exact RawRequest.complete_request (kernel runtime) tokens last trace complete accepted
+end Backend
+
 end ParserEngine.RawRequest

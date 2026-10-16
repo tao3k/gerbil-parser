@@ -103,6 +103,55 @@ At inspection, revision =841f9fa= has three successful Rust jobs, while macOS
 is building parser/language packs in preparation and has not yet entered
 semantics. This is not a remote confirmation of the timeout correction.
 
+*** Backend selection composes with request acceptance
+
+=RawRequest.Backend= follows the branch order of
+[[file:../../src/runtime/lr-parser/prepare.ss][lr-runtime-for-current-semantic-backend]], before the selected checkpoint
+constructor. This is the next boundary between the paper's grammar-dependent
+structure and input-dependent execution, rather than a runtime optimization.
+
+| Native branch, in order | Model result | Required correspondence |
+|-------------------------+--------------+-------------------------|
+| Preference disabled or runtime already event-backed | Original runtime | Identity |
+| An event runtime is cached | Cached runtime, even before eligibility is checked | Its decoded engine must equal the owner's engine; cache presence alone proves nothing |
+| No eligible event reducer and no cache | Original runtime | Identity |
+| Eligible reducer and no cache | Newly built event runtime | The constructor must preserve the decoded recognition engine |
+
+=kernel_preserved= proves this result for arbitrary runtime and kernel types,
+with explicit cache-producer and constructor premises. =cached_before_eligibility=
+records the actual ordering: an eligibility check is not a validation of an
+already cached value. =complete_request= instantiates the kernel with the
+certified raw-token engine, composes selection with the zero-state constructor,
+and obtains the accepted derivation and ordered raw-token relation for any
+admitted trace. No cache validity, native decoder or host axiom is introduced.
+
+The [[file:../../t/lr-semantic-preparation-test.ss][Scheme semantic-preparation controls]] check shared identities for productions,
+production tables, reduction widths, action rows and indices, goto rows and
+indices/columns, case policy, lexical modes/catalog and the action selector.
+They cover first event construction, cached selection, selection of an already
+event-backed runtime, and generated-step cache invalidation while retaining an
+older runtime. Dynamic/layout flags are false on admitted event runtimes.
+Backend-specific reducers, reduction plans and AST allocation are excluded from
+the recognition-kernel identity claim. Existing fallback controls separately
+retain recognition execution for dynamic, branching and layout grammars.
+
+Quint checks branch precedence and includes a foreign-cache counterexample:
+returning a cached runtime with a different decoded kernel violates the
+preservation premise. It is an admission counterexample, not evidence that the
+native parser currently constructs such a cache.
+
+Qualification: Lean passes 72 build jobs; the preservation theorem needs no
+axioms, and the composed acceptance theorem retains only the existing standard
+logical axioms. RawRequest passes 12 directed Quint controls. The real semantic
+preparation, input-protocol and style owners pass 3+6+6=15 cases with two workers,
+natural exit zero in 15.5547 seconds under unchanged owner budgets. Evidence-input
+binding passes. These checks do not discharge arbitrary native engine decoding,
+AST semantics, cache publication concurrency or physical host execution. Model
+closure and a complete-request CPU improvement are not claimed. An additional
+CI-tracing integration run passes canonical LR (31), semantic preparation (3)
+and empty-production/backend semantics (5): 39 cases, natural exit zero in
+22.7829 seconds under the same owner budgets.
+
 *** Timeout diagnosis and bounded verification
 
 The failing macOS semantics job at revision =543812e= is run =38916765458=,
@@ -137,14 +186,37 @@ two independent-request histories. The real canonical/style owners pass
 also passes. These receipts establish the stated local checks; the new commit
 requires its own remote CI result. They are not CPU benchmark evidence.
 
+*** Remote confirmation of the timeout correction
+
+Revision =e8e5f5dd01f248e2723b9121fc83113b83ab49ca= completes
+[[https://github.com/tao3k/gerbil-parser/actions/runs/38931840428][CI run 38931840428]] successfully. Both Ubuntu and macOS semantics pass.
+The [[https://github.com/tao3k/gerbil-parser/actions/runs/38931840428/job/117085287433][macOS semantics job 117085287433]] records
+=MODULE-BATCH-START t/canonical-lr1-reference-test.ss= at
+=2026-10-16T16:48:15.0979410Z= and =MODULE-BATCH-OK= with 31 cases at
+=16:48:53.3645310Z=: approximately 38.2666 seconds, below the unchanged
+90-second owner budget. The complete Scheme step succeeds from =16:47:22Z=
+to =16:49:17Z= and reports =TEST-SUITE-OK modules=120=. These are wall-clock
+qualification observations, not CPU benchmark measurements.
+
+This confirms the earlier preparation correction in the actual macOS suite,
+including the previously failing owner. It does not erase the failed
+=543812e= receipt, prove all model correspondences, or qualify a subsequent
+revision automatically. The backend composition added after this revision has
+its own local receipts above and requires its own exact-head remote result.
+
 ** Unified representation correspondence
 
-This is the current composition ledger. Earlier qualification sections retain
-historical evidence; they do not supersede the obligations below. The shared
-representation owner is [[file:../../formal/ParserEngine/Representation.lean][Representation.lean]] and its
+This ledger retains the previously studied representation and host adapters.
+It is not a requirement to implement, rebuild or prove the host inside the
+parser project. Parser closure is governed by the parser completion gates
+below, with host behavior named as an external premise. An unresolved host
+premise still prevents an unconditional physical-execution claim; it does not
+expand this work into compiler, collector or synchronization repairs.
+Earlier qualification sections retain historical evidence; they do not
+supersede these boundaries. The shared representation owner is [[file:../../formal/ParserEngine/Representation.lean][Representation.lean]] and its
 [[file:../../formal/ParserEngine/Host.lean][host producer adapters]] and [[file:../../formal/ParserEngine/HostLowering.lean][operand/allocation lowering]], composed with the existing
-[[file:../../formal/ParserEngine/Operational.lean][operational algorithms]] and [[file:../../formal/ParserEngine/Worklist.lean][notification semantics]]. Complete this chain
-before selecting another runtime optimization.
+[[file:../../formal/ParserEngine/Operational.lean][operational algorithms]] and [[file:../../formal/ParserEngine/Worklist.lean][notification semantics]]. Preserve their stated premises when composing
+parser proofs; do not treat a host adapter as host implementation qualification.
 
 | Mechanism and research premise | Actual implementation owner | General model correspondence | Remaining host obligation |
 |--------------------------------+-----------------------------+------------------------------+---------------------------|
@@ -2557,6 +2629,13 @@ deferred.
 | Rust stable module name | Build-support test targets compile; no timing run executed |
 
 ** Completion gates before architecture optimization
+
+These gates apply to the parser-owned DSL, scanner, table construction and
+request execution. Host language/ABI, allocation/GC and synchronization are
+explicit external premises, not implementation tasks or silently discharged
+proof obligations. Parser qualification remains conditional on them. Historical
+host counterexamples and negative receipts remain in this document, and no
+unconditional host correctness or memory-safety claim follows from parser closure.
 
 1. Specify the admitted DSL/grammar and scanner meaning, including effects and
    invalid declarations. Connect derived facts and tables to that meaning.

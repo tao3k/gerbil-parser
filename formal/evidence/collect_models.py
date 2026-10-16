@@ -52,7 +52,7 @@ def model_checks(root: Path):
                      "src/runtime/lr-parser/recognition.ss", "src/runtime/lr-parser/checkpoint.ss", "src/runtime/lr-parser/checkpoint-base.ss", "src/runtime/lr-parser/entry.ss",
                      "src/runtime/lr-parser/transfer.ss", "src/runtime/lr-parser/prepare.ss", "src/runtime/lr-action-index.ss", "src/runtime/parser.ss",
                      "src/runtime/lr-parser/batch.ss", "src/runtime/layout.ss", "t/layout-boundary-test.ss", "t/fixtures/layout-columns.ss", "t/fixtures/compiler-reservation.ss", "src/runtime/lr-stack-storage.ss",
-                     "t/fixtures/tla-sany-differential/test-suite.ss", "t/lr-input-protocol-test.ss", "t/lr-goto-plan-test.ss",
+                     "t/fixtures/tla-sany-differential/test-suite.ss", "t/lr-input-protocol-test.ss", "t/lr-semantic-preparation-test.ss", "t/lr-goto-plan-test.ss",
                      "t/lr-action-preparation-test.ss", "t/fixtures/lr-action-selection.ss",
                      "t/sparse-capture-test.ss", "t/lr-fragment-transfer-test.ss", "t/runtime-module-organization-test.ss",
                      "src/runtime/lr-parser/state.ss", "src/runtime/token.ss",

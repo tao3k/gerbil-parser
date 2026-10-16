@@ -793,3 +793,7 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.RawRequest.Entry.constructed_valid
 #print axioms ParserEngine.RawRequest.Entry.fresh_fields
 #print axioms ParserEngine.RawRequest.Entry.complete_from_constructed
+
+#print axioms ParserEngine.RawRequest.Backend.kernel_preserved
+#print axioms ParserEngine.RawRequest.Backend.cached_before_eligibility
+#print axioms ParserEngine.RawRequest.Backend.complete_request

@@ -81,6 +81,7 @@ class ModelInputControls(unittest.TestCase):
                 self.assertIn("t/ranked-regular-scanner-test.ss", check.inputs)
                 self.assertIn("t/fixtures/tla-sany-differential/test-suite.ss", check.inputs)
                 self.assertIn("t/lr-input-protocol-test.ss", check.inputs)
+                self.assertIn("t/lr-semantic-preparation-test.ss", check.inputs)
                 self.assertIn("t/lr-goto-plan-test.ss", check.inputs)
                 self.assertIn("t/lr-fragment-transfer-test.ss", check.inputs)
                 self.assertIn("t/benchmarks/capture-prefix/phase-cost.ss", check.inputs)

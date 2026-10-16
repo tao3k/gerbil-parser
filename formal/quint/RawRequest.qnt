@@ -108,4 +108,21 @@ module RawRequest {
   run entryEndMaximumAndEmptyInputTest = init.expect(
     inputEnd(List(23,4,17)) == 23 and inputEnd(List()) == 0 and
     inputEnd(List(0,0)) == 0 and inputEnd(List(23,4,17)) != 17)
+  // Abstract runtime identities, separate from decoded grammar-kernel identity.
+  // Native order checks the cache before reducer eligibility.
+  pure def backend(useEvent:bool,event:bool,source:int,cached:int,eligible:bool,built:int):int =
+    if(not(useEvent) or event) source else if(cached != 0) cached
+    else if(not(eligible)) source else built
+  pure def kernel(runtime:int):int = if(runtime == 1 or runtime == 2) 10 else 99
+  run backendOwnershipAndPriorityTest = init.expect(
+    backend(false,false,1,2,true,2) == 1 and
+    backend(true,true,2,0,true,3) == 2 and
+    backend(true,false,1,0,false,3) == 1 and
+    backend(true,false,1,0,true,2) == 2 and
+    backend(true,false,1,2,false,3) == 2 and
+    kernel(backend(true,false,1,2,true,2)) == kernel(1))
+  // Cache presence alone cannot discharge kernel-preservation admission.
+  run foreignBackendCacheWitnessTest = init.expect(
+    kernel(backend(true,false,1,3,false,2)) != kernel(1))
+
 }

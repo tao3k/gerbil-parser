@@ -508,7 +508,7 @@ jobs:
         env:
           GERBIL_PARSER_LR_TRACE: '1'
         run: |
-          GERBIL_LOADPATH="$PWD/.." gerbil env gerbil test -v 5 t/language-abi-alignment-test.ss
+          GERBIL_LOADPATH="$PWD/.." just test-language-abi-alignment
       - name: Compile and call public C ABI
         run: |
           GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \

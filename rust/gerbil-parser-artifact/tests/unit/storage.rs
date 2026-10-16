@@ -17,7 +17,7 @@ fn take<'a>(input: &mut &'a [u8]) -> &'a [u8] {
 }
 #[test]
 fn cached_views_share_navigation_for_all_twenty_real_native_controls() {
-    let mut input = include_bytes!("../fixtures/languages.bin").as_slice();
+    let mut input = crate::language_fixture::bytes();
     let mut count = 0;
     while !input.is_empty() {
         let _name = take(&mut input);
@@ -57,7 +57,7 @@ fn cached_views_share_navigation_for_all_twenty_real_native_controls() {
 }
 #[test]
 fn cached_storage_preserves_source_and_wire_rejection() {
-    let mut input = include_bytes!("../fixtures/languages.bin").as_slice();
+    let mut input = crate::language_fixture::bytes();
     let _name = take(&mut input);
     let catalog = NativeCatalog::from_descriptor(take(&mut input)).unwrap();
     let source = std::str::from_utf8(take(&mut input)).unwrap();
@@ -84,7 +84,7 @@ fn owner_cannot_rebind_cached_navigation_to_another_allocation() {
             Ok(self.0.get())
         }
     }
-    let mut input = include_bytes!("../fixtures/languages.bin").as_slice();
+    let mut input = crate::language_fixture::bytes();
     let _name = take(&mut input);
     let catalog = NativeCatalog::from_descriptor(take(&mut input)).unwrap();
     let source = std::str::from_utf8(take(&mut input)).unwrap();

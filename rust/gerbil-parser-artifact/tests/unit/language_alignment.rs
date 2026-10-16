@@ -1,7 +1,6 @@
 //! Real configured Scheme products admitted without generated Rust parser tables.
 use crate::{NativeArtifactView, NativeCatalog};
 // Fixture records are four little-endian length-prefixed byte slices and a status.
-const CASES: &[u8] = include_bytes!("../fixtures/languages.bin");
 
 fn take_bytes<'a>(input: &mut &'a [u8]) -> &'a [u8] {
     let (length, rest) = input.split_at(4);
@@ -13,7 +12,7 @@ fn take_bytes<'a>(input: &mut &'a [u8]) -> &'a [u8] {
 
 #[test]
 fn all_production_entries_publish_accepted_and_rejected_native_results() {
-    let mut input = CASES;
+    let mut input = crate::language_fixture::bytes();
     let mut controls = 0;
     let mut entries = std::collections::HashMap::new();
     while !input.is_empty() {

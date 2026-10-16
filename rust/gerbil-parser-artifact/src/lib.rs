@@ -16,5 +16,9 @@ pub use wire::{NativeArtifactError, NativeEvent, NativeEventKind};
 pub mod syntax;
 
 #[cfg(test)]
+#[path = "../tests/unit/language_fixture.rs"]
+mod language_fixture;
+
+#[cfg(test)]
 #[path = "../tests/unit/language_alignment.rs"]
 mod language_alignment_tests;

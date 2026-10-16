@@ -22,7 +22,7 @@ fn parity(payload: &[u8], source: &str, catalog: &NativeCatalog) {
 }
 #[test]
 fn fused_admission_matches_former_decoder_for_all_native_languages_and_corrupt_rows() {
-    let mut input = include_bytes!("../fixtures/languages.bin").as_slice();
+    let mut input = crate::language_fixture::bytes();
     let mut languages = 0;
     while !input.is_empty() {
         let _name = take(&mut input);

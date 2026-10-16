@@ -125,4 +125,16 @@ module RawRequest {
   run foreignBackendCacheWitnessTest = init.expect(
     kernel(backend(true,false,1,3,false,2)) != kernel(1))
 
+  // Numeric production ID decoding is distinct from semantic production identity.
+  pure def productionAt(productions:List[int],id:int):int =
+    if(id >= 0 and id < productions.length()) productions.nth(id) else -1
+  pure def firstIndexed(row:List[List[int]],key:int):List[int] =
+    row.foldl(List(),(found,entry) =>
+      if(found.length() == 0 and entry.nth(0) == key) entry else found)
+  run productionIdentityAndInvalidFirstCellTest = init.expect(
+    productionAt(List(20,30),0) == 20 and productionAt(List(20,30),1) == 30 and
+    productionAt(List(20,30),2) == -1 and productionAt(List(20,30),-1) == -1 and
+    productionAt(List(20,30),firstIndexed(List(List(3,99),List(3,1)),3).nth(1)) == -1 and
+    productionAt(List(20,30),1) != -1)
+
 }

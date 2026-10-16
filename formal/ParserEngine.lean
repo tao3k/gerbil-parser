@@ -1,3 +1,5 @@
+import ParserEngine.TableBridge
+import ParserEngine.SemanticValues
 import ParserEngine.HostLowering
 import ParserEngine.Host
 import ParserEngine.Representation
@@ -797,3 +799,24 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.RawRequest.Backend.kernel_preserved
 #print axioms ParserEngine.RawRequest.Backend.cached_before_eligibility
 #print axioms ParserEngine.RawRequest.Backend.complete_request
+
+#print axioms ParserEngine.TableBridge.lookup_origin
+#print axioms ParserEngine.TableBridge.reduction_id_exact
+#print axioms ParserEngine.TableBridge.decoded_table_supported
+#print axioms ParserEngine.TableBridge.selected_meaning
+#print axioms ParserEngine.SemanticValues.field_decodes
+#print axioms ParserEngine.SemanticValues.alias_decodes
+#print axioms ParserEngine.SemanticValues.materialization_decodes
+#print axioms ParserEngine.SemanticValues.actions_decode
+#print axioms ParserEngine.SemanticValues.operand_decodes
+#print axioms ParserEngine.SemanticValues.reduction_decodes
+
+#print axioms ParserEngine.TableBridge.invalid_first_cell_blocks_fallback
+
+#print axioms ParserEngine.SemanticValues.prepared_operand_decodes
+#print axioms ParserEngine.SemanticValues.prepared_reduction_decodes
+
+#print axioms ParserEngine.TableBridge.physical_action_decodes
+#print axioms ParserEngine.TableBridge.origins_from_publication
+
+#print axioms ParserEngine.SemanticValues.same_id_views

@@ -152,6 +152,86 @@ CI-tracing integration run passes canonical LR (31), semantic preparation (3)
 and empty-production/backend semantics (5): 39 cases, natural exit zero in
 22.7829 seconds under the same owner budgets.
 
+*** Runtime tables, certified selectors and nonempty semantic values
+
+The next composition layer follows the same deterministic request boundary.
+[[file:../../formal/ParserEngine/TableBridge.lean][TableBridge.lean]] decodes the runtime's numeric reduce IDs through a production
+vector view and retains original published cell keys. The LR paper's derivation
+and remainder obligation belongs to the certified engine; field labels, AST
+wrappers and physical child storage are additional implementation obligations,
+not semantics supplied by the paper itself.
+
+| Actual owner | General correspondence | Admission still required |
+|--------------+------------------------+--------------------------|
+| [[file:../../src/compiler/lr.ss][production-table]] and [[file:../../src/runtime/lr-parser/checkpoint.ss][checkpoint production-ID reads]] | =reduction_id_exact= connects every successfully decoded ID to its exact production row | Native names, vector contents and action tags must decode faithfully; invalid IDs must be rejected by preparation |
+| [[file:../../src/compiler/lr-table.ss][validate-lr-tables]] and compiler publication | =decoded_table_supported= derives table support from every selectable cell's LR-item origin | =origins_from_publication= derives =CellOrigins= from admitted physical publishing events and the production-vector view; dimensions, vocabulary, reachability and ranges alone are insufficient |
+| [[file:../../src/runtime/lr-action-index.ss][row indices]] and [[file:../../src/runtime/lr-parser/prepare.ss][make-lr-action-selector]] | =selected_meaning= connects prioritized raw-token selection, the original published key, decoded action and terminal realization; =engine= assembles the certified request engine | =IndexedMeaning= binds each indexed branch to its original first cell and raw-token predicate. Native terminal encoding, literal trie/hash extraction, case folding and state bounds remain producer obligations |
+| First duplicate before action decoding | =lookup_origin= proves original-row provenance; =invalid_first_cell_blocks_fallback= prevents decoding failure from selecting a later duplicate | Native table validation rejects malformed published rows. Low-level index tests deliberately admit duplicates to check precedence; they are not valid complete LR specifications |
+
+=physical_action_decodes= connects each decoded physical item event to the
+runtime opcode, retaining its production ID before semantic projection.
+=origins_from_publication= then reuses =Construction.admitted_physical_event_supported=
+to derive every runtime cell's semantic support. It requires the producer's
+actual event and publication admission, rather than postulating table support.
+Native event extraction and the augmented-production vector view are still
+explicit producer obligations.
+
+The table adapter's =items= member is compiler-origin evidence, not a new
+native runtime field. Constructed graph, item coverage and goto correspondence
+remain explicit inputs to =engine=. This constructs the consumer certificate
+from named premises; it does not establish all native producers or claim a
+whole Scheme operational refinement. Unsupported GLR/layout/recovery action
+forms are outside this deterministic action decoder.
+
+[[file:../../formal/ParserEngine/SemanticValues.lean][SemanticValues.lean]] connects nonempty storage to the existing logical AST.
+=field_decodes= covers empty children, a bare unlabelled singleton, an already
+labelled singleton requiring a fragment, and wider child lists. =alias_decodes=
+retains the complete ordered child data and first/last bounds. These theorems
+quantify over arbitrary admitted nested Tree values, not a fixed test grammar.
+
+=materialization_decodes= preserves every labelled child and arbitrary output
+suffix. =actions_decode= composes every declared field/alias chain in order.
+=operand_decodes= and =reduction_decodes= connect sequence materialization and
+top-first LR values to source-order AST interpretation. Finally,
+=prepared_operand_decodes= and =prepared_reduction_decodes= compose that result
+with the existing LeanPoo preparation provenance theorem. An arbitrary installed
+callback is not granted this preparation certificate.
+
+=Rule= binds each grammar production to its ordered operand action chains and
+width certificate. =same_id_views= proves that grammar-action decoding and
+semantic-action projection read the same physical production ID. Equal grammar
+bodies do not imply equal alias/field semantics. A real two-row control retains
+distinct IDs and produces distinct =Left= and =Right= AST nodes for the same
+token input. Native generation must preserve this joint indexing when emitting
+production vectors and semantic plan vectors.
+
+The storage classifier represents native unfielded/labelled recognition children;
+inner token/node/fragment records must already decode to the corresponding
+logical Tree. It is not a physical heap representation proof. Operand anchors
+remain inputs supplied by nullable/lookahead offset construction. Event-program
+decoding, position-view relocation, full source spans, recursive native record
+extraction, AST-to-lossless-artifact publication and arbitrary request-step
+simulation remain separate obligations. Thus this closes the stated table and
+semantic-value adapter compositions, not the complete parser model.
+
+The [[file:../../t/lr-model-correspondence-test.ss][Scheme correspondence owner]] follows these same boundaries: canonical/direct
+production-ID vectors; original indexed entry identity; literal/folded/kind/EOF
+priority; state zero and state-sensitive terminal keys; list/table index
+thresholds; malformed published ID admission; and labelled/nested/multi-child
+ASTs. It checks materializing and fused action policies and compares interpreted,
+prepared, source-list, reverse-stack and guarded-vector reductions. Earlier
+values and unowned vector slots are rechecked after execution. Quint adds the
+zero-ID/range and invalid-first-cell counterexample to the shared request model.
+
+Qualification: the locked Lean package passes 74 build jobs. All new theorem
+axioms are printed and are limited to the existing standard logical axioms;
+there is no admitted host or runtime-refinement axiom. RawRequest passes 13
+directed Quint controls. With CI LR tracing enabled, the correspondence (5),
+index (12), stack-reduction (19) and style (6) owners pass 42 cases with two
+workers, natural exit zero in 7.7008 seconds and unchanged 90/5-second owner
+budgets. The evidence-input control binds both new proof modules and the Scheme
+correspondence owner. These observations do not establish a CPU improvement.
+
 *** Timeout diagnosis and bounded verification
 
 The failing macOS semantics job at revision =543812e= is run =38916765458=,
@@ -203,6 +283,12 @@ including the previously failing owner. It does not erase the failed
 =543812e= receipt, prove all model correspondences, or qualify a subsequent
 revision automatically. The backend composition added after this revision has
 its own local receipts above and requires its own exact-head remote result.
+
+Latest parent qualification: revision =8ff20620c27a45ac9bd6d45dfd64310e882a17db=
+completes [[https://github.com/tao3k/gerbil-parser/actions/runs/38935111963][CI run 38935111963]] successfully, including Ubuntu and
+[[https://github.com/tao3k/gerbil-parser/actions/runs/38935111963/job/117095700943][macOS semantics]], generation and FFI. No red job remains on that revision.
+The table/semantic-value correspondence additions above are subsequent work;
+their local receipts do not turn this parent result into exact-head CI evidence.
 
 ** Unified representation correspondence
 

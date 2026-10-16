@@ -35,7 +35,7 @@ local object-count identity as evidence that an architecture gap has closed.
 This is the current composition ledger. Earlier qualification sections retain
 historical evidence; they do not supersede the obligations below. The shared
 representation owner is [[file:../../formal/ParserEngine/Representation.lean][Representation.lean]] and its
-[[file:../../formal/ParserEngine/Host.lean][host producer adapters]], composed with the existing
+[[file:../../formal/ParserEngine/Host.lean][host producer adapters]] and [[file:../../formal/ParserEngine/HostLowering.lean][operand/allocation lowering]], composed with the existing
 [[file:../../formal/ParserEngine/Operational.lean][operational algorithms]] and [[file:../../formal/ParserEngine/Worklist.lean][notification semantics]]. Complete this chain
 before selecting another runtime optimization.
 
@@ -43,13 +43,15 @@ before selecting another runtime optimization.
 |--------------------------------+-----------------------------+------------------------------+---------------------------|
 | Strong pointer reachability from roots | Gambit =targ-build-gc-map=, chunk emitter and =mem.c:mark_frame= | =FrameMaps.emitted_signed_root= derives emitted storage and retained roots from compiler live decisions; cursor, signed-literal and paired/trailing-word lemmas connect the C reader | AST free-variable soundness, native context validity, pointer bounds and faithful extraction of every host root bank |
 | Future uses retain closure environments | Gambit =compute-live-vars-at-each-expr= and =frame-live?= | =Liveness.before_exact= and =boundary_suffix= derive every actual evaluation suffix; =future_capture_root= composes captured use with environment selection and generated root maps | Free-variable extraction and =arg-eval-order= semantic correctness; Join/operand metadata, native spill/copy sequence decoding, pointer bounds and object decoding |
-| Physical frame slot construction and addresses | Gambit =extend-vars=, =targ-loc=, =FP_STK=, =FP_ADJFP= and =RETI_CFS_TO_FS= | =Slots.physical_exact= covers padding/truncation/reversal; =future_capture_stored= derives placement and reads from generated stores; =internal_size_matches= and saved-register/return lemmas cover arbitrary ABI constants | Entry/assignment/task constructors now compose through =constructed_layout=; join displacement width, native operand decoding, native spill/copy sequence decoding and bounded pointer arithmetic remain external |
+| Physical frame slot construction and addresses | Gambit =extend-vars=, =targ-loc=, =FP_STK=, =FP_ADJFP= and =RETI_CFS_TO_FS= | =Slots.physical_exact= covers padding/truncation/reversal; =future_capture_stored= derives placement and reads from generated stores; =internal_size_matches= and saved-register/return lemmas cover arbitrary ABI constants | Entry/assignment/task constructors now compose through =constructed_layout=; operand tags, resolved destinations and copy readback now compose in HostLowering; join displacement width, native emitter sequencing and bounded pointer arithmetic remain external |
 | Successful mutex acquire imports protected writes | POSIX =MUTEX_LOCK= / =MUTEX_UNLOCK= and condition-variable reacquisition | =Acquire.complete_handoff= derives arbitrary-worker/location visibility from an empty initial state and the write/release/successful-acquire history | POSIX contract and actual call/return decoding are trusted interfaces; native ticket polling is not admitted by this theorem |
 | Ordered chunk publication and unique reservation | Gambit =end_heap_chunk=, GCC =__sync= route and locked steal recheck | =Publication.trace_safe= covers arbitrary admitted histories; =reservation_visible= composes payload visibility with queued/held conservation; =distinct_reservations= excludes two adjacent claims of a unique queue head | Faithful C memory observations, immutable chunk/epoch decoding, acquire behavior and global queue uniqueness |
 | Native context construction and snapshots | Gambit =entry-context=, =restore-context=, =context->frame= and task split | =Contexts.assignments_valid= and =constructed_layout= derive slot validity from entry construction; task/parent and join length laws preserve it; cleared state has no publishable frame | Target label-info/name decoding, join displacement producer, return-address uniqueness and actual typed vector access |
 | Lowest-dead-slot register spilling | Gambit =lowest-dead-slot=, =live-slots= and =save-regs-to-stk= | =Spill.chosen_dead= and =saved_read= derive destination validity; =live_read_preserved= and =all_live_retained= cover arbitrary repeated saves with growth | Decode selected register reads and live variables, metadata updates and return-address movement; connect the actual instruction emitter to the derived copy sequence |
-| Dirty cache materialization and invalidation | Active =targ-fp-cache-*= and =targ-loc-no-invalidate= in the C target | =Cache.trace_unique=, =trace_bound= and =new_stamp_fresh= derive lifecycle invariants; =history_dirty_read= and =dirty_spill_signed= connect first dirty writeback to physical slots and signed root scanning | Native eqv? operand decoding, unboxed-variable storage, IEEE payload and boxing allocation correctness; native register reads and metadata movement |
-| Ticket CAS versus post-poll acquire | =TICKETLOCK_TRYLOCK2=, =TICKETLOCK_UNLOCK2= and normal wait macro | =Ticket.stale_cas_success_safe= covers arbitrary past current observations under no-wrap; failed stale CAS leaves state unchanged; =unlock_valid= admits ownerless handoff with queued waiters | GCC/ISA atomic implementation and no-wrap admission remain interfaces; contended plain-poll import still has no universal native proof |
+| Dirty cache materialization and invalidation | Active =targ-fp-cache-*= and =targ-loc-no-invalidate= in the C target | =Cache.trace_unique=, =trace_bound= and =new_stamp_fresh= derive lifecycle invariants; =history_dirty_read= and =dirty_spill_signed= connect first dirty writeback to physical slots and signed root scanning | Operand.encode_decode and Boxing.cache_allocation_root now connect tagged storage and heap payloads; native equality/table extraction, unboxed-variable storage, target cache invalidation, compiler reservation and allocator slow paths remain interfaces |
+| Ticket CAS versus post-poll acquire | =TICKETLOCK_TRYLOCK2=, =TICKETLOCK_UNLOCK2= and normal wait macro | =Ticket.stale_cas_success_safe= covers arbitrary past current observations under no-wrap; failed stale CAS leaves state unchanged; =unlock_valid= admits ownerless handoff with queued waiters | GCC/ISA atomic implementation and no-wrap admission remain interfaces; Contended.ordinary_poll_not_universal exhibits a stale-read history under the explicit weak-observation projection; a universal native acquire proof is still absent |
+| Native operand decoding and copy denotation | Gambit =gsc/_gvmadt.scm= constructors, =enter-opnd=, =put-copy= and =targ-gen-copy= | =Operand.encode_decode= and =intern_preserves= cover all six tags and arbitrary tables; =destination_read= and =closure_aliases= resolve nested bases; =decoded_copy_readback= connects decoding, reads, writes and unrelated-place retention | Native table/name extraction, recursive fuel sufficiency, target cache effects, frame extension and return metadata sequencing |
+| Heap flonum allocation | =MEM_ALLOCATED_FLONUM_ALLOC=, =FLONUM_FROM_END= and =FLONUM_TO_BODY= | =Boxing.allocation_identity= derives header/payload writes; =trace_fresh= preserves ownership across arbitrary allocation histories; =cache_allocation_root= composes a dirty entry with fresh bounded storage and the emitted signed frame map | Qualified 64-bit non-handle heap branch only; physical capacity and pointer bounds, compiler reservation, slow-path collection and full heap/source correspondence |
 | Atomic old-value results and bounded tickets | Gambit =FETCH_AND_ADD_WORD=, =COMPARE_AND_SWAP_WORD= and ticket macros | =Atomic.compare_swap_success=, =compare_swap_failed= and =bounded_tickets_unique= separate old-value tests from physical wrap | GCC/backend code generation; logical operation linearization; fixnum scaling, overflow and maximum outstanding tickets |
 | Closure and captured continuation retention | =mark_continuation=, =mark_captured_continuation= and =scan= | =captured_frame_reached= and =path_reached= cover arbitrary-depth pointer paths; =discovered_path_relocated= composes them with relocation | Host copying, frame-link interpretation, physical registers and SMP synchronization |
 | Least strong marking closure | Strong-mark worklist and =mark_reachable_from_marked= | =program= generates root/edge rules; =CollectorSchedule.zero_workers_marking_exact= connects global worker termination to marking through pending ownership, including in-flight objects | C forwarding/notification effects must refine the generated history; lock and memory-order linearization remain explicit |
@@ -322,6 +324,8 @@ actual compiler/ISA contract or a separately justified upstream correction.
 
 *** Context, cache and ticket qualification
 
+Historical qualification for the preceding context/cache/ticket adapter:
+
 - Lean: complete package passed with 71 build jobs; the listed theorem
   dependencies contain only standard logical axioms. No =sorry=, custom native
   axiom or =native_decide= is used.
@@ -344,10 +348,127 @@ actual compiler/ISA contract or a separately justified upstream correction.
   source/native drift rejection. Existing model input binding includes the
   modified host proof, compiled fixture and test owner.
 
-Remaining obligations are maintained in the unified ledger: ordinary contended
-ticket acquire, complete target/operand decoding, join displacement, native register/operand
-and copy-sequence decoding, allocation and patched-binary correspondence.
-These are not converted into native-correctness or performance claims.
+The following extension replaces the operand and allocation interfaces in part.
+The unified ledger retains the remaining native obligations explicitly.
+
+*** Operand decoding, heap allocation and ordinary contention
+
+This extension keeps source transitions, general proofs and implementation
+controls in one chain. It follows the same reported Gambit baseline, including
+[[https://github.com/gambit/gambit/blob/dcd677cd3e40860bdd27dfbdbf5e3ce46ab03813/gsc/_gvmadt.scm][the actual operand constructors]],
+=enter-opnd= in =gsc/_gvm.scm=, =put-copy= in =gsc/_front.scm=,
+=targ-gen-copy= / =targ-opnd= / =targ-loc= in =gsc/_t-c-2.scm= and
+[[https://github.com/gambit/gambit/blob/dcd677cd3e40860bdd27dfbdbf5e3ce46ab03813/include/gambit.h.in][the allocation and ticket macros]].
+The new [[file:../../formal/ParserEngine/HostLowering.lean][HostLowering]] module imports the existing host producer model;
+it is not a separate engine or a substitute for its liveness/cache histories.
+
+**** Operand identity, closure aliases and copies
+
+Native operands use =index * 8 + tag=: register, stack, label, global,
+closure and constant occupy tags zero through five. Scheme false is an absent
+source; integer register zero is a valid source. The operand table retains its
+argument-pair distinction, including global =#t= versus constant =#f=.
+=intern_read= and =intern_preserves= prove selected and existing rows survive
+arbitrary insertions; =encode_decode= covers all six constructors, not a fixed
+corpus of register indices. The adapter rejects missing rows, mismatched kinds
+and tags six/seven rather than certifying malformed target inputs.
+
+Closure field addresses must use the resolved base pointer. Two different raw
+base operands can alias the same closure. =closure_aliases= proves equality of
+those physical destinations; =destination_read= connects each admitted target
+to its memory read. Recursive base decoding has an explicit fuel bound and
+requires a reference value and positive field index. Fuel sufficiency and
+native object/name-table extraction remain interfaces, not consequences of a
+successful finite decoder test.
+
+=executeCopy= composes target decoding/resolution, source decoding/read and the
+resulting store. =decoded_copy_readback= proves the destination contains the
+source word and every other place is retained, for arbitrary admitted operands,
+tables and memory. Label/constant sources are read values, not destinations.
+A missing source still permits metadata assignment. The separate
+=suppressed_copy_names= theorem preserves the frontend rule that an equal
+source/destination suppresses the data move while updating variable metadata.
+This is a denotational copy proof: it does not certify native emitted instruction
+counts, target cache invalidation, stack extension or return-address movement.
+
+**** Actual boxing writes and retained roots
+
+The qualified SDK branch uses 64-bit words, one flonum payload word, no handles,
+no self-tagging and no NaN boxing. Its header is 2288, heap tag is seven and
+reference-to-body offset is one word. These are qualification metadata;
+=Boxing.ABI= carries header/tag parameters in the theorem. =allocate= advances
+hp by two, writes the header at old hp and the exact =BitVec 64= payload at
+old hp plus one. The tagged pointer denotes the header; untagging plus one
+selects the payload. Earlier allocated cells are retained.
+
+=Fresh= describes ownership of unallocated addresses, not physically zeroed
+memory. =Ready= bounds the two-word write by the physical segment capacity,
+not by a GC trigger threshold. =trace_fresh= derives ownership for arbitrary
+admitted allocation histories. =tagged_fits= separately requires a representable
+capacity. =cache_allocation_root= combines the existing dirty-cache history,
+fresh/within-segment writes, actual tagged-header decoding, emitted stack stores
+and signed frame-map scanning. It no longer asks the caller for an arbitrary
+boxing function plus a matching pointer-readback certificate. Compiler live
+flags, segment reservation, slow-path GC, raw address correspondence and other
+boxing branches still need their own source adapters. No IEEE arithmetic
+correctness or complete allocator theorem is claimed.
+
+**** Ordinary contention is a distinct ordering obligation
+
+The normal macro allocates a ticket using GCC's full-barrier =__sync= operation,
+then polls volatile current-ticket storage. The ARM relax macro is empty.
+A full barrier before the previous owner's release is not a later acquire of
+that release. GCC's [[https://gcc.gnu.org/onlinedocs/gcc/Volatiles.html][volatile contract]] does not order independent nonvolatile
+payload storage; the [[https://gcc.gnu.org/onlinedocs/gcc/_005f_005fsync-Builtins.html][legacy atomic contract]] belongs to the atomic operation.
+The inspected portions of Pulte et al.'s
+[[https://www.cl.cam.ac.uk/~pes20/armv8-mca/armv8-mca-draft.pdf][ARMv8 MCA model]] distinguish load-acquire/barrier ordering from plain
+control dependence. Its instruction coverage is not imported as a complete
+proof of GCC's LSE atomics or this SDK binary.
+
+=ordinary_poll_stale_history= constructs, for arbitrary positive tickets and
+publication epochs, a history that satisfies a payload read before unlock,
+observes the matching ticket afterward and consumes the stale value. Logical
+poll-before-consume order is retained. =ordinary_poll_not_universal= proves the
+negative import result in that explicit weak-observation projection. It is an
+obstruction to deriving acquire solely from ticket equality, not an ISA
+refinement theorem or a reproduced hardware failure. The corresponding GCC
+ARM64 fixture disassembly has =ldaddal= for ticket allocation, ordinary =ldr=
+for polling and an ordinary payload =ldr= immediately after the matching branch;
+no extra post-poll acquire instruction is present. The normal path is kept
+separate from debug history barriers and successful try-lock CAS.
+
+**** Qualification and retained boundary
+
+- Lean: the complete package passed 72 build jobs. New theorem dependency
+  output contains only standard logical axioms; no =sorry=, custom host axiom or
+  =native_decide= is used.
+- Quint: 70 directed tests passed, including all operand tags, stable table
+  insertion, pointer-based closure aliases, absent/self/register-zero copies,
+  retained heap payloads, physical capacity and the stale ordinary-poll history.
+  The existing =PipelineSafety= run covers 1,000 sampled histories of at most
+  40 steps; it does not check native weak memory.
+- Native Scheme qualification: canonical LR, layout and style passed together,
+  30 + 22 + 6 = 58 cases, 28.8851 seconds, normal exit zero, using unchanged
+  90-second total / 5-second idle budgets and GCC. The new C waiter obtains its
+  queue ticket while the parent owns the normal ticket lock; the parent then
+  writes and unlocks. No waiter-side barrier or alternate mutex replaces the
+  normal macro. This successful finite handoff does not prove universal acquire.
+- The actual =F64BOX= control allocates nine flonums into owned C storage and
+  checks hp movement, exact headers, prior cells and payload bit patterns for
+  signed zero, finite/subnormal values, infinities and a quiet NaN payload.
+  Boxed values never escape the helper or enter Scheme roots. Unsupported ABI
+  branches fail the control instead of silently passing.
+- Five source/evidence admission controls passed, including module discovery,
+  failed exit, timeout and native-product drift rejection. The new proof module
+  is included in the existing source input manifest.
+- CI run =38880398536= for parent =a23d1c7= completed successfully. This is parent
+  evidence, not CI qualification of the new changes.
+
+The native SDK remains single-processor for Scheme execution; the C contention
+control does not qualify the SMP Scheme collector. Native table extraction,
+complete emission/cache effects, allocation slow paths and ordinary acquire
+are still open in the unified ledger. No runtime or performance change is
+admitted by this extension. Model closure must precede local optimization.
 
 *** Physical placement and acquire qualification
 

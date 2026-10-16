@@ -672,4 +672,106 @@ module GrammarPipeline {
       result.nth(1) == original.nth(1) and result.length() == 4
   })
 
+  type NativeOperandRow = {kind:int,first:int,second:int}
+  pure def decodeNativeOperand(rows:List[NativeOperandRow],raw:int):List[NativeOperandRow] = {
+    val tag = raw % 8
+    val index = raw / 8
+    if(raw < 0 or tag > 5) List()
+    else if(tag < 3) List({kind:tag,first:index,second:0})
+    else if(index >= rows.length()) List()
+    else if(rows.nth(index).kind != tag) List() else List(rows.nth(index))
+  }
+  pure def internNativeOperand(rows:List[NativeOperandRow],key:NativeOperandRow):{rows:List[NativeOperandRow],index:int} = {
+    val scanned = rows.foldl({at:0,found:-1},(s,row) =>
+      {at:s.at + 1,found:if(s.found == -1 and row == key) s.at else s.found})
+    if(scanned.found == -1) {rows:rows.append(key),index:rows.length()}
+    else {rows:rows,index:scanned.found}
+  }
+  run nativeOperandTagsKeepRegisterZeroDistinctFromAbsentSourceTest = init.expect(
+    0.to(16).forall(index => 0.to(2).forall(tag =>
+      decodeNativeOperand(List(),index * 8 + tag) == List({kind:tag,first:index,second:0}))) and
+      decodeNativeOperand(List(),0) == List({kind:0,first:0,second:0}) and
+      decodeNativeOperand(List(),-1) == List() and decodeNativeOperand(List(),6) == List())
+  run operandInterningRetainsExistingRowsAcrossAllTableKindsTest = init.expect({
+    val globalRow = {kind:3,first:9,second:1}
+    val constantRow = {kind:5,first:9,second:0}
+    val closureRow = {kind:4,first:0,second:1}
+    val first = internNativeOperand(List(),globalRow)
+    val second = internNativeOperand(first.rows,constantRow)
+    val third = internNativeOperand(second.rows,closureRow)
+    decodeNativeOperand(third.rows,first.index * 8 + 3) == List(globalRow) and
+      decodeNativeOperand(third.rows,second.index * 8 + 5) == List(constantRow) and
+      decodeNativeOperand(third.rows,third.index * 8 + 4) == List(closureRow) and
+      internNativeOperand(third.rows,globalRow).index == first.index and
+      decodeNativeOperand(third.rows,second.index * 8 + 3) == List()
+  })
+  pure def resolveClosureField(rows:List[NativeOperandRow],registers:List[int],stack:List[int],raw:int,fieldIndex:int):List[int] = {
+    val operand = decodeNativeOperand(rows,raw)
+    if(operand.length() == 0 or fieldIndex < 1) List()
+    else {
+      val decoded = operand.nth(0)
+      if(decoded.kind == 0 and decoded.first < registers.length()) List(registers.nth(decoded.first),fieldIndex)
+      else if(decoded.kind == 1 and decoded.first > 0 and decoded.first <= stack.length()) List(stack.nth(decoded.first - 1),fieldIndex)
+      else List()
+    }
+  }
+  run closureFieldsAliasByResolvedPointerAndNotRawBaseOperandTest = init.expect({
+    val registerField = resolveClosureField(List(),List(42),List(42),0,1)
+    val stackField = resolveClosureField(List(),List(42),List(42),9,1)
+    val unrelated = resolveClosureField(List(),List(42),List(43),9,1)
+    registerField == List(42,1) and registerField == stackField and registerField != unrelated and
+      resolveClosureField(List(),List(42),List(42),1,1) == List() and
+      resolveClosureField(List(),List(42),List(42),0,0) == List()
+  })
+  type NativeCopyState = {memory:List[int],names:List[int]}
+  pure def copyNative(s:NativeCopyState,source:int,target:int,name:int):NativeCopyState = {
+    memory:if(source < 0 or source == target) s.memory else s.memory.replaceAt(target,s.memory.nth(source)),
+    names:if(name < 0) s.names else s.names.replaceAt(target,name)
+  }
+  run selfCopySuppressesDataMoveButStillUpdatesVariableMetadataTest = init.expect({
+    val original = {memory:List(77,88),names:List(1,2)}
+    val selfCopy = copyNative(original,0,0,9)
+    val registerZero = copyNative(original,0,1,-1)
+    val absent = copyNative(original,-1,1,9)
+    selfCopy == {memory:List(77,88),names:List(9,2)} and
+      registerZero == {memory:List(77,77),names:List(1,2)} and
+      absent == {memory:List(77,88),names:List(1,9)}
+  })
+  type BoxCell = {kind:str,bits:int}
+  pure def boxHeap(rows:List[BoxCell],payload:int):List[BoxCell] =
+    rows.append({kind:"header",bits:2288}).append({kind:"payload",bits:payload})
+  run heapBoxingAdvancesTwoWordsAndRetainsEarlierPayloadsTest = init.expect({
+    val prefix = List({kind:"old",bits:91})
+    val first = boxHeap(prefix,123)
+    val second = boxHeap(first,456)
+    second.length() == prefix.length() + 4 and second.slice(0,first.length()) == first and
+      second.nth(prefix.length()) == {kind:"header",bits:2288} and
+      second.nth(prefix.length() + 1) == {kind:"payload",bits:123} and
+      ((prefix.length() * 8 + 7) - 7) / 8 + 1 == prefix.length() + 1
+  })
+  run boxingReservationUsesPhysicalSegmentCapacityTest = init.expect(
+    not(3 + 2 <= 4) and 3 + 2 <= 5 and
+      // A GC trigger threshold is not the physical segment bound.
+      3 + 2 > 3 and 3 + 2 <= 8)
+  type PollReadState = {stage:str,ticket:int,published:int,sampled:int,result:int}
+  pure def pollReadStep(s:PollReadState,event:str,expected:int,epoch:int):PollReadState =
+    if(event == "sample" and s.stage == "waiting") {...s,sampled:s.published}
+    else if(event == "unlock" and s.stage == "waiting") {...s,ticket:expected,published:epoch}
+    else if(event == "poll" and s.stage == "waiting" and s.ticket == expected) {...s,stage:"held"}
+    else if(event == "consume" and s.stage == "held") {...s,stage:"consumed",result:s.sampled}
+    else s
+  run ordinaryPollCanConsumeAPreviouslySatisfiedStaleReadTest = init.expect({
+    val start = {stage:"waiting",ticket:0,published:0,sampled:-1,result:-1}
+    val finalRead = List("sample","unlock","poll","consume").foldl(start,
+      (s,event) => pollReadStep(s,event,1,1))
+    finalRead.stage == "consumed" and finalRead.ticket == 1 and
+      finalRead.result == 0 and finalRead.published == 1
+  })
+  run firstMatchingPollDoesNotProveThatAllocationWasUncontendedTest = init.expect({
+    val epochAtAllocation = 0
+    val afterUnlock = pollReadStep({stage:"waiting",ticket:0,published:0,sampled:0,result:-1},"unlock",1,1)
+    val firstPoll = pollReadStep(afterUnlock,"poll",1,1)
+    firstPoll.stage == "held" and firstPoll.published > epochAtAllocation
+  })
+
 }

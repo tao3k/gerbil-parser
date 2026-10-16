@@ -1,3 +1,4 @@
+import ParserEngine.HostLowering
 import ParserEngine.Host
 import ParserEngine.Representation
 import ParserEngine.Operational
@@ -531,3 +532,17 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 
 #print axioms ParserEngine.Host.Spill.all_live_retained
 #print axioms ParserEngine.Host.Spill.live_read_preserved
+
+#print axioms ParserEngine.Host.Operand.encode_decode
+#print axioms ParserEngine.Host.Operand.intern_preserves
+#print axioms ParserEngine.Host.Operand.copy_value
+#print axioms ParserEngine.Host.Boxing.allocation_identity
+#print axioms ParserEngine.Host.Boxing.cache_allocation_root
+#print axioms ParserEngine.Host.Contended.no_plain_poll_refinement
+
+#print axioms ParserEngine.Host.Operand.destination_read
+#print axioms ParserEngine.Host.Operand.closure_aliases
+#print axioms ParserEngine.Host.Boxing.trace_fresh
+#print axioms ParserEngine.Host.Contended.ordinary_poll_not_universal
+
+#print axioms ParserEngine.Host.Operand.decoded_copy_readback

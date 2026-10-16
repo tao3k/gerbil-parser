@@ -1,5 +1,5 @@
 ;;; Boxed-vector oracle, independent of packed storage and lookup dispatch.
-(export cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors closure-frame-roots wide-frame-roots reference-layout-columns reference-packed-layout-columns layout-column-sources)
+(export host-boxing-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors closure-frame-roots wide-frame-roots reference-layout-columns reference-packed-layout-columns layout-column-sources)
 
 (def (reference-layout-columns source)
   (let* ((bytes (string->utf8 source)) (size (u8vector-length bytes))
@@ -71,12 +71,13 @@
 
 ;;; Host macro controls execute in the same compiled fixture as the GC controls.
 ;;; The OS waiter touches only C-owned words, never Scheme values or a VM.
-(extern host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
+(extern host-boxing-control host-contended-control host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
 (begin-foreign
  (namespace ("gerbil-parser/t/fixtures/layout-columns#"
-             host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors))
+             host-boxing-control host-contended-control host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors))
  (c-declare #<<END-C
 #include <stdlib.h>
+#include <string.h>
 static int parser_host_slot_control(void) {
   ___WORD words[256];
   ___WORD *base = words + 160;
@@ -111,7 +112,70 @@ static int parser_host_ticket_control(void) {
   ___TICKETLOCK_UNLOCK(lock);
   return lock.next_ticket == lock.current_ticket ? 0 : 7;
 }
+static int parser_host_boxing_control(void) {
+#if ___WORD_WIDTH == 64 && ___FLONUM_SELF_TAGGING_TAGS == 0 && !defined(___NAN_BOXING) && !defined(___USE_HANDLES) && ___REFERENCE_TO_BODY == 1
+  static const ___U64 patterns[] = {0, 0x8000000000000000ULL, 0x3ff0000000000000ULL,
+    0xbff0000000000000ULL, 1, 0x7ff0000000000000ULL, 0xfff0000000000000ULL,
+    0x7ff8000000000042ULL, 0x7fefffffffffffffULL};
+  ___WORD arena[32], boxed[9];
+  for (int i = 0; i < 32; ++i) arena[i] = ___FIX(42);
+  ___WORD *___hp = arena + 2;
+  for (int i = 0; i < 9; ++i) {
+    ___F64 value;
+    memcpy(&value, &patterns[i], sizeof value);
+    boxed[i] = ___F64BOX(value);
+    if (___hp != arena + 2 + 2*(i+1)) return 1;
+    if (___FLONUM_TO_START(boxed[i]) != arena + 2 + 2*i) return 2;
+    if (*___FLONUM_TO_START(boxed[i]) != ___MAKE_HD_WORDS(___FLONUM_SIZE,___sFLONUM)) return 3;
+    for (int j = 0; j <= i; ++j) {
+      ___F64 restored = ___F64UNBOX(boxed[j]);
+      ___U64 bits;
+      memcpy(&bits, &restored, sizeof bits);
+      if (bits != patterns[j]) return 4;
+    }
+    if (arena[0] != ___FIX(42) || arena[1] != ___FIX(42)) return 5;
+  }
+  return 0;
+#else
+  return -1;
+#endif
+}
 #ifdef ___USE_POSIX_THREAD_SYSTEM
+#include <sched.h>
+struct parser_host_contended {
+  ___TICKETLOCK lock;
+  ___WORD payload;
+  int status;
+};
+static void *parser_host_ticket_waiter(void *argument) {
+  struct parser_host_contended *state = argument;
+  ___TICKETLOCK_LOCK(state->lock);
+  state->status = state->payload == ___FIX(42) ? 0 : 1;
+  ___TICKETLOCK_UNLOCK(state->lock);
+  return NULL;
+}
+static int parser_host_contended_control(void) {
+  struct parser_host_contended state;
+  pthread_t waiter;
+  ___TICKETLOCK_INIT(state.lock);
+  state.payload = ___FIX(0); state.status = -1;
+  ___TICKETLOCK_LOCK(state.lock);
+  if (pthread_create(&waiter, NULL, parser_host_ticket_waiter, &state)) {
+    ___TICKETLOCK_UNLOCK(state.lock); return 2;
+  }
+  int attempts;
+  for (attempts = 0; attempts < 1000000; ++attempts) {
+    if (___FETCH_AND_ADD_WORD(&state.lock.next_ticket, 0) == ___FIX(2)) break;
+    sched_yield();
+  }
+  if (attempts == 1000000) abort();
+  /* Waiter allocated its ticket while the parent still owns the lock. No
+     waiter-side RMW or added barrier follows the normal lock's polling loop. */
+  state.payload = ___FIX(42);
+  ___TICKETLOCK_UNLOCK(state.lock);
+  if (pthread_join(waiter, NULL)) abort();
+  return state.status;
+}
 struct parser_host_handoff {
   ___MUTEX lock;
   ___WORD payload[32];
@@ -144,6 +208,7 @@ static int parser_host_mutex_control(void) {
 }
 #else
 static int parser_host_mutex_control(void) { return -1; }
+static int parser_host_contended_control(void) { return -1; }
 #endif
 static int parser_host_spin_backend(void) {
 #ifdef ___SINGLE_THREADED_VMS
@@ -156,6 +221,8 @@ static int parser_host_spin_backend(void) {
 }
 END-C
  )
+ (define host-boxing-control (c-lambda () int "parser_host_boxing_control"))
+ (define host-contended-control (c-lambda () int "parser_host_contended_control"))
  (define host-ticket-control (c-lambda () int "parser_host_ticket_control"))
  (define host-slot-control (c-lambda () int "parser_host_slot_control"))
  (define host-mutex-control (c-lambda () int "parser_host_mutex_control"))

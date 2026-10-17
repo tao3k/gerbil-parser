@@ -486,7 +486,7 @@ are rejected, including receipts whose final vector contents would still agree.
 | Empty transition initializer | The model keeps an unpublished ghost tag; both unpublished and published-empty rows decode to the native empty list. This is not an extra native tag or allocation. |
 | Compiler and GC | External premises; no Gambit changes, builds or compiler-correctness claim. |
 
-The composition qualification passes 192 Lean build jobs with only the standard
+The composition qualification passes 193 Lean build jobs with only the standard
 =propext=, =Classical.choice= and =Quot.sound= axioms in the new audited theorems.
 The existing Scheme test macros run 282 cases across 13 owners, including final
 physical queries, joint copies at capacities 1, 2, 3, 5 and 128, repeated growth,
@@ -562,6 +562,61 @@ initial capacity and the persistent scratch lifecycle under the admission
 conditions above. Concrete pointer encoding and primitive host realization remain
 explicit premises. No runtime performance claim follows from this map.
 
+* Native CFG input admission
+
+[[file:../../../formal/ParserEngine/ConstructionGrammar.lean][ConstructionGrammar]] accepts the ordered native IR records rather than an
+independent CFG. Each record retains its physical ID and the existing
+=ProducerAdmission.Production= representation. The existing terminal catalogue
+derives terminal codes; RHS base-symbol erasure projects marked operands without
+turning their AST/layout/precedence metadata into grammar symbols.
+
+=prepare= checks dense physical IDs, the singleton augmented root, absence of
+the augmented owner in ordinary rows, reference coverage against ordinary
+rows, terminal-code availability, root identity and complete origin-recipe
+admission. The augmented row cannot satisfy an otherwise unresolved reference.
+The recipe checker consumes both complete lists, so unmatched rows or recipes
+cannot disappear through zip truncation. =nonempty= derives the CFG domain from
+the checked head; =project_index= and =id_index= preserve every physical row
+position, including duplicate CFG rows. =operand_exact= proves that no admitted
+terminal uses the default code and every nonterminal has a body owner.
+
+The context is built from this projection and its derived nonempty proof.
+=consumer_success= identifies the actual source-admitted LeanPoo invocation;
+=complete= transports its exact actions, all-prefix physical readiness and
+returned trajectory membership. =origins= and =source_derivation= compose the
+same projected ordinary rows with the existing arbitrary-word lowering theorem.
+This is source-language soundness, not a new completeness proof for every
+source DSL publication or an AST/precedence semantics theorem.
+
+The existing real =lower-rules= witness writer now publishes 17 full-record
+inputs alongside the original recipes. Their checked expectations come from
+=validate-production-semantics=: 13 admit and four reject. Three failures have
+unresolved ordinary/root references; another has a malformed layout terminal
+whose raw payload is not a valid string. Failed base decoding remains a
+forbidden EOF RHS marker, so it cannot be silently assigned a valid text code.
+The 16 decodable fixtures also check the complete projected CFG against the
+previous native grammar data; the malformed raw input has no such projection
+claim. The standard Scheme macro suite regenerates and compares the whole
+artifact, independently of Lean's generic input proofs.
+
+Fresh native-input qualification runs 301 cases across 14 existing macro-based
+Suite owners in one runtime with four workers. The direct entry passes without
+an external preload expression under the unchanged 90-second total and
+5-second idle limits. The additional owner covers native reduction/operand
+validation; no runtime performance claim follows from its elapsed time.
+
+The bounded =ConstructionGrammar.qnt= protocol supplies nine directed controls
+and 1,000 histories of 20 transitions. It covers ID corruption, unresolved
+references, failed terminal decoding, missing recipes, augmentation errors and
+duplicate-row identity. Recipe cardinality there is a protocol check; arbitrary
+recipe semantics are proved by Lean's existing =Names= checker.
+
+The raw Scheme symbol/string-to-normalized-identity adapter, canonical semantic
+metadata validation and whole-request language/AST correspondence remain
+separate obligations. No universal raw Scheme decoder or host implementation
+proof follows from the generated fixtures. The new contract closes the
+normalized native-record-to-CFG and construction-input obligation.
+
 * External premises and remaining source boundary
 
 The audit separates input-domain obligations from derived parser facts and
@@ -570,7 +625,7 @@ an input obligation; a native fixture alone cannot discharge a universal law.
 
 | Premise class | Status and owner | Required boundary |
 |---------------+------------------+-------------------|
-| Nonempty CFG and grammar encoding | Explicit =Context= domain; lowering and naming have separate producer proofs | A caller must connect its native grammar projection to that CFG. Reader identity alone is insufficient. |
+| Native records to CFG and nonempty domain | Derived by =ConstructionGrammar.prepare=, indexed projection and checked augmented head, then consumed by the same LeanPoo factory | Raw host name/text normalization and semantic metadata validation remain representation obligations; no independent caller CFG/nonempty proof. |
 | Supported source schemas and positive capacity | Derived from =prepare= and =extracted_sources= | Unsupported declarations reject admission; arbitrary Scheme is outside the protocol. |
 | Queue validity, plan availability, vector bounds and shared template identity | Derived at every reachable source-order prefix by =ConstructionReadiness=; consumed by LeanPoo | These are parser obligations, not host premises or caller certificates. |
 | Sort behavior, arithmetic, vectors, hash and queue primitives | Explicit ordinary host contracts, including sortedness and permutation | No correctness proof of the host implementation is claimed. |

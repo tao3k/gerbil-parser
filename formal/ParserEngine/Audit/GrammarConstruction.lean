@@ -371,3 +371,13 @@ import ParserEngine.Components
 #print axioms ParserEngine.ConstructionReadiness.finish_visit
 #print axioms ParserEngine.ConstructionReadiness.construct_visit
 #print axioms ParserEngine.ConstructionConsumer.source_readiness
+#print axioms ParserEngine.ConstructionGrammar.admitted_fields
+#print axioms ParserEngine.ConstructionGrammar.nonempty
+#print axioms ParserEngine.ConstructionGrammar.project_index
+#print axioms ParserEngine.ConstructionGrammar.id_index
+#print axioms ParserEngine.ConstructionGrammar.operand_exact
+#print axioms ParserEngine.ConstructionGrammar.origins
+#print axioms ParserEngine.ConstructionGrammar.source_derivation
+#print axioms ParserEngine.ConstructionGrammar.rejected
+#print axioms ParserEngine.ConstructionGrammar.consumer_success
+#print axioms ParserEngine.ConstructionGrammar.complete

@@ -798,3 +798,34 @@ or wider silence allowance was used.
 The compiler, artifact representation, rebase and build-product receipts are
 maintained together in [[file:scheme-native-build-ownership.org][native build ownership]]. Author interface examples
 remain here; native backend changes do not add a language-pack interface.
+
+** Shared engine test declarations
+
+Use the same =deflanguage-parser-tests= macro for source correspondence and
+shared engine checks. The =(engine)= profile accepts only closed =property=
+and =matrix= clauses; it does not require a fabricated language loader. Language
+fixture suites retain =(loader entry)= and their language-specific clauses.
+
+#+begin_src scheme
+(deflanguage-parser-tests source-row-test "source row correspondence"
+  (engine)
+  (matrix "stable grouping across dimensions"
+    (setup (index-rows (read-row-procedure)))
+    ((count '(1 2 7)) (width '(0 1 2 17 65 129)))
+    (bindings (rows (row-fixture count width)))
+    (equal (index-rows rows count cadr caddr)
+           (expected-row-vector rows count))))
+#+end_src
+
+The macro owns suite construction and assertions. =setup= executes once per
+case, axes enumerate a Cartesian product, and =bindings= execute once per row.
+Each axis must evaluate to a nonempty proper list; empty axes fail instead of
+silently skipping coverage. Expansion rejects duplicate labels, duplicate axes,
+unknown clause forms, free test bodies and direct console output calls. Keep
+helper functions about source data and expected values; do not print snapshots
+or assemble proof programs in test bodies.
+
+Scheme source witnesses use the engine's =parser-source-data= declarations to
+serialize reader trees. Only =SourceData.lean= is generated. Admissions,
+mutation controls and universal proofs remain ordinary Lean declarations in
+=WalkWitness.lean=, checked by the Lean kernel.

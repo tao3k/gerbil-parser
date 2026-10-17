@@ -14,6 +14,16 @@
   (datum->syntax #'invalid-test-declarations
     (list 'quote
       (list
+        (rejects #'(deflanguage-parser-tests bad "bad" (engine) (property "bad" (bindings) (equal (quasiquote ((unquote (display "bad")))) #t))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (engine) (property "bad" (bindings) (equal (quasisyntax ((unsyntax (displayln "bad")))) #t))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (engine) (accepted "bad" "1")))
+        (rejects #'(deflanguage-parser-tests bad "bad" (engine) (test-case "bad" #t)))
+        (rejects #'(deflanguage-parser-tests bad "bad" (engine) (property "bad" (bindings) (equal (display "bad") #t))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (engine) (property "bad" (bindings (x (lambda () (displayln "bad")))) (equal x #t))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (engine) (matrix "bad" (setup) ((x '(1)) (x '(2))) (bindings) (equal x 1))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (engine) (matrix "bad" (setup) () (bindings) (equal 1 1))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (engine) (matrix "bad" (setup) ((x '(1))) (bindings) (begin #t))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (engine) (property "same" (bindings) (equal 1 1)) (property "same" (bindings) (equal 2 2))))
         (rejects #'(deflanguage-parser-tests bad "bad" (loader #f)))
         (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (arbitrary "bad" #t)))
         (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (accepted "bad" "1" (nodes))))
@@ -67,7 +77,7 @@
 (def language-test-syntax-test
   (test-suite "language parser test declarations"
     (test-case "unknown, empty, malformed and duplicate declarations reject during expansion"
-      (check (invalid-test-declarations) => (make-list 50 #t)))))
+      (check (invalid-test-declarations) => (make-list 60 #t)))))
 
 (def owner-calls 0)
 (def source-calls 0)
@@ -104,3 +114,21 @@
   (loader hcl-test-language)
   (incremental "Unicode before and inside the replaced text" "名称 = \"λ中😀\"\n"
     (replace "λ中" "μ文") (schema "gerbil-parser.incremental-receipt.v1")))
+
+
+(def engine-setup-calls 0)
+(def engine-row-calls 0)
+(deflanguage-parser-tests language-test-engine-test "shared parser engine declarations"
+  (engine)
+  (matrix "engine matrix shares setup and checks every Cartesian row"
+    (setup (source (begin (set! engine-setup-calls (+ engine-setup-calls 1)) '(10 20))))
+    ((x source) (y '(1 2 3)))
+    (bindings (pair (begin (set! engine-row-calls (+ engine-row-calls 1)) (cons x y))))
+    (equal (car pair) x) (equal (cdr pair) y))
+  (property "setup is not repeated for each expectation or row"
+    (bindings) (equal engine-setup-calls 1) (equal engine-row-calls 6))
+  (property "quoted negative fixtures remain literal data"
+    (bindings)
+    (equal '(display fixture) '(display fixture))
+    (equal (quasiquote (display fixture)) '(display fixture))
+    (equal (quasiquote ((unquote (+ 1 1)))) '(2))))

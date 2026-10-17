@@ -861,7 +861,7 @@ definition, validates its macro pattern, lexical procedure scope and initial cal
 and serializes the complete =walk= declaration. It does not extract selected
 calls while dropping other expressions. Unknown datum types, duplicate macros,
 additional scope expressions and changed macro envelopes fail closed.
-[[file:../../t/generate-walk-source-witness.ss][The generator]] emits [[file:../../formal/ParserEngine/WalkWitness.lean][a typed reader-tree proof input]]. This is generated source for
+[[file:../../t/generate-walk-source-witness.ss][The generator]] emits [[file:../../formal/ParserEngine/SourceData.lean][typed reader data]]. This is generated source for
 kernel checking, not a textual output snapshot used as an assertion. Regeneration
 reads the current Scheme file. Check mode compares fresh serialization with the
 committed proof input, so a source or generator change cannot reuse stale syntax.
@@ -884,7 +884,7 @@ prefix and counter. =admitted_advance= and =admitted_run= transport it through
 direct dispatch and arbitrary finite runs. =checked_syntax_execution= constructs
 the decoded source program as well as the graph extraction witness, a completed
 run, event meaning and retained callback contexts from Boolean syntax and graph
-admission. The generated =extracted_execution= specializes that theorem to the
+admission. The Lean =extracted_execution= specializes that theorem to the
 actual reader tree, rather than supplying a hand-authored direct-control trace.
 
 Eight mutations of the actual tree must be rejected: wrong child depth,
@@ -4537,3 +4537,50 @@ implementation behavior; they do not discharge universal collector or native
 representation premises. Whole-engine model closure remains open at those
 explicit adapters. No CPU improvement is claimed or benchmark substituted for
 those proof obligations.
+
+** Declarative source qualification and complete iterative clause admission
+
+Source tests now use =deflanguage-parser-tests= with the shared =(engine)=
+profile, =property= and =matrix= clauses. The macro owns assertion expansion,
+single-evaluation setup and nonempty Cartesian axes. Expansion controls reject
+output calls and malformed declarations. The source reader no longer emits Lean
+theorem text through Scheme output statements: =parser-source-data= describes
+reader bindings, =SourceData.lean= contains only generated data, and
+=WalkWitness.lean= contains native Lean admissions and proofs. CI freshness
+checks bind the generated data to the current reader, serializer and source.
+
+[[file:../../formal/ParserEngine/IteratorSource.lean][IteratorSource]] consumes all ten ordered iterative clauses, including
+footer dispatch, cursor initialization, relocation, saved contexts and terminal
+error behavior. Its restricted executable interpretation refines packet dispatch
+and finite runs. Boolean source and graph admission construct complete callback
+runs. [[file:../../formal/ParserEngine/FrameOwnership.lean][FrameOwnership]] models fresh logical frame identities, exclusive pending
+stacks and cursor writes. Allocation preserves distinct identities; uniqueness
+derives cursor-write isolation from other pending frames. Direct dispatch
+constructs an allocation witness rather than assuming caller-chosen identities.
+
+These are restricted source-schema and logical storage proofs. General Scheme
+execution, compiler correctness, record accessor projection, allocation identity
+and host GC remain explicit external premises. The complete physical execution
+trace and remaining LR construction adapters are still open. No Gambit change,
+Gambit build or parser performance optimization is part of this work.
+
+*** Qualification receipts and retained failures
+
+The integrated source qualification runs ten owners with two workers: build
+products (2), complete LR requests (4), event iteration (7), source witnesses
+(8), LR stack reduction (19), AST style contracts (7), output qualification (5),
+canonical LR reference (31), macro contracts (10), and exclusive language ABI
+(17). All 110 cases pass in 41.4 seconds under the unchanged 90-second owner
+and five-second idle limits. Macro admission checks 60 rejected declarations;
+positive controls retain literal quoted fixtures and execute all matrix rows.
+The earlier nine-owner run passes 100 cases in 24.3 seconds.
+
+Two intervening isolated import runs reach the idle fence during unmodified
+runtime or standard-library module loading, before any case executes. Both
+failures are retained; the integrated pass does not establish their root cause
+or eliminate host loading risk. No timeout was widened. Source-data freshness
+passes with the source overlay removed, and a deliberately stale data file
+rejects with exit 70. The evidence-input invalidation control passes. Lean
+builds successfully across 90 jobs using the locked toolchain and standard
+axioms. Upstream commit =9dfa6d6= passes both-platform semantics and all required
+CI jobs; these local receipts qualify the new change separately.

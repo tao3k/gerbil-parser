@@ -141,6 +141,15 @@
                      (append (test-sources "t")
                              (test-sources "languages")))
              => '()))
+    (test-case "source witnesses declare data and keep proofs in Lean"
+      (check (filter
+              (lambda (path)
+                (not (test-source-allowed?
+                       path '(display displayln write-string string-append format))))
+              '("t/fixtures/event-walk-source.ss"
+                "t/generate-walk-source-witness.ss"
+                "t/event-walk-source-test.ss"))
+             => '()))
     (test-case "Rust AOT tests avoid textual source assembly"
       (check (test-source-allowed? "t/rust-syntax-test.ss"
                                    '(display displayln string-append)) => #t)

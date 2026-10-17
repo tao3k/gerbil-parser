@@ -1,3 +1,5 @@
+import ParserEngine.TraversalCapabilities
+import ParserEngine.BitTraversalSource
 import ParserEngine.ConstructionRows
 import ParserEngine.GroupOrder
 import ParserEngine.GroupScratch
@@ -60,6 +62,94 @@ theorem native_group_call (sort : List Row → List Row) (contract : SortContrac
   rw [masks]
   rfl
 
+/-- The native enumeration boundary is discharged by the selected LeanPoo
+capability, then projected into the grammar's existing physical layout. -/
+theorem callback_cores (g : CFG) (context : TraversalCapabilities.Context)
+    (bounded : PublishedClosure.KernelBound g context.mask) :
+    (TraversalCapabilities.callbacks context).val = PublishedClosure.coreItems g context.mask := by
+  rw [TraversalCapabilities.callbacks_exact]
+  apply BitTraversal.ordered_unique _ _ (BitTraversal.direct_sorted _) ((List.pairwise_lt_range).filter _)
+  intro bit
+  rw [BitTraversal.direct_member]
+  exact (PublishedClosure.core_membership g context.mask bounded bit).symm
+
+/-- Execute grouping through the projected capability, rather than merely
+attaching an unused traversal certificate to the abstract construction. -/
+def traversedGroups (sort : List Row → List Row) (g : CFG) (context : TraversalCapabilities.Context) (firsts : Store) : List Row :=
+  let kernel := (TraversalCapabilities.callbacks context).val
+  let scratch := GroupScratch.scan (SymbolDiscovery.physicalIDs g) kernel (GroupScratch.borrow firsts)
+  merge (fun key => scratch.masks key != 0) (sort (physicalOwn (SymbolDiscovery.physicalIDs g) (predictions g context.mask) scratch))
+    (sharedRows (SymbolDiscovery.physicalIDs g) (predictions g context.mask)) []
+
+theorem traversedGroups_exact (sort : List Row → List Row) (contract : SortContract sort)
+    (g : CFG) (context : TraversalCapabilities.Context) (bounded : PublishedClosure.KernelBound g context.mask) (firsts : Store) :
+    traversedGroups sort g context firsts = rows g context.mask := by
+  unfold traversedGroups
+  rw [callback_cores g context bounded]
+  exact (native_group_call sort contract (SymbolDiscovery.physicalIDs g) (PublishedClosure.coreItems g context.mask)
+    (predictions g context.mask) firsts).1
+
+def traversalTick (sort : List Row → List Row) (g : CFG) (width : Nat) (population : Nat → Nat) (positive : 0 < width)
+    (fixnum : Nat → Bool) (before : Machine) : Machine :=
+  match before.registry.pending with
+  | [] => before
+  | node :: tail =>
+    match before.registry.keys[node]? with
+    | none => before
+    | some mask =>
+      let context : TraversalCapabilities.Context := ⟨mask, width, positive, population mask, fixnum mask⟩
+      let groups := (traversedGroups sort g context (fun _ => 0)).map fun row => (row.key, row.mask)
+      let published := TransitionPublication.publish (compute g) (TransitionPublication.drain before.registry tail) groups
+      ⟨published.registry, ProducerAdmission.Storage.update before.transitions node published.rows⟩
+
+/-- Substitute the selected traversal into the actual whole queue iteration,
+including append/enqueue and final publication, with no final-state premise. -/
+theorem traversal_tick_exact (sort : List Row → List Row) (contract : SortContract sort)
+    (g : CFG) (width : Nat) (population : Nat → Nat) (positive : 0 < width) (fixnum : Nat → Bool)
+    (before : Machine) (admitted : Invariant g before) :
+    traversalTick sort g width population positive fixnum before = tick g before := by
+  cases front : before.registry.pending with
+  | nil => simp [traversalTick, tick, front]
+  | cons node tail =>
+    have bound := admitted.valid.bound node (by rw [front]; simp)
+    let mask := before.registry.keys[node]
+    have read : before.registry.keys[node]? = some mask := List.getElem?_eq_getElem bound
+    have history := admitted.generated mask (List.mem_of_getElem? read)
+    have exactGroups := traversedGroups_exact sort contract g ⟨mask, width, positive, population mask, fixnum mask⟩
+      (KernelConstruction.history_bound history) (fun _ => 0)
+    simp only [traversalTick, tick, front, read, exactGroups, inputs]
+
+def traversalFinish (sort : List Row → List Row) (contract : SortContract sort)
+    (g : CFG) (width : Nat) (population : Nat → Nat) (positive : 0 < width) (fixnum : Nat → Bool)
+    (before : Machine) (admitted : Invariant g before) : Machine :=
+  if _empty : before.registry.pending = [] then before
+  else
+    let later := traversalTick sort g width population positive fixnum before
+    have valid : Invariant g later := by
+      dsimp only [later]
+      rw [traversal_tick_exact sort contract g width population positive fixnum before admitted]
+      exact tick_invariant g before admitted
+    traversalFinish sort contract g width population positive fixnum later valid
+termination_by capacity g - before.registry.processed
+decreasing_by
+  rw [traversal_tick_exact sort contract g width population positive fixnum before admitted]
+  exact tick_rank g before admitted _empty
+
+theorem traversal_finish_exact (sort : List Row → List Row) (contract : SortContract sort)
+    (g : CFG) (width : Nat) (population : Nat → Nat) (positive : 0 < width) (fixnum : Nat → Bool)
+    (before : Machine) (admitted : Invariant g before) :
+    traversalFinish sort contract g width population positive fixnum before admitted = finish g before admitted := by
+  rw [traversalFinish, finish]
+  split
+  · rfl
+  next pending =>
+    rw [traversal_finish_exact]
+    simp only [traversal_tick_exact sort contract g width population positive fixnum before admitted]
+termination_by capacity g - before.registry.processed
+decreasing_by
+  rw [traversal_tick_exact sort contract g width population positive fixnum before admitted]
+  exact tick_rank g before admitted (by assumption)
+
 structure Product (g : CFG) where
   machine : Machine
   invariant : Invariant g machine
@@ -113,11 +203,13 @@ theorem paper_target (g : CFG) (nonempty : g ≠ []) (node key target : Nat) (ed
   exact semantic
 
 /-- Source-shape admission is checked separately from mathematical execution.
-The three complete declarations are generated from the current Scheme source. -/
+The complete declaration schemas are generated from the current Scheme source. -/
 theorem source_current : LRTransitionWitness.builderSource = LRTransitionSource.builder ∧
     SparseGroupWitness.symbolSource = SparseGroupSource.symbolCatalogue ∧
-    SparseGroupWitness.groupSource = SparseGroupSource.groupConstructor :=
-  ⟨LRTransitionWitness.source_checked, SparseGroupWitness.source_checked⟩
+    SparseGroupWitness.groupSource = SparseGroupSource.groupConstructor ∧
+    BitTraversalWitness.source = BitTraversalSource.declaration ∧ BitTraversalWitness.widthSource = BitTraversalSource.fieldWidth :=
+  ⟨LRTransitionWitness.source_checked, SparseGroupWitness.source_checked.1,
+    SparseGroupWitness.source_checked.2, BitTraversalWitness.source_checked⟩
 
 /-- A group call can reuse any first-item storage left by an earlier call.
 Sorted output, exact first writes, exact mask accumulation and global cleanup

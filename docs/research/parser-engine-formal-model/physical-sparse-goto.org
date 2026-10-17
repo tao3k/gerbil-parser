@@ -68,7 +68,7 @@ raw grammar -> physical cores -> prediction/closure -> ordered sparse groups
 | Publication | Complete transitions / vector-set! | ConstructionRows.finish_published -> complete | Actual publication IDs and target rows |
 | Semantic target | Section 2.2 goto/closure | ConstructionProtocol.paper_target | Existing LR reference owners |
 | Source identity | Complete Scheme declarations | ConstructionProtocol.source_current | Freshness and changed-source rejection |
-| Bit callback order (open) | Sorted item traversal / compiler-index-set-for-each | Field membership proved; direct/field callback order remains a source refinement | Existing wide-bit native controls |
+| Bit callback order | Sorted item traversal / compiler-index-set-for-each | BitTraversal.dispatch_exact -> TraversalCapabilities -> traversal_finish_exact | Forced direct/field paths, native width, empty fields and callback effects |
 
 This is a maintained contract map, not a diary of proof additions. A producer
 change must preserve its output law and revalidate the named consumer. The
@@ -105,14 +105,65 @@ Later interning preserves source and target IDs. Exhaustion publishes every
 discovered state. =paper_target= composes the final table with generated
 prediction, physical extraction and paper goto/closure for every final edge.
 
+* Ordered bit traversal and LeanPoo consumption
+
+[[file:../../../formal/ParserEngine/BitTraversal.lean][BitTraversal]] proves that =rest & (rest - 1)= removes exactly the least
+selected bit, including arbitrary-precision borrow chains. The direct loop
+terminates and produces a strictly ascending list with exact bit membership.
+The field loop finishes each local traversal before advancing its offset. Empty
+fields and a partial final field preserve that order. Aligned start and integer
+length bounds derive the same complete callback list as the direct loop for
+any positive field width. Population-count accuracy affects branch selection,
+but either selected branch has the same callback sequence.
+
+The relational =DirectRun= and =FieldRun= rules describe recursive source
+control flow without assuming final sortedness. Their soundness laws derive
+the sequence above. [[file:../../../formal/ParserEngine/BitTraversalSource.lean][BitTraversalSource]] independently checks the complete
+traversal declaration and the SDK-derived field-width binding, including the
+fixnum loop, direct loop, field visitor and branch arithmetic. Reordering the
+callback and clear operations or changing offset advancement invalidates the
+source witness. The reader handles both procedure and value declarations.
+
+[[file:../../../formal/ParserEngine/TraversalCapabilities.lean][TraversalCapabilities]] reuses the pinned LeanPoo APIs instead of defining
+another family/certificate mechanism:
+
+- =Requirements.certify= retains direct, field and selected factories with a
+  joint equality contract at the exact mask/width context.
+- =Certified.entails= derives ordered callbacks while retaining those factories.
+- =Certified.project= narrows the family to the selected capability.
+- =Certified.consume= constructs the proof-aware callback interface. It applies
+  the selected factory, not every strategy in the broad proof family.
+
+Pure integer/loop proofs remain mathematical functions. Capability retention,
+contract consequence, projection and consumption use LeanPoo. Existing parser
+preparation also uses LeanPoo Requirements and lookahead uses DictionaryBridge;
+this adds the same contract discipline to construction traversal.
+
+=callback_cores= derives equality with the grammar's physical =coreItems=.
+=traversedGroups_exact= substitutes the selected callback sequence into scratch
+accumulation, and =traversal_tick_exact= connects that producer to append/enqueue
+and publication. Finally, =traversal_finish_exact= proves equality of the entire
+terminating queue drain with the canonical construction. Classification and
+population are functions of each mask, so a run may switch traversal paths
+between states. This is a consumer
+connection, not a certificate attached to an unused traversal implementation.
+
+The external primitive boundary states the ordinary meanings of first-set-bit,
+integer-length, extraction, bitwise arithmetic and a positive SDK field width.
+=least_unique= relates a primitive satisfying the least-bit specification to
+the model. Source execution explicitly requires zero to classify as a fixnum,
+so it never admits a nonzero-path first-set-bit invocation on an empty mask.
+It neither inspects nor rebuilds Gambit. Normal callback order can
+be consumed by any order-sensitive fold; native controls separately exercise
+nested callbacks and immediate exception propagation.
+
 * External premises and remaining source boundary
 
-These are universal algorithm-level lifecycle proofs. Ascending bit-callback
-traversal is a parser representation premise inherited from the existing
-factory: =Encoding.field_complete= proves field membership, but the complete
-source direct/field traversal still needs an execution-order refinement. This
-is an open parser obligation, not host correctness and not discharged by native
-controls. It is tracked alongside the primitive boundary below.
+These are universal algorithm-level lifecycle proofs. Ascending callback order
+is now derived from the direct/field recurrence and supplied through LeanPoo's
+selected capability to the complete queue. It is no longer an unproved parser
+enumeration premise. The remaining boundary is primitive arithmetic/storage
+semantics and their host/compiler implementation.
 
 The restricted schemas
 identify complete supported Scheme declarations; forwarding native observers
@@ -149,6 +200,29 @@ histories. Source freshness succeeds in an overlay without compiled fixture
 products, and a changed extracted declaration is rejected with exit 70.
 Current parent =9a7cd0d= has all enabled CI checks successful, including both
 platforms' semantics lanes; this is distinct from CI for the next pushed commit.
+
+[[file:../../../t/fixtures/bit-traversal.ss][The traversal observer]] executes the complete source procedure with
+forwarding arithmetic primitives. Classification/count inputs force fixnum,
+direct and field routes; the native route retains actual host classification.
+The existing macro-based construction owner compares all callback indices to
+an independent linear bit scan at widths 1, 2, 5 and the actual SDK width.
+It checks callback-before-clear order, empty masks, aligned and unaligned starts,
+empty fields, partial tails, large gaps, nesting and callback failure.
+[[file:../../../formal/quint/BitTraversal.qnt][The bounded traversal model]] checks the same callback/clear/field schedule and
+rejects missing-clear and missing-offset mutations. These controls are separate
+from the universal Lean proofs and establish no CPU speedup.
+
+* Ordered-traversal qualification
+
+The complete package builds 176 Lean jobs. The existing thirteen Scheme owners
+complete 268 cases in 20.9 seconds with natural exit zero under the unchanged
+90-second total and five-second idle limits. The source-value reader and SDK
+width cases are part of that final run. All 19 evidence/layout controls pass.
+The complete Quint command passes; BitTraversal adds five directed controls
+and 1,000 forty-step histories. The source freshness check also passes in an
+overlay without compiled reader/recorder products. Offset and width-expression
+mutations in temporary extracted witnesses are each rejected with exit 70.
+These are model/source/conformance receipts, not parser CPU measurements.
 
 * Prior qualification at 9a7cd0d
 

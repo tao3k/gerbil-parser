@@ -60,7 +60,8 @@
               (let (form (read port))
                 (cond ((eof-object? form) (reverse found))
                       ((and (list? form) (>= (length form) 3) (eq? (car form) 'def)
-                            (pair? (cadr form)) (eq? (caadr form) name))
+                            (or (eq? (cadr form) name)
+                                (and (pair? (cadr form)) (eq? (caadr form) name))))
                        (loop (cons form found)))
                       (else (loop found))))))))
     (unless (= (length found) 1) (error "expected one source declaration" path name))
@@ -97,6 +98,10 @@
 (def (source-bindings source)
   (parser-source-data
     (ParserEngine.WalkSourceWitness source source)
+    (ParserEngine.BitTraversalWitness source
+      (read-source-definition "src/compiler/funcs.ss" 'compiler-index-set-for-each))
+    (ParserEngine.BitTraversalWitness widthSource
+      (read-source-definition "src/compiler/funcs.ss" 'compiler-index-field-width))
     (ParserEngine.SparseGroupWitness symbolSource
       (read-source-definition "src/compiler/lr-automaton.ss" 'make-lr0-symbol-catalog))
     (ParserEngine.SparseGroupWitness groupSource

@@ -1,7 +1,8 @@
 ;;; Whole-producer controls complement the universal construction proofs.
 (import :gerbil-parser/language-test-support
         :gerbil-parser/t/fixtures/lr-construction-semantics
-        (only-in "fixtures/construction-lifecycle.ss" construction-observation))
+        (only-in "fixtures/construction-lifecycle.ss" construction-observation)
+        (only-in "fixtures/bit-traversal.ss" traversal-observation traversal-reference traversal-masks))
 
 (deflanguage-parser-tests lr-construction-semantics-test "LR construction protocols"
   (engine)
@@ -46,6 +47,29 @@
     (equal (list-ref observed 3) (iota 130))
     (equal (list-ref observed 4) (iota 130))
     (equal (list-ref observed 6) #t))
+  (scenario "source direct and field paths deliver the same ordered callbacks"
+    (each (width) ((append '(1 2 5) (list (integer-length (##greatest-fixnum)))))
+      (each (route) ('(native fixnum direct field))
+        (each (mask) ((traversal-masks width))
+          (scope ((observed (traversal-observation mask width route))
+                  (expected (traversal-reference mask)))
+            (equal (car observed) expected)
+            (equal (caddr observed) (apply append (map (lambda (_) '(callback clear)) expected)))
+            (equal (if (or (zero? mask) (memq route '(direct fixnum))) (cadr observed) '()) '())
+            (equal (if (and (eq? route 'field) (not (zero? mask)))
+                     (pair? (cadr observed)) #t) #t))))))
+  (property "source traversal propagates callback failure before clearing"
+    (bindings (calls 0) (sentinel (list 'callback-stop)))
+    (equal (with-catch identity (lambda ()
+      (traversal-observation (- (arithmetic-shift 1 128) 1) 5 'field
+        (lambda (_) (set! calls (+ calls 1)) (raise sentinel))))) sentinel)
+    (equal calls 1))
+  (property "source traversal retains its frame across nested callbacks"
+    (bindings (nested '())
+      (observed (traversal-observation (- (arithmetic-shift 1 128) 1) 5 'field
+        (lambda (_) (set! nested (cons (car (traversal-observation 5 2 'field)) nested))))))
+    (equal (car observed) (iota 128))
+    (equal nested (make-list 128 '(0 2))))
   (property "two-pass coordinates retain empty states and repeated core IDs"
     (bindings (observed (native-coordinates '(() (0 65 2048) () (0 130))
                           '((0 0) (1 0) (1 65) (1 2048) (1 66) (2 0) (3 0) (3 130)))))

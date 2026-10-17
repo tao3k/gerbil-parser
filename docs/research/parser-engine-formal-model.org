@@ -75,8 +75,10 @@ The [[file:parser-engine-formal-model/physical-sparse-goto.org][physical extract
 symbol-index injectivity, group membership and published target closure.
 The same contract now integrates earliest-item ordering, borrowed scratch, FIFO
 termination and complete row publication through =ConstructionProtocol.construct=.
-Its paper target theorem applies to final edges; concrete host primitives and
-compiler lowering remain external to the restricted source model.
+The selected LeanPoo traversal capability now supplies direct/field callback
+order to the complete queue through =traversal_finish_exact=. Its paper target
+theorem applies to final edges; concrete host primitives and compiler lowering
+remain external to the restricted source model.
 No parser performance or compiler/host correctness claim follows from it.
 
 * macOS contextual request qualification

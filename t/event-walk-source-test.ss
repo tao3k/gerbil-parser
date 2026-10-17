@@ -89,6 +89,10 @@
     (equal (rejected? (lambda () (read-forms (list macro macro)))) #t)
     (equal (rejected? (lambda () (read-forms (list (append macro '((void))))))) #t)
     (equal (rejected? (lambda () (read-forms (list (enlarged-scope macro))))) #t))
+  (property "reader retains the SDK width value declaration"
+    (bindings (declaration (read-source-definition "src/compiler/funcs.ss" 'compiler-index-field-width)))
+    (equal declaration
+      '(def compiler-index-field-width (integer-length (##greatest-fixnum)))))
   (property "generated data matches current syntax and renderer"
     (bindings (source (read-event-walk-source "src/runtime/event-program.ss")))
     (equal (event-walk-data-current? source "formal/ParserEngine/SourceData.lean") #t)

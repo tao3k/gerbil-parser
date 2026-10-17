@@ -3,7 +3,8 @@ import ParserEngine.TemplateCache
 import ParserEngine.TransitionPublication
 
 /-! Independent complete declaration schemas for template materialization and
-its per-mask cache. Bit enumeration and primitive storage remain external. -/
+its per-mask cache. BitTraversal discharges ordered enumeration at the
+construction contract; primitive storage and compiler behavior remain external. -/
 namespace ParserEngine.LRTemplateSource
 open WalkSource NativeActions.Source CompilerSemanticsSource
 

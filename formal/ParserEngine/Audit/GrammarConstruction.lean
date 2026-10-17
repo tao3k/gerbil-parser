@@ -207,3 +207,21 @@ import ParserEngine.Components
 #print axioms ParserEngine.ConstructionProtocol.grouping
 #print axioms ParserEngine.ConstructionProtocol.complete
 #print axioms ParserEngine.ConstructionProtocol.paper_target
+
+#print axioms ParserEngine.BitTraversal.least_properties
+#print axioms ParserEngine.BitTraversal.clear_bit
+#print axioms ParserEngine.BitTraversal.direct_sorted
+#print axioms ParserEngine.BitTraversal.direct_run_sound
+#print axioms ParserEngine.BitTraversal.fields_exact
+#print axioms ParserEngine.BitTraversal.source_field_callbacks
+#print axioms ParserEngine.BitTraversal.dispatch_exact
+#print axioms ParserEngine.BitTraversalWitness.source_checked
+#print axioms ParserEngine.BitTraversalSource.execute_exact
+#print axioms ParserEngine.TraversalCapabilities.callbacks_exact
+#print axioms ParserEngine.TraversalCapabilities.order_retains_factories
+#print axioms ParserEngine.TraversalCapabilities.consumer_exact
+#print axioms ParserEngine.ConstructionProtocol.callback_cores
+#print axioms ParserEngine.ConstructionProtocol.traversedGroups_exact
+#print axioms ParserEngine.ConstructionProtocol.traversal_finish_exact
+#print axioms ParserEngine.BitTraversalSource.changed_source_rejected
+#print axioms ParserEngine.BitTraversalSource.changed_width_rejected

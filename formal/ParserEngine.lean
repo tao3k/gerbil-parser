@@ -1,3 +1,4 @@
+import ParserEngine.HybridIterator
 import ParserEngine.IteratorExecutor
 import ParserEngine.IteratorMachine
 import ParserEngine.Extraction
@@ -1019,3 +1020,63 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.IteratorExecutor.encode_decoded
 
 #print axioms ParserEngine.IteratorExecutor.chunk_slot_update
+
+#print axioms ParserEngine.HybridIterator.advance_transition
+
+#print axioms ParserEngine.HybridIterator.sequence_index_refines
+
+#print axioms ParserEngine.HybridIterator.sequence_end_refines
+
+#print axioms ParserEngine.HybridIterator.project_valid
+
+#print axioms ParserEngine.HybridIterator.plan_valid
+
+#print axioms ParserEngine.HybridIterator.plan_simulates
+
+#print axioms ParserEngine.HybridIterator.footer_executes
+
+#print axioms ParserEngine.HybridIterator.fallback_refines
+
+#print axioms ParserEngine.HybridIterator.transition_valid
+
+#print axioms ParserEngine.HybridIterator.transition_simulates
+
+#print axioms ParserEngine.HybridIterator.plan_controls
+
+#print axioms ParserEngine.HybridIterator.transition_controls
+
+#print axioms ParserEngine.HybridIterator.plan_decreases
+
+#print axioms ParserEngine.HybridIterator.transition_decreases
+
+#print axioms ParserEngine.HybridIterator.footer_available
+
+#print axioms ParserEngine.HybridIterator.progress
+
+#print axioms ParserEngine.HybridIterator.trace_valid
+
+#print axioms ParserEngine.HybridIterator.trace_simulates
+
+#print axioms ParserEngine.HybridIterator.trace_controls
+
+#print axioms ParserEngine.HybridIterator.run_complete
+
+#print axioms ParserEngine.HybridIterator.run_trace
+
+#print axioms ParserEngine.HybridIterator.complete_events
+
+#print axioms ParserEngine.HybridIterator.fallback_budget_valid
+
+#print axioms ParserEngine.HybridIterator.initial_completes
+
+#print axioms ParserEngine.HybridIterator.observation_unique
+
+#print axioms ParserEngine.HybridIterator.controlled_trace_unique
+
+#print axioms ParserEngine.HybridIterator.cutoff_independent
+
+#print axioms ParserEngine.HybridIterator.packet_equivalent
+
+#print axioms ParserEngine.HybridIterator.checked_execution
+
+#print axioms ParserEngine.HybridIterator.complete_request_product

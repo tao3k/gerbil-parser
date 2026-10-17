@@ -110,4 +110,21 @@ module Publication {
     {id:0,rank:1,children:List()}, {id:1,rank:1,children:List(0)}))))
   run missingReferenceWitnessTest = init.expect(not(checkedRanks(List({id:0,rank:1,children:List(7)}))))
 
+  // Hybrid source control: empty precedes cutoff; fallback inherits the caller.
+  pure def hybridFallback(empty:bool,depth:int,cutoff:int):bool = not(empty) and depth >= cutoff
+  run hybridEmptyBeforeFallbackTest = init.expect(not(hybridFallback(true,64,64)) and not(hybridFallback(true,0,0)))
+  run hybridCutoffBoundaryTest = init.expect(
+    not(hybridFallback(false,63,64)) and hybridFallback(false,64,64) and hybridFallback(false,65,64))
+  run hybridCounterResumeTest = init.expect(
+    val caller = openSourceNode(sourceProduct(List()))
+    val nested = openSourceNode(caller)
+    val returned = closeSourceNode(nested,caller.nextNode)
+    val sibling = openSourceNode(returned)
+    completeSource(closeSourceNode(closeSourceNode(sibling,returned.nextNode),0)) and sibling.nextNode == 3)
+  run hybridResetCounterWitnessTest = init.expect(
+    val caller = openSourceNode(sourceProduct(List()))
+    val reset = {...caller,nextNode:0}
+    val nested = openSourceNode(reset)
+    not(closeSourceNode(nested,caller.nextNode).ok))
+
 }

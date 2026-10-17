@@ -1,6 +1,6 @@
 ;;; Position-view iterator controls against an independent recipe interpreter.
 (import :std/test
-        (only-in :gerbil-parser/t/fixtures/event-iterator-extraction event-graph-certificate check-event-certificate generate-event-witness witness-callbacks extract-event-graph replay-event-graph packet-event-callbacks event-program-callbacks decode-event-frame)
+        (only-in :gerbil-parser/t/fixtures/event-iterator-extraction event-graph-certificate check-event-certificate generate-event-witness witness-callbacks extract-event-graph replay-event-graph packet-event-callbacks hybrid-event-callbacks hybrid-event-run event-program-callbacks decode-event-frame)
         :gerbil-parser/src/runtime/event-program
         (only-in :gerbil-parser/src/runtime/token make-token token-start)
         (only-in :gerbil-parser/src/runtime/recognition make-recognition-child)
@@ -42,6 +42,9 @@
       (check (generate-event-witness graph ranks 0) => #f)
       (check (witness-callbacks witness) => (event-program-callbacks program))
       (check (witness-callbacks witness 1) => (event-program-callbacks program 1))
+      (for-each (lambda (cutoff)
+                  (check (hybrid-event-callbacks graph cutoff 1) => (event-program-callbacks program 1))
+                  (check (hybrid-event-callbacks graph cutoff) => (event-program-callbacks program))) '(0 64))
       (check (packet-event-callbacks graph 1) => (event-program-callbacks program 1))
       (check (packet-event-callbacks graph) => (event-program-callbacks program))
       (check (replay-event-graph graph 1) => (event-program-callbacks program 1))
@@ -67,6 +70,32 @@
            (check-recipe (list 'join moved sequence))
            (check-recipe (list 'view 3 (list 'join moved (list 'view -2 sequence))))))
        '(0 1 15 16 17 31 32 33 65 129)))
+    (test-case "hybrid cutoffs retain native callers and fallback counter provenance"
+      (let* ((leaf (list 'token (make-token 'word "x" 0 1)))
+             (nested (foldl (lambda (i body)
+                              (case (modulo i 4)
+                                ((0) (list 'node 'Nested body))
+                                ((1) (list 'field 'value body))
+                                ((2) (list 'fragment body))
+                                (else (list 'view (if (even? (quotient i 4)) 9 -9) body)))) leaf (iota 67)))
+             (program (compile-recipe (list 'view -9 (list 'view 9
+                        (list 'node 'Outer (list 'join nested (list 'node 'Tail leaf)))))))
+             (graph (extract-event-graph program)))
+        (for-each
+         (lambda (cutoff)
+           (for-each
+            (lambda (stride)
+              (let ((result (hybrid-event-run graph cutoff stride)))
+                (check (car result) => (event-program-callbacks program stride))
+                (when (= cutoff 2)
+                  (check (every (lambda (fallback)
+                                  (and (= (cadr fallback) 0) (eq? (caddr fallback) #t)
+                                       (= (list-ref fallback 3) stride))) (cdr result)) => #t))
+                (if (= cutoff 200) (check (cdr result) => '())
+                    (begin (check (pair? (cdr result)) => #t)
+                           (check (every (lambda (fallback) (= (car fallback) cutoff)) (cdr result)) => #t)))))
+            '(1 7)))
+         '(0 1 2 63 64 65 200))))
     (test-case "actual record extraction covers layouts and detaches private instruction lists"
       (let* ((recipe (list 'node 'Root (list 'field 'value
                       (list 'view 0 (cons 'sequence

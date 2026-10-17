@@ -1,5 +1,6 @@
 ;;; Qualification must finish large logs and preserve streaming error framing.
 (import :std/test :std/io/tempfile
+        (only-in :std/text/pregexp pregexp pregexp-match)
         :gerbil-parser/t/support/qualification/process)
 (export qualification-output-test)
 (def (with-output-result mode proc)
@@ -24,6 +25,32 @@
         (when (file-exists? log) (delete-file log))))))
 (def qualification-output-test
   (test-suite "qualification output framing"
+    (test-case "batched receipts preserve regexp line semantics and missing order"
+      (let* ((text "first\nx42\n\nliteral.end\nlast")
+             (patterns '("^first$" "^x[0-9]+$" "literal\\.end" "^last$" "^absent$" "first\nx42" "^absent$"))
+             (reference (filter (lambda (pattern)
+                                  (not (any (lambda (line) (pregexp-match pattern line))
+                                            (string-split text #\newline)))) patterns)))
+        (check (missing-process-receipts patterns text) => reference)
+        (check reference => '("^absent$" "first\nx42" "^absent$"))
+        (check (not (not (receipt-present? (pregexp "^x[0-9]+$") text))) => #t)
+        (check (missing-process-receipts (list (pregexp "^first$")) text) => '())
+        (check (missing-process-receipts '("^$" "^absent$") "") => '("^$" "^absent$"))
+        (check-exception (missing-process-receipts '("[") text) true)
+        (check-exception (missing-process-receipts '("(?i)abc") text) true)
+        ;; An empty log has no lines: the original matcher never compiles.
+        (check (missing-process-receipts '("(?i)abc") "") => '("(?i)abc")))
+      ;; Compare against the original line-by-line matcher for constructs that
+      ;; must bypass the prefix guard as well as literal/anchored receipts.
+      (let ((patterns '("A|B" "A?BC" "[AB]CD" "(?i:abc)" "(AB)CD" "A.*B"
+                        "^ABSENT$" "literal\\.end" "a+" "^$" "\\bword\\b" "雪."))
+            (samples '("" "A" "B" "BC" "BCD" "abc" "ABC" "ABCD" "a\nB" "literal.end\n雪人" "word")))
+        (for-each
+         (lambda (text)
+           (let (reference (filter (lambda (pattern)
+                                     (not (any (lambda (line) (pregexp-match pattern line))
+                                               (string-split text #\newline)))) patterns))
+             (check (missing-process-receipts patterns text) => reference))) samples)))
     (test-case "ordinary identifier prefixes do not become errors"
       (with-output-result "ordinary"
         (lambda (result)
@@ -45,5 +72,7 @@
             (check (process-result-status result) => 0)
             (check (process-result-reason result) => #f)
             (check (u8vector-length (process-result-output result)) => (* 8 1024 1024))
-            ;; Include result construction after the child monitor stops.
+            (check (missing-process-receipts '("^NOTE x+$" "^ABSENT$" "^NOTE" "^ABSENT$")
+                     (utf8->string (process-result-output result))) => '("^ABSENT$" "^ABSENT$"))
+            ;; Include result construction and receipt admission after the monitor stops.
             (check (< (- (##current-time-point) started) 30) => #t)))))))

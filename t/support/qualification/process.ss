@@ -13,8 +13,32 @@
 (defstruct process-interruption (reason) transparent: #t)
 (def (normal-exit-status raw)
   (if (zero? (modulo raw 256)) (quotient raw 256) (+ 128 (modulo raw 128))))
+(def (receipt-required-prefix regexp)
+  ;; The official pregexp AST exposes one top-level branch as :sub/:or/:seq.
+  ;; Only consecutive literal characters are necessary; alternatives, flags,
+  ;; groups and optional prefixes conservatively yield no prefilter.
+  (match regexp
+    ([':sub [':or [':seq . pieces]]]
+     (let loop ((rest (if (and (pair? pieces) (eq? (car pieces) ':bos)) (cdr pieces) pieces))
+                (characters '()))
+       (if (and (pair? rest) (char? (car rest)))
+         (loop (cdr rest) (cons (car rest) characters))
+         (list->string (reverse characters)))))
+    (_ "")))
+(def (receipt-lines-present? pattern lines)
+  (and (pair? lines)
+   (let* ((regexp (if (string? pattern) (pregexp pattern) pattern))
+         (prefix (receipt-required-prefix regexp)))
+    (any (lambda (line)
+           (and (or (zero? (string-length prefix)) (string-contains line prefix))
+                (pregexp-match regexp line))) lines))))
 (def (receipt-present? pattern output)
-  (any (lambda (line) (pregexp-match pattern line)) (string-split output #\newline)))
+  (receipt-lines-present? pattern (string-split output #\newline)))
+(def (missing-process-receipts patterns output)
+  ;; Preserve per-line regexp semantics and missing-pattern order, but split
+  ;; once per completed log and compile once per pattern, not once per line.
+  (let (lines (string-split output #\newline))
+    (filter (lambda (pattern) (not (receipt-lines-present? pattern lines))) patterns)))
 
 (def (run-observed-process command log timeout: (budget 60) idle-timeout: (idle #f)
                            error-output?: (error-output? #t) observe: (observe void))
@@ -165,7 +189,7 @@
   (displayln "PROCESS-START " log " timeout=" budget) (force-output)
   (let* ((result (run-observed-process command log timeout: budget idle-timeout: idle observe: observe))
          (text (and (pair? receipts) (utf8->string (process-result-output result))))
-         (missing (filter (lambda (pattern) (not (receipt-present? pattern text))) receipts)))
+         (missing (if (pair? receipts) (missing-process-receipts receipts text) '())))
     (displayln "PROCESS-RESULT elapsed=" (process-result-elapsed result)
                " exit=" (process-result-status result) " reason=" (process-result-reason result)
                " phase=" (process-result-phase result)

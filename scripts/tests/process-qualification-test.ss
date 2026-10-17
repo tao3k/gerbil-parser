@@ -1,5 +1,7 @@
 ;;; Exercise production process contracts with real native children.
 (load "test-processes.ss")
+(import (only-in :gerbil-parser/t/support/qualification/process
+                 run-observed-process process-result-reason process-result-status process-result-phase))
 (def make-case
   (eval '(lambda (name command expected marker budget idle)
             (process-case name command expected marker budget idle))))
@@ -20,13 +22,23 @@
 (displayln "PROCESS-CONTROL-OK partial-output")
 (reject! "wrong-exit" (lambda () (probe "wrong-exit" "(exit 17)" 0 #f 2 1)))
 (reject! "missing-marker" (lambda () (probe "missing-marker" "(exit 0)" 0 "MISSING" 2 1)))
-(reject! "idle-timeout" (lambda () (probe "idle" "(thread-sleep! 2) (exit 0)" 0 #f 2 0.1)))
-(reject! "total-timeout"
- (lambda () (probe "total" "(let loop () (display \".\") (force-output) (thread-sleep! 0.02) (loop))"
-                    0 #f 0.15 0.1)))
-;; EOF is not process completion: the total fence also covers process-status.
-(reject! "closed-output-timeout"
- (lambda () (probe "closed-output" "(close-output-port (current-output-port)) (close-output-port (current-error-port)) (thread-sleep! 2) (exit 0)"
-                    0 #f 0.15 #f)))
+(def (timeout-probe! name code expected budget idle)
+  (let (result (run-observed-process ["gxi" "-e" code] (path-expand name root)
+                                    timeout: budget idle-timeout: idle))
+    (unless (and (eq? (process-result-reason result) expected)
+                 (not (zero? (process-result-status result))))
+      (error "wrong process timeout classification" name expected result))
+    (displayln "PROCESS-CONTROL-OK " name " reason=" expected
+               " phase=" (process-result-phase result)) (force-output)))
+(timeout-probe! "idle-timeout" "(thread-sleep! 2) (exit 0)" 'idle-timeout 2 0.1)
+;; Keep the original total budget; remove the competing idle fence from this
+;; directed total-timeout case so bootstrap latency cannot satisfy the wrong test.
+(timeout-probe! "total-timeout"
+ "(let loop () (display \".\") (force-output) (thread-sleep! 0.02) (loop))" 'total-timeout 0.15 #f)
+;; Total time includes bootstrap and process-status after EOF. Record the actual
+;; phase; a bootstrap rejection is not evidence that the child reached its close.
+(timeout-probe! "closed-output-timeout"
+ "(close-output-port (current-output-port)) (close-output-port (current-error-port)) (thread-sleep! 2) (exit 0)"
+ 'total-timeout 0.15 #f)
 (displayln "PROCESS-QUALIFICATION-CONTROLS-OK") (force-output)
 (exit 0)

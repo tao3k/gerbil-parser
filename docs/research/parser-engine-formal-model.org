@@ -689,6 +689,166 @@ parent commit. These remote results do not qualify the new executable layer
 until its own commit completes CI.
 
 
+*** Native recursion, sequential loops and iterative fallback
+
+[[file:../../formal/ParserEngine/HybridIterator.lean][HybridIterator.lean]] closes the preceding source-control obligation at the
+normal-return Scheme semantics boundary. It follows =event-program-walk/inline=
+in [[file:../../src/runtime/event-program.ss][event-program.ss]]: empty instructions return before the cutoff test,
+ordinary records recurse with depth plus one, and a nonempty instruction at
+the cutoff executes the packet iterator before its native caller resumes.
+The production threshold is 64; the proof quantifies over every natural
+threshold and initial depth, rather than qualifying only that constant.
+
+Section 4 of [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]] distinguishes native call control
+from continuation-based control. Here that distinction motivates an explicit
+relation between their representations. The paper does not prove the event
+iterator, its private records or the Scheme compiler, and no performance
+conclusion is inferred from changing control representation in this model.
+
+**** Source clauses and the execution relation
+
+The model retains three kinds of native activation: a call with its signed
+translation, moved provenance and depth; a sequential loop with its remaining
+children; and a footer with its saved opening return. These are ghost call
+activations, not physical vector frames. Their projection into pending work
+is used only for semantic comparison and callback bracketing. In particular,
+the source chunk loop may be represented by a sequence of remaining calls
+without claiming that it allocates a vector frame for each of them.
+
+| Real source control | General correspondence |
+|---------------------+------------------------|
+| False instruction returns before the depth guard | =advance_transition=, empty transition |
+| Value/field body call and saved footer local | =plan_simulates=, =plan_controls= |
+| Token callback and ordered branch calls | =plan_simulates= |
+| View accumulates signed shift and sets moved provenance | =plan_simulates= |
+| Chunk vector loop visits indices zero through length minus one | =sequence_index_refines=, =sequence_end_refines= |
+| Append visits prefix, reversed stored blocks, then tail | =plan_simulates= and the sequence projection |
+| Deep call runs the packet iterator with inherited counter and coordinates | =fallback_refines= |
+| Suspended native caller resumes with its own saved footer and remaining siblings | =transition_simulates=, =transition_controls= |
+| Every executable dispatch yields the corresponding source transition | =advance_transition= |
+
+The vector-loop correspondence uses a stable ordered list projection of the
+record's items. At index i, =items.drop i= is the remaining work; executing its
+head advances to =items.drop (i + 1)= with unchanged child-call depth. At the
+vector length the loop returns without emitting an event. Object identity,
+primitive vector reads and list projection stability retain their explicit
+adapter contracts.
+
+The fallback does not assume a relational machine walk. It consumes successful
+=IteratorExecutor.run= execution, derives that walk and its final empty pending
+work, then applies the existing suffix theorem to restore the suspended caller.
+The inherited counter is arbitrary at this seam, so a nested fallback cannot
+reset it to zero. Header IDs saved before the fallback remain available to the
+outer footer after all nested calls have returned.
+
+**** Totality, exact observations and complete request composition
+
+=transition_valid= preserves native activation admission. A structural measure
+accounts for calls, loops and footers, including administrative loop steps that
+preserve event meaning. =transition_decreases= and =progress= establish normal
+completion with sufficient verification fuel. =fallback_budget_valid= derives
+a finite uniform packet budget from the checked finite domain; no independent
+termination oracle is assumed. These bounds are verification resources, not
+parameters added to the parsing API or a prediction of CPU, stack or GC cost.
+
+=initial_completes= constructs a successful finite run for any cutoff and initial
+depth. =complete_events= proves both exact event meaning and well-bracketed
+retained callback contexts. =controlled_trace_unique= establishes that, for the
+artifact publisher's counter protocol, equal events and an admitted initial
+control state uniquely determine the entire observation history. Therefore
+=cutoff_independent= proves equality of all observations and final counters,
+not just equality after erasing footer IDs. =packet_equivalent= proves the same
+full-observation equality between hybrid and physical packet execution.
+
+=checked_execution= composes Boolean finite-graph admission, generated extraction
+witnesses, derived fallback budgets and completed hybrid execution. The hybrid
+=complete_request_product= theorem constructs a corresponding physical execution
+witness and transports the callback history before reusing the accepted LR
+request, AST replay and canonical publication theorem. A caller no longer
+supplies the recursive/iterative equivalence or a physical control-flow trace.
+
+This is a universal proof over the typed record projection and the source's
+normal-return control semantics. It is not a mechanically verified compilation
+of the Scheme syntax, nor a proof of the host ABI, collector, memory visibility,
+exceptions or continuation reentry. Primitive classification/reads, stable
+identity, source/position resolution and admitted publisher effects remain
+separate premises. Gambit was neither modified nor built. Whole-parser closure
+still requires those explicit parser adapters; their finite controls are not
+promoted to universal compiler or host correctness.
+
+**** Independent Scheme and protocol controls
+
+[[file:../../t/fixtures/event-iterator-extraction.ss][hybrid-event-run]] is an independent native-call interpreter over actual
+projected records. Its fallback uses the separate packet interpreter seeded
+with the current translation, provenance and opening counter. It records the
+fallback depth and inherited context. It does not call the production walker
+or the register-based replay. Existing iterator and complete-request owners
+compare cutoffs zero and 64 at strides one and seven against the actual hybrid
+walker, generated witness and register replay. Empty, trivia, Unicode,
+arithmetic and 64-record requests retain their AST/publication controls.
+
+A dedicated nested node/field/fragment/view case also exercises cutoffs
+0, 1, 2, 63, 64, 65 and 200, checks every fallback entry occurs at the selected
+depth, and verifies the no-fallback case. It retains outer ID zero across nested
+fallbacks and subsequent sibling calls. Publication Quint adds directed controls
+for empty-before-cutoff priority, the 63/64/65 boundary, inherited counters and
+an incorrect counter-reset witness. All 25 Publication controls pass.
+
+The initial integrated Scheme run passed 86 cases across seven owners in
+18.3 seconds. The final strengthened run includes the qualification-output
+owner: all 91 cases across eight owners pass, with the monitored child
+finishing in 14.0 seconds. It uses two workers, exclusive ABI checks and the
+unchanged 90-second owner and five-second idle limits. Lean builds 83 jobs;
+new theorems are included in the axiom audit with standard logical axioms only.
+The evidence-input regression binds the new module together with the runtime
+source, Scheme controls and qualification implementation. These durations
+belong to different qualification workloads, not a matched CPU comparison.
+No parser runtime optimization is introduced by this extension.
+
+**** Qualification finalization and exact timeout reasons
+
+Verification exposed separate work after a completed test child: each required
+receipt split the same 12 MiB log again, and each line compiled its regexp again.
+The qualifier now splits once and compiles once per pattern. An 8 MiB missing
+receipt control still exceeded the existing idle limit: the official pregexp
+matcher tries subsequent line positions even after an anchored match fails.
+That failure is retained rather than changing its watchdog or dropping the
+missing-marker control.
+
+The fix recognizes a mandatory literal prefix only in the official compiled
+single-branch =:sub/:or/:seq= form. A leading =:bos= is permitted. The official
+core =string-contains= rejects lines missing that prefix; the original pregexp
+matcher remains the final decision. Alternatives, optional initial terms,
+groups, flags and unknown representations receive no prefix filter. Matching
+retains its original per-line semantics, duplicate missing-pattern order,
+compiled-pattern inputs and empty-log behavior. In particular, an empty log
+has no lines and must not force regexp compilation. An unsupported unscoped
+case flag in the first new matrix was corrected into an explicit rejection
+control, including this empty-log distinction. The erroneous empty-line
+expectation and the large-log idle failure remain negative receipts.
+
+[[file:../../t/qualification-output-test.ss][The qualification-output owner]] compares the new scanner against the original
+matcher on anchors, alternatives, optional prefixes, character classes, scoped
+case folding, groups, word boundaries, Unicode and multiline inputs. All five
+cases pass, including unchanged error framing and the 8 MiB completed-log test
+with missing receipts included in its original bound. This is qualification
+orchestration work; the parser algorithm and request runtime are unchanged.
+
+A separate process-control run exposed another admission weakness: its generic
+rejection helper labelled a total-timeout case successful when the competing
+idle fence fired first. [[file:../../scripts/tests/process-qualification-test.ss][The process controls]] now inspect the actual reason and
+nonzero status. The total case retains its original 0.15-second total budget
+and isolates that fence from idle; production deadlines are unchanged. The
+closed-output input records the observed phase explicitly, because a bootstrap
+rejection is not evidence that the child reached its close operation. Wrong
+exit status, missing markers and exact idle/total reasons remain rejected.
+
+At parent commit =46c4865b178c6ac34fb75eb764e00caa699cc858=,
+[[https://github.com/tao3k/gerbil-parser/actions/runs/38988513594][CI run 38988513594]] completed successfully. Ubuntu preparation, generation,
+semantics, FFI and corpus passed; macOS preparation, generation, semantics and
+FFI passed; all three Rust jobs passed. These remote results confirm the prior
+layer and do not substitute for exact-head CI on this new extension.
+
 *** Current Ubuntu ABI watchdog failure and execution admission
 
 At =f6985c9=, Ubuntu semantics job =117123877753= in run =38944020625=

@@ -23,7 +23,7 @@ class ModelInputControls(unittest.TestCase):
             request = root / "formal/ParserEngine/Request.lean"
             request.write_text("namespace Request\nend Request\n")
             (root / "formal/ParserEngine/Grammar.lean").write_text("namespace Grammar\nend Grammar\n")
-            for module in ("NativeActions", "TablePublication", "ItemLayout", "SourceData", "FrameOwnership", "IteratorSource", "SourceEffects", "RowSource", "WalkSource", "WalkWitness", "HybridIterator", "IteratorExecutor", "Extraction", "IteratorMachine", "Callback", "IteratorEncoding", "EventIterator", "RequestAST", "Publication", "TableBridge", "SemanticValues", "Viable", "RawRequest", "Completion", "NativeFacts", "Lowering", "Worklist", "Solver", "Encoding", "Names", "Construction", "Operational", "Host", "HostLowering"):
+            for module in ("CompilerExecution", "NativeActions", "TablePublication", "ItemLayout", "SourceData", "FrameOwnership", "IteratorSource", "SourceEffects", "RowSource", "WalkSource", "WalkWitness", "HybridIterator", "IteratorExecutor", "Extraction", "IteratorMachine", "Callback", "IteratorEncoding", "EventIterator", "RequestAST", "Publication", "TableBridge", "SemanticValues", "Viable", "RawRequest", "Completion", "NativeFacts", "Lowering", "Worklist", "Solver", "Encoding", "Names", "Construction", "Operational", "Host", "HostLowering"):
                 (root / f"formal/ParserEngine/{module}.lean").write_text(f"namespace {module}\nend {module}\n")
             lean, quint = model_checks(root)
             self.assertEqual((lean.claim, quint.claim), ("lean-model", "quint-protocol"))
@@ -56,7 +56,7 @@ class ModelInputControls(unittest.TestCase):
             self.assertIn("formal/ParserEngine/IteratorMachine.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/IteratorExecutor.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/HybridIterator.lean", lean.inputs)
-            for source in ("formal/ParserEngine/NativeActions.lean", "t/lr-native-source-test.ss", "formal/ParserEngine/TablePublication.lean", "docs/research/dense-lr-item-space.org", "formal/ParserEngine/ItemLayout.lean", "t/test-style-contract-test.ss", "docs/research/scheme-dsl-author-interface.org", "src/testing/contracts.ss", "language-test-support.ss", "t/line-structure-assertions.ss", "t/rust-aot-test-syntax.ss", "formal/ParserEngine/SourceData.lean", "formal/ParserEngine/FrameOwnership.lean", "formal/ParserEngine/IteratorSource.lean", "src/testing/source-witness.ss", "src/testing/language-parser.ss", "t/language-test-syntax-test.ss", "formal/ParserEngine/SourceEffects.lean", "formal/ParserEngine/RowSource.lean",
+            for source in ("formal/ParserEngine/CompilerExecution.lean", "formal/ParserEngine/NativeActions.lean", "t/lr-native-source-test.ss", "formal/ParserEngine/TablePublication.lean", "docs/research/dense-lr-item-space.org", "formal/ParserEngine/ItemLayout.lean", "t/test-style-contract-test.ss", "docs/research/scheme-dsl-author-interface.org", "src/testing/contracts.ss", "language-test-support.ss", "t/line-structure-assertions.ss", "t/rust-aot-test-syntax.ss", "formal/ParserEngine/SourceData.lean", "formal/ParserEngine/FrameOwnership.lean", "formal/ParserEngine/IteratorSource.lean", "src/testing/source-witness.ss", "src/testing/language-parser.ss", "t/language-test-syntax-test.ss", "formal/ParserEngine/SourceEffects.lean", "formal/ParserEngine/RowSource.lean",
                            "formal/ParserEngine/WalkSource.lean", "formal/ParserEngine/WalkWitness.lean",
                            "t/fixtures/event-walk-source.ss", "t/generate-walk-source-witness.ss", "t/event-walk-source-test.ss"):
                 self.assertIn(source, lean.inputs)
@@ -67,6 +67,7 @@ class ModelInputControls(unittest.TestCase):
             self.assertIn("formal/ParserEngine/Lookahead.lean", lean.inputs)
             self.assertIn("formal/quint/RawRequest.qnt", quint.inputs)
             self.assertIn("formal/quint/ItemLayout.qnt", quint.inputs)
+            self.assertIn("formal/quint/CompilerExecution.qnt", quint.inputs)
             self.assertIn("formal/quint/NativeActions.qnt", quint.inputs)
             self.assertIn("t/lr-native-source-test.ss", quint.inputs)
             self.assertIn("formal/quint/TablePublication.qnt", quint.inputs)
@@ -138,7 +139,7 @@ class ModelInputControls(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 if not path.exists():
                     path.write_text("input")
-            for module in ("NativeActions", "TablePublication", "ItemLayout", "SourceData", "FrameOwnership", "IteratorSource", "SourceEffects", "RowSource", "WalkSource", "WalkWitness", "HybridIterator", "IteratorExecutor", "Extraction", "IteratorMachine", "Callback", "IteratorEncoding", "EventIterator", "RequestAST", "Publication", "TableBridge", "SemanticValues", "Viable", "RawRequest", "Completion", "NativeFacts", "Lowering", "Worklist", "Solver", "Encoding", "Names", "Operational"):
+            for module in ("CompilerExecution", "NativeActions", "TablePublication", "ItemLayout", "SourceData", "FrameOwnership", "IteratorSource", "SourceEffects", "RowSource", "WalkSource", "WalkWitness", "HybridIterator", "IteratorExecutor", "Extraction", "IteratorMachine", "Callback", "IteratorEncoding", "EventIterator", "RequestAST", "Publication", "TableBridge", "SemanticValues", "Viable", "RawRequest", "Completion", "NativeFacts", "Lowering", "Worklist", "Solver", "Encoding", "Names", "Operational"):
                 before = snapshot(root, lean.inputs)
                 (root / f"formal/ParserEngine/{module}.lean").write_text("changed graph/request premise")
                 self.assertNotEqual(before, snapshot(root, lean.inputs))
@@ -149,7 +150,7 @@ class ModelInputControls(unittest.TestCase):
             first = snapshot(root, quint.inputs)
             (root / "formal/quint/ReuseAdmission.qnt").write_text("changed protocol")
             self.assertNotEqual(first, snapshot(root, quint.inputs))
-            for name in ("formal/quint/NativeActions.qnt", "t/lr-native-source-test.ss", "formal/quint/TablePublication.qnt", "docs/research/dense-lr-item-space.org", "formal/quint/ItemLayout.qnt", "t/test-style-contract-test.ss", "docs/research/scheme-dsl-author-interface.org", "src/testing/contracts.ss", "src/testing/language-parser.ss", "language-test-support.ss", "t/line-structure-assertions.ss", "t/rust-aot-test-syntax.ss", "t/fixtures/event-walk-source.ss", "t/event-walk-source-test.ss", "t/generate-walk-source-witness.ss", "formal/quint/Completion.qnt", "formal/ParserEngine/NativeFacts.lean", "t/generate-grammar-model-facts.ss", "formal/quint/RawRequest.qnt", "src/compiler/lr-follow-automaton.ss", "formal/quint/GrammarPipeline.qnt", "src/compiler/lr-table.ss", "src/compiler/funcs.ss", "src/schema.ss", "src/ffi/schema.ss", "src/modules/parser/types.ss", "t/language-surface-test.ss", "src/compiler/language-artifact.ss", "t/language-artifact-test.ss", "src/compiler/lr-compiler.ss",
+            for name in ("formal/quint/CompilerExecution.qnt", "formal/quint/NativeActions.qnt", "t/lr-native-source-test.ss", "formal/quint/TablePublication.qnt", "docs/research/dense-lr-item-space.org", "formal/quint/ItemLayout.qnt", "t/test-style-contract-test.ss", "docs/research/scheme-dsl-author-interface.org", "src/testing/contracts.ss", "src/testing/language-parser.ss", "language-test-support.ss", "t/line-structure-assertions.ss", "t/rust-aot-test-syntax.ss", "t/fixtures/event-walk-source.ss", "t/event-walk-source-test.ss", "t/generate-walk-source-witness.ss", "formal/quint/Completion.qnt", "formal/ParserEngine/NativeFacts.lean", "t/generate-grammar-model-facts.ss", "formal/quint/RawRequest.qnt", "src/compiler/lr-follow-automaton.ss", "formal/quint/GrammarPipeline.qnt", "src/compiler/lr-table.ss", "src/compiler/funcs.ss", "src/schema.ss", "src/ffi/schema.ss", "src/modules/parser/types.ss", "t/language-surface-test.ss", "src/compiler/language-artifact.ss", "t/language-artifact-test.ss", "src/compiler/lr-compiler.ss",
                          "t/resolved-grammar-test.ss", "t/layout-boundary-test.ss", "formal/quint/RequestFlow.qnt", "docs/research/parser-engine-formal-model.org",
                          "formal/quint/LookaheadScope.qnt", "formal/quint/ModuleAdmission.qnt",
                          "src/runtime/lr-parser/checkpoint.ss", "src/runtime/token.ss",

@@ -218,7 +218,8 @@ Item decoding, production-zero separation and goto publication are explicit
 inputs whose correctness must be connected to the real constructor. -/
 def admitEvent (g : CFG) (start : Nat) (augmented : Production) (table : Table)
     (state : Nat) (lookahead : Option Nat) : RawEvent → Bool
-  | .shift item terminal target => decide (item ∈ table.items state ∧
+  | .shift item terminal target => decide ((∃ actual ∈ table.items state,
+      actual.production = item.production ∧ actual.dot = item.dot) ∧
       item.production.rhs[item.dot]? = some (.terminal terminal) ∧
       lookahead = some terminal ∧ table.goto state (.terminal terminal) = some target)
   | .reduce item => decide (item ∈ table.items state ∧ item.dot = item.production.rhs.length ∧
@@ -232,7 +233,8 @@ theorem admitted_event_supported {g start augmented table state lookahead event}
   cases event with
   | shift item terminal target =>
     have h := of_decide_eq_true admitted
-    exact ⟨terminal, h.2.2.1, h.2.2.2, item, h.1, h.2.1⟩
+    obtain ⟨actual, member, production, dot⟩ := h.1
+    exact ⟨terminal, h.2.2.1, h.2.2.2, actual, member, by simpa [production, dot] using h.2.1⟩
   | reduce item =>
     have h := of_decide_eq_true admitted
     refine ⟨h.2.2.2, ?_⟩

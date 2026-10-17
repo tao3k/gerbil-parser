@@ -80,6 +80,25 @@
     (ParserEngine.ItemLayoutWitness encodeSource (read-source-definition "src/compiler/lr-automaton.ss" 'make-core-item))
     (ParserEngine.ItemLayoutWitness ownerSource (read-source-definition "src/compiler/lr-automaton.ss" 'core-item-production-id))
     (ParserEngine.ItemLayoutWitness dotSource (read-source-definition "src/compiler/lr-automaton.ss" 'core-item-dot))
+    (ParserEngine.CompilerExecutionWitness queueSource (read-source-definition "src/compiler/lr-table.ss" 'validate-accept-reachability))
+    (ParserEngine.CompilerExecutionWitness visitSource (read-source-definition "src/compiler/lr-table.ss" 'for-each-shift-target))
+    (ParserEngine.CompilerExecutionWitness acceptSource (read-source-definition "src/compiler/lr-table.ss" 'accepting-action?))
+    (ParserEngine.CompilerExecutionWitness stateItemsSource
+      (foldl (lambda (index form) (list-ref form index))
+             (read-source-definition "src/compiler/lr-compiler.ss" 'build-actions) '(2 4 2 1)))
+    (ParserEngine.CompilerExecutionWitness stateGuardSource
+      (foldl (lambda (index form) (list-ref form index))
+             (read-source-definition "src/compiler/lr-compiler.ss" 'build-actions) '(2 4 2 2)))
+    (ParserEngine.CompilerExecutionWitness stateBindingsSource
+      (foldl (lambda (index form) (list-ref form index))
+             (read-source-definition "src/compiler/lr-compiler.ss" 'build-actions) '(2 4 2 3 1)))
+    (ParserEngine.CompilerExecutionWitness itemWalkSource
+      (foldl (lambda (index form) (list-ref form index))
+             (read-source-definition "src/compiler/lr-compiler.ss" 'build-actions) '(2 4 2 3 4)))
+    (ParserEngine.CompilerExecutionWitness installSource
+      (foldl (lambda (index form) (list-ref form index))
+             (read-source-definition "src/compiler/lr-compiler.ss" 'build-actions) '(2 4 2 3 2)))
+    (ParserEngine.CompilerExecutionWitness precedenceSource (read-source-definition "src/compiler/lr.ss" 'production-precedence))
     (ParserEngine.NativeActionsWitness dispatcherSource (read-source-definition "src/compiler/lr-compiler.ss" 'resolve-action))
     (ParserEngine.NativeActionsWitness dynamicSource (read-source-definition "src/compiler/lr-compiler.ss" 'dynamic-precedence?))
     (ParserEngine.NativeActionsWitness forkSource (read-source-definition "src/compiler/lr-compiler.ss" 'fork-action))

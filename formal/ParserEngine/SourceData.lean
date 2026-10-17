@@ -35,6 +35,51 @@ open WalkSource
 def dotSource : Datum :=
 (l [(s "def"), (l [(s "core-item-dot"), (s "item"), (s "layout")]), (l [(s "-"), (s "item"), (l [(s "vector-ref"), (l [(s "lr-item-layout-offsets"), (s "layout")]), (l [(s "core-item-production-id"), (s "item"), (s "layout")])])])])
 end ParserEngine.ItemLayoutWitness
+namespace ParserEngine.CompilerExecutionWitness
+open WalkSource
+def queueSource : Datum :=
+(l [(s "def"), (l [(s "validate-accept-reachability"), (s "actions"), (s "gotos")]), (l [(s "def"), (s "states"), (l [(s "vector-length"), (s "actions")])]), (l [(s "def"), (s "seen"), (l [(s "make-vector"), (s "states"), (b false)])]), (l [(s "def"), (s "pending"), (l [(s "stdq-make-Queue")])]), (l [(s "def"), (s "accepted?"), (b false)]), (l [(s "def"), (l [(s "enqueue!"), (s "state")]), (l [(s "unless"), (l [(s "vector-ref"), (s "seen"), (s "state")]), (l [(s "vector-set!"), (s "seen"), (s "state"), (b true)]), (l [(s "stdq-enqueue!"), (s "pending"), (s "state")])])]), (l [(s "enqueue!"), (n 0)]), (l [(s "let"), (s "loop"), (l []), (l [(s "unless"), (l [(s "or"), (s "accepted?"), (l [(s "stdq-queue-empty?"), (s "pending")])]), (l [(s "let"), (l [(s "state"), (l [(s "stdq-dequeue!"), (s "pending")])]), (l [(s "set!"), (s "accepted?"), (l [(s "any"), (l [(s "lambda"), (l [(s "entry")]), (l [(s "accepting-action?"), (l [(s "cdr"), (s "entry")])])]), (l [(s "vector-ref"), (s "actions"), (s "state")])])]), (l [(s "for-each"), (l [(s "lambda"), (l [(s "entry")]), (l [(s "for-each-shift-target"), (s "enqueue!"), (l [(s "cdr"), (s "entry")])])]), (l [(s "vector-ref"), (s "actions"), (s "state")])]), (l [(s "for-each"), (l [(s "lambda"), (l [(s "entry")]), (l [(s "enqueue!"), (l [(s "cdr"), (s "entry")])])]), (l [(s "vector-ref"), (s "gotos"), (s "state")])])]), (l [(s "loop")])])]), (l [(s "unless"), (s "accepted?"), (l [(s "error"), (.text "invalid LR table no reachable acceptance")])])])
+end ParserEngine.CompilerExecutionWitness
+namespace ParserEngine.CompilerExecutionWitness
+open WalkSource
+def visitSource : Datum :=
+(l [(s "def"), (l [(s "for-each-shift-target"), (s "visit"), (s "action")]), (l [(s "match"), (s "action"), (l [(l [(s "@list"), (l [(s "quote"), (s "shift")]), (s "target"), (s "_")]), (l [(s "visit"), (s "target")])]), (l [(l [(s "@list"), (l [(s "quote"), (s "fork")]), (s "branches"), (s "...")]), (l [(s "for-each"), (l [(s "lambda"), (l [(s "branch")]), (l [(s "for-each-shift-target"), (s "visit"), (s "branch")])]), (s "branches")])]), (l [(l [(s "@list"), (l [(s "quote"), (s "layout-guard")]), (s "primary"), (s "fallback")]), (l [(s "for-each-shift-target"), (s "visit"), (s "primary")]), (l [(s "for-each-shift-target"), (s "visit"), (s "fallback")])]), (l [(s "_"), (l [(s "void")])])])])
+end ParserEngine.CompilerExecutionWitness
+namespace ParserEngine.CompilerExecutionWitness
+open WalkSource
+def acceptSource : Datum :=
+(l [(s "def"), (l [(s "accepting-action?"), (s "action")]), (l [(s "match"), (s "action"), (l [(l [(s "@list"), (l [(s "quote"), (s "accept")])]), (b true)]), (l [(l [(s "@list"), (l [(s "quote"), (s "fork")]), (s "branches"), (s "...")]), (l [(s "any"), (s "accepting-action?"), (s "branches")])]), (l [(s "_"), (b false)])])])
+end ParserEngine.CompilerExecutionWitness
+namespace ParserEngine.CompilerExecutionWitness
+open WalkSource
+def stateItemsSource : Datum :=
+(l [(s "state-items"), (l [(s "vector-ref"), (s "states"), (s "state-id")])])
+end ParserEngine.CompilerExecutionWitness
+namespace ParserEngine.CompilerExecutionWitness
+open WalkSource
+def stateGuardSource : Datum :=
+(l [(s "unless"), (l [(s "list?"), (s "state-items")]), (l [(s "error"), (.text "LR action state is not an item list"), (s "state-id"), (s "state-items")])])
+end ParserEngine.CompilerExecutionWitness
+namespace ParserEngine.CompilerExecutionWitness
+open WalkSource
+def stateBindingsSource : Datum :=
+(l [(l [(s "terminal-order"), (l [(s "quote"), (l [])])]), (l [(s "shift-order"), (l [(s "quote"), (l [])])]), (l [(s "lookahead-node"), (l [(s "vector-ref"), (s "lookahead-offsets"), (s "state-id")])])])
+end ParserEngine.CompilerExecutionWitness
+namespace ParserEngine.CompilerExecutionWitness
+open WalkSource
+def itemWalkSource : Datum :=
+(l [(s "for-each"), (l [(s "lambda"), (l [(s "item")]), (l [(s "set!"), (s "processed-items"), (l [(s "+"), (s "processed-items"), (n 1)])]), (l [(s "let*"), (l [(l [(s "production-id"), (l [(s "core-item-production-id"), (s "item"), (s "layout")])]), (l [(s "symbol"), (l [(s "vector-ref"), (s "core-symbols"), (s "item")])]), (l [(s "terminal-id"), (l [(s "vector-ref"), (s "core-terminal-ids"), (s "item")])])]), (l [(s "cond"), (l [(s "terminal-id"), (l [(s "install!"), (s "terminal-id"), (l [(s "list"), (l [(s "quote"), (s "shift")]), (l [(s "let"), (l [(s "target"), (l [(s "vector-ref"), (s "shift-targets"), (s "terminal-id")])]), (l [(s "unless"), (s "target"), (l [(s "error"), (.text "LR shift transition is missing"), (s "state-id"), (s "symbol")])]), (s "target")]), (l [(s "production-precedence"), (l [(s "vector-ref"), (s "table"), (s "production-id")])])])])]), (l [(l [(s "not"), (s "symbol")]), (l [(s "let"), (l [(s "action"), (l [(s "if"), (l [(s "="), (s "production-id"), (n 0)]), (l [(s "quote"), (l [(s "accept")])]), (l [(s "list"), (l [(s "quote"), (s "reduce")]), (s "production-id")])])]), (l [(s "compiler-index-set-for-each"), (l [(s "vector-ref"), (s "lookaheads"), (s "lookahead-node")]), (l [(s "lambda"), (l [(s "lookahead")]), (l [(s "install!"), (s "lookahead"), (s "action")])])])])])])]), (l [(s "set!"), (s "lookahead-node"), (l [(s "+"), (s "lookahead-node"), (n 1)])])]), (s "state-items")])
+end ParserEngine.CompilerExecutionWitness
+namespace ParserEngine.CompilerExecutionWitness
+open WalkSource
+def installSource : Datum :=
+(l [(s "def"), (l [(s "install!"), (s "terminal-id"), (s "action")]), (l [(s "when"), (l [(s "and"), (s "layout?"), (l [(s "eq?"), (l [(s "car"), (s "action")]), (l [(s "quote"), (s "reduce")])])]), (l [(s "vector-set!"), (s "raw-reductions"), (s "terminal-id"), (l [(s "cons"), (s "action"), (l [(s "vector-ref"), (s "raw-reductions"), (s "terminal-id")])])])]), (l [(s "let"), (l [(s "current"), (l [(s "vector-ref"), (s "state-actions"), (s "terminal-id")])]), (l [(s "if"), (s "current"), (l [(s "vector-set!"), (s "state-actions"), (s "terminal-id"), (l [(s "resolve-action/diagnosed"), (s "state-id"), (l [(s "vector-ref"), (s "terminal-values"), (s "terminal-id")]), (s "current"), (s "action"), (s "table"), (s "conflict-policy"), (s "reject-conflict"), (s "state-items")])]), (l [(s "begin"), (l [(s "vector-set!"), (s "state-actions"), (s "terminal-id"), (s "action")]), (l [(s "set!"), (s "terminal-order"), (l [(s "cons"), (s "terminal-id"), (s "terminal-order")])])])])])])
+end ParserEngine.CompilerExecutionWitness
+namespace ParserEngine.CompilerExecutionWitness
+open WalkSource
+def precedenceSource : Datum :=
+(l [(s "def"), (l [(s "production-precedence"), (s "value")]), (l [(s "car"), (l [(s "cddddr"), (s "value")])])])
+end ParserEngine.CompilerExecutionWitness
 namespace ParserEngine.NativeActionsWitness
 open WalkSource
 def dispatcherSource : Datum :=

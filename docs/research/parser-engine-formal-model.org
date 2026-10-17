@@ -4930,3 +4930,137 @@ This is qualification metadata, not a result for a later revision. Universal
 refinement of the outer validator's vocabulary/capability/reachability queue,
 exact mutable resolver replay, and complete physical observation extraction
 remain explicit work; no whole-engine or CPU-speedup claim is made here.
+
+** Compiler execution: queue, mutable replay and physical records
+
+*** One correspondence chain, with explicit authority boundaries
+
+[[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]], Sections 2.1--2.2, provides the item/state and
+transition vocabulary. The native compiler adds indexed mutable storage,
+conflict resolution and a reachable-acceptance admission pass. These are
+separate obligations: graph reachability is necessary table admission, not a
+proof that a reduction has a viable stack or that the table recognizes the
+whole grammar language.
+
+[[file:../../formal/ParserEngine/CompilerExecution.lean][CompilerExecution.lean]] connects the existing item-layout, native-action and
+publication layers. It does not substitute host VM verification for parser
+verification. The source reader emits data; independent restricted schemas
+check complete procedures and selected enclosing forms. This is restricted
+source admission, not an evaluator or a proof of arbitrary Scheme execution.
+
+| Native owner | Executed data / relation | General result |
+|--------------+--------------------------+----------------|
+| =validate-accept-reachability= | Original state IDs, FIFO, mark before enqueue | Finite termination and reachable acceptance equivalence |
+| Action and goto validators | Admitted targets, including fork/layout members | Queue edges stay in the validated state domain |
+| =build-actions= / =install!= | Chronological writes and supplied resolver | Every successful slot equals single-key replay; failure blocks every suffix |
+| Whole state item traversal | Owners, offsets, symbols, terminal IDs, targets, precedence, masks | Every generated record is the read at its source ordinal |
+| Item-space initialization | Physical owner and offset writes | Core-to-production/dot normalization for arbitrary RHS widths |
+| Record plan and frozen table | Generated records and producer coherence | Final table support follows without a final-row support premise |
+
+*** Outer queue: discovery is not renumbering
+
+The queue stores native state IDs, including a discovery sequence such as
+=0, 2, 1=. It must not reuse a canonical-interning queue whose payload is a
+discovery ordinal. The model's =remaining= list represents the complement of
+the native =seen= vector. First discovery removes one unseen ID and appends it
+to the FIFO; duplicates leave both unchanged.
+
+The measure =remaining.length + pending.length= is conserved by enqueue and
+strictly decreases at dequeue. =run= therefore terminates by well-founded
+recursion, without caller-supplied fuel or a presumed completed certificate.
+=run_correct= establishes reachable acceptance on success and a closed seen
+set on exhaustion. =exhaustive_no_accept= and =acceptance_iff= give both sides
+of the decision. =ValidatedGraph.outer_queue_exact= obtains the finite-domain
+premise from admitted action/goto targets, including signed-index checks.
+Positive state count is required because the source enqueues state zero.
+
+The accepting iteration still enqueues action and goto successors before
+returning. =pop_expand= justifies the model's expansion/dequeue normalization;
+it does not remove these source effects or mask an invalid target read.
+This theorem concerns reachable acceptance in the admitted graph. Production
+vocabulary extraction, dimensions and layout-capability discovery remain
+separately owned input-admission obligations.
+
+*** Mutable resolver replay: order, private failure state and composition
+
+=Replay.run= takes arbitrary initial stores, event sequences and an exact
+supplied resolver. It assumes neither associativity nor a final conflict
+history. =slot_projection= proves that every key in a successful mutable
+execution equals chronological logical replay at that key. =run_append=
+composes arbitrary prefixes: a failed prefix retains its private store and
+error, and the suffix never executes.
+
+The source records a raw layout reduction before invoking the resolver.
+=failure_storage= retains that write on error, while preserving the previous
+action and first-touch list. There is no invented rollback, successful row
+publication, or execution of later candidates. First-touch order and duplicate
+raw reductions remain represented independently of the resolved action slot.
+The Scheme controls execute the unchanged extracted closure with the real
+conflict dispatcher, including rejection and fork construction.
+
+The theorem is generic in the resolver; the preceding native-action results
+own its SR/RR/rank policy decisions. =Construction.installChoice= remains an
+origin abstraction. Exact mutable replay is not relabeled as an unconditional
+equality between native fork representation and that abstraction.
+
+*** Whole physical extraction: core coordinates and mask ordinals differ
+
+=Records.state= reads the state item list and its initial lookahead offset,
+then executes the complete ordered scan. The physical view distinguishes an
+unavailable field from a valid =#f= payload. Shifts read target and production
+precedence without reading a mask. Incomplete nonterminals read neither;
+completed items read their mask. Every item advances the mask ordinal,
+including branches that do not consume a mask.
+
+=scan_reads= and =state_reads= derive every record's exact read at
+=stateOffset + itemOrdinal=, for arbitrary item counts and sparse core IDs.
+=dense_read= derives production/dot coordinates from the previously proved
+physical owner/offset write replay. =mask_keys= accounts for every set bit
+inside the terminal domain. The source checks include the state-list guard,
+per-state bindings, complete =for-each= traversal and production precedence
+accessor, in addition to the item callback.
+
+A model mismatch was corrected: shift admission previously demanded an item
+whose lookahead was =none=. Native shift extraction uses the production/dot
+core and ignores that field. Admission now requires a real item with the same
+production and dot, retaining its actual lookahead. The unchanged semantic
+=CellSupported= conclusion follows from that witness. A directed proof control
+uses a table containing only a non-EOF lookahead; no fabricated EOF item is
+inserted.
+
+=PhysicalFacts= states catalogue/item/goto/lookahead coherence at the actual
+physical reads, as an obligation of their producers. =plan_admitted= derives
+candidate admission from those reads, and =published_from_records= composes it
+with frozen-row publication and the certified engine's table-support boundary.
+Producer coherence, supplied conflict-choice interpretation and host primitive
+contracts remain explicit; this is not unconditional whole-compiler closure.
+
+*** Executable qualification
+
+The complete pinned Lean build passes 94 jobs. Source-schema equality has no
+axioms; the theorem audit contains only standard Lean logic, with no admitted
+goals or custom axioms. Eight Scheme owners pass 162 cases under unchanged
+90-second total and five-second idle limits (46.47 seconds in this run).
+The existing =deflanguage-parser-tests= macro constrains all added cases.
+
+The actual-source controls cover original-ID FIFO order, duplicate/cycle
+suppression, disconnected acceptance, accepting-iteration expansion, resolver
+failure writes and first-touch order. A whole-state scan uses sparse core IDs
+=0, 3, 8= with initial mask offset =5=; only mask slot =7= exists. It proves
+that the completed item reads by ordinal after a shift and an incomplete
+nonterminal. Lookahead bits =65= and =129= are retained.
+
+[[file:../../formal/quint/CompilerExecution.qnt][CompilerExecution.qnt]] supplies seven named protocol controls and bounded
+queue traces. Those controls complement the general Lean results; they are
+not proofs for arbitrary grammars. The evidence collector binds this model,
+its required markers, the source adapter and Scheme controls. All 14 evidence
+controls pass. Current reader data passes freshness admission; a deliberately
+stale copy is rejected with exit 70. Earlier failed proof/model drafts are not
+accepted evidence.
+
+The preceding pushed revision, =6724c97=, completed all required Ubuntu,
+macOS and Rust jobs successfully, including macOS semantics, FFI and generation.
+This is prior-revision CI metadata, not a result for the new commit.
+No Gambit source was changed or built. Scheme primitives, host/compiler
+behavior and numerical representation remain external premises. No local
+runtime optimization or CPU-speedup claim is introduced by this work.

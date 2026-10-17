@@ -1,5 +1,6 @@
 ;;; Native source controls complement the unbounded Lean correspondence proofs.
 (import :gerbil-parser/language-test-support
+        (prefix-in :std/struct/queue stdq-)
         :std/io/tempfile
         (only-in :std/misc/ports read-all-as-string)
         (only-in :gerbil-parser/t/fixtures/event-walk-source read-source-definition write-event-walk-source-data)
@@ -59,26 +60,27 @@
          (precedence (source-procedure path 'precedence? '()))
          (factory (source-procedure path 'make-action-validator '(bounded-index? precedence? +lr-eof+))))
     (lambda (states productions layout?) (factory states productions layout? bounded precedence '(terminal eof)))))
-(def (event-observation production kind terminal target keys)
+(def (visit-items-observation owners symbols terminals targets table masks items start)
   (let* ((declaration (read-source-definition "src/compiler/lr-compiler.ss" 'build-actions))
-         (visit (foldl (lambda (index form) (list-ref form index)) declaration '(2 4 2 3 4 1)))
+         (walk (foldl (lambda (index form) (list-ref form index)) declaration '(2 4 2 3 4)))
          (procedure
            (eval (list 'lambda
                    '(core-item-production-id layout core-symbols core-terminal-ids shift-targets table
-                     state-id lookaheads install! compiler-index-set-for-each production-precedence)
-                   (list 'let '((processed-items 0) (lookahead-node 0))
-                     (list 'let (list (list 'visit visit)) '(visit 0) '(list processed-items lookahead-node))))))
-         (mask (foldl (lambda (key mask) (compiler-index-set-add mask key)) 0 keys))
+                     state-id lookaheads install! compiler-index-set-for-each production-precedence state-items initial-node)
+                   (list 'let '((processed-items 0) (lookahead-node initial-node))
+                     walk '(list processed-items lookahead-node)))))
          (events '())
-         (counters (procedure (lambda ignored production) #f
-                     (vector (case kind ((shift) '(terminal token word)) ((nonterminal) '(nonterminal root)) (else #f)))
-                     (vector (and (eq? kind 'shift) terminal))
-                     (make-vector (+ terminal 1) target)
-                     (make-vector (+ production 1) (list production 'root '() 'concat '(left 7)))
-                     0 (vector mask) (lambda (key action) (set! events (cons (cons key action) events)))
-                     compiler-index-set-for-each production-precedence)))
+         (counters (procedure (lambda (item ignored) (vector-ref owners item)) #f symbols terminals targets table
+                     0 masks (lambda (key action) (set! events (cons (cons key action) events)))
+                     compiler-index-set-for-each production-precedence items start)))
     (list (reverse events) counters)))
-
+(def (event-observation production kind terminal target keys)
+  (let (mask (if keys (foldl (lambda (key mask) (compiler-index-set-add mask key)) 0 keys) 0))
+    (visit-items-observation (vector production)
+      (vector (case kind ((shift) '(terminal token word)) ((nonterminal) '(nonterminal root)) (else #f)))
+      (vector (and (eq? kind 'shift) terminal)) (make-vector (+ terminal 1) target)
+      (make-vector (+ production 1) (list production 'root '() 'concat '(left 7)))
+      (if keys (vector mask) '#()) '(0) 0)))
 (def (generation-preserves-input?)
   (let* ((path (make-temporary-file-name "parser-source-generation-"))
          (declaration (read-source-definition "t/generate-walk-source-witness.ss" 'main))
@@ -91,6 +93,45 @@
       (and (rejected? (lambda () (generate "module" path)))
            (equal? (call-with-input-file path read-all-as-string) "retained proof input"))
       (finally (when (file-exists? path) (delete-file path))))))
+
+(def (queue-observation actions gotos)
+  (let* ((definitions (map (lambda (name) (read-source-definition "src/compiler/lr-table.ss" name))
+                          '(for-each-shift-target accepting-action? validate-accept-reachability)))
+         (factory (eval (append '(lambda (stdq-make-Queue stdq-enqueue! stdq-dequeue! stdq-queue-empty?))
+                                definitions '(validate-accept-reachability))))
+         (enqueued '()) (dequeued '())
+         (validate (factory stdq-make-Queue
+                     (lambda (queue node) (set! enqueued (cons node enqueued)) (stdq-enqueue! queue node))
+                     (lambda (queue) (let (node (stdq-dequeue! queue)) (set! dequeued (cons node dequeued)) node))
+                     stdq-queue-empty?))
+         (result (with-catch (lambda (_) 'rejected) (lambda () (validate actions gotos) 'accepted))))
+    (list result (reverse enqueued) (reverse dequeued))))
+(def (queue-fixtures)
+  (list
+    (list '#((((terminal token word) shift 1 #f)) (((terminal token word) shift 0 #f))) '#(() ()) '(rejected (0 1) (0 1)))
+    (list '#((((terminal token word) shift 1 #f)) (((terminal token word) shift 0 #f)) (((terminal eof) accept)))
+          '#(() () ()) '(rejected (0 1) (0 1)))
+    (list '#((((terminal eof) accept) ((terminal token word) shift 2 #f)) () ()) '#(((root . 1)) () ())
+          '(accepted (0 2 1) (0)))
+    (list '#((((terminal token word) shift 2 #f)) (((terminal eof) accept)) (((terminal token word) shift 0 #f)))
+          '#(((root . 2)) () ((root . 1))) '(accepted (0 2 1) (0 2 1)))
+    (list '#((((terminal token word) layout-guard (shift 1 #f) (fork (reduce 0) (reduce 0)))) (((terminal eof) accept)))
+          '#(((root . 0)) ()) '(accepted (0 1) (0 1)))
+    (list '#((((terminal eof) accept) ((terminal token word) shift 1 #f))) '#(()) '(rejected (0) (0)))))
+(def (install-observation events layout? policy)
+  (let* ((declaration (read-source-definition "src/compiler/lr-compiler.ss" 'build-actions))
+         (install (foldl (lambda (index form) (list-ref form index)) declaration '(2 4 2 3 2)))
+         (factory (eval (list 'lambda
+                         '(state-actions raw-reductions terminal-values layout? resolve-action/diagnosed table
+                           conflict-policy reject-conflict state-items state-id events)
+                         (list 'let '((terminal-order '()) (failed? #f)) install
+                           '(with-catch (lambda (_) (set! failed? #t))
+                              (lambda () (for-each (lambda (entry) (install! (car entry) (cdr entry))) events)))
+                           '(list state-actions raw-reductions (reverse terminal-order) failed?)))))
+         (dispatch (native-dispatch)))
+    (factory (make-vector 2 #f) (make-vector 2 '()) '#((terminal token left) (terminal token right)) layout?
+      (lambda (state terminal current incoming table policy reject items) (dispatch current incoming table policy))
+      '#((0 root () concat #f) (1 root () concat #f) (2 root () concat #f)) policy #f '() 0 events)))
 
 (deflanguage-parser-tests lr-native-source-test "native LR extraction conflict and validator correspondence"
   (engine)
@@ -153,4 +194,35 @@
     (bindings (keyword-data (call-with-output-string (lambda (port) (write-event-walk-source-data '(test:) port))))
               (symbol-data (call-with-output-string (lambda (port) (write-event-walk-source-data '(test) port)))))
     (equal (equal? keyword-data symbol-data) #f)
-    (equal (generation-preserves-input?) #t)))
+    (equal (generation-preserves-input?) #t))
+  (property "shift and incomplete nonterminal never read a lookahead mask"
+    (bindings)
+    (equal (event-observation 2 'shift 0 0 #f) '(((0 shift 0 (left 7))) (1 1)))
+    (equal (event-observation 2 'nonterminal 0 #f #f) '(() (1 1)))
+    (equal (rejected? (lambda () (event-observation 2 'complete 0 #f #f))) #t))
+  (matrix "actual outer validator queue uses original IDs and mark-before-enqueue"
+    (setup)
+    ((fixture (queue-fixtures)))
+    (bindings)
+    (equal (queue-observation (car fixture) (cadr fixture)) (caddr fixture)))
+  (property "actual mutable resolver replay preserves raw reductions and first touch"
+    (bindings (observed (install-observation
+               '((0 shift 0 #f) (1 reduce 2) (0 reduce 1) (1 reduce 1) (0 reduce 1)) #t 'probe)))
+    (equal (car observed) '#((fork (shift 0 #f) (reduce 1)) (fork (reduce 2) (reduce 1))))
+    (equal (cadr observed) '#(((reduce 1) (reduce 1)) ((reduce 1) (reduce 2))))
+    (equal (caddr observed) '(0 1))
+    (equal (cadddr observed) #f))
+  (property "actual resolver failure retains earlier reduction write and blocks later events"
+    (bindings (observed (install-observation '((0 shift 0 #f) (0 reduce 1) (1 reduce 2)) #t 'reject)))
+    (equal (car observed) '#((shift 0 #f) #f))
+    (equal (cadr observed) '#(((reduce 1)) ()))
+    (equal (caddr observed) '(0))
+    (equal (cadddr observed) #t))
+  (property "whole item traversal reads masks by ordinal after branch-skipped entries"
+    (bindings (mask (foldl (lambda (key mask) (compiler-index-set-add mask key)) 0 '(65 129))))
+    (equal (visit-items-observation '#(1 0 0 2 0 0 0 0 3)
+             '#((terminal token word) #f #f (nonterminal root) #f #f #f #f #f)
+             '#(0 #f #f #f #f #f #f #f #f) '#(0)
+             '#((0 root () concat #f) (1 root () concat (left 7)) (2 root () concat #f) (3 root () concat #f))
+             (vector #f #f #f #f #f #f #f mask) '(0 3 8) 5)
+           '(((0 shift 0 (left 7)) (65 reduce 3) (129 reduce 3)) (3 8)))))

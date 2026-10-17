@@ -50,7 +50,7 @@ structure Facts (g : CFG) (start : Nat) (augmented : Production) (table : Table)
     observation.symbol = production.rhs[observation.dot]?
   shift : ∀ terminal target, observation.terminal = some terminal → observation.target = some target →
     ∃ production, (augmented :: g)[observation.production]? = some production ∧
-      (⟨production, observation.dot, none⟩ : Item) ∈ table.items state ∧
+      (∃ lookahead, (⟨production, observation.dot, lookahead⟩ : Item) ∈ table.items state) ∧
       production.rhs[observation.dot]? = some (.terminal terminal) ∧
       keyOf terminal = some terminal ∧ table.goto state (.terminal terminal) = some target
   complete : observation.terminal = none → observation.symbol = none →
@@ -83,7 +83,9 @@ theorem extracted_admitted (g : CFG) (start : Nat) (augmented : Production) (tab
       obtain ⟨production, row, member, symbol, spelling, edge⟩ := facts.shift key target terminal transition
       refine ⟨.shift ⟨production, observation.dot, none⟩ key target, ?_, ?_⟩
       · simp [decode, decodePhysicalEvent, decodePhysical, row]
-      · simp [admitEvent, member, symbol, spelling, edge]
+      · obtain ⟨lookahead, present⟩ := member
+        simp only [admitEvent, decide_eq_true_eq]
+        exact ⟨⟨⟨production, observation.dot, lookahead⟩, present, rfl, rfl⟩, symbol, spelling, edge⟩
   | none =>
     by_cases symbol : observation.symbol.isSome
     · simp [extract, terminal, symbol] at execution

@@ -588,18 +588,18 @@ same projected ordinary rows with the existing arbitrary-word lowering theorem.
 This is source-language soundness, not a new completeness proof for every
 source DSL publication or an AST/precedence semantics theorem.
 
-The existing real =lower-rules= witness writer now publishes 17 full-record
+The existing real =lower-rules= witness writer now publishes 18 full-record
 inputs alongside the original recipes. Their checked expectations come from
-=validate-production-semantics=: 13 admit and four reject. Three failures have
+=validate-production-semantics=: 14 admit and four reject. Three failures have
 unresolved ordinary/root references; another has a malformed layout terminal
 whose raw payload is not a valid string. Failed base decoding remains a
 forbidden EOF RHS marker, so it cannot be silently assigned a valid text code.
-The 16 decodable fixtures also check the complete projected CFG against the
+The 17 decodable fixtures also check the complete projected CFG against the
 previous native grammar data; the malformed raw input has no such projection
 claim. The standard Scheme macro suite regenerates and compares the whole
 artifact, independently of Lean's generic input proofs.
 
-Fresh native-input qualification runs 301 cases across 14 existing macro-based
+The preceding native-input qualification ran 301 cases across 14 existing macro-based
 Suite owners in one runtime with four workers. The direct entry passes without
 an external preload expression under the unchanged 90-second total and
 5-second idle limits. The additional owner covers native reduction/operand
@@ -611,11 +611,72 @@ references, failed terminal decoding, missing recipes, augmentation errors and
 duplicate-row identity. Recipe cardinality there is a protocol check; arbitrary
 recipe semantics are proved by Lean's existing =Names= checker.
 
-The raw Scheme symbol/string-to-normalized-identity adapter, canonical semantic
-metadata validation and whole-request language/AST correspondence remain
-separate obligations. No universal raw Scheme decoder or host implementation
-proof follows from the generated fixtures. The new contract closes the
-normalized native-record-to-CFG and construction-input obligation.
+Canonical semantic metadata validation and whole-request language/AST
+correspondence remain separate obligations. The raw encoding contract below
+closes the reader-content-to-normalized-record step; host reader and primitive
+implementation correctness do not follow from generated fixtures.
+
+* Reader names and text encoding
+
+[[file:../../../formal/ParserEngine/ConstructionEncoding.lean][ConstructionEncoding]] extends the same construction contract to ordered
+reader names, physical production records and raw tagged operands. It does not
+accept an arbitrary encoding function. Nonterminal codes come from checked
+lookup in the producer's ordered name directory; terminal codes come from the
+first-occurrence tagged terminal catalogue of those operands. Duplicate seed
+positions are retained, and lookup selects the first matching identity.
+
+The raw terminal constructors distinguish token names, literal text and both
+layout kinds even when their contents agree. Symbol payloads cannot masquerade
+as literal/layout strings. Empty literal/layout text and unsupported shapes
+reject normalization. A single marked wrapper projects its base operand;
+annotation meaning remains the existing separate semantic admission obligation.
+Strings are compared exactly: no case folding or Unicode normalization occurs.
+
+| Producer obligation | Universal law | Same construction consumer |
+|---------------------+---------------+----------------------------|
+| Checked directory lookup | =lookup_sound= and =lookup_injective= recover the original key from a successful code | Nonterminal and root/augmentation identity |
+| Tagged terminal and symbol encoding | =terminal_roundtrip=, =symbol_roundtrip= and their injectivity laws recover exact original contents and tags | Existing terminal catalogue and normalized record checks |
+| Partial operand/row conversion | =mapM_trace= and =row_roundtrip= preserve length, each position and each admitted base operand | No failed element or duplicate row can disappear |
+| Entire raw table publication | =table_positions= and =factory_positions= relate each original row to the returned CFG at the same physical index | The retained LeanPoo factory, without a second independent CFG |
+| Complete construction | =complete= transports source FIFO execution, all-prefix readiness and final trajectory membership | The same source-admitted construction result |
+
+The raw producer uses the existing =parser-source-data= declaration macro and
+shared renderer, emitting data rather than handwritten Lean proof declarations.
+[[file:../../../formal/ParserEngine/RawGrammarData.lean][RawGrammarData]] contains all 18 real lowering traces.
+[[file:../../../formal/ParserEngine/ConstructionEncodingWitness.lean][ConstructionEncodingWitness]] checks corpus cardinality before pairing entries:
+17 structurally decode to exactly the existing native record fields, and the
+malformed layout payload rejects raw decoding. Three structurally decoded inputs
+still reject reference/root admission at the next boundary. The Unicode trace
+includes non-ASCII owners and tokens, distinct composed/decomposed accents,
+supplementary scalars, quotes, backslashes, line/tab controls, NUL and DEL.
+
+The shared renderer emits Lean string escapes, including two-digit hexadecimal
+control escapes; Scheme's string printer is not a Lean codec. It rejects
+uninterned symbols before publishing any bytes, because equal printed contents
+do not establish Scheme identity for such symbols. The existing declarative
+=scenario= test checks both rejection and an empty owned output port. The
+existing =defparser-check= certificate control regenerates and compares the
+complete raw data artifact. Neither control introduces console output assertions.
+
+The boundary assumes the host reader's scalar strings and interned-symbol
+roundtrip. The proofs concern arbitrary admitted contents, lists and successful
+partial conversions; the 18 source traces separately qualify extraction against
+actual parser code. They do not prove the Scheme reader, compiler, GC, arbitrary
+Scheme execution, AST metadata or source DSL completeness. Gambit is neither
+modified nor built, and no runtime optimization is included.
+
+Encoding qualification builds 196 Lean jobs with standard axioms only. The
+bounded =ConstructionEncoding.qnt= protocol has seven directed controls and
+1,000 histories of 20 transitions; it checks tagged identity, Unicode content,
+duplicate positions and failed lookup/shape admission. Nineteen evidence/layout
+controls pass. These are distinct from the generic correspondence proofs.
+
+The final direct Scheme invocation passes 302 macro-owned cases across 14 owners
+with four workers and natural exit zero in 35.359 seconds, using the unchanged
+90-second total and 5-second idle limits. No external preload expression is
+needed. An earlier local run exposed an outdated compiled reader fixture;
+recompiling that project fixture restored value-declaration extraction and the
+unchanged source-freshness check. The failed run is not counted as acceptance.
 
 * External premises and remaining source boundary
 
@@ -625,7 +686,7 @@ an input obligation; a native fixture alone cannot discharge a universal law.
 
 | Premise class | Status and owner | Required boundary |
 |---------------+------------------+-------------------|
-| Native records to CFG and nonempty domain | Derived by =ConstructionGrammar.prepare=, indexed projection and checked augmented head, then consumed by the same LeanPoo factory | Raw host name/text normalization and semantic metadata validation remain representation obligations; no independent caller CFG/nonempty proof. |
+| Reader contents and native records to CFG | =ConstructionEncoding= proves directory/tag roundtrip and per-position partial conversion; =ConstructionGrammar.prepare= derives the nonempty CFG and feeds the same LeanPoo factory | Host reader, scalar extraction, interning and semantic metadata validation remain explicit; no independent caller CFG/nonempty proof. |
 | Supported source schemas and positive capacity | Derived from =prepare= and =extracted_sources= | Unsupported declarations reject admission; arbitrary Scheme is outside the protocol. |
 | Queue validity, plan availability, vector bounds and shared template identity | Derived at every reachable source-order prefix by =ConstructionReadiness=; consumed by LeanPoo | These are parser obligations, not host premises or caller certificates. |
 | Sort behavior, arithmetic, vectors, hash and queue primitives | Explicit ordinary host contracts, including sortedness and permutation | No correctness proof of the host implementation is claimed. |

@@ -28,7 +28,7 @@
                  recognition-node-children recognition-child-field recognition-child-value
                  recognition-value-start recognition-value-end))
 (import (only-in :gerbil-parser/t/fixtures/lr1-construction
-                 grammar-model-rules native-fact-rules write-native-grammar-facts
+                 grammar-model-rules native-fact-rules write-native-grammar-facts write-construction-raw-data
                  lr1-not-lalr-rules shared-lookahead-rules precedence-expression-rules
                  mixed-context-rules lr1-context-family-rules
                  state-local-candidate-family-rules mixed-context-family-rules

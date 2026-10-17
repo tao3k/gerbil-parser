@@ -10,6 +10,7 @@ open ProducerAdmission
 structure Record where
   id : Nat
   value : Production
+  deriving DecidableEq
 
 structure Input where
   records : List Record

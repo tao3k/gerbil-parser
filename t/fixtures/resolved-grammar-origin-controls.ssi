@@ -56,7 +56,9 @@
 
 (defparser-check (native-fact-certificate-case)
   (equal (call-with-output-string write-native-grammar-facts)
-         (call-with-input-file "formal/ParserEngine/NativeFacts.lean" read-all-as-string)))
+         (call-with-input-file "formal/ParserEngine/NativeFacts.lean" read-all-as-string))
+  (equal (call-with-output-string write-construction-raw-data)
+         (call-with-input-file "formal/ParserEngine/RawGrammarData.lean" read-all-as-string)))
 
 (defparser-check (grammar-model-pipeline-case)
   ;; The same S -> A b; A -> a A | epsilon fixture as GrammarPipeline.qnt.

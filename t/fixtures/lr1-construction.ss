@@ -4,8 +4,9 @@
 (import (only-in :std/list/list append-map)
         (only-in :gerbil-parser/src/compiler/lr lower-rules production-lhs production-rhs
                  base-symbol nonterminal-symbol? nonterminal-name terminal-symbol?
-                 production-terminal-catalog production-id canonical-base-symbol? validate-production-semantics compute-completion compute-first))
-(export grammar-model-rules native-fact-rules write-native-grammar-facts write-lowering-origin-facts
+                 production-terminal-catalog production-id canonical-base-symbol? validate-production-semantics compute-completion compute-first)
+        (only-in :gerbil-parser/src/testing/source-witness parser-source-data write-parser-source-data parser-source-symbol-text))
+(export grammar-model-rules native-fact-rules write-native-grammar-facts write-lowering-origin-facts write-construction-raw-data
         lr1-not-lalr-rules shared-lookahead-rules
         state-local-candidate-family-rules
         genuine-reduce-conflict-rules precedence-expression-rules
@@ -334,7 +335,7 @@
 
 ;;; Serialize the recipes emitted by the real lower-rules branches. The reader
 ;;; is Lean's general schema checker; this writer supplies no semantic oracle.
-(def (write-lowering-origin-facts output)
+(def (write-lowering-origin-facts output (raw-sink #f))
   (parameterize ((current-output-port output))
     (def (items values emit)
       (display "[")
@@ -411,6 +412,8 @@
                 (display " ") (expression (caddr value)))
                (else (error "unsupported proof recipe" value)))
              (display ")"))
+           (if raw-sink (raw-sink names productions)
+            (begin
            (display "def ") (display label) (display "Source : Lowering.Rules := ")
            (items rules (lambda (row) (display "(") (display (name-id (car row)))
              (display ", ") (expression (cadr row)) (display ")"))) (newline)
@@ -478,9 +481,9 @@
                    (every (lambda (operand) (canonical-base-symbol? (base-symbol operand))) (production-rhs production))) productions)
              (display "theorem ") (display label) (display "_input_projection : ConstructionGrammar.grammar ")
              (display label) (display "Input = ⟨") (display (name-id (production-lhs (car productions))))
-             (display ", [.nonterminal 0]⟩ :: ") (display label) (displayln "Native := by decide")))))
+             (display ", [.nonterminal 0]⟩ :: ") (display label) (displayln "Native := by decide")))))))
      (append native-fact-rules
-       '(((start (repeat (literal "a"))))
+       `(((start (repeat (literal "a"))))
          ((start (repeat1 (literal "a"))))
          ((start (empty)))
          ((start (choice)))
@@ -492,5 +495,25 @@
          ((start (choice (choice (literal "a") (literal "b")) (literal "c"))))
          ((start (repeat (precedence dynamic 1 (alias Item (token word))))))
          ((start (reference undefined)))
-         ((start (field value (alias Word (token word)))))))
-     (iota (+ (length native-fact-rules) 13)))))
+         ((start (field value (alias Word (token word)))))
+         ((start (sequence (reference 内容) (token 名称) (literal "é") (literal "é")
+                   (literal ,(string #\" #\\ #\newline #\tab (integer->char 0) (integer->char 127) (integer->char #x1f600)))))
+          (内容 (literal "漢字")))))
+     (iota (+ (length native-fact-rules) 14)))))
+
+;;; Raw evidence uses the shared declarative source renderer. No generated
+;;; Lean declarations or proof text are assembled in this data producer.
+(def (write-construction-raw-data output)
+  (let (frames '())
+    (write-lowering-origin-facts output
+      (lambda (names productions)
+        (set! frames
+          (cons (list (map parser-source-symbol-text names)
+                      (map (lambda (production)
+                             (list (production-id production) (production-lhs production) (production-rhs production))) productions)
+                      (production-lhs (car productions)) 'start
+                      (every (lambda (production)
+                        (every (lambda (operand) (canonical-base-symbol? (base-symbol operand)))
+                          (production-rhs production))) productions)) frames))))
+    (write-parser-source-data
+      (parser-source-data (ParserEngine.RawGrammarData corpus (reverse frames))) output)))

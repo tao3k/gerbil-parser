@@ -27,8 +27,11 @@ For ordered native production inputs, use
 [[file:../../formal/ParserEngine/ConstructionGrammar.lean][ConstructionGrammar.construct]]. It derives the CFG, checks physical IDs,
 augmentation, body reference coverage and all lowering-origin recipes, then
 invokes the same LeanPoo consumer. Callers supply neither a separate CFG nor a
-nonempty certificate. Raw host name/text encoding and semantic metadata retain
-their stated normalization boundary.
+nonempty certificate. For reader names and tagged text operands, use
+[[file:../../formal/ParserEngine/ConstructionEncoding.lean][ConstructionEncoding.construct]]. Its checked directories preserve identity and
+every physical record position before invoking that same consumer. Host reader,
+interning and scalar extraction remain external; semantic metadata retains its
+separate admission boundary.
 Its [[file:parser-engine-formal-model/physical-sparse-goto.org][maintained contract map]] records the remaining admission boundaries.
 The map names each producer law, consumer, source owner and executable control.
 Keep source admission, universal algorithm proofs and native qualification

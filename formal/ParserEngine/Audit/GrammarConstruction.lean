@@ -381,3 +381,16 @@ import ParserEngine.Components
 #print axioms ParserEngine.ConstructionGrammar.rejected
 #print axioms ParserEngine.ConstructionGrammar.consumer_success
 #print axioms ParserEngine.ConstructionGrammar.complete
+#print axioms ParserEngine.ConstructionEncoding.lookup_sound
+#print axioms ParserEngine.ConstructionEncoding.lookup_injective
+#print axioms ParserEngine.ConstructionEncoding.terminal_roundtrip
+#print axioms ParserEngine.ConstructionEncoding.terminal_injective
+#print axioms ParserEngine.ConstructionEncoding.symbol_roundtrip
+#print axioms ParserEngine.ConstructionEncoding.symbol_injective
+#print axioms ParserEngine.ConstructionEncoding.mapM_trace
+#print axioms ParserEngine.ConstructionEncoding.row_roundtrip
+#print axioms ParserEngine.ConstructionEncoding.table_positions
+#print axioms ParserEngine.ConstructionEncoding.factory_positions
+#print axioms ParserEngine.ConstructionEncoding.complete
+#print axioms ParserEngine.ConstructionEncodingWitness.source_checked
+#print axioms ParserEngine.ConstructionEncodingWitness.no_truncation

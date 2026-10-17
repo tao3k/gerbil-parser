@@ -1,5 +1,6 @@
 ;;; Source correspondence controls use the shared constrained parser-test DSL.
 (import :gerbil-parser/language-test-support
+        (only-in :gerbil-parser/src/testing/source-witness parser-source-data write-parser-source-data)
         (only-in :gerbil-parser/t/fixtures/event-walk-source
                  read-event-walk-source read-event-walk-source-port
                  write-event-walk-source-data event-walk-data-current?
@@ -123,6 +124,12 @@
     (equal (rejected? (lambda () (index-rows '((1 key value)) 1 cadr caddr))) #t))
   (property "unsupported reader data cannot disappear"
     (bindings) (equal (unsupported-datum?) #t))
+  (scenario "uninterned names fail before source data publication"
+    (scope ((name (##string->uninterned-symbol "root")))
+      (using (call-with-output-string) (port)
+        (raises (write-parser-source-data
+          (parser-source-data (ParserEngine.SourceIdentityFixture value name)) port) true)
+        (equal (get-output-string port) ""))))
   (matrix "complete extracted layout agrees with native coordinates and physical slots"
     (setup (declaration (read-source-definition "src/compiler/lr-automaton.ss" 'make-item-layout))
            (construct (eval (list 'lambda

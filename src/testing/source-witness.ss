@@ -1,6 +1,6 @@
 ;;; Typed source-data declarations. Proofs belong to Lean, not Scheme strings.
 (import (only-in :std/misc/ports read-all-as-string))
-(export parser-source-data write-parser-source-data source-data-current?)
+(export parser-source-data write-parser-source-data source-data-current? parser-source-symbol-text)
 (defstruct source-binding (namespace name value) final: #t)
 (defrules parser-source-data ()
   ((_ (namespace name value) ...)
@@ -14,10 +14,36 @@
     (error "invalid source-data identifier" name))
   (symbol->string name))
 (def (quoted-text value)
-  (call-with-output-string (lambda (port) (write value port))))
+  ;; This boundary emits Lean strings, whose control escapes differ from
+  ;; Scheme's hexadecimal escape syntax. Preserve scalar contents exactly.
+  (call-with-output-string
+   (lambda (port)
+     (write-char #\" port)
+     (for-each
+      (lambda (ch)
+        (case ch
+          ((#\") (write-string "\\\"" port))
+          ((#\\) (write-string "\\\\" port))
+          ((#\newline) (write-string "\\n" port))
+          ((#\return) (write-string "\\r" port))
+          ((#\tab) (write-string "\\t" port))
+          (else
+           (let (code (char->integer ch))
+             (if (or (< code 32) (= code 127))
+               (begin (write-string "\\x" port)
+                      (when (< code 16) (write-char #\0 port))
+                      (write-string (number->string code 16) port))
+               (write-char ch port))))))
+      (string->list value))
+     (write-char #\" port))))
+(def (parser-source-symbol-text value)
+  (unless (and (symbol? value) (eq? value (string->symbol (symbol->string value))))
+    (error "source symbol has no canonical interned identity" value))
+  (symbol->string value))
+
 (def (datum-tokens value)
   (cond ((keyword? value) (list "(.keyword " (quoted-text (keyword->string value)) ")"))
-        ((symbol? value) (list "(s " (quoted-text (symbol->string value)) ")"))
+        ((symbol? value) (list "(s " (quoted-text (parser-source-symbol-text value)) ")"))
         ((string? value) (list "(.text " (quoted-text value) ")"))
         ((boolean? value) (list (if value "(b true)" "(b false)")))
         ((and (integer? value) (exact? value) (>= value 0))

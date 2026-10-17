@@ -5,6 +5,7 @@
         (only-in "fixtures/construction-storage.ss" joint-construction-observation)
         (only-in "fixtures/construction-control.ss" growth-control-observation)
         (only-in "fixtures/construction-append.ss" append-control-observation)
+        (only-in "fixtures/construction-fifo.ss" fifo-source-observation existing-zero-observation)
         (only-in "fixtures/bit-traversal.ss" traversal-observation traversal-reference traversal-masks))
 
 (deflanguage-parser-tests lr-construction-semantics-test "LR construction protocols"
@@ -138,6 +139,15 @@
     (each (capacity) ('(1 2 3 5 128))
       (each (count) ((list 0 (- capacity 1) capacity))
         (equal (append-control-observation capacity count) '(#t #t #t #t #t)))))
+  (scenario "source initialization precedes FIFO actions and only fresh targets enqueue"
+    (each (capacity) ('(1 3 128))
+      (equal (fifo-source-observation '((0 start () concat #f)) capacity) '(1 #t #t #t #t))
+      (equal (fifo-source-observation
+        '((0 start ((nonterminal A)) concat #f)
+          (1 A ((terminal token a) (nonterminal A)) concat #f)
+          (2 A () concat #f)) capacity) '(4 #t #t #t #t))))
+  (scenario "source target callback treats ID zero as existing"
+    (equal (existing-zero-observation) '((token . 0))))
   (scenario "source direct and field paths deliver the same ordered callbacks"
     (each (width) ((append '(1 2 5) (list (integer-length (##greatest-fixnum)))))
       (each (route) ('(native fixnum direct field))

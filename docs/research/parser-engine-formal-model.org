@@ -27,9 +27,10 @@ Its [[file:parser-engine-formal-model/physical-sparse-goto.org][maintained contr
 The map names each producer law, consumer, source owner and executable control.
 Keep source admission, universal algorithm proofs and native qualification
 distinct; update the map when an obligation changes.
-Its source-boundary table distinguishes the proved growth/append instruction
-protocol from remaining initial-state and complete FIFO action-emission
-correspondence. Parser-owned gaps must not be relabeled as host assumptions.
+Its source-boundary table covers growth/append instructions, the distinct
+initial-state path and complete FIFO action emission. =source_complete= combines
+the actual generating factory, its safe actions, replay and physical row meaning.
+Parser-owned obligations must remain distinct from host assumptions.
 
 * Module ownership
 

@@ -1,0 +1,130 @@
+import ParserEngine.ConstructionAppend
+
+/-! The builder initializes slot zero with an already-one counter. This is a
+distinct source path, not an invocation of append-state!. Host vector and
+template/closure evaluation keep their normal-return contracts. -/
+namespace ParserEngine.ConstructionInitialization
+open WalkSource ConstructionStorage ConstructionAppend
+
+structure Envelope where
+  installation : Datum
+  register : Datum
+  queue : Datum
+
+def envelope : Datum → Option Envelope
+  | .list [.symbol "def", _, .list [.symbol "let*", _,
+      .list [.symbol "let-values", _, .list [.symbol "let", _, _, installation, registration, _, _, queue]]]] =>
+    some ⟨installation, registration, queue⟩
+  | _ => none
+
+def write : Datum → Option Instruction
+  | .list [.symbol "vector-set!", .symbol "states", .integer 0,
+      .list [.symbol "lr0-closure", .symbol "initial-kernel", .symbol "template"]] => some .state
+  | .list [.symbol "vector-set!", .symbol "kernel-plans", .integer 0,
+      .list [.symbol "cons", .symbol "initial-kernel", .symbol "template"]] => some .plan
+  | .list [.symbol "table-set!", .symbol "state-index", .symbol "initial-kernel", .integer 0] => some .register
+  | _ => none
+
+def block : Datum → Option (List Instruction)
+  | .list [.symbol "let", .list [.symbol "template", .list [.symbol "template-for", .symbol "initial-kernel"]], one, two] =>
+    [one, two].mapM write
+  | _ => none
+
+def counter (name : String) : Datum → Option Datum
+  | .list [.symbol "def", _, .list [.symbol "let*", .list entries, _]] =>
+    ConstructionExtraction.binding name (.list [.symbol "let", .list entries])
+  | _ => none
+
+def decode (source : Datum) : Option (List Instruction) :=
+  (envelope source).bind fun parts =>
+  (block parts.installation).bind fun body =>
+  (write parts.register).bind fun registration =>
+  if counter "state-count" source = some (.integer 1) ∧
+      counter "processed-count" source = some (.integer 0) then
+    some (body ++ [registration]) else none
+
+def canonical : List Instruction := [.state, .plan, .register]
+
+def run (program : List Instruction) (layout : PlanStorage.Layout) (state : List Nat) (plan : PlanStorage.Plan) : Frame :=
+  program.foldl (step ConstructionControl.canonical state plan) ⟨ConstructionStorage.empty layout, 1, 0, [], none⟩
+
+theorem run_exact (layout : PlanStorage.Layout) (state : List Nat) (plan : PlanStorage.Plan) :
+    run canonical layout state plan =
+      ⟨ConstructionStorage.append (ConstructionStorage.empty layout) 0 state plan, 1, 0, [(plan.kernel, 0)], none⟩ := by
+  have nonzero : ¬0 = layout.initial := by have := layout.positive; omega
+  simp [run, canonical, step, ConstructionStorage.append, ConstructionStorage.empty, nonzero]
+
+theorem write_bounds (layout : PlanStorage.Layout) :
+    0 < (ConstructionStorage.empty layout).states.length ∧ 0 < (ConstructionStorage.empty layout).plans.length := by
+  simpa [ConstructionStorage.empty] using And.intro layout.positive layout.positive
+
+set_option maxRecDepth 8192 in
+theorem schema_decoded (initial : Nat) : decode (LRTransitionSource.builderWith initial) = some canonical := by
+  have counters (name : String) : counter name (LRTransitionSource.builderWith initial) =
+      ConstructionExtraction.binding name (.list [.symbol "let", .list [
+        CompilerSemanticsSource.binding "productions-by-lhs" (NativeActions.Source.call "production-index-by-lhs" ["productions"]),
+        CompilerSemanticsSource.binding "prediction-catalog" (NativeActions.Source.call "make-core-prediction-catalog" ["core-symbols", "productions-by-lhs", "layout"]),
+        CompilerSemanticsSource.binding "initial-kernel" (app "compiler-index-set-add" [.integer 0, app "make-core-item" [.integer 0, .integer 0, .symbol "layout"]]),
+        CompilerSemanticsSource.binding "templates" (app "make-table" [.keyword "test", .symbol "equal?"]),
+        CompilerSemanticsSource.binding "states" (app "make-vector" [.integer initial, .boolean false]),
+        CompilerSemanticsSource.binding "state-transitions" (app "make-vector" [.integer initial, CompilerSemanticsSource.emptyList]),
+        CompilerSemanticsSource.binding "kernel-plans" (app "make-vector" [.integer initial, .boolean false]),
+        CompilerSemanticsSource.binding "state-index" (app "make-table" [.keyword "test", .symbol "equal?"]),
+        CompilerSemanticsSource.binding "state-count" (.integer 1), CompilerSemanticsSource.binding "processed-count" (.integer 0),
+        CompilerSemanticsSource.binding "trace?" (app "equal?" [app "getenv" [.text "GERBIL_PARSER_LR_TRACE", .boolean false], .text "1"])]]) := rfl
+  have count : counter "state-count" (LRTransitionSource.builderWith initial) = some (.integer 1) := by
+    rw [counters]
+    simp [ConstructionExtraction.binding, ConstructionExtraction.bindings, ConstructionExtraction.bindingList,
+      CompilerSemanticsSource.binding, app]
+  have processed : counter "processed-count" (LRTransitionSource.builderWith initial) = some (.integer 0) := by
+    rw [counters]
+    simp [ConstructionExtraction.binding, ConstructionExtraction.bindings, ConstructionExtraction.bindingList,
+      CompilerSemanticsSource.binding, app]
+  unfold decode
+  rw [count, processed]
+  simp only [and_self, ↓reduceIte]
+  rfl
+
+theorem source_decoded (builder growth installation template : Datum) (recipe : ConstructionExtraction.Recipe)
+    (admitted : ConstructionExtraction.extract builder growth installation template = some recipe) :
+    decode builder = some canonical := by
+  rw [(ConstructionExtraction.extracted_sources _ _ _ _ recipe admitted).1]
+  exact schema_decoded recipe.initial
+
+/-- The cache heap used by the initial producer is replaced by the actual
+initialization instruction result, while its other retained values persist. -/
+def initial (program : List Instruction) (g : Grammar.CFG) (layout : PlanStorage.Layout) :
+    ConstructionQueue.Machine × CachedConstruction.Cache g :=
+  let installed := CachedConstruction.initial g layout
+  let cache := TemplateCapabilities.empty g layout
+  let plan : PlanStorage.Plan := ⟨1, (PlanStorage.fetch (TemplateCapabilities.materialize g)
+    cache.memory (TemplateCapabilities.predictionMask g 1)).1⟩
+  let frame := run program layout (KernelConstruction.compute g 1).1 plan
+  (⟨{installed.1.registry with pending := [], index := replayIndex (fun _ => none) frame.registered}, installed.1.transitions⟩,
+    {installed.2 with storage := frame.heap})
+
+/-- Initialization has no enqueue. The outer source queue owns the single
+enqueue of ID zero, after initialization and registration complete. -/
+theorem initial_exact (g : Grammar.CFG) (layout : PlanStorage.Layout) :
+    initial canonical g layout =
+      (⟨{(CachedConstruction.initial g layout).1.registry with pending := []},
+        (CachedConstruction.initial g layout).1.transitions⟩, (CachedConstruction.initial g layout).2) := by
+  have heap : (run canonical layout (KernelConstruction.compute g 1).1
+      ⟨1, (PlanStorage.fetch (TemplateCapabilities.materialize g)
+        (TemplateCapabilities.empty g layout).memory (TemplateCapabilities.predictionMask g 1)).1⟩).heap =
+        (CachedConstruction.initial g layout).2.storage := by
+    rw [run_exact]
+    simp only [CachedConstruction.initial, CachedConstruction.intern, ConstructionQueue.empty,
+      TemplateCapabilities.build_storage, TemplateCapabilities.empty]
+    rfl
+  have index : replayIndex (fun _ => none) (run canonical layout (KernelConstruction.compute g 1).1
+      ⟨1, (PlanStorage.fetch (TemplateCapabilities.materialize g)
+        (TemplateCapabilities.empty g layout).memory (TemplateCapabilities.predictionMask g 1)).1⟩).registered =
+        (CachedConstruction.initial g layout).1.registry.index := by
+    rw [run_exact]
+    simp only [replayIndex, List.foldl_cons, List.foldl_nil, CachedConstruction.initial, CachedConstruction.intern,
+      ConstructionQueue.empty, StateInterning.intern]
+    rfl
+  simp only [initial, heap, index]
+
+end ParserEngine.ConstructionInitialization

@@ -323,13 +323,13 @@ Fresh/disjoint physical allocation and address encoding remain host contracts.
 The model does not claim that allocation traces or physical addresses agree
 under different evaluation orders.
 
-=trace_realizes= generates a safe executable action history from every joint
-construction trace. Append actions carry shape and loop-access safety; row
-publication actions carry allocated-ID bounds. The LeanPoo retained family
-certifies this realization together with the machine, alignment and owned
-heap; its consumer retains the realization. =source_execution= decodes both
-admitted growth and append declarations and reaches the same complete heap.
-No arbitrary final-heap certificate or hand-supplied execution trace is needed.
+=trace_realizes= remains a joint-history refinement tool. The retained LeanPoo
+factory now executes [[file:../../../formal/ParserEngine/ConstructionFIFO.lean][ConstructionFIFO.build]], which generates the exact actions
+during initialization and FIFO execution. Its joint contract certifies those
+actions, their safety and replay together with the same machine, cache and
+owned heap. =source_execution= reaches the generating factory, while
+=source_replay= uses the retained actions rather than an unrelated existential
+history. No final-heap certificate or execution trace is supplied by a caller.
 
 [[file:../../../formal/ParserEngine/ConstructionAppend.lean][ConstructionAppend]] decodes the complete supported =append-state!= declaration:
 growth, capture of the old index, template lookup binding, state write, plan
@@ -341,8 +341,7 @@ derives the new counter and returned old ID; =write_bounds= proves valid writes
 for every owned shape. =intern_step= supplies the actual retained producer's
 closure and shared template reference to that execution. =execute_exact= and
 =trace_realizes= lift the instruction protocol through every complete joint
-history. LeanPoo's retained construction certifies and consumes this stronger
-realization; source admission checks both declarations before replay.
+history. Source admission checks growth and append declarations before replay.
 =intern_index= replays the registration effects into the prior logical table
 and proves equality with the producer's resulting index function at every key;
 registration is not merely an emitted event label.
@@ -355,8 +354,60 @@ the old ID. Missing, reversed and premature-counter receipts are rejected.
 The joint Quint model also separates state write, plan write, registration,
 counter advancement and return; random simulation uses these microsteps.
 
+** Initialization and FIFO action generation
+
+[[file:../../../formal/ParserEngine/ConstructionInitialization.lean][ConstructionInitialization]] decodes the initial writes and registration
+separately from =append-state!=. Root counters must be one and zero, slot-zero
+state and plan writes precede registration, and there is no initial increment
+or growth call. =run_exact= relates this special path to the normal-form first
+append; =write_bounds= uses the extracted positive capacity. The actual initial
+cache heap is produced by those instructions, and the initial index is produced
+by replaying their registration effects. =initial_exact= leaves the queue empty;
+the outer queue alone enqueues ID zero in =start_exact=.
+
+=ConstructionFIFO.decode= checks the outer empty test, seed ID, dequeue,
+processed-count increment, plan read, ordered target callback, reverse/write
+publication and tail call. Target lookup preserves ID zero as an existing
+value. The effect interpreter separates installation, accumulator cons and
+conditional enqueue. =target_exact= and =groups_exact= prove equivalence to the
+retained producer, including cache and reversed accumulator, for arbitrary
+target lists. During a fresh append, one allocated ID is temporarily absent
+from the queue; the callback restores the stable accounting only after cons
+and enqueue. This legal intermediate state must not be mistaken for a broken
+stable FIFO invariant.
+
+=tick_exact= and =finish_exact= connect interpreted dequeue/publication to the
+complete cached construction. The loop terminates by the existing finite-core
+capacity minus processed count, without fuel or a final-state premise. The same
+execution emits its actions. =groups_replay=, =tick_replay= and =finish_replay=
+compose their heap effects; =construct_replay= normalizes the special initial
+path and reaches the actual returned heap and count.
+
+[[file:../../../formal/ParserEngine/ConstructionFIFOTrace.lean][ConstructionFIFOTrace]] proves safety of these exact generated actions.
+Owned shapes provide append/growth bounds; queued-node validity and append-only
+allocation provide every publication bound. =construct_safe= is generated
+through the same terminating loop, not borrowed from some equal final heap.
+LeanPoo consumes this safe action stream, replay and producer identity.
+=ConstructionConsumer.source_complete= combines source execution, exact-action
+safety, replay and physical row validity; =physical_paper_target= connects the
+same retained row and target vectors to the existing paper closure/goto meaning.
+
+The execution entry extracts its own layout from all admitted source schemas.
+A caller cannot pass an unrelated positive capacity. Malformed admission returns
+before construction. Normal-return helper algorithms retain their separately
+proved meanings; diagnostic I/O, primitive operations, compiler execution and
+nonlocal control behavior remain external contracts.
+
+Passive native controls read and execute the real builder at capacities 1, 3
+and 128. They check initialization before seeding, dequeue order, per-target
+counter values, row-before-enqueue order, reuse without enqueue and exactly one
+reversed row publication. Receipt mutations reject missing seed and wrong row
+owners. A source-extracted target callback separately verifies that an existing
+ID zero calls neither append nor enqueue. The dedicated Quint source protocol
+checks deferred enqueue, duplicate target reuse and reversed-row publication.
+
 This is a refinement of the parser-owned vector-effect protocol on normal
-return. The surrounding certified queue supplies append and row actions;
+return. The decoded certified queue generates append and row actions;
 hash/queue primitives and the producer callbacks retain their existing
 contracts. It is not a small-step semantics for arbitrary Scheme, a compiler
 correctness theorem, or an exception/continuation refinement through primitive
@@ -377,12 +428,14 @@ are rejected, including receipts whose final vector contents would still agree.
 | Joint vector storage | One counted copy loop, state/plan installation and transition publication generate a joint trace. Shape, capacity, all three reads and complete paper targets are derived through the full queue. |
 | Source copy control | =source_decoded=, =forward_prefix=, =loop_safe=, =owner_stages= and =source_execution= connect the admitted real growth declaration to the complete heap on normal return. |
 | Source append control | =ConstructionAppend.run_exact=, =registration_stage=, =write_bounds= and =intern_step= bind the retained producer to ordered writes, registration and returned ID. Logical table effects are represented; host hash implementation is external. |
+| Initial-state control | =ConstructionInitialization.run_exact=, =initial_exact= and =ConstructionFIFO.start_exact= derive slot zero, initial registration and the single outer seed from the distinct source path. |
+| FIFO action generation | =ConstructionFIFO.construct_exact=, =construct_replay= and =construct_safe= derive the actual retained machine/cache, exact action stream, bounds and replay through the terminating source-order queue. |
 | Empty transition initializer | The model keeps an unpublished ghost tag; both unpublished and published-empty rows decode to the native empty list. This is not an extra native tag or allocation. |
 | Compiler and GC | External premises; no Gambit changes, builds or compiler-correctness claim. |
 
-The composition qualification passes 187 Lean build jobs with only the standard
+The composition qualification passes 190 Lean build jobs with only the standard
 =propext=, =Classical.choice= and =Quot.sound= axioms in the new audited theorems.
-The existing Scheme test macros run 279 cases across 13 owners, including final
+The existing Scheme test macros run 281 cases across 13 owners, including final
 physical queries, joint copies at capacities 1, 2, 3, 5 and 128, repeated growth,
 recursive shared-template growth, receipt mutations, nonpositive-capacity
 rejection, passive owner-control observations and the damaged-index control.
@@ -395,6 +448,11 @@ premature publication, early counter and wrong return rejection. The existing
 complete lifecycle remains a separate bounded check. These finite checks
 support the universal Lean composition and do not replace it. No CPU improvement
 is claimed.
+The source FIFO model additionally passes ten directed checks and 1,000
+histories of 80 transitions, including wrong initial counter, missing seed,
+duplicate existing enqueue, missing fresh enqueue and missing reverse controls.
+Its dequeue and processed-counter actions are separate, including the legal
+transient state before accounting catches up with the removed queue head.
 
 These conditions are acceptance boundaries, not obligations silently discharged
 by finite tests. =current_admitted= admits the current source; =prepared= admits
@@ -419,8 +477,9 @@ No engine optimization is justified by this composition alone.
 | Aggregate-key cache lifetime | =construct_covered=, =cache_hit=; native object identity and factory counts | Per-builder grammar/layout; no cross-builder admission |
 | Physical plan/reference reads | =decode_install=, =decode_other= and =construct_aligned= | Logical references; primitive pointer encoding external |
 | Joint physical vectors | =copy_fields=, =append_exact=, =publish_refines= and =ConstructionHeap.construct_owned= -> =joint_observations=, =joint_index=, =physical_complete= and =physical_paper_target= | Every positive initial capacity; native row initializer decoded with an unpublished ghost tag; primitive vector operations external |
-| Source control realization | =ConstructionControl.trace_realizes= -> LeanPoo joint contract -> =source_execution= | Full growth-declaration decoder, forward-loop safety and sequential owner stages; normal-return host contracts remain external |
-| Source append realization | =ConstructionAppend.trace_realizes= -> same LeanPoo joint contract -> =source_execution= | Complete append decoder; actual producer values; old ID, ordered registration and counter mutation; valid write bounds |
+| Source growth realization | =ConstructionControl.source_decoded= and forward-copy laws -> =ConstructionFIFO.construct_replay= -> =source_replay= | Full growth-declaration decoder, forward-loop safety and sequential owner stages; normal-return host contracts remain external |
+| Source append realization | =ConstructionAppend.intern_step= -> =ConstructionFIFO.intern_replay= -> same retained actions and =source_replay= | Complete append decoder; actual producer values; old ID, ordered registration and counter mutation; valid write bounds |
+| Initial and complete source execution | =ConstructionFIFO.build= -> LeanPoo retained factory -> =source_complete= | Special initial writes and index replay; source-generated actions; per-step safety; complete FIFO termination; same physical row/goto meaning |
 | Interning, FIFO and final rows | =construct_exact= and returned =Product= | Hash equality and queue primitives |
 | Source authority | Named parameter extraction, =extracted_sources=, executable recipes and fresh reader witnesses | Restricted construction idioms, not a general Scheme execution theorem |
 | Compiler, GC and host memory | Explicit external premises | No Gambit modification or build; no native compiler correctness claim |
@@ -440,17 +499,18 @@ is now derived from the direct/field recurrence and supplied through LeanPoo's
 selected capability to the complete queue. It is no longer an unproved parser
 enumeration premise. Primitive arithmetic/storage semantics and their
 host/compiler implementation remain external. The following parser-owned
-source obligations must remain distinct from that external boundary:
+source obligations are now closed within the supported normal-return effect
+protocol, with their implementation boundary kept explicit:
 
-| Parser-owned obligation | Current evidence | Remaining source correspondence |
+| Parser-owned obligation | Current evidence | Boundary |
 |--------------------------+------------------+---------------------------------|
-| Initial state | =initial_owned= proves the algorithm's initial intern; complete builder schema and native controls bind the real initialization. | The native builder starts its counter at one and writes slot zero separately. Its dedicated initialization control has not yet been decoded into the executable effect protocol. |
-| Complete FIFO action emission | =construct_owned= generates the joint history from the certified complete queue; =source_execution= replays it through decoded growth/append instructions. | A source control interpreter for the outer dequeue, existing-target branch, enqueue and reversed-row publication must derive this same action stream. Existence of a replay history does not by itself prove that interpretation. |
-| Template and closure calls | =intern_step= uses the actual retained producer's computed closure and shared reference; independent producer laws prove their algorithmic meaning. | Composition with actual call/return evaluation, including the initial special path, is not a general Scheme execution theorem. |
+| Initial state | Dedicated decoder, instruction execution, actual heap/index effects, =initial_exact= and =start_exact=; positive capacities are source-derived. | Normal-form first append is a proved equivalence, not a claim that native initialization calls append or grows. |
+| Complete FIFO action emission | Decoded queue/target instructions, =construct_exact=, =construct_replay= and =construct_safe=; LeanPoo retains the generating factory and exact actions. | Helpers use their existing algorithm contracts; compiler and primitive host implementation remain external. |
+| Template and closure calls | =intern_step= uses the actual retained producer's computed closure and shared reference; independent producer laws prove their algorithmic meaning. | Actual host call/return evaluation and nonlocal continuation/exception effects are outside the normal-return parser effect protocol. |
 
-These are parser correspondence obligations, not compiler or GC assumptions.
-The instruction proofs close the local vector/counter protocol; they do not
-establish that every parser-owned source control obligation is closed.
+These are parser correspondence proofs, not compiler or GC proofs. They close
+the listed initialization/FIFO obligations and do not establish unrestricted
+Scheme execution or every possible parser source program.
 
 The restricted schemas
 identify complete supported Scheme declarations; forwarding native observers

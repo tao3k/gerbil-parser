@@ -1,6 +1,6 @@
 import ParserEngine.ConstructionExtraction
 import ParserEngine.ConstructionHeap
-import ParserEngine.ConstructionAppend
+import ParserEngine.ConstructionFIFOTrace
 
 /-! Source admission, the complete queue and physical/index observations share
 one retained construction. Host primitives remain external premises. -/
@@ -55,28 +55,35 @@ structure Request where
   layout : PlanStorage.Layout
 
 abbrev Value (request : Request) (_ : Capability) :=
-  ConstructionProtocol.Product request.context.grammar × CachedConstruction.Cache request.context.grammar
+  ConstructionFIFO.Built request.context.grammar
 
 def Joint (request : Request)
     (data : Requirements.Results (fun c => Value c) request [Capability.construction]) : Prop :=
-  data.1.1.machine = (ConstructionProtocol.construct request.context.grammar request.context.nonempty).machine ∧
-    CachedConstruction.Aligned request.context.grammar data.1.2 data.1.1.machine.registry ∧
-    CachedConstruction.Physical request.context.grammar data.1.2 data.1.1.machine.registry ∧
-    ConstructionHeap.Owned request.layout request.context.grammar data.1.2 data.1.1.machine.registry data.1.1.machine.transitions ∧
-    ConstructionAppend.Realizes request.layout data.1.1.machine.registry.keys.length data.1.2.storage
+  let construction := data.1.construction
+  construction.1.machine = (ConstructionProtocol.construct request.context.grammar request.context.nonempty).machine ∧
+    CachedConstruction.Aligned request.context.grammar construction.2 construction.1.machine.registry ∧
+    CachedConstruction.Physical request.context.grammar construction.2 construction.1.machine.registry ∧
+    ConstructionHeap.Owned request.layout request.context.grammar construction.2 construction.1.machine.registry construction.1.machine.transitions ∧
+    ConstructionControl.Safe ConstructionControl.canonical data.1.actions 0 (ConstructionStorage.empty request.layout) ∧
+    ConstructionAppend.execute ConstructionControl.canonical ConstructionAppend.canonical data.1.actions 0
+      (ConstructionStorage.empty request.layout) = (construction.1.machine.registry.keys.length, construction.2.storage) ∧
+    data.1 = ConstructionFIFO.build request.context.grammar request.context.nonempty request.context.traversal request.layout
 
 def retained : Requirements.Factories Request (fun c => Value c) [Capability.construction] :=
-  (fun request => CachedConstruction.construct request.context.grammar request.context.nonempty
+  (fun request => ConstructionFIFO.build request.context.grammar request.context.nonempty
     request.context.traversal request.layout, PUnit.unit)
 
 def certified : Requirements.Certified [Capability.construction] Joint :=
   Requirements.certify retained Joint (by
       intro request
-      exact ⟨CachedConstruction.construct_exact _ request.context.nonempty _ request.layout,
-        CachedConstruction.construct_aligned _ request.context.nonempty _ request.layout,
-        CachedConstruction.construct_physical _ request.context.nonempty _ request.layout,
-        ConstructionHeap.construct_owned request.layout _ request.context.nonempty _,
-        ConstructionAppend.trace_realizes (ConstructionHeap.construct_owned request.layout _ request.context.nonempty _).trace⟩)
+      dsimp only [retained, Joint, Requirements.build]
+      refine ⟨?_, ?_, ?_, ?_, ConstructionFIFO.build_safe _ request.context.nonempty _ request.layout,
+        ConstructionFIFO.build_replay _ request.context.nonempty _ request.layout, rfl⟩
+      · rw [ConstructionFIFO.build_exact]; exact CachedConstruction.construct_exact _ request.context.nonempty _ request.layout
+      · rw [ConstructionFIFO.build_exact]; exact CachedConstruction.construct_aligned _ request.context.nonempty _ request.layout
+      · rw [ConstructionFIFO.build_exact]; exact CachedConstruction.construct_physical _ request.context.nonempty _ request.layout
+      · rw [ConstructionFIFO.build_exact]; exact ConstructionHeap.construct_owned request.layout _ request.context.nonempty _
+      )
 
 structure Product (context : Context) where
   layout : PlanStorage.Layout
@@ -85,11 +92,19 @@ structure Product (context : Context) where
   aligned : CachedConstruction.Aligned context.grammar construction.2 construction.1.machine.registry
   physical : CachedConstruction.Physical context.grammar construction.2 construction.1.machine.registry
   owned : ConstructionHeap.Owned layout context.grammar construction.2 construction.1.machine.registry construction.1.machine.transitions
-  control : ConstructionAppend.Realizes layout construction.1.machine.registry.keys.length construction.2.storage
+  actions : List ConstructionControl.Action
+  control : ConstructionControl.Safe ConstructionControl.canonical actions 0 (ConstructionStorage.empty layout)
+  replayed : ConstructionAppend.execute ConstructionControl.canonical ConstructionAppend.canonical actions 0
+    (ConstructionStorage.empty layout) = (construction.1.machine.registry.keys.length, construction.2.storage)
+  produced : construction = (ConstructionFIFO.build context.grammar context.nonempty context.traversal layout).construction
+  generated : actions = (ConstructionFIFO.build context.grammar context.nonempty context.traversal layout).actions
 
 def build (request : Request) : Product request.context :=
   certified.consume (Output := fun request => Product request.context) (fun request data proof =>
-    ⟨request.layout, data.1, proof.1, proof.2.1, proof.2.2.1, proof.2.2.2.1, proof.2.2.2.2⟩) request
+    ⟨request.layout, data.1.construction, proof.1, proof.2.1, proof.2.2.1, proof.2.2.2.1, data.1.actions,
+      proof.2.2.2.2.1, proof.2.2.2.2.2.1,
+      congrArg ConstructionFIFO.Built.construction proof.2.2.2.2.2.2,
+      congrArg ConstructionFIFO.Built.actions proof.2.2.2.2.2.2⟩) request
 
 /-- Admission precedes factory execution. The consumer retains the queue's
 actual cache; an index or storage certificate is never supplied by a caller. -/
@@ -149,20 +164,29 @@ theorem source_correspondence (sources : Sources) (context : Context) (product :
   rw [layout]
   exact matching
 
-/-- Decode both admitted declarations, then execute the generated safe action
-history with growth control, append writes, registration and counter mutation. -/
+/-- Source admission now reaches the actual generating factory, including
+initialization and FIFO control, not merely an existential heap replay. -/
 theorem source_execution (sources : Sources) (context : Context) (product : Product context)
     (success : construct sources context = some product) :
-    ∃ actions, ConstructionControl.Safe ConstructionControl.canonical actions 0 (ConstructionStorage.empty product.layout) ∧
-      ConstructionAppend.executeSource sources.growth sources.append actions product.layout =
-        some (product.construction.1.machine.registry.keys.length, product.construction.2.storage) := by
+    ConstructionFIFO.executeSource sources.builder sources.growth sources.append sources.template context.grammar context.nonempty
+      context.traversal =
+        some ((product.construction.1.machine, product.construction.2), product.actions) := by
+  obtain ⟨receipt, _, layout⟩ := admitted sources context product success
+  have execution := ConstructionFIFO.source_execution _ _ _ _ receipt.recipe receipt.extracted
+    context.grammar context.nonempty context.traversal
+  rw [← layout] at execution
+  rw [← product.produced, ← product.generated] at execution
+  exact execution
+
+theorem source_replay (sources : Sources) (context : Context) (product : Product context)
+    (success : construct sources context = some product) :
+    ConstructionAppend.executeSource sources.growth sources.append product.actions product.layout =
+      some (product.construction.1.machine.registry.keys.length, product.construction.2.storage) := by
   obtain ⟨receipt, _, _⟩ := admitted sources context product success
-  obtain ⟨actions, safe, execution⟩ := product.control
-  refine ⟨actions, safe, ?_⟩
   simp only [ConstructionAppend.executeSource,
     ConstructionControl.source_decoded _ _ _ _ receipt.recipe receipt.extracted,
     ConstructionAppend.source_decoded _ _ _ _ receipt.recipe receipt.extracted,
-    Option.bind_some, and_self, ↓reduceIte, execution]
+    Option.bind_some, and_self, ↓reduceIte, product.replayed]
 
 def Product.query (product : Product context) (node key : Nat) : Option SparseGroupMasks.Row :=
   (product.construction.2.readTemplate node).bind fun pair => pair.2.index key
@@ -295,5 +319,21 @@ theorem joint_index (context : Context) (product : Product context) (node kernel
   have decode := ((joint_observations context product).2.2.2.2 node).2.1
   simp only [queryVector, decode, product.aligned node kernel read, Option.bind_some, TemplateCapabilities.materialize]
   exact TemplateIndex.lookup _ _ key
+
+/-- One admission relates the generating source factory, its exact safe
+actions and the physical rows with the existing grammar/goto semantics. -/
+theorem source_complete (sources : Sources) (context : Context) (product : Product context)
+    (success : construct sources context = some product) :
+    ConstructionFIFO.executeSource sources.builder sources.growth sources.append sources.template
+      context.grammar context.nonempty context.traversal =
+        some ((product.construction.1.machine, product.construction.2), product.actions) ∧
+    ConstructionControl.Safe ConstructionControl.canonical product.actions 0 (ConstructionStorage.empty product.layout) ∧
+    ConstructionAppend.executeSource sources.growth sources.append product.actions product.layout =
+      some (product.construction.1.machine.registry.keys.length, product.construction.2.storage) ∧
+    ∀ node, node < product.construction.1.machine.registry.keys.length →
+      ∃ edges, ConstructionStorage.rowAt product.construction.2.storage node = edges ∧
+        ConstructionRows.RowValid context.grammar product.construction.1.machine.registry node edges :=
+  ⟨source_execution sources context product success, product.control, source_replay sources context product success,
+    physical_complete context product⟩
 
 end ParserEngine.ConstructionConsumer

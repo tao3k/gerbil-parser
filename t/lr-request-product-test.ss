@@ -1,6 +1,6 @@
 ;;; Complete request extraction, AST replay and canonical event products.
 (import :std/test
-        (only-in :gerbil-parser/t/fixtures/event-iterator-extraction event-graph-certificate check-event-certificate generate-event-witness witness-callbacks extract-event-graph replay-event-graph event-program-callbacks)
+        (only-in :gerbil-parser/t/fixtures/event-iterator-extraction event-graph-certificate check-event-certificate generate-event-witness witness-callbacks extract-event-graph replay-event-graph packet-event-callbacks event-program-callbacks)
         (only-in :std/string/utf8 string-utf8-length)
         (only-in :gerbil-parser/t/fixtures/lr-request-product extract-value extract-token extract-event replay-request reference-events)
         (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/grammar records-parser)
@@ -78,6 +78,8 @@
                 (check (check-event-certificate graph ranks) => #t)
                 (check (witness-callbacks witness) => (event-program-callbacks program))
                 (check (witness-callbacks witness 1) => (event-program-callbacks program 1))
+                (check (packet-event-callbacks graph 1) => (event-program-callbacks program 1))
+                (check (packet-event-callbacks graph) => (event-program-callbacks program))
                 (check (replay-event-graph graph 1) => (event-program-callbacks program 1))
                 (check (replay-event-graph graph) => (event-program-callbacks program)))
               (check-shifted-product machine source program)

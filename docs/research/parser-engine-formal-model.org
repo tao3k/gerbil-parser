@@ -613,6 +613,82 @@ iterator slice under its stated premises; whole-parser model closure remains
 open at the explicit adapters above. No parser CPU improvement is claimed.
 
 
+*** Executable packet dispatch and generated execution witnesses
+
+The preceding slice proves traces of a relational machine. Its next obligation
+is to derive such traces from an executable decoder/dispatcher, rather than
+accepting each physical =Step= as an independent premise.
+[[file:../../formal/ParserEngine/IteratorExecutor.lean][IteratorExecutor.lean]] supplies that layer for arbitrary certified record
+heaps and arbitrary valid pending work, including signed positions and saved
+zero callback IDs.
+
+=advance= implements every record-dispatch and frame-resume branch. It reads
+the actual typed record decoder, preserves append push order, checks a signed
+chunk index before conversion to a natural, advances the cursor only when a
+successor remains, and requires the appropriate node/field/fragment footer
+context. =step_executes= proves that every relational step is its executable
+result. =advance_refines= proves the converse for valid states using progress
+and executable result equality. =step_deterministic= follows from their shared
+function, rather than a separate assumption of deterministic dispatch.
+
+A =PacketState= stores four/five-slot continuation packets, observations and
+the opening counter. =tick= decodes every packet, performs the dispatch and
+encodes the successor. =stack_exact= and =encode_decoded= prove that successful
+decoding retains every packet and slot; extra cells cannot disappear.
+=chunk_slot_update= proves that the native slot-one update preserves code,
+translation and moved provenance. =decoded_tick= and =trace_refines= derive both semantic
+steps and validity witnesses from successful execution. Undecodable stacks and
+negative chunk cursors are rejected by universal theorems. =run= is explicitly
+fuel bounded; =run_complete= derives sufficient fuel from the structural work
+measure. =run_trace= derives a finite execution trace and empty final pending
+work from success, instead of requiring a caller to supply them.
+
+=checked_execution= composes Boolean graph verification, extraction generation
+and executable traversal in one theorem. A checked finite domain containing
+the root yields an =Extract= witness and a successful completed packet run,
+with exactly the generated program's events, well-nested footer contexts and
+matching opening IDs. =complete_request_product= consumes executable run
+success and recovers the relational walk internally, then reuses the existing
+request derivation, AST replay and canonical publication composition. Source
+identity, position resolution and normal-return publisher history remain
+explicit adapter premises; runtime slot reads and host execution have not been
+silently promoted to proven compiler or GC behavior.
+
+The executor groups active-register dispatch/restoration into one task step,
+as in the previous machine. It does not claim that the native recursive branch
+reifies its call frames into a physical vector stack. The source template uses
+native calls below depth 64 and an explicit iterator thereafter. The earlier
+suffix/fallback theorems preserve outer contexts; a compiler-checked refinement
+of the hybrid call mechanism itself remains a separate obligation. The LR
+paper's direct/CPS discussion explains why these control representations must
+be related; it does not discharge that implementation obligation.
+
+[[file:../../t/fixtures/event-iterator-extraction.ss][packet-event-callbacks]] is a separate Scheme task interpreter for this
+executable packet protocol. It calls neither the register-based replay nor the
+production traversal. Every packet is decoded before use; the helper follows
+the same fourteen dispatch/resume cases and retains footer returns explicitly.
+[[file:../../t/event-iterator-test.ss][Iterator controls]] and [[file:../../t/lr-request-product-test.ss][complete-request controls]] compare its full callbacks
+against the actual hybrid walker, generated-witness interpreter and register
+replay at strides one and seven. Chunk/carry boundaries, depth fallback,
+trivia, Unicode and the 64-record request remain included. The integrated
+seven-owner run passes 85 cases in 20.2 seconds under the original 90-second
+owner and five-second idle watchdogs. This duration is a qualification receipt,
+not a matched CPU comparison or parser performance claim.
+
+Lean builds 82 jobs; the new executor theorems are included in the axiom audit
+and source-binding regression. No Gambit source or build is involved. Parent commit
+=f204fd70fb19d995d5ac40103a77303bdaf5c0cb='s
+[[https://github.com/tao3k/gerbil-parser/actions/runs/38986827916][CI run]] subsequently completed successfully. The macOS semantics job
+=117263734710= confirms =MODULE-BATCH-OK t/build-product-contract-test.ss cases=2=,
+all 17 ABI cases, and =TEST-SUITE-OK modules=123=, followed by successful native
+command verification. Its worker-timeout negative control remains intentional;
+it is not the earlier build-product owner failure. Both platforms' preparation,
+generation, FFI and semantics jobs passed; Ubuntu corpus and all three Rust
+jobs also passed. This confirms the prior macOS timeout repair at that exact
+parent commit. These remote results do not qualify the new executable layer
+until its own commit completes CI.
+
+
 *** Current Ubuntu ABI watchdog failure and execution admission
 
 At =f6985c9=, Ubuntu semantics job =117123877753= in run =38944020625=

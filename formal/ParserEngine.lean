@@ -1,3 +1,4 @@
+import ParserEngine.IteratorExecutor
 import ParserEngine.IteratorMachine
 import ParserEngine.Extraction
 import ParserEngine.Callback
@@ -982,3 +983,39 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.IteratorMachine.machine_completes
 
 #print axioms ParserEngine.IteratorMachine.initial_completes
+
+#print axioms ParserEngine.IteratorExecutor.step_executes
+
+#print axioms ParserEngine.IteratorExecutor.advance_refines
+
+#print axioms ParserEngine.IteratorExecutor.step_deterministic
+
+#print axioms ParserEngine.IteratorExecutor.decode_encode
+
+#print axioms ParserEngine.IteratorExecutor.tick_encoded
+
+#print axioms ParserEngine.IteratorExecutor.decoded_tick
+
+#print axioms ParserEngine.IteratorExecutor.trace_refines
+
+#print axioms ParserEngine.IteratorExecutor.run_complete
+
+#print axioms ParserEngine.IteratorExecutor.run_trace
+
+#print axioms ParserEngine.IteratorExecutor.complete_events
+
+#print axioms ParserEngine.IteratorExecutor.run_refines
+
+#print axioms ParserEngine.IteratorExecutor.undecodable_rejected
+
+#print axioms ParserEngine.IteratorExecutor.negative_chunk_rejected
+
+#print axioms ParserEngine.IteratorExecutor.checked_execution
+
+#print axioms ParserEngine.IteratorExecutor.complete_request_product
+
+#print axioms ParserEngine.IteratorExecutor.stack_exact
+
+#print axioms ParserEngine.IteratorExecutor.encode_decoded
+
+#print axioms ParserEngine.IteratorExecutor.chunk_slot_update

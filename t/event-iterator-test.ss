@@ -1,6 +1,6 @@
 ;;; Position-view iterator controls against an independent recipe interpreter.
 (import :std/test
-        (only-in :gerbil-parser/t/fixtures/event-iterator-extraction event-graph-certificate check-event-certificate generate-event-witness witness-callbacks extract-event-graph replay-event-graph event-program-callbacks decode-event-frame)
+        (only-in :gerbil-parser/t/fixtures/event-iterator-extraction event-graph-certificate check-event-certificate generate-event-witness witness-callbacks extract-event-graph replay-event-graph packet-event-callbacks event-program-callbacks decode-event-frame)
         :gerbil-parser/src/runtime/event-program
         (only-in :gerbil-parser/src/runtime/token make-token token-start)
         (only-in :gerbil-parser/src/runtime/recognition make-recognition-child)
@@ -42,6 +42,8 @@
       (check (generate-event-witness graph ranks 0) => #f)
       (check (witness-callbacks witness) => (event-program-callbacks program))
       (check (witness-callbacks witness 1) => (event-program-callbacks program 1))
+      (check (packet-event-callbacks graph 1) => (event-program-callbacks program 1))
+      (check (packet-event-callbacks graph) => (event-program-callbacks program))
       (check (replay-event-graph graph 1) => (event-program-callbacks program 1))
       (check (replay-event-graph graph) => (event-program-callbacks program)))
     (event-program-walk/inline

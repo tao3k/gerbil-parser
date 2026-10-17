@@ -23,8 +23,10 @@
          ((and (symbol? (car form))
                (memq (car form) '(quote quasiquote syntax quasisyntax)))
           (loop rest))
-         ((and (list? form)
-               (memq (car form) '(call-with-output-string call-with-output-file))
+         ;; Only inspect list shape after matching a special-form head.
+         ;; Ordinary wide tails otherwise pay a quadratic proper-list scan.
+         ((and (memq (car form) '(call-with-output-string call-with-output-file))
+               (list? form)
                (pair? (cdr form)))
           (let (handler (last form))
             (if (and (list? handler) (>= (length handler) 3)

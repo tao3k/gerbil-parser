@@ -1,3 +1,5 @@
+import ParserEngine.IteratorMachine
+import ParserEngine.Extraction
 import ParserEngine.Callback
 import ParserEngine.IteratorEncoding
 import ParserEngine.EventIterator
@@ -922,3 +924,61 @@ No theorem asserts that Scheme execution refines this model or establishes CPU s
 #print axioms ParserEngine.IteratorEncoding.chunk_callbacks
 
 #print axioms ParserEngine.IteratorEncoding.append_callbacks
+
+#print axioms ParserEngine.Extraction.collect_lookup
+
+#print axioms ParserEngine.Extraction.admitted_correct
+
+#print axioms ParserEngine.Extraction.generate_sound
+
+#print axioms ParserEngine.Extraction.generate_complete
+
+#print axioms ParserEngine.Extraction.generate_witness
+
+#print axioms ParserEngine.Extraction.verify_certificate
+
+#print axioms ParserEngine.Extraction.checked_generate
+
+#print axioms ParserEngine.Extraction.lower_children_congr
+
+#print axioms ParserEngine.Extraction.extraction_unique
+
+#print axioms ParserEngine.Extraction.environment_extracts
+
+#print axioms ParserEngine.Extraction.environment_equation
+
+#print axioms ParserEngine.IteratorMachine.step_simulates
+
+#print axioms ParserEngine.IteratorMachine.trace_simulates
+
+#print axioms ParserEngine.IteratorMachine.complete_machine
+
+#print axioms ParserEngine.IteratorMachine.step_decreases
+
+#print axioms ParserEngine.IteratorMachine.physical_steps_wellFounded
+
+#print axioms ParserEngine.IteratorMachine.step_controls
+
+#print axioms ParserEngine.IteratorMachine.trace_controls
+
+#print axioms ParserEngine.IteratorMachine.complete_callbacks_bracketed
+
+#print axioms ParserEngine.IteratorMachine.fallback_projection
+
+#print axioms ParserEngine.IteratorMachine.step_under_suffix
+
+#print axioms ParserEngine.IteratorMachine.fallback_returns_to_caller
+
+#print axioms ParserEngine.IteratorMachine.complete_request_product
+
+#print axioms ParserEngine.IteratorMachine.certified_children
+
+#print axioms ParserEngine.IteratorMachine.certified_admission
+
+#print axioms ParserEngine.IteratorMachine.step_preserves_validity
+
+#print axioms ParserEngine.IteratorMachine.progress
+
+#print axioms ParserEngine.IteratorMachine.machine_completes
+
+#print axioms ParserEngine.IteratorMachine.initial_completes

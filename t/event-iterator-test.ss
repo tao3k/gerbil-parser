@@ -1,6 +1,6 @@
 ;;; Position-view iterator controls against an independent recipe interpreter.
 (import :std/test
-        (only-in :gerbil-parser/t/fixtures/event-iterator-extraction extract-event-graph replay-event-graph event-program-callbacks decode-event-frame)
+        (only-in :gerbil-parser/t/fixtures/event-iterator-extraction event-graph-certificate check-event-certificate generate-event-witness witness-callbacks extract-event-graph replay-event-graph event-program-callbacks decode-event-frame)
         :gerbil-parser/src/runtime/event-program
         (only-in :gerbil-parser/src/runtime/token make-token token-start)
         (only-in :gerbil-parser/src/runtime/recognition make-recognition-child)
@@ -34,7 +34,16 @@
     (event-program-walk (lambda (op name offset delta moved?)
                           (set! actual (cons (list op name offset delta moved?) actual))) program)
     (check (reverse actual) => (recipe-events recipe 0 #f))
-    (check (replay-event-graph (extract-event-graph program)) => (event-program-callbacks program))
+    (let* ((graph (extract-event-graph program)) (ranks (event-graph-certificate graph))
+           (fuel (+ 1 (if (eq? (car graph) #f) 0 (vector-ref ranks (car graph)))))
+           (witness (generate-event-witness graph ranks fuel)))
+      (check (check-event-certificate graph ranks) => #t)
+      (check (not (not witness)) => #t)
+      (check (generate-event-witness graph ranks 0) => #f)
+      (check (witness-callbacks witness) => (event-program-callbacks program))
+      (check (witness-callbacks witness 1) => (event-program-callbacks program 1))
+      (check (replay-event-graph graph 1) => (event-program-callbacks program 1))
+      (check (replay-event-graph graph) => (event-program-callbacks program)))
     (event-program-walk/inline
      (lambda (op name offset delta moved? context)
        (set! inlined (cons (list op name offset delta moved?) inlined))
@@ -79,6 +88,18 @@
           (set-car! (vector-ref append-packet 2) #f)
           (check (event-program-callbacks append-code) => before)
           (check (length (event-program-callbacks chunk)) => 2))))
+    (test-case "generated certificate data is independently checked before witness admission"
+      (let* ((program (compile-recipe (list 'node 'Root (list 'token (make-token 'word "x" 0 1)))))
+             (graph (extract-event-graph program)) (ranks (event-graph-certificate graph))
+             (broken (vector-copy ranks)))
+        (vector-set! broken (car graph) 0)
+        (check (check-event-certificate graph broken) => #f)
+        (check-exception (generate-event-witness graph broken 100) true)
+        (let ((cycle (cons 0 (vector '(view 0 0)))))
+          (check (check-event-certificate cycle '#(1)) => #f)
+          (check-exception (event-graph-certificate cycle) true))
+        (let ((outside (cons 0 (vector '(view 7 0)))))
+          (check (check-event-certificate outside '#(1)) => #f))))
     (test-case "physical frame extraction rejects widths tags and malformed cursor references"
       (for-each (lambda (frame) (check-exception (decode-event-frame frame) true))
         (list #f '#() '#(0 #f 0) '#(0 #t 0 #f) '#(0 #f 0 #f 0) '#(0 #t 0 #f #t)

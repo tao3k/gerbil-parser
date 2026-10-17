@@ -23,7 +23,7 @@ class ModelInputControls(unittest.TestCase):
             request = root / "formal/ParserEngine/Request.lean"
             request.write_text("namespace Request\nend Request\n")
             (root / "formal/ParserEngine/Grammar.lean").write_text("namespace Grammar\nend Grammar\n")
-            for module in ("Callback", "IteratorEncoding", "EventIterator", "RequestAST", "Publication", "TableBridge", "SemanticValues", "Viable", "RawRequest", "Completion", "NativeFacts", "Lowering", "Worklist", "Solver", "Encoding", "Names", "Construction", "Operational", "Host", "HostLowering"):
+            for module in ("Extraction", "IteratorMachine", "Callback", "IteratorEncoding", "EventIterator", "RequestAST", "Publication", "TableBridge", "SemanticValues", "Viable", "RawRequest", "Completion", "NativeFacts", "Lowering", "Worklist", "Solver", "Encoding", "Names", "Construction", "Operational", "Host", "HostLowering"):
                 (root / f"formal/ParserEngine/{module}.lean").write_text(f"namespace {module}\nend {module}\n")
             lean, quint = model_checks(root)
             self.assertEqual((lean.claim, quint.claim), ("lean-model", "quint-protocol"))
@@ -52,6 +52,8 @@ class ModelInputControls(unittest.TestCase):
             self.assertIn("formal/ParserEngine/EventIterator.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/IteratorEncoding.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Callback.lean", lean.inputs)
+            self.assertIn("formal/ParserEngine/Extraction.lean", lean.inputs)
+            self.assertIn("formal/ParserEngine/IteratorMachine.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Grammar.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Request.lean", lean.inputs)
             self.assertIn("formal/ParserEngine/Reuse.lean", lean.inputs)
@@ -93,6 +95,8 @@ class ModelInputControls(unittest.TestCase):
                 self.assertIn("t/event-iterator-test.ss", check.inputs)
                 self.assertIn("t/fixtures/event-iterator-extraction.ss", check.inputs)
                 self.assertIn("t/language-abi-test.ss", check.inputs)
+                self.assertIn("t/build-product-contract-test.ss", check.inputs)
+                self.assertIn("src/build-support/rust-runtime-aot.ss", check.inputs)
                 self.assertIn("t/fixtures/ffi/language-probe.ss", check.inputs)
                 self.assertIn("t/lr-request-product-test.ss", check.inputs)
                 self.assertIn("t/fixtures/lr-request-product.ss", check.inputs)
@@ -119,7 +123,7 @@ class ModelInputControls(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 if not path.exists():
                     path.write_text("input")
-            for module in ("Callback", "IteratorEncoding", "EventIterator", "RequestAST", "Publication", "TableBridge", "SemanticValues", "Viable", "RawRequest", "Completion", "NativeFacts", "Lowering", "Worklist", "Solver", "Encoding", "Names", "Operational"):
+            for module in ("Extraction", "IteratorMachine", "Callback", "IteratorEncoding", "EventIterator", "RequestAST", "Publication", "TableBridge", "SemanticValues", "Viable", "RawRequest", "Completion", "NativeFacts", "Lowering", "Worklist", "Solver", "Encoding", "Names", "Operational"):
                 before = snapshot(root, lean.inputs)
                 (root / f"formal/ParserEngine/{module}.lean").write_text("changed graph/request premise")
                 self.assertNotEqual(before, snapshot(root, lean.inputs))

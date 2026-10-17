@@ -91,4 +91,23 @@ module Publication {
     val index = 1
     items.slice(index,items.length()) == List(items.nth(index)).concat(items.slice(index+1,items.length())))
 
+  // Finite certificate controls; universal soundness/completeness is in Lean.
+  type RankedRecord = {id:int,rank:int,children:List[int]}
+  pure def checkedRanks(records:List[RankedRecord]):bool =
+    records.indices().forall(i =>
+      val record = records.nth(i)
+      record.id >= 0 and record.rank > 0 and
+      records.indices().forall(j => records.nth(j).id == record.id implies i == j) and
+      record.children.indices().forall(j =>
+        val child = record.children.nth(j)
+        child == -1 or records.indices().exists(k =>
+          records.nth(k).id == child and records.nth(k).rank < record.rank)))
+  run finiteRankCertificateTest = init.expect(checkedRanks(List(
+    {id:0,rank:1,children:List()}, {id:1,rank:2,children:List(0,-1)},
+    {id:2,rank:3,children:List(1,0)})))
+  run selfCycleCertificateWitnessTest = init.expect(not(checkedRanks(List({id:0,rank:1,children:List(0)}))))
+  run equalRankEdgeWitnessTest = init.expect(not(checkedRanks(List(
+    {id:0,rank:1,children:List()}, {id:1,rank:1,children:List(0)}))))
+  run missingReferenceWitnessTest = init.expect(not(checkedRanks(List({id:0,rank:1,children:List(7)}))))
+
 }

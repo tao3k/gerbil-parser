@@ -1,11 +1,13 @@
 ;;; -*- Gerbil -*-
 ;;; Boundary: package installation owns reusable library products only.
 
-(import (only-in :std/misc/ports read-all-as-string)
+(import (only-in :clan/poo/object .o .get)
+        (only-in :std/misc/ports read-all-as-string)
         (only-in :std/test check test-case test-suite)
         (only-in :std/text/pregexp pregexp-match)
         (only-in :asp-gerbil-scheme/building-api
-                 asp-gerbil-scheme-package-native-capabilities)
+                 asp-gerbil-scheme-package-native-capabilities
+                 asp-gerbil-scheme-portable-native-profile)
         (only-in :gerbil-parser/src/build-support/rust-runtime-aot
                  rust-runtime-aot-runtime-modules
                  rust-runtime-aot-package
@@ -63,11 +65,22 @@
                                 "asp-gerbil-scheme-package-spec!")
                => #f)))
     (test-case "ASP Building API projects the Rust generator executable closure"
-      (let* ((spec (rust-runtime-aot-build-spec))
+      ;; This is the production POO projector with deterministic host slots.
+      ;; Host discovery (including brew/pkg-config) belongs to the actual build,
+      ;; not to a topology contract running under the per-owner watchdog.
+      (let* ((prepared '()) (resolved 0)
+             (package (.o (:: @ rust-runtime-aot-package)
+                         native-profile: (.o (:: @ asp-gerbil-scheme-portable-native-profile)
+                           prepare!: (lambda (libraries) (set! prepared (cons libraries prepared))))
+                         native-options-resolver: (lambda () (set! resolved (+ resolved 1))
+                                                   '("-cc-options" "-Icontract" "-ld-options" "-lcontract"))))
+             (spec ((.get package spec-projector) package))
              (gxc-items
               (filter (lambda (item) (native-item-kind? 'gxc: item)) spec))
              (exe-items
               (filter (lambda (item) (native-item-kind? 'exe: item)) spec)))
+        (check prepared => '(("openssl")))
+        (check resolved => 1)
         (check (map cadr gxc-items) => rust-runtime-aot-runtime-modules)
         (check (length exe-items) => 1)
         (let (executable (car exe-items))
@@ -77,7 +90,9 @@
           (check (and (member "-cc-options" executable)
                       (member "-ld-options" executable)
                       #t)
-                 => #t))
+                 => #t)
+          (check (cadr (member "-cc-options" executable)) => "-Icontract")
+          (check (cadr (member "-ld-options" executable)) => "-lcontract"))
         (check (asp-gerbil-scheme-package-native-capabilities
                 rust-runtime-aot-package)
                => '(tls))))))

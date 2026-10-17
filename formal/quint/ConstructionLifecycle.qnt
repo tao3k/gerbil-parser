@@ -3,6 +3,8 @@
 module ConstructionLifecycle {
   type Group={first:int,symbol:int,kernel:Set[int]}
   type Edge={symbol:int,target:int}
+  var objectMasks:List[Set[int]]
+  var planRefs:List[int]
   var templates:Set[Set[int]]
   var materializations:int
   var phase:str
@@ -38,35 +40,46 @@ module ConstructionLifecycle {
   pure def cached(kernel:Set[int],available:Set[Set[int]]):Set[int] =
     if(available.contains(predicted(kernel))) predicted(kernel) else Set()
   action setup(stale:int):bool = all {
+    objectMasks'=List(predicted(Set(0))),planRefs'=List(0),
     templates'=Set(predicted(Set(0))),materializations'=1,
     phase'="ready",catalog'=List(Set(0)),work'=List(0),processed'=0,owner'=-1,
     groups'=List(),masks'=List(Set(),Set()),firsts'=List(stale,stale),published'=List()}
   action init = {nondet stale=Set(0,7,999).oneOf();setup(stale)}
   action step = if(phase=="ready" and work.length()>0) all {
-    templates'=templates,materializations'=materializations,
+    objectMasks'=objectMasks,planRefs'=planRefs,templates'=templates,materializations'=materializations,
     phase'="group",catalog'=catalog,work'=work.slice(1,work.length()),processed'=processed+1,
     owner'=work.nth(0),groups'=groups,masks'=masks,firsts'=firsts,published'=published}
     else if(phase=="group") {val kernel=catalog.nth(owner);all {
-      templates'=templates,materializations'=materializations,
+      objectMasks'=objectMasks,planRefs'=planRefs,templates'=templates,materializations'=materializations,
       phase'="borrowed",catalog'=catalog,work'=work,processed'=processed,owner'=owner,
-      groups'=sparse(kernel.union(cached(kernel,templates))),masks'=List(advanced(kernel,0),advanced(kernel,1)),
+      groups'=sparse(kernel.union(objectMasks.nth(planRefs.nth(owner)))),masks'=List(advanced(kernel,0),advanced(kernel,1)),
       firsts'=List(if(earliest(kernel,0)<999) earliest(kernel,0) else firsts.nth(0),
         if(earliest(kernel,1)<999) earliest(kernel,1) else firsts.nth(1)),published'=published}}
     else if(phase=="borrowed") all {
-      templates'=templates,materializations'=materializations,
+      objectMasks'=objectMasks,planRefs'=planRefs,templates'=templates,materializations'=materializations,
       phase'="publish",catalog'=catalog,work'=work,processed'=processed,owner'=owner,
       groups'=groups,masks'=List(Set(),Set()),firsts'=firsts,published'=published}
-    else if(phase=="publish") {val grown=install(catalog,groups);all {
+    else if(phase=="publish") {val grown=install(catalog,groups)
+      val allocated=grown.foldl(objectMasks,(out,kernel)=>
+        if(lookup(out,predicted(kernel))<0) out.append(predicted(kernel)) else out)
+      all {
+      objectMasks'=allocated,
+      planRefs'=grown.indices().fold(planRefs,(out,id)=>
+        if(id>=catalog.length()) out.append(lookup(allocated,predicted(grown.nth(id)))) else out),
       templates'=templates.union(requested(grown)),
       materializations'=materializations+requested(grown).exclude(templates).size(),
       phase'="ready",catalog'=grown,
       work'=work.concat(List(0,1,2,3,4,5,6,7).foldl(List(),(out,id)=>if(id>=catalog.length() and id<grown.length()) out.append(id) else out)),
       processed'=processed,owner'=owner,groups'=groups,masks'=masks,firsts'=firsts,
       published'=published.append(groups.foldl(List(),(out,group)=>out.append({symbol:group.symbol,target:lookup(grown,group.kernel)})))}}
-    else all {templates'=templates,materializations'=materializations,phase'=phase,catalog'=catalog,work'=work,processed'=processed,owner'=owner,
+    else all {objectMasks'=objectMasks,planRefs'=planRefs,templates'=templates,materializations'=materializations,phase'=phase,catalog'=catalog,work'=work,processed'=processed,owner'=owner,
       groups'=groups,masks'=masks,firsts'=firsts,published'=published}
   val LifecycleSafety = all {
     templates==requested(catalog),materializations==templates.size(),
+    materializations==objectMasks.length(),planRefs.length()==catalog.length(),
+    templates==objectMasks.foldl(Set(),(out,mask)=>out.union(Set(mask))),
+    objectMasks.indices().forall(i=>objectMasks.indices().forall(j=>i==j or objectMasks.nth(i)!=objectMasks.nth(j))),
+    catalog.indices().forall(id=>planRefs.nth(id)==lookup(objectMasks,predicted(catalog.nth(id)))),
     catalog.indices().forall(i=>catalog.indices().forall(j=>i==j or catalog.nth(i)!=catalog.nth(j))),
     processed<=catalog.length(),work.length()+processed==catalog.length(),
     work.indices().forall(i=>work.nth(i)==processed+i),
@@ -88,14 +101,25 @@ module ConstructionLifecycle {
         catalog.nth(edge.target)==advanced(closure(catalog.nth(id)),edge.symbol)}))
   }
   run missingTemplateRejectedTest = setup(999)
-    .then(all {templates'=Set(),materializations'=0,phase'=phase,catalog'=catalog,
+    .then(all {objectMasks'=objectMasks,planRefs'=planRefs,templates'=Set(),materializations'=0,phase'=phase,catalog'=catalog,
       work'=work,processed'=processed,owner'=owner,groups'=groups,masks'=masks,
       firsts'=firsts,published'=published})
     .expect(not(LifecycleSafety))
   run kernelKeyRejectedTest = setup(999)
-    .then(all {templates'=Set(Set(0)),materializations'=1,phase'=phase,catalog'=catalog,
+    .then(all {objectMasks'=objectMasks,planRefs'=planRefs,templates'=Set(Set(0)),materializations'=1,phase'=phase,catalog'=catalog,
       work'=work,processed'=processed,owner'=owner,groups'=groups,masks'=masks,
       firsts'=firsts,published'=published})
+    .expect(not(LifecycleSafety))
+
+  run wrongPlanReferenceRejectedTest = setup(999)
+    .then(all {objectMasks'=objectMasks,planRefs'=List(-1),templates'=templates,
+      materializations'=materializations,phase'=phase,catalog'=catalog,work'=work,
+      processed'=processed,owner'=owner,groups'=groups,masks'=masks,firsts'=firsts,published'=published})
+    .expect(not(LifecycleSafety))
+  run overwrittenTemplateRejectedTest = setup(999)
+    .then(all {objectMasks'=List(Set()),planRefs'=planRefs,templates'=templates,
+      materializations'=materializations,phase'=phase,catalog'=catalog,work'=work,
+      processed'=processed,owner'=owner,groups'=groups,masks'=masks,firsts'=firsts,published'=published})
     .expect(not(LifecycleSafety))
 
   run staleFirstsTest = setup(999).then(step).then(step).expect(
@@ -106,13 +130,13 @@ module ConstructionLifecycle {
   run publicationEnqueuesOnlyNewIDsTest = setup(0).then(step).then(step).then(step).then(step)
     .expect(work==List(1,2) and catalog.length()==3 and published.length()==1 and LifecycleSafety)
   run missingResetRejectedTest = setup(0).then(step).then(step).then(step)
-    .then(all {templates'=templates,materializations'=materializations,phase'=phase,catalog'=catalog,work'=work,processed'=processed,owner'=owner,
+    .then(all {objectMasks'=objectMasks,planRefs'=planRefs,templates'=templates,materializations'=materializations,phase'=phase,catalog'=catalog,work'=work,processed'=processed,owner'=owner,
       groups'=groups,masks'=List(Set(1),Set()),firsts'=firsts,published'=published}).expect(not(LifecycleSafety))
   run duplicateQueueRejectedTest = setup(0)
-    .then(all {templates'=templates,materializations'=materializations,phase'=phase,catalog'=catalog,work'=List(0,0),processed'=processed,owner'=owner,
+    .then(all {objectMasks'=objectMasks,planRefs'=planRefs,templates'=templates,materializations'=materializations,phase'=phase,catalog'=catalog,work'=List(0,0),processed'=processed,owner'=owner,
       groups'=groups,masks'=masks,firsts'=firsts,published'=published}).expect(not(LifecycleSafety))
   run reversedGroupsRejectedTest = setup(0).then(step).then(step)
-    .then(all {templates'=templates,materializations'=materializations,phase'=phase,catalog'=catalog,work'=work,processed'=processed,owner'=owner,
+    .then(all {objectMasks'=objectMasks,planRefs'=planRefs,templates'=templates,materializations'=materializations,phase'=phase,catalog'=catalog,work'=work,processed'=processed,owner'=owner,
       groups'=List(groups.nth(1),groups.nth(0)),masks'=masks,firsts'=firsts,published'=published})
       .expect(not(LifecycleSafety))
   run completeDrainTest = setup(999)

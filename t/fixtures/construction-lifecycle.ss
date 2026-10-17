@@ -21,7 +21,13 @@
             (vector-set! row 2 (compiler-index-set-add (vector-ref row 2) (+ item 1))))))) closure)
     (map (lambda (id) (table-ref groups id)) (reverse order))))
 
-(def (construction-observation productions)
+(def (template-contents template)
+  (list (map identity (vector-ref template 0))
+        (map vector->list (vector-ref template 1))
+        (map (lambda (row) (eq? row (table-ref (vector-ref template 2) (vector-ref row 1) #f)))
+             (vector-ref template 1))))
+
+(def (construction-observation productions (poison? #t))
   (let* ((path "src/compiler/lr-automaton.ss")
          (table (list->vector productions)) (layout (make-item-layout table '#()))
          (cores (make-core-symbol-catalog table layout))
@@ -29,6 +35,9 @@
          (publishing #f) (groups-ok? #t) (calls 0)
          (catalog #f) (created (make-table test: equal?))
          (template-count 0) (template-requests 0) (cache-ok? #t)
+         (contents (make-table test: eq?)) (plans (make-table test: eq?))
+         (scratch-owner #f) (first-owner #f) (last-firsts #f)
+         (storage-ok? #t) (plan-copies 0)
          (prediction (source-procedure path 'make-core-prediction-catalog prediction-dependencies))
          (symbols (source-procedure path 'make-lr0-symbol-catalog '()))
          (template (source-procedure path 'make-prediction-template
@@ -55,6 +64,7 @@
           (let (value (template mask layout ids compiler-index-set-for-each make-core-item compiler-index-set-add))
             (set! cache-ok? (and cache-ok? (not (table-ref created mask #f))))
             (table-set! created mask value)
+            (table-set! contents value (template-contents value))
             (set! template-count (+ template-count 1))
             value))
         compiler-index-set-for-each compiler-index-set-union
@@ -72,9 +82,23 @@
             (set! current node) (set! dequeues (cons node dequeues)) node))
         queue-empty?
         (lambda (mask template ids masks first-items)
-          ;; Arbitrary stale first-item slots are permitted between calls.
-          (vector-fill! first-items 999999)
-          (let* ((snapshot (map vector->list (vector-ref template 1)))
+          (let (plan (table-ref plans current #f))
+            (set! storage-ok?
+              (and storage-ok? plan (= (car plan) mask) (eq? (cdr plan) template)
+                   (or (not scratch-owner) (eq? masks scratch-owner))
+                   (or (not first-owner) (eq? first-items first-owner))
+                   (andmap zero? (vector->list masks))
+                   (not (eq? masks first-items))
+                   (not (eq? masks template)) (not (eq? first-items template))
+                   (andmap (lambda (row) (and (not (eq? row masks)) (not (eq? row first-items))))
+                           (vector-ref template 1))
+                   (andmap identity (caddr (template-contents template)))
+                   (or poison? (not last-firsts) (equal? (vector->list first-items) last-firsts))
+                   (equal? (template-contents template) (table-ref contents template #f)))))
+          (set! scratch-owner masks) (set! first-owner first-items)
+          ;; Both adversarial stale values and actual prior-call contents are exercised.
+          (when poison? (vector-fill! first-items 999999))
+          (let* ((snapshot (template-contents template))
                  (rows (groups mask template ids masks first-items
                          compiler-index-set-for-each compiler-index-set-add compiler-index-set-union))
                  (complete (closure mask template compiler-index-set-for-each))
@@ -83,10 +107,19 @@
             (set! groups-ok?
               (and groups-ok? (equal? rows reference)
                    (andmap zero? (vector->list masks))
-                   (equal? snapshot (map vector->list (vector-ref template 1)))))
+                   (equal? snapshot (template-contents template))))
+            (set! last-firsts (vector->list first-items))
             rows))
         (lambda (rows) (set! publishing #t) (reverse rows))
         (lambda (store index value)
+          ;; A physical plan is the actual (kernel . template-vector) pair.
+          ;; Growth copies must retain the original shared template reference.
+          (when (and (pair? value) (integer? (car value)) (vector? (cdr value)))
+            (let (prior (table-ref plans index #f))
+              (when prior
+                (set! plan-copies (+ plan-copies 1))
+                (set! storage-ok? (and storage-ok? (= (car prior) (car value)) (eq? (cdr prior) (cdr value)))))
+            (table-set! plans index (cons (car value) (cdr value)))))
           (when publishing
             (set! publications (cons index publications))
             (set! groups-ok? (and groups-ok? (eqv? index current)))
@@ -96,4 +129,4 @@
             (reverse publications) calls groups-ok?
             (map (lambda (id) (vector-ref transitions id)) (iota count))
             (map (lambda (id) (vector-ref states id)) (iota count))
-            template-count template-requests cache-ok?))))
+            template-count template-requests cache-ok? storage-ok? plan-copies))))

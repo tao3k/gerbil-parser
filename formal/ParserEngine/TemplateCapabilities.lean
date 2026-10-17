@@ -1,4 +1,6 @@
 import ParserEngine.TemplateCache
+import ParserEngine.PlanStorage
+import ParserEngine.GroupScratch
 import ParserEngine.KernelConstruction
 import LeanPoo.Functional.CertifiedConsumer
 
@@ -22,31 +24,57 @@ def predictionMask (g : CFG) (kernel : Nat) : Nat :=
       (NameDiscovery.name_index g) g) (PublishedClosure.coreItems g kernel)
 
 structure Cache (g : CFG) where
-  store : TemplateCache.Store Template
-  valid : TemplateCache.Valid (materialize g) store
+  memory : PlanStorage.Memory Template
+  admitted : PlanStorage.Valid (materialize g) (predictionMask g) memory
+  scratch : GroupScratch.State
+  clean : scratch.masks = (fun _ => 0) ∧ scratch.order = []
 
-def empty (g : CFG) : Cache g := ⟨TemplateCache.empty, by intro _ _ found; cases found⟩
+def Cache.store (cache : Cache g) := PlanStorage.view cache.memory
+theorem Cache.valid (cache : Cache g) : TemplateCache.Valid (materialize g) cache.store :=
+  PlanStorage.view_valid _ _ _ cache.admitted
+
+def empty (g : CFG) : Cache g where
+  memory := PlanStorage.empty
+  admitted := by
+    constructor
+    · intro _ _ found; cases found
+    · intro _ _ found; cases found
+  scratch := GroupScratch.borrow (fun _ => 0)
+  clean := ⟨rfl, rfl⟩
+
+def Cache.readTemplate (cache : Cache g) (node : Nat) := PlanStorage.decode cache.memory node
 
 structure Context (g : CFG) where
   cache : Cache g
   kernel : Nat
+  node : Nat
+
+def load (g : CFG) (context : Context g) : Template × Cache g :=
+  let memory := PlanStorage.install (materialize g) (predictionMask g) context.cache.memory context.node context.kernel
+  ((PlanStorage.view memory (predictionMask g context.kernel)).getD ⟨[], []⟩,
+    ⟨memory, PlanStorage.install_valid _ _ _ context.cache.admitted _ _, context.cache.scratch, context.cache.clean⟩)
+
+theorem load_exact (g : CFG) (context : Context g) : (load g context).1 = materialize g (predictionMask g context.kernel) := by
+  have installed := PlanStorage.install_stored (materialize g) (predictionMask g) context.cache.memory
+    context.cache.admitted context.node context.kernel
+  simp only [load, installed, Option.getD_some]
 
 inductive Capability where | template deriving DecidableEq
-abbrev Value (g : CFG) (_ : Context g) (_ : Capability) := Template × TemplateCache.Store Template
+abbrev Value (g : CFG) (_ : Context g) (_ : Capability) := Template × PlanStorage.Memory Template
 
 def retained (g : CFG) : Requirements.Factories (Context g) (Value g) [Capability.template] :=
-  (fun context => TemplateCache.fetch (materialize g) context.cache.store (predictionMask g context.kernel), PUnit.unit)
+  (fun context => ((load g context).1, (load g context).2.memory), PUnit.unit)
 
 def Joint (g : CFG) (context : Context g)
     (data : Requirements.Results (Value g) context [Capability.template]) : Prop :=
   data.1.1 = materialize g (predictionMask g context.kernel) ∧
-    TemplateCache.Valid (materialize g) data.1.2
+    PlanStorage.Valid (materialize g) (predictionMask g) data.1.2 ∧
+    data.1.2 = PlanStorage.install (materialize g) (predictionMask g) context.cache.memory context.node context.kernel
 
 def certified (g : CFG) : Requirements.Certified [Capability.template] (Joint g) :=
   Requirements.certify (retained g) (Joint g) (by
     intro context
-    exact ⟨TemplateCache.value_exact _ _ context.cache.valid _,
-      TemplateCache.preserves _ _ context.cache.valid _⟩)
+    exact ⟨load_exact g context, (load g context).2.admitted, rfl⟩)
 
 structure Built (g : CFG) where
   product : List Nat × List Nat
@@ -57,29 +85,43 @@ never share the closure of two different kernels. -/
 def build (g : CFG) : Context g → Built g :=
   (certified g).consume fun context data proof =>
     ⟨(LRStateSemantics.merge (PublishedClosure.coreItems g context.kernel) data.1.1.items [], data.1.1.items),
-      ⟨data.1.2, proof.2⟩⟩
+      ⟨data.1.2, proof.2.1, context.cache.scratch, context.cache.clean⟩⟩
 
 theorem build_exact (g : CFG) (context : Context g) :
     (build g context).product = KernelConstruction.compute g context.kernel := by
-  have exactData := ((certified g).build context).property.1
-  change (TemplateCache.fetch (materialize g) context.cache.store (predictionMask g context.kernel)).1 = _ at exactData
-  change (LRStateSemantics.merge (PublishedClosure.coreItems g context.kernel)
-    (TemplateCache.fetch (materialize g) context.cache.store (predictionMask g context.kernel)).1.items [],
-    (TemplateCache.fetch (materialize g) context.cache.store (predictionMask g context.kernel)).1.items) = _
-  rw [exactData]
+  change (LRStateSemantics.merge (PublishedClosure.coreItems g context.kernel) (load g context).1.items [],
+    (load g context).1.items) = _
+  rw [load_exact]
   rfl
+
+theorem build_memory (g : CFG) (context : Context g) :
+    (build g context).cache.memory = PlanStorage.install (materialize g) (predictionMask g)
+      context.cache.memory context.node context.kernel := rfl
 
 /-- The consumer's next cache really contains the requested aggregate, not
 merely a validity proof for whichever entries happened to be retained. -/
 theorem build_stored (g : CFG) (context : Context g) :
     (build g context).cache.store (predictionMask g context.kernel) =
       some (materialize g (predictionMask g context.kernel)) :=
-  TemplateCache.fetch_stored _ _ context.cache.valid _
+  PlanStorage.install_stored _ _ _ context.cache.admitted _ _
 
 theorem build_retained (g : CFG) (context : Context g) (mask : Nat) (value : Template)
     (found : context.cache.store mask = some value) :
     (build g context).cache.store mask = some value :=
-  TemplateCache.fetch_retained _ _ _ _ _ found
+  PlanStorage.install_retained _ _ _ context.cache.admitted _ _ _ _ found
+
+theorem build_plan (g : CFG) (context : Context g) :
+    (build g context).cache.readTemplate context.node = some (context.kernel, materialize g (predictionMask g context.kernel)) := by
+  unfold Cache.readTemplate
+  rw [build_memory, PlanStorage.decode_install _ _ _ context.cache.admitted]
+
+theorem build_other_plan (g : CFG) (context : Context g) (old : Nat) (different : old ≠ context.node) :
+    (build g context).cache.readTemplate old = context.cache.readTemplate old := by
+  unfold Cache.readTemplate
+  rw [build_memory, PlanStorage.decode_other _ _ _ context.cache.admitted _ _ _ different]
+
+theorem build_scratch (g : CFG) (context : Context g) :
+    (build g context).cache.scratch = context.cache.scratch := rfl
 
 /-- Exact aggregate-key hits return the same cache and template, including
 when a different kernel requests them. The materializer is not evaluated. -/

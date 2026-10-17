@@ -241,3 +241,18 @@ import ParserEngine.Components
 #print axioms ParserEngine.CachedConstruction.source_current
 
 #print axioms ParserEngine.CachedConstruction.plan_template
+
+#print axioms ParserEngine.PlanStorage.fetch_valid
+#print axioms ParserEngine.PlanStorage.objects_retained
+#print axioms ParserEngine.PlanStorage.decode_install
+#print axioms ParserEngine.PlanStorage.decode_other
+#print axioms ParserEngine.PlanStorage.shared_reference
+#print axioms ParserEngine.PlanStorage.vector_decode
+#print axioms ParserEngine.PlanStorage.grow_decode
+#print axioms ParserEngine.TemplateCapabilities.build_plan
+#print axioms ParserEngine.TemplateCapabilities.build_scratch
+#print axioms ParserEngine.CachedConstruction.construct_aligned
+#print axioms ParserEngine.CachedConstruction.runGroup_memory
+#print axioms ParserEngine.CachedConstruction.tick_scratch
+
+#print axioms ParserEngine.PlanStorage.fresh_separates

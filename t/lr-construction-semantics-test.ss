@@ -37,7 +37,8 @@
         (equal (list-ref observed 5) (car observed))
         (equal (list-ref observed 6) #t)
         (equal (list-ref observed 10) (car observed))
-        (equal (list-ref observed 11) #t))))
+        (equal (list-ref observed 11) #t)
+        (equal (list-ref observed 12) #t))))
   (scenario "distinct kernels share aggregate templates within each fresh builder"
     (each (token) ('(alpha beta))
       (scope ((observed (construction-observation
@@ -47,7 +48,14 @@
         (equal (car observed) 4)
         (equal (list-ref observed 9) 2)
         (equal (list-ref observed 10) 4)
-        (equal (list-ref observed 11) #t))))
+        (equal (list-ref observed 11) #t)
+        (equal (list-ref observed 12) #t))))
+  (scenario "physical plans retain shared templates while scratch carries between calls"
+    (each (productions) (prediction-fixtures)
+      (scope ((observed (construction-observation productions #f)))
+        (equal (list-ref observed 6) #t)
+        (equal (list-ref observed 11) #t)
+        (equal (list-ref observed 12) #t))))
   (property "complete publication retains FIFO IDs across physical vector growth"
     (bindings
       (productions (list (list 0 'start
@@ -61,7 +69,9 @@
     (equal (list-ref observed 6) #t)
     (equal (list-ref observed 9) 1)
     (equal (list-ref observed 10) 130)
-    (equal (list-ref observed 11) #t))
+    (equal (list-ref observed 11) #t)
+    (equal (list-ref observed 12) #t)
+    (equal (list-ref observed 13) 128))
   (scenario "source direct and field paths deliver the same ordered callbacks"
     (each (width) ((append '(1 2 5) (list (integer-length (##greatest-fixnum)))))
       (each (route) ('(native fixnum direct field))

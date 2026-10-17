@@ -194,3 +194,67 @@ the idle bound during optimizer admission and GCC compilation, respectively;
 partial products were excluded. The batched medians are descriptive diagnostics,
 not a newly admitted causal speedup. A fresh common-context comparison remains
 required before attributing a small-fixture timing difference to representation.
+
+* Source-admitted construction and physical storage proof
+
+The paper/model/code obligation now includes complete source declarations.
+The existing reader adapter extracts =make-item-layout= and all four native
+coordinate procedures into =formal/ParserEngine/SourceData.lean=. The separate
+=ItemLayout.lean= kernel checks every expression in the two-pass constructor
+and the coordinate declarations. Changing a loop guard, owner vector, increment
+or terminal-count publication rejects admission. Reader data contains no proof
+program or generated theorem.
+
+The staging boundary follows the grammar-analysis/execution separation in
+[[https://www.cl.cam.ac.uk/~nk480/parsing.pdf][Krishnaswami and Yallop, section 6]]. That paper's predictive parsing results
+apply to its typed grammar calculus. This dense LR representation has its own
+project-specific construction and storage obligations. The author-maintained
+[[https://www.s48.org/essence/][Essence]] work supplies the related Scheme LR specialization context.
+
+| Layer | Obligation | Executable owner |
+|-------+------------+------------------|
+| Paper/research | Grammar-owned preparation; production/dot intervals include completion | This representation study |
+| Lean | Arbitrary widths; sentinel; termination; generated write addresses; physical updates; coordinate inverse | =formal/ParserEngine/ItemLayout.lean= |
+| Quint | Index/fill/publication scheduling; empty and epsilon cases; mutation witnesses | =formal/quint/ItemLayout.qnt= |
+| Scheme | Extracted complete body agrees with actual native coordinates and vector contents | =t/event-walk-source-test.ss= |
+
+The general proofs derive index and offset counters together. The index pass
+writes exactly P+1 slots, including the final sentinel for an empty table.
+The fill pass derives its own bounded work from each RHS width, and its actual
+write addresses cover exactly [0,M). Replaying those writes initializes every
+valid owner slot independently of arbitrary previous contents. The proofs do
+not replace physical writes with an assumed map of values. A separate offset
+store proof covers every prefix and the final sentinel. Their composition
+connects physical owner/offset lookup to the production/dot roundtrip.
+
+The Scheme matrix executes the reader-extracted constructor with its two
+external operations supplied explicitly: the real production-RHS projection
+and a record publication adapter. Its actual vector reads/writes remain intact.
+It compares complete offset/owner arrays and public native coordinate APIs for
+empty, epsilon, skew and wide tables across three terminal cardinalities.
+Existing resolved-grammar and canonical LR reference controls run in the same
+qualification group. These finite controls test the implementation relation;
+the Lean induction establishes the unbounded arithmetic/storage result.
+
+External premises remain explicit: reader/compiler correctness, successful
+fresh vector allocation, record field semantics and the nonnegative exact
+integer/vector primitives. Production IDs here denote table positions; their
+connection to grammar names/origins belongs to the upstream admitted table
+producer. Positive terminal cardinality for packed lookahead operations and
+composition through LR state/table publication remain separate obligations.
+This closes the dense-layout constructor/storage component, not the entire
+parser or host refinement. No runtime optimization or CPU claim is introduced.
+
+** Qualification
+
+The local integrated Scheme group passes five owners and 131 cases, including
+the complete extracted-layout matrix and the resolved/canonical LR controls.
+The pinned Lean build passes all 91 jobs with no new axioms or admitted goals.
+The complete Quint package passes; the layout module contributes four named
+controls and 1,000 sampled traces of 40 transitions. The 14 native evidence
+controls pass, including source and log invalidation. An altered source-data
+file is rejected by the Scheme freshness check with exit 70.
+
+These results qualify the component above. They do not close arbitrary Scheme
+control-flow refinement, the complete LR publication composition, or historical
+host-loader timeout causality.

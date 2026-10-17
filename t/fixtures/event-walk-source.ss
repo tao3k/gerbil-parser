@@ -75,7 +75,12 @@
   (parser-source-data
     (ParserEngine.WalkSourceWitness source source)
     (ParserEngine.EffectSourceWitness iterativeSource (read-event-iterative-source "src/runtime/event-program.ss"))
-    (ParserEngine.EffectSourceWitness rowSource (read-source-definition "src/compiler/lr-compiler.ss" 'index-state-rows))))
+    (ParserEngine.EffectSourceWitness rowSource (read-source-definition "src/compiler/lr-compiler.ss" 'index-state-rows))
+    (ParserEngine.ItemLayoutWitness layoutSource (read-source-definition "src/compiler/lr-automaton.ss" 'make-item-layout))
+    (ParserEngine.ItemLayoutWitness encodeSource (read-source-definition "src/compiler/lr-automaton.ss" 'make-core-item))
+    (ParserEngine.ItemLayoutWitness ownerSource (read-source-definition "src/compiler/lr-automaton.ss" 'core-item-production-id))
+    (ParserEngine.ItemLayoutWitness dotSource (read-source-definition "src/compiler/lr-automaton.ss" 'core-item-dot))
+    (ParserEngine.ItemLayoutWitness countSource (read-source-definition "src/compiler/lr-automaton.ss" 'core-item-count))))
 (def (write-event-walk-source-data source port)
   (write-parser-source-data (source-bindings source) port))
 (def (event-walk-data-current? source path)

@@ -3,7 +3,10 @@
         (only-in :gerbil-parser/t/fixtures/event-walk-source
                  read-event-walk-source read-event-walk-source-port
                  write-event-walk-source-data event-walk-data-current?
-                 read-event-iterative-source read-source-definition source-mutation-sites))
+                 read-event-iterative-source read-source-definition source-mutation-sites)
+        (only-in :gerbil-parser/src/compiler/lr production-rhs)
+        (only-in :gerbil-parser/src/compiler/lr-automaton make-item-layout make-core-item
+                 core-item-count core-item-production-id core-item-dot))
 
 (def (walker-macro)
   (call-with-input-file "src/runtime/event-program.ss"
@@ -93,4 +96,34 @@
     (equal (index-rows '() 0 cadr caddr) '#())
     (equal (rejected? (lambda () (index-rows '((1 key value)) 1 cadr caddr))) #t))
   (property "unsupported reader data cannot disappear"
-    (bindings) (equal (unsupported-datum?) #t)))
+    (bindings) (equal (unsupported-datum?) #t))
+  (matrix "complete extracted layout agrees with native coordinates and physical slots"
+    (setup (declaration (read-source-definition "src/compiler/lr-automaton.ss" 'make-item-layout))
+           (construct (eval (list 'lambda
+                              (append (cdr (cadr declaration)) '(production-rhs make-lr-item-layout))
+                              (caddr declaration)))))
+    ((widths '(() (0) (0 0) (1 3 0 1) (65 0 1) (0 129)))
+     (terminal-count '(0 1 3)))
+    (bindings (table (list->vector
+                      (map (lambda (id width) (list id 'root (make-list width '(terminal token word)) 'concat #f))
+                           (iota (length widths)) widths)))
+              (terminals (make-vector terminal-count 'word))
+              (slots (construct table terminals production-rhs vector))
+              (native (make-item-layout table terminals))
+              (expected-offsets
+                (let loop ((remaining widths) (offset 0) (out '()))
+                  (if (null? remaining) (reverse (cons offset out))
+                    (loop (cdr remaining) (+ offset 1 (car remaining)) (cons offset out)))))
+              (expected-owners
+                (apply append (map (lambda (id width) (make-list (+ width 1) id))
+                                   (iota (length widths)) widths))))
+    (equal (length (source-mutation-sites declaration)) 2)
+    (equal (vector-ref slots 0) terminal-count)
+    (equal (vector->list (vector-ref slots 1)) expected-offsets)
+    (equal (vector->list (vector-ref slots 2)) expected-owners)
+    (equal (core-item-count native) (length expected-owners))
+    (equal (map (lambda (item) (core-item-production-id item native)) (iota (length expected-owners))) expected-owners)
+    (equal (map (lambda (item)
+                  (make-core-item (core-item-production-id item native) (core-item-dot item native) native))
+                (iota (length expected-owners)))
+           (iota (length expected-owners)))))

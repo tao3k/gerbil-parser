@@ -47,7 +47,7 @@
         (loop (cdr rest) (cons key seen)))))
   ;; The sole rendering boundary emits data constructors and declarations only.
   (for-each (lambda (token) (write-string token port))
-            (append '("-- Generated reader data; proofs are maintained in WalkWitness.lean.\nimport ParserEngine.WalkSource\n")
+            (append '("-- Generated reader data; proofs are maintained in separate Lean modules.\nimport ParserEngine.WalkSource\n")
                     (apply append (map binding-tokens bindings)))))
 (def (source-data-current? bindings path)
   (equal? (call-with-output-string (lambda (port) (write-parser-source-data bindings port)))

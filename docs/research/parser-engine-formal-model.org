@@ -4647,3 +4647,53 @@ an existing, receipt-checked ASCENT library. Earlier raw Python attempts lack
 the declared environment or binding and are retained as setup failures; no
 engine library was rebuilt. These are evidence admission controls, not parser
 performance or complete native-refinement proofs.
+
+** Dense item layout: complete producer and physical-store correspondence
+
+The [[file:dense-lr-item-space.org::*Source-admitted construction and physical storage proof][dense-layout source proof]] composes the complete two-pass Scheme declaration,
+arbitrary RHS widths, mutable counter/address generation, physical vector
+updates and production/dot decoding. =physical_coordinates= proves initialized
+slot contents from arbitrary old stores; =checked_roundtrip= proves coordinate
+recovery. Source admission also checks the complete four coordinate procedures.
+There are no grammar-size bounds, supplied execution traces or extra axioms.
+The related Quint protocol checks scheduling and deliberate corruptions on a
+bounded domain; it does not replace the universal Lean proof.
+
+The raw production table is projected through actual =production-rhs=. Table
+position/name provenance, packed lookahead cardinality and the final LR table
+bridge remain composition obligations. Reader/compiler behavior, fresh
+allocation and host primitive behavior remain external premises. The parser
+algorithm is unchanged. This is one connected producer boundary within the
+larger paper/model/implementation map, not a full-machine correctness claim.
+
+** Independent import timeouts: evidence limit and host premise
+
+The two retained failures on October 17 stop during cold wrapper admission for
+=recovery= and =std/sync/barrier=, before test cases execute. Their qualified
+children are terminated by the unchanged idle watchdog. No original blocked
+thread stack or notification receiver identity was preserved. The exact
+historical cause cannot be uniquely reconstructed from those logs.
+
+The installed Gerbil loader source confirms that loaded paths return from its
+cache, loading entries wait, errors propagate, and cold entries invoke the host
+loader. It does not justify bypassing that state machine or forced reloading.
+The old successful-run sample contains a synchronous dyld notification wait;
+it was taken after process startup and may itself affect image observation.
+It is evidence about that sampled process, not a stack from either original
+failure. The user cannot confirm which profiling tools were active then.
+
+Apple's [[https://github.com/apple-oss-distributions/dyld/blob/fd8d0c4d52320ebf64db34f3cb280310d905c5ae/dyld/RemoteNotificationResponder.cpp][published notification implementation]] sends a synchronous Mach request and
+waits for a registered observer's reply without a receive-timeout option.
+That reference explains a possible external waiting mechanism. Its revision
+is reference metadata, not an identification of the installed OS binary or
+proof that either historical child entered this path. Host-loader completion
+and observer responsiveness remain external liveness premises.
+
+Eight fresh executions of the actual macro owner, with no sampling attachment,
+all exit normally under the original 90-second/five-second qualification.
+The passive diagnostic was prepared to abort only its verified owned child if
+a real module-load silence approached the watchdog, preserving a crash state
+without first attaching an image observer. No trial reached that condition and
+no signal was sent. These passes do not erase or close the historical failures.
+No loader bypass, synthetic progress or deadline increase is admitted. Gambit
+was neither modified nor built.

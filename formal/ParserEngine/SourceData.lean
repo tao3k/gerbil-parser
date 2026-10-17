@@ -1,4 +1,4 @@
--- Generated reader data; proofs are maintained in WalkWitness.lean.
+-- Generated reader data; proofs are maintained in separate Lean modules.
 import ParserEngine.WalkSource
 namespace ParserEngine.WalkSourceWitness
 open WalkSource
@@ -15,3 +15,28 @@ open WalkSource
 def rowSource : Datum :=
 (l [(s "def"), (l [(s "index-state-rows"), (s "rows"), (s "state-count"), (s "key-procedure"), (s "value-procedure")]), (l [(s "let"), (l [(s "indexed"), (l [(s "make-vector"), (s "state-count"), (l [(s "quote"), (l [])])])]), (l [(s "for-each"), (l [(s "lambda"), (l [(s "row")]), (l [(s "let"), (l [(s "state"), (l [(s "car"), (s "row")])]), (l [(s "vector-set!"), (s "indexed"), (s "state"), (l [(s "cons"), (l [(s "cons"), (l [(s "key-procedure"), (s "row")]), (l [(s "value-procedure"), (s "row")])]), (l [(s "vector-ref"), (s "indexed"), (s "state")])])])])]), (s "rows")]), (l [(s "let"), (s "loop"), (l [(l [(s "state"), (n 0)])]), (l [(s "when"), (l [(s "<"), (s "state"), (s "state-count")]), (l [(s "vector-set!"), (s "indexed"), (s "state"), (l [(s "reverse"), (l [(s "vector-ref"), (s "indexed"), (s "state")])])]), (l [(s "loop"), (l [(s "+"), (s "state"), (n 1)])])])]), (s "indexed")])])
 end ParserEngine.EffectSourceWitness
+namespace ParserEngine.ItemLayoutWitness
+open WalkSource
+def layoutSource : Datum :=
+(l [(s "def"), (l [(s "make-item-layout"), (s "table"), (s "terminal-values")]), (l [(s "let*"), (l [(l [(s "count"), (l [(s "vector-length"), (s "table")])]), (l [(s "offsets"), (l [(s "make-vector"), (l [(s "+"), (s "count"), (n 1)])])])]), (l [(s "let"), (s "index"), (l [(l [(s "id"), (n 0)]), (l [(s "offset"), (n 0)])]), (l [(s "vector-set!"), (s "offsets"), (s "id"), (s "offset")]), (l [(s "if"), (l [(s "="), (s "id"), (s "count")]), (l [(s "let"), (l [(s "owners"), (l [(s "make-vector"), (s "offset")])]), (l [(s "let"), (s "production-loop"), (l [(l [(s "id"), (n 0)])]), (l [(s "when"), (l [(s "<"), (s "id"), (s "count")]), (l [(s "let"), (s "fill"), (l [(l [(s "item"), (l [(s "vector-ref"), (s "offsets"), (s "id")])]), (l [(s "end"), (l [(s "vector-ref"), (s "offsets"), (l [(s "+"), (s "id"), (n 1)])])])]), (l [(s "when"), (l [(s "<"), (s "item"), (s "end")]), (l [(s "vector-set!"), (s "owners"), (s "item"), (s "id")]), (l [(s "fill"), (l [(s "+"), (s "item"), (n 1)]), (s "end")])])]), (l [(s "production-loop"), (l [(s "+"), (s "id"), (n 1)])])])]), (l [(s "make-lr-item-layout"), (l [(s "vector-length"), (s "terminal-values")]), (s "offsets"), (s "owners")])]), (l [(s "index"), (l [(s "+"), (s "id"), (n 1)]), (l [(s "+"), (s "offset"), (n 1), (l [(s "length"), (l [(s "production-rhs"), (l [(s "vector-ref"), (s "table"), (s "id")])])])])])])])])])
+end ParserEngine.ItemLayoutWitness
+namespace ParserEngine.ItemLayoutWitness
+open WalkSource
+def encodeSource : Datum :=
+(l [(s "def"), (l [(s "make-core-item"), (s "production-id"), (s "dot"), (s "layout")]), (l [(s "+"), (s "dot"), (l [(s "vector-ref"), (l [(s "lr-item-layout-offsets"), (s "layout")]), (s "production-id")])])])
+end ParserEngine.ItemLayoutWitness
+namespace ParserEngine.ItemLayoutWitness
+open WalkSource
+def ownerSource : Datum :=
+(l [(s "def"), (l [(s "core-item-production-id"), (s "item"), (s "layout")]), (l [(s "vector-ref"), (l [(s "lr-item-layout-owners"), (s "layout")]), (s "item")])])
+end ParserEngine.ItemLayoutWitness
+namespace ParserEngine.ItemLayoutWitness
+open WalkSource
+def dotSource : Datum :=
+(l [(s "def"), (l [(s "core-item-dot"), (s "item"), (s "layout")]), (l [(s "-"), (s "item"), (l [(s "vector-ref"), (l [(s "lr-item-layout-offsets"), (s "layout")]), (l [(s "core-item-production-id"), (s "item"), (s "layout")])])])])
+end ParserEngine.ItemLayoutWitness
+namespace ParserEngine.ItemLayoutWitness
+open WalkSource
+def countSource : Datum :=
+(l [(s "def"), (l [(s "core-item-count"), (s "layout")]), (l [(s "vector-length"), (l [(s "lr-item-layout-owners"), (s "layout")])])])
+end ParserEngine.ItemLayoutWitness

@@ -44,7 +44,8 @@
 ;;   : (forall (a) (-> [a] [a] [a]))
 ;;   : (-> List List List)
 ;;   | doc m%
-;;       `union-values` preserves first-observed order while removing duplicates.
+;;       `union-values` preserves the left sequence, including existing duplicates,
+;;       and appends only values not yet observed while scanning the right list.
 ;;
 ;;       # Examples
 ;;

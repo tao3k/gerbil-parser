@@ -4798,3 +4798,135 @@ correspondence. All 14 native evidence controls pass. Current extraction data
 passes freshness checking; a deliberately changed data file is rejected with
 exit 70. Initial proof/type and test-declaration drafts failed and were fixed;
 they are not counted as accepted results.
+
+** Native candidate extraction, conflict decisions and validation
+
+*** Paper, source and model responsibilities
+
+[[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing, section 2.2]] connects state items, prediction and
+goto to grammar derivations. A native action producer must retain those item
+origins. Static precedence and the project's fork/layout policy add obligations
+beyond that paper's grammar specification; preserving an action's origin does
+not establish that precedence pruning preserves every grammar derivation.
+
+[[file:../../formal/ParserEngine/NativeActions.lean][NativeActions.lean]] connects three parts of the actual implementation:
+
+| Native owner | General model obligation | Source admission |
+|--------------+--------------------------+------------------|
+| =build-actions= item callback | Physical production/dot identity, terminal zero, missing transition failure, completed lookahead expansion | Entire actual item lambda, including both mutable counters |
+| =resolve-action= and SR/RR helpers | Native branch order; arbitrary signed ranks; dynamic admission; same-target shift rank/tie; fork membership | Complete dispatcher, SR/RR, dynamic, unresolved, fork, union and append-unique declarations |
+| =make-action-validator= and =validate-rows= | Closed action decoding; fixnum/range/key checks; unbounded fork tails; duplicate keys and row vocabulary callbacks | Complete action factory, precedence, bounded-index and row-loop declarations |
+
+The existing reader emits data only. Every admitted declaration is checked
+against an independent Lean syntax schema by kernel definitional equality.
+Gerbil bracket patterns retain their actual =@list= reader marker. Keywords
+have a distinct data constructor rather than being collapsed into symbols;
+the =test:= argument of the row validator is preserved. This source admission
+is a restricted translation boundary, not an operational semantics for arbitrary
+Scheme. Host primitives and compiler behavior remain external premises.
+
+*** Extracted observations to the published physical table
+
+=Events.extract= models the exact item branch order. A present terminal index
+selects shift, including index zero and target zero; a missing shift target
+fails before installation. An incomplete nonterminal produces no action.
+A completed item expands all enumerated lookaheads and distinguishes physical
+production zero from authored reductions before semantic decoding.
+
+=Events.extracted_admitted= works for arbitrary grammars, production IDs, dots
+and lookahead lists. Its inputs are explicit observations of the production
+vector, current item set, next symbol, goto and completed lookaheads. Authored
+production membership is derived from a nonzero index into =augmented :: g=;
+augmentation identity is derived from index zero. Neither is an additional
+final-action support assumption.
+
+=Events.plan= propagates failed extraction rather than silently dropping a
+missing shift. =plan_admitted= composes every generated candidate across an
+arbitrary observation list. =published_from_extraction= feeds that result into
+the previous frozen-row/physical-store publication theorem. The table boundary
+therefore consumes observed-record facts and an extraction execution relation,
+rather than a caller-supplied admission property of the final action table.
+Item/goto/nullable/FIRST producer facts still need their own source refinement.
+
+*** Conflict and validator fidelity
+
+=shift_reduce_exact= and =reduce_reduce_exact= prove the native condition order
+agrees with the existing abstract decisions for all optional priorities and
+integer ranks. =same_shift_rank= proves the retained same-target shift carries
+the maximum present rank; =same_shift_tie= retains the current cell on ties.
+The complete dispatcher schema preserves fork handling before non-associative
+rejection and preserves argument reversal for reduce/shift pairs.
+
+The actual =union-values= folds only the right list into the left list.
+Existing duplicates on the left survive; newly observed values are appended
+once. =union_members= proves the exact membership union without equating this
+operation with append or claiming that an arbitrary left list becomes unique.
+The source tests explicitly retain a duplicated left reduction. The older
+=Construction.installChoice= remains an origin abstraction; it is not relabeled
+as exact fork representation or complete conflict-policy language equivalence.
+
+The validator model starts with untyped values, including signed integers and
+unsupported host-value classes. Its decoder recognizes only atomic actions,
+flat forks of at least two atomic alternatives and the closed layout wrapper.
+Recursive forks and malformed arities cannot acquire meaning by fallback.
+=untyped_admission= and =action_members= prove that every accepted member has
+its own key/range check. Priority ranks may be arbitrary integers, including mathematically integral
+flonums accepted by Scheme =integer?=. The untyped model retains that category
+and normalizes only its rank value. Such flonums are rejected as IDs by
+=fixnum?=, even when their value is zero. Numeric classification, normalization
+and ordering are explicit host premises. Target and
+production IDs must also satisfy the host-supplied nonnegative fixnum ceiling.
+The terminal decoder must preserve native key equality. These are explicit
+representation contracts, not assumptions that every Lean Nat fits a fixnum.
+
+=rows_admit= proves for arbitrary row lengths and initial seen sets that an
+accepted row has valid vocabulary/value callbacks, no initial-seen key, and no
+duplicate keys. Source admission retains the check-before-insert order and the
+original return value. This is structural table admission, not =TableSupported=.
+The outer validator's production-derived layout/vocabulary, dimensions and
+reachable-acceptance queue remain separately owned composition obligations.
+
+*** Executable controls and evidence boundary
+
+[[file:../../t/lr-native-source-test.ss][lr-native-source-test.ss]] uses the existing =deflanguage-parser-tests= macro.
+It evaluates the unchanged extracted procedures with explicit dependencies.
+The matrix covers signed SR/RR priorities and all three policies, same-target
+shift precedence, dispatcher fork/reject order, left duplicates, flat/layout
+wrapper validation, terminal/target zero, missing transitions and lookahead
+bits through 129. Existing native LR index, resolved-grammar and canonical
+reference owners run alongside it, so callback tests are complemented by
+actual compiled parser/table behavior.
+
+A failed source-data serialization exposed a separate correctness problem:
+module generation opened and truncated the previous proof input before
+serialization finished. The generator now renders first, then opens the
+output. The test executes the actual generator body with unsupported reader
+data and proves the previous file remains intact after rejection. This is
+input-integrity work, not a parser optimization. Unsupported data is rejected;
+no proof program is emitted by Scheme.
+
+[[file:../../formal/quint/NativeActions.qnt][NativeActions.qnt]] adds six named controls and bounded candidate-origin
+traces. These complement the universal Lean results. They do not replace
+source refinement, prove full parser completeness, or resolve historical host
+import timeouts. No Gambit source was modified or built and no local runtime
+performance optimization was introduced.
+
+*** Qualification of native action correspondence
+
+The final pinned Lean build passes all 93 jobs. The new source-schema equality
+needs no axioms; semantic theorem audits retain only standard Lean logic, with
+no admitted goals or custom axioms. Eight Scheme owners pass 157 cases in
+16.41 seconds under the unchanged 90-second total/five-second idle limits.
+This includes the real integral-flonum rank versus fixnum-ID distinction,
+generator failure preservation, native table validation and full parser
+construction/reference controls. The complete Quint package passes, including
+six named native-action controls and 1,000 sampled traces of 40 transitions.
+All 14 native evidence controls pass. Current reader data passes freshness
+checking; deliberately stale data is rejected with exit 70. Earlier failing
+schema/type/test drafts are excluded from accepted results.
+
+The preceding PR revision, =cd5954d=, completed both-platform CI successfully.
+This is qualification metadata, not a result for a later revision. Universal
+refinement of the outer validator's vocabulary/capability/reachability queue,
+exact mutable resolver replay, and complete physical observation extraction
+remain explicit work; no whole-engine or CPU-speedup claim is made here.

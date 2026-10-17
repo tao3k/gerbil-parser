@@ -7,6 +7,7 @@ namespace ParserEngine.WalkSource
 open IteratorEncoding IteratorMachine HybridIterator
 inductive Datum where
   | symbol (name : String)
+  | keyword (name : String)
   | text (value : String)
   | integer (value : Nat)
   | boolean (value : Bool)
@@ -15,6 +16,7 @@ inductive Datum where
 mutual
   def datumEq (a b : Datum) : Decidable (a = b) :=
     match a, b with
+    | .keyword x, .keyword y => decidable_of_iff (x = y) (by simp)
     | .symbol x, .symbol y => decidable_of_iff (x = y) (by simp)
     | .text x, .text y => decidable_of_iff (x = y) (by simp)
     | .integer x, .integer y => decidable_of_iff (x = y) (by simp)
@@ -22,6 +24,8 @@ mutual
     | .list x, .list y =>
       letI := datumListEq x y
       decidable_of_iff (x = y) (by simp)
+    | .keyword _, .symbol _ | .keyword _, .text _ | .keyword _, .integer _ | .keyword _, .boolean _ | .keyword _, .list _
+    | .symbol _, .keyword _ | .text _, .keyword _ | .integer _, .keyword _ | .boolean _, .keyword _ | .list _, .keyword _
     | .symbol _, .text _ | .symbol _, .integer _ | .symbol _, .boolean _ | .symbol _, .list _
     | .text _, .symbol _ | .text _, .integer _ | .text _, .boolean _ | .text _, .list _
     | .integer _, .symbol _ | .integer _, .text _ | .integer _, .boolean _ | .integer _, .list _

@@ -4697,3 +4697,104 @@ without first attaching an image observer. No trial reached that condition and
 no signal was sent. These passes do not erase or close the historical failures.
 No loader bypass, synthetic progress or deadline increase is admitted. Gambit
 was neither modified nor built.
+
+** Complete LR table publication from generated rows
+
+*** Paper obligation and native owner
+
+[[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing, sections 2.1--2.2]] specifies states by LR items,
+lookahead prediction and goto, and relates accepted input to a grammar
+derivation. A dimensionally valid action table alone does not establish that
+contract. Each retained shift, reduction or acceptance needs its item origin;
+the publication process must preserve those origins through every state row.
+Conflict-policy language completeness is a separate obligation.
+
+The native owner is =compile-lr-spec/selected= in
+[[file:../../src/compiler/lr-compiler.ss][lr-compiler.ss]]. Its final tail builds action rows, rejects a publication-count
+mismatch, builds gotos, validates both vectors, then constructs the spec. The
+spec retains the same production, nullable, FIRST, action and goto values.
+LALR, canonical, partitioned and follow-partition constructions add their
+existing metadata in different branches. Metadata remains in the schema/spec;
+this work introduces no versioned API, namespace or file.
+
+*** General composition and source admission
+
+[[file:../../formal/ParserEngine/TablePublication.lean][TablePublication.lean]] removes the previous final-publication premise from
+this layer. For arbitrary lists of state-event plans and arbitrary finite
+terminal widths, =row_origin= derives every retained alternative from
+=vector_layout_publication=. This includes forks and layout-suppressed raw
+reductions. =complete_table= then derives =TableSupported= from individual
+producer admission checks. It does not require a caller to supply support or
+publication histories for the completed table.
+
+=cellsRow= freezes resolved cells and their layout fallbacks before request
+selection. =writeRows= publishes those final rows, derives the publication count
+by recursion and writes each state slot in order. =published_slot= proves every valid physical slot, while
+=untouched_after= and =stored_rows= cover the entire address domain, including
+absent/out-of-range states. =physical_table_exact= connects table reads from
+that computed store to the logical table. The =engine= constructor composes
+this result with the existing raw-request engine and selector certificate.
+The existing =RawRequest.complete_request= theorem applies to this engine;
+final-table support is derived inside construction rather than passed again.
+
+The Scheme reader now retains the entire actual selected compiler declaration
+as data. An independent, manually maintained Lean schema admits the complete
+final publication tail, including every operand, count guard, validation call,
+field binding and algorithm branch. Earlier lowering, completion, FIRST and
+state-builder code is outside this tail's source admission. Mutation witnesses
+reject removed validation, a tautological count check, crossed action/goto
+fields and crossed nullable/FIRST names.
+
+=Source.execute= gives only this recognized tail a restricted interpretation.
+It rejects a false validation result or mismatched reported row count.
+=complete_publication= combines source admission, the count computed from row
+writes, every physical state slot, exact logical/physical table correspondence
+and semantic action support. This source-specific interpretation is not a
+general Scheme evaluator; its vector/loop correspondence and producer
+refinements remain explicit implementation boundaries.
+
+*** Real code controls and remaining premises
+
+The existing =deflanguage-parser-tests= owner executes the unchanged extracted
+publication tail with explicit producer, validator and tracing callbacks.
+All four construction branches check field order, action/goto vector identity
+and validation-before-return order. Under-count, over-count and validation
+failure reject publication. These callback controls exercise orchestration;
+actual validator behavior is checked by the existing LR index owner and native
+resolved/canonical grammar owners, not inferred from the injected callback.
+
+[[file:../../formal/quint/TablePublication.qnt][TablePublication.qnt]] independently controls sequential row writes,
+count reconciliation, goto construction, validation and final publication.
+Its four named controls include rejected validation, count mismatch and
+premature publication; bounded traces complement the unbounded Lean proof.
+The evidence collector binds both new models and the real source/fixture.
+
+| Remaining premise | Owner and boundary |
+|-------------------+--------------------|
+| Every produced event passes item/goto admission | Actual state, lookahead and candidate extraction; not supplied final-table support |
+| Physical terminal indices denote the right semantic keys | Native terminal catalog and name projection; =cellsRow= uses terminal-ID order, while native first-touch row-order correspondence remains an extraction premise |
+| Conflict decisions and fork flattening match policy | Native resolver to =Choice= correspondence; origin alone does not prove policy equivalence |
+| State coverage and viable paths | Existing =Viable.Constructed= and coverage certificates |
+| Exact/folded/kind selector binding | Existing =RowSupported= certificate |
+| Table validation result describes the actual validator | Validator source refinement; finite rejection controls are not a universal proof |
+| Reader, macros, primitive allocation/vector operations, host completion | External compiler/runtime premises; no Gambit changes or build |
+
+This closes generated-row publication composition under these named premises.
+It does not claim unconditional correctness of the entire native compiler,
+arbitrary Scheme source execution, conflict-policy completeness or resolution
+of the two historical import timeouts. No parser optimization or CPU claim is
+introduced before those remaining model boundaries are discharged.
+
+*** Qualification of generated-row publication
+
+The pinned Lean build passes all 92 jobs. New theorem audits use only standard
+Lean logic, with no new axioms, admitted goals or native-decide shortcut.
+The complete Quint package passes, including four named publication controls
+and 1,000 sampled traces of 40 transitions. Seven Scheme owners pass 150 cases
+in 15.45 seconds under the unchanged 90-second total/five-second idle limits.
+They include the source-tail matrix, declarative-test/style controls, resolved
+grammars, canonical reference, native LR index validation and LR model
+correspondence. All 14 native evidence controls pass. Current extraction data
+passes freshness checking; a deliberately changed data file is rejected with
+exit 70. Initial proof/type and test-declaration drafts failed and were fixed;
+they are not counted as accepted results.

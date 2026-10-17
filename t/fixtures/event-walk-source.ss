@@ -80,6 +80,7 @@
     (ParserEngine.ItemLayoutWitness encodeSource (read-source-definition "src/compiler/lr-automaton.ss" 'make-core-item))
     (ParserEngine.ItemLayoutWitness ownerSource (read-source-definition "src/compiler/lr-automaton.ss" 'core-item-production-id))
     (ParserEngine.ItemLayoutWitness dotSource (read-source-definition "src/compiler/lr-automaton.ss" 'core-item-dot))
+    (ParserEngine.TablePublicationWitness publicationSource (read-source-definition "src/compiler/lr-compiler.ss" 'compile-lr-spec/selected))
     (ParserEngine.ItemLayoutWitness countSource (read-source-definition "src/compiler/lr-automaton.ss" 'core-item-count))))
 (def (write-event-walk-source-data source port)
   (write-parser-source-data (source-bindings source) port))

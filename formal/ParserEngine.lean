@@ -1,3 +1,4 @@
+import ParserEngine.TablePublication
 import ParserEngine.ItemLayout
 import ParserEngine.WalkWitness
 import ParserEngine.HybridIterator

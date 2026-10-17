@@ -52,6 +52,28 @@
   (rejected? (lambda () (call-with-output-string
                          (lambda (port) (write-event-walk-source-data '(#\x) port))))))
 
+(def (publication-observation construction state-count publication-count valid?)
+  (let* ((source (read-source-definition "src/compiler/lr-compiler.ss" 'compile-lr-spec/selected))
+         (tail (foldl (lambda (index form) (list-ref form index)) source '(3 3 6 3 3)))
+         (procedure
+           (eval (list 'lambda
+                   '(construction state-count build-actions build-gotos validate-lr-tables trace-lr-phase)
+                   (list 'let
+                     (map (lambda (name) (list name #f))
+                          '(states lookaheads lookahead-offsets transitions table terminal-values
+                            layout core-symbols conflict-policy rules root started
+                            case-insensitive? productions nullable first lr0-state-visit-count lookahead-item-visit-count))
+                     tail))))
+         (events '()) (actions (make-vector state-count '())) (gotos (make-vector state-count '()))
+         (spec (procedure construction state-count
+                 (lambda ignored (set! events (cons 'actions events)) (values actions publication-count))
+                 (lambda ignored (set! events (cons 'gotos events)) gotos)
+                 (lambda (productions actual-actions actual-gotos)
+                   (set! events (cons (list 'validate (eq? actual-actions actions) (eq? actual-gotos gotos)) events))
+                   (unless valid? (error "publication validation rejected")))
+                 (lambda ignored (void)))))
+    (list spec (reverse events) actions gotos)))
+
 (deflanguage-parser-tests event-walk-source-test "actual Scheme source witness admission"
   (engine)
   (property "reader retains complete declaration and all clauses"
@@ -126,4 +148,32 @@
     (equal (map (lambda (item)
                   (make-core-item (core-item-production-id item native) (core-item-dot item native) native))
                 (iota (length expected-owners)))
-           (iota (length expected-owners)))))
+           (iota (length expected-owners))))
+  (matrix "actual final LR suffix preserves fields and validation order"
+    (setup)
+    ((construction '(lalr canonical-lr1 partitioned-lr1 follow-partition-lr1)) (count '(1 2 7)))
+    (bindings (observed (publication-observation construction count count #t))
+              (spec (car observed)))
+    (equal (cadr observed) '(actions gotos (validate #t #t)))
+    (equal (cdr (assq 'state-count spec)) count)
+    (equal (eq? (cdr (assq 'actions spec)) (caddr observed)) #t)
+    (equal (eq? (cdr (assq 'gotos spec)) (cadddr observed)) #t)
+    (equal (cdr (assq 'schema spec)) "gerbil-parser.lr-spec.v1")
+    (equal (cdr (assq 'algorithm spec))
+           (case construction ((lalr) 'lalr1-lr0-fixed-point-v1)
+             ((canonical-lr1) 'canonical-lr1-reference-v1)
+             ((partitioned-lr1) 'conflict-partitioned-lr1-v1)
+             (else 'follow-partition-lr1-v1)))
+    (equal (map car spec)
+      (append (case construction ((lalr) '())
+                ((follow-partition-lr1) '(follow-block-count output-item-count))
+                (else '(canonical-state-count output-item-count)))
+              '(schema case-insensitive? productions nullable first algorithm state-count
+                lr0-state-visit-count lookahead-item-visit-count actions gotos))))
+  (matrix "publication count or validator failure prevents a spec"
+    (setup)
+    ((construction '(lalr canonical-lr1 partitioned-lr1 follow-partition-lr1)))
+    (bindings)
+    (equal (rejected? (lambda () (publication-observation construction 2 1 #t))) #t)
+    (equal (rejected? (lambda () (publication-observation construction 2 3 #t))) #t)
+    (equal (rejected? (lambda () (publication-observation construction 2 2 #f))) #t)))

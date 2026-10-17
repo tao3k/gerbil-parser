@@ -1,5 +1,5 @@
 ;;; Serialize the current reader AST; check mode verifies a proof input is fresh.
-(import (only-in :gerbil-parser/t/fixtures/event-walk-source
+(import (only-in "fixtures/event-walk-source.ss"
                  read-event-walk-source write-event-walk-source-witness event-walk-witness-current?))
 (export main)
 (def (main mode output . sources)

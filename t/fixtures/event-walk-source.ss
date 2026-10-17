@@ -1,11 +1,17 @@
 ;;; Reader adapter only: preserve source syntax for the Lean admission kernel.
 (import (only-in :std/misc/ports read-all-as-string))
-(export read-event-walk-source read-event-walk-source-port write-event-walk-source-witness event-walk-witness-current?)
+(export read-event-walk-source read-event-walk-source-port read-event-iterative-source read-source-definition source-mutation-sites write-event-walk-source-witness event-walk-witness-current?)
 
 (def (read-event-walk-source path)
   (call-with-input-file path read-event-walk-source-port))
 
 (def (read-event-walk-source-port port)
+  (cadddr (read-event-walker-scope-port port)))
+
+(def (read-event-iterative-source path)
+  (caddr (call-with-input-file path read-event-walker-scope-port)))
+
+(def (read-event-walker-scope-port port)
   (let (definitions
         (let loop ((found '()))
           (let (form (read port))
@@ -38,9 +44,9 @@
                          (equal? (list (car (caddr body)) (cadr (caddr body)))
                                  '(def (iterative initial delta moved?))))
               (error "unsupported event walker procedure scope"))
-            ;; Return the entire native declaration. No call, operand, callback,
-            ;; clause or trailing expression is removed before Lean checks it.
-            (cadddr body)))))))
+            ;; Keep the whole lexical scope. Public readers project one complete
+            ;; declaration, preserving every operand and trailing expression.
+            body))))))
 
 (def (write-datum form port)
   (cond
@@ -60,7 +66,7 @@
    (else (error "unsupported source datum" form))))
 
 (def (write-event-walk-source-witness source port)
-  (display "-- Generated from the current Scheme reader tree; regenerate with t/generate-walk-source-witness.ss.\nimport ParserEngine.WalkSource\nnamespace ParserEngine.WalkSourceWitness\nopen WalkSource IteratorEncoding IteratorMachine HybridIterator\ndef source : Datum :=\n" port)
+  (display "-- Generated from the current Scheme reader tree; regenerate with t/generate-walk-source-witness.ss.\nimport ParserEngine.RowSource\nnamespace ParserEngine.WalkSourceWitness\nopen WalkSource IteratorEncoding IteratorMachine HybridIterator\ndef source : Datum :=\n" port)
   (write-datum source port)
   (display "\ntheorem syntax_checked : (decode source).map admitted = some true := by decide +kernel\ntheorem cutoff_checked : (decode source).map Walker.cutoff = some 64 := by decide +kernel\n" port)
   (display "example : rejects (replace (app \"+\" [s \"depth\", n 1]) (app \"+\" [s \"depth\", n 2]) source) = true := by decide +kernel\n" port)
@@ -72,9 +78,55 @@
   (display "example : rejects (replace (app \"void\" []) (app \"begin\" [app \"void\" [], app \"unexpected-effect\" []]) source) = true := by decide +kernel\n" port)
   (display "example : (decode (replace (n 64) (n 63) source)).map admitted = some true := by decide +kernel\n" port)
   (display "example : rejects (swapPriority source) = true := by decide +kernel\n" port)
-  (display "theorem extracted_plan (address : Ref) (record : Record) (delta : Int) (moved : Bool) (depth : Nat) (rest : List Activation) (out : List Observation) (counter : Nat) :\n    ∃ program, decode source = some program ∧ planSource program address record delta moved depth rest out counter = HybridIterator.plan address record delta moved depth rest out counter := by\n  have checked := syntax_checked\n  cases parsed : decode source with\n  | none => simp [parsed] at checked\n  | some program =>\n    exact ⟨program, rfl, admitted_plan program (by simpa [parsed] using checked)⟩\ntheorem extracted_execution (heap : Nat → Option (List Cell)) (domain : List Ref) (rank : Ref → Nat)\n    (graphChecked : Extraction.verify heap domain rank = true) (address : Ref) (inside : address ∈ domain) (depth : Nat) :\n    ∃ program meaning budget fuel last, decode source = some program ∧\n      Extraction.generate heap (rank address + 1) address = some meaning ∧ Extract heap address meaning ∧\n      runSource program heap budget fuel (HybridIterator.initial address depth) = some last ∧ last.pending = [] ∧\n      last.emitted.map Observation.event = EventIterator.meaning meaning 0 false ∧\n      runControl last.emitted ⟨0, []⟩ = some ⟨last.nextNode, []⟩ :=\n  checked_syntax_execution source syntax_checked heap domain rank graphChecked address inside depth\n#print axioms extracted_execution\n#print axioms extracted_plan\n#print axioms syntax_checked\n#print axioms cutoff_checked\nend ParserEngine.WalkSourceWitness\n" port))
+  (display "theorem extracted_plan (address : Ref) (record : Record) (delta : Int) (moved : Bool) (depth : Nat) (rest : List Activation) (out : List Observation) (counter : Nat) :\n    ∃ program, decode source = some program ∧ planSource program address record delta moved depth rest out counter = HybridIterator.plan address record delta moved depth rest out counter := by\n  have checked := syntax_checked\n  cases parsed : decode source with\n  | none => simp [parsed] at checked\n  | some program =>\n    exact ⟨program, rfl, admitted_plan program (by simpa [parsed] using checked)⟩\ntheorem extracted_execution (heap : Nat → Option (List Cell)) (domain : List Ref) (rank : Ref → Nat)\n    (graphChecked : Extraction.verify heap domain rank = true) (address : Ref) (inside : address ∈ domain) (depth : Nat) :\n    ∃ program meaning budget fuel last, decode source = some program ∧\n      Extraction.generate heap (rank address + 1) address = some meaning ∧ Extract heap address meaning ∧\n      runSource program heap budget fuel (HybridIterator.initial address depth) = some last ∧ last.pending = [] ∧\n      last.emitted.map Observation.event = EventIterator.meaning meaning 0 false ∧\n      runControl last.emitted ⟨0, []⟩ = some ⟨last.nextNode, []⟩ :=\n  checked_syntax_execution source syntax_checked heap domain rank graphChecked address inside depth\n#print axioms extracted_execution\n#print axioms extracted_plan\n#print axioms syntax_checked\n#print axioms cutoff_checked\nend ParserEngine.WalkSourceWitness\n" port)
+  (write-effect-source-witness port))
 
 (def (event-walk-witness-current? source path)
   (equal? (call-with-output-string
             (lambda (port) (write-event-walk-source-witness source port)))
           (call-with-input-file path read-all-as-string)))
+
+;;; Keep the complete declaration, including both passes and final publication.
+(def (read-source-definition path name)
+  (let (found
+        (call-with-input-file path
+          (lambda (port)
+            (let loop ((found '()))
+              (let (form (read port))
+                (cond ((eof-object? form) (reverse found))
+                      ((and (list? form) (>= (length form) 3) (eq? (car form) 'def)
+                            (pair? (cadr form)) (eq? (caadr form) name))
+                       (loop (cons form found)))
+                      (else (loop found))))))))
+    (unless (= (length found) 1) (error "expected one source declaration" path name))
+    (car found)))
+
+(def (write-effect-source-witness port)
+  (display "namespace ParserEngine.EffectSourceWitness\nopen WalkSource SourceEffects IteratorEncoding IteratorMachine\ndef iterativeSource : Datum :=\n" port)
+  (write-datum (read-event-iterative-source "src/runtime/event-program.ss") port)
+  (display "\ndef rowSource : Datum :=\n" port)
+  (write-datum (read-source-definition "src/compiler/lr-compiler.ss" 'index-state-rows) port)
+  (display "\ntheorem iterative_sites : (sites iterativeSource).length = 2 := by decide +kernel\ntheorem iterative_effects : (effects iterativeSource).isSome = true := by decide +kernel\ntheorem resume_checked : (decodeResume iterativeSource).map resumeAdmitted = some true := by decide +kernel\ntheorem append_checked : appendChecked iterativeSource = true := by decide +kernel\ntheorem rows_checked : (RowSource.decode rowSource).map RowSource.admitted = some true := by decide +kernel\nexample : (sites rowSource).length = 2 := by decide +kernel\nexample : (effects rowSource).isSome = true := by decide +kernel\n" port)
+  (display "example : (decodeResume (replace (app \"vector-set!\" [s \"frame\", n 1, app \"+\" [s \"i\", n 1]]) (app \"vector-set!\" [s \"frame\", n 0, app \"+\" [s \"i\", n 1]]) iterativeSource)).map resumeAdmitted ≠ some true := by decide +kernel\n" port)
+  (display "example : (decodeResume (replace (app \"+\" [s \"i\", n 1]) (app \"+\" [s \"i\", n 2]) iterativeSource)).map resumeAdmitted ≠ some true := by decide +kernel\n" port)
+  (display "example : (decodeResume (replace (app \"vector-ref\" [s \"frame\", n 2]) (app \"vector-ref\" [s \"frame\", n 1]) iterativeSource)).map resumeAdmitted ≠ some true := by decide +kernel\n" port)
+  (display "example : (decodeResume (replace (n 5) (n 4) iterativeSource)).map resumeAdmitted ≠ some true := by decide +kernel\n" port)
+  (display "example : appendChecked (replace (get \"event-code-append-blocks\") (app \"reverse\" [get \"event-code-append-blocks\"]) iterativeSource) = false := by decide +kernel\n" port)
+  (display "example : effects (replace (app \"set!\" [s \"frames\", app \"cons\" [nextPacket (s \"block\"), s \"frames\"]]) (app \"set!\" [s \"frames\", s \"frames\", s \"extra\"]) iterativeSource) = none := by decide +kernel\n" port)
+  (display "example : sites (app \"quote\" [app \"set!\" [s \"frames\", s \"ignored\"]]) = [] := by decide +kernel\n" port)
+  (display "example : (RowSource.decode (replace (app \"reverse\" [app \"vector-ref\" [s \"indexed\", s \"state\"]]) (app \"vector-ref\" [s \"indexed\", s \"state\"]) rowSource)).map RowSource.admitted ≠ some true := by decide +kernel\n" port)
+  (display "example : (RowSource.decode (replace (app \"+\" [s \"state\", n 1]) (app \"+\" [s \"state\", n 2]) rowSource)).map RowSource.admitted ≠ some true := by decide +kernel\n" port)
+  (display "example : (RowSource.decode (replace (l [l [s \"state\", n 0]]) (l [l [s \"state\", n 1]]) rowSource)).map RowSource.admitted ≠ some true := by decide +kernel\n" port)
+  (display "example : RowSource.decode (replace (app \"key-procedure\" [s \"row\"]) (app \"value-procedure\" [s \"row\"]) rowSource) = none := by decide +kernel\n" port)
+  (display "example : RowSource.decode (replace (s \"indexed\") (s \"wrong-vector\") rowSource) = none := by decide +kernel\n" port)
+  (display "theorem frame_write (code : Ref) (index delta : Int) (moved : Bool) :\n    ∃ program, decodeResume iterativeSource = some program ∧\n      decodeFrame (executeResumeWrite program code index delta moved) = some (.chunk code (index + 1) delta moved) :=\n  source_chunk_write iterativeSource resume_checked code index delta moved\n" port)
+  (display "theorem frame_resume (heap : Nat → Option (List Cell)) (code : Ref) (items : List Ref) (start finish : Int)\n    (read : readRecord heap code = some (.chunk items start finish))\n    (index : Nat) (head : Ref) (tail : List Ref) (remaining : items.drop index = head :: tail)\n    (delta : Int) (moved : Bool) (rest : List Frame) (out : List Observation) (counter : Nat) :\n    ∃ program, decodeResume iterativeSource = some program ∧\n      IteratorExecutor.advance heap ⟨.chunk code (index : Int) delta moved :: rest, out, counter⟩ =\n        some ⟨.next head delta moved :: resumePending program code index delta moved items rest, out, counter⟩ :=\n  source_resume_step iterativeSource resume_checked heap code items start finish read index head tail remaining delta moved rest out counter\n#print axioms frame_resume\n" port)
+  (display "theorem blocks_assign (blocks : List Ref) (delta : Int) (moved : Bool) (environment : String → List Frame) :\n    appendSite iterativeSource = some appendSchema ∧\n    executeAssignments blocks delta moved environment \"frames\" =\n      blocks.reverse.map (fun block => Frame.next block delta moved) ++ environment \"frames\" :=\n  source_append_assignment iterativeSource append_checked blocks delta moved environment\n" port)
+  (display "theorem lr_rows (state : Row → Nat) (payload : Row → Entry) (rows : List Row) (count index : Nat) (inside : index < count)\n    (bounded : ∀ row ∈ rows, state row < count) :\n    ∃ program result, RowSource.decode rowSource = some program ∧ RowSource.execute program state payload rows count = some result ∧\n      result index = (rows.filter (fun row => index == state row)).map payload :=\n  RowSource.checked_rows rowSource rows_checked state payload rows count index inside bounded\n#print axioms frame_write\n#print axioms blocks_assign\n#print axioms lr_rows\nend ParserEngine.EffectSourceWitness\n" port))
+
+;;; Independent reader-level control; Lean proves its own collector completeness.
+(def (source-mutation-sites form)
+  (cond ((not (pair? form)) '())
+        ((eq? (car form) 'quote) '())
+        (else (append (if (memq (car form) '(set! vector-set!)) (list form) '())
+                      (apply append (map source-mutation-sites form))))))

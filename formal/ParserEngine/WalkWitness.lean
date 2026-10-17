@@ -1,5 +1,5 @@
 -- Generated from the current Scheme reader tree; regenerate with t/generate-walk-source-witness.ss.
-import ParserEngine.WalkSource
+import ParserEngine.RowSource
 namespace ParserEngine.WalkSourceWitness
 open WalkSource IteratorEncoding IteratorMachine HybridIterator
 def source : Datum :=
@@ -35,3 +35,55 @@ theorem extracted_execution (heap : Nat → Option (List Cell)) (domain : List R
 #print axioms syntax_checked
 #print axioms cutoff_checked
 end ParserEngine.WalkSourceWitness
+namespace ParserEngine.EffectSourceWitness
+open WalkSource SourceEffects IteratorEncoding IteratorMachine
+def iterativeSource : Datum :=
+(l [(s "def"), (l [(s "iterative"), (s "initial"), (s "delta"), (s "moved?")]), (l [(s "let"), (s "loop"), (l [(l [(s "code"), (s "initial")]), (l [(s "finish?"), (b false)]), (l [(s "delta"), (s "delta")]), (l [(s "moved?"), (s "moved?")]), (l [(s "state"), (b false)]), (l [(s "pending"), (l [(s "quote"), (l [])])])]), (l [(s "cond"), (l [(l [(s "not"), (s "code")]), (l [(s "unless"), (l [(s "null?"), (s "pending")]), (l [(s "let*"), (l [(l [(s "frame"), (l [(s "car"), (s "pending")])]), (l [(s "next"), (l [(s "vector-ref"), (s "frame"), (n 0)])])]), (l [(s "if"), (l [(s "and"), (l [(s "event-code-chunk?"), (s "next")]), (l [(s "integer?"), (l [(s "vector-ref"), (s "frame"), (n 1)])])]), (l [(s "let*"), (l [(l [(s "items"), (l [(s "event-code-chunk-items"), (s "next")])]), (l [(s "i"), (l [(s "vector-ref"), (s "frame"), (n 1)])]), (l [(s "last?"), (l [(s "="), (l [(s "+"), (s "i"), (n 1)]), (l [(s "vector-length"), (s "items")])])])]), (l [(s "unless"), (s "last?"), (l [(s "vector-set!"), (s "frame"), (n 1), (l [(s "+"), (s "i"), (n 1)])])]), (l [(s "loop"), (l [(s "vector-ref"), (s "items"), (s "i")]), (b false), (l [(s "vector-ref"), (s "frame"), (n 2)]), (l [(s "vector-ref"), (s "frame"), (n 3)]), (b false), (l [(s "if"), (s "last?"), (l [(s "cdr"), (s "pending")]), (s "pending")])])]), (l [(s "loop"), (s "next"), (l [(s "vector-ref"), (s "frame"), (n 1)]), (l [(s "vector-ref"), (s "frame"), (n 2)]), (l [(s "vector-ref"), (s "frame"), (n 3)]), (l [(s "if"), (l [(s "="), (l [(s "vector-length"), (s "frame")]), (n 5)]), (l [(s "vector-ref"), (s "frame"), (n 4)]), (b false)]), (l [(s "cdr"), (s "pending")])])])])])]), (l [(s "finish?"), (l [(s "cond"), (l [(l [(s "event-program-value?"), (s "code")]), (l [(s "if"), (l [(s "event-program-value-kind"), (s "code")]), (l [(l [(s "lambda"), (l [(s "op"), (s "name"), (s "offset"), (s "shift"), (s "moved"), (s "context")]), (s "effect"), (s "...")]), (l [(s "quote"), (s "close-node")]), (l [(s "event-program-value-kind"), (s "code")]), (l [(s "event-program-value-end"), (s "code")]), (s "delta"), (s "moved?"), (s "state")]), (l [(l [(s "lambda"), (l [(s "op"), (s "name"), (s "offset"), (s "shift"), (s "moved"), (s "context")]), (s "effect"), (s "...")]), (l [(s "quote"), (s "boundary")]), (b false), (l [(s "event-program-value-end"), (s "code")]), (s "delta"), (s "moved?"), (b false)])])]), (l [(l [(s "event-field-frame?"), (s "code")]), (l [(l [(s "lambda"), (l [(s "op"), (s "name"), (s "offset"), (s "shift"), (s "moved"), (s "context")]), (s "effect"), (s "...")]), (l [(s "quote"), (s "close-field")]), (l [(s "event-field-frame-name"), (s "code")]), (l [(s "event-field-frame-end"), (s "code")]), (s "delta"), (s "moved?"), (b false)])]), (l [(s "else"), (l [(s "error"), (.text "invalid event continuation")])])]), (l [(s "loop"), (b false), (b false), (s "delta"), (s "moved?"), (b false), (s "pending")])]), (l [(l [(s "event-code-view?"), (s "code")]), (l [(s "loop"), (l [(s "event-code-view-code"), (s "code")]), (b false), (l [(s "+"), (s "delta"), (l [(s "event-code-view-delta"), (s "code")])]), (b true), (b false), (s "pending")])]), (l [(l [(s "event-code-append?"), (s "code")]), (l [(s "let"), (l [(s "frames"), (l [(s "cons"), (l [(s "vector"), (l [(s "event-code-append-tail"), (s "code")]), (b false), (s "delta"), (s "moved?")]), (s "pending")])]), (l [(s "for-each"), (l [(s "lambda"), (l [(s "block")]), (l [(s "set!"), (s "frames"), (l [(s "cons"), (l [(s "vector"), (s "block"), (b false), (s "delta"), (s "moved?")]), (s "frames")])])]), (l [(s "event-code-append-blocks"), (s "code")])]), (l [(s "loop"), (l [(s "event-code-append-prefix"), (s "code")]), (b false), (s "delta"), (s "moved?"), (b false), (s "frames")])])]), (l [(l [(s "event-code-branch?"), (s "code")]), (l [(s "loop"), (l [(s "event-code-branch-left"), (s "code")]), (b false), (s "delta"), (s "moved?"), (b false), (l [(s "cons"), (l [(s "vector"), (l [(s "event-code-branch-right"), (s "code")]), (b false), (s "delta"), (s "moved?")]), (s "pending")])])]), (l [(l [(s "event-code-chunk?"), (s "code")]), (l [(s "loop"), (l [(s "vector-ref"), (l [(s "event-code-chunk-items"), (s "code")]), (n 0)]), (b false), (s "delta"), (s "moved?"), (b false), (l [(s "cons"), (l [(s "vector"), (s "code"), (n 1), (s "delta"), (s "moved?")]), (s "pending")])])]), (l [(l [(s "event-program-value?"), (s "code")]), (l [(s "let"), (l [(s "node-state"), (l [(s "and"), (l [(s "event-program-value-kind"), (s "code")]), (l [(l [(s "lambda"), (l [(s "op"), (s "name"), (s "offset"), (s "shift"), (s "moved"), (s "context")]), (s "effect"), (s "...")]), (l [(s "quote"), (s "open-node")]), (l [(s "event-program-value-kind"), (s "code")]), (l [(s "event-program-value-start"), (s "code")]), (s "delta"), (s "moved?"), (b false)])])]), (l [(s "loop"), (l [(s "event-program-value-body"), (s "code")]), (b false), (s "delta"), (s "moved?"), (b false), (l [(s "cons"), (l [(s "vector"), (s "code"), (b true), (s "delta"), (s "moved?"), (s "node-state")]), (s "pending")])])])]), (l [(l [(s "event-field-frame?"), (s "code")]), (l [(l [(s "lambda"), (l [(s "op"), (s "name"), (s "offset"), (s "shift"), (s "moved"), (s "context")]), (s "effect"), (s "...")]), (l [(s "quote"), (s "open-field")]), (l [(s "event-field-frame-name"), (s "code")]), (l [(s "event-field-frame-start"), (s "code")]), (s "delta"), (s "moved?"), (b false)]), (l [(s "loop"), (l [(s "event-field-frame-body"), (s "code")]), (b false), (s "delta"), (s "moved?"), (b false), (l [(s "cons"), (l [(s "vector"), (s "code"), (b true), (s "delta"), (s "moved?"), (b false)]), (s "pending")])])]), (l [(l [(s "token?"), (s "code")]), (l [(l [(s "lambda"), (l [(s "op"), (s "name"), (s "offset"), (s "shift"), (s "moved"), (s "context")]), (s "effect"), (s "...")]), (l [(s "quote"), (s "token")]), (s "code"), (l [(s "token-start"), (s "code")]), (s "delta"), (s "moved?"), (b false)]), (l [(s "loop"), (b false), (b false), (s "delta"), (s "moved?"), (b false), (s "pending")])]), (l [(s "else"), (l [(s "error"), (.text "invalid event instruction")])])])])])
+def rowSource : Datum :=
+(l [(s "def"), (l [(s "index-state-rows"), (s "rows"), (s "state-count"), (s "key-procedure"), (s "value-procedure")]), (l [(s "let"), (l [(s "indexed"), (l [(s "make-vector"), (s "state-count"), (l [(s "quote"), (l [])])])]), (l [(s "for-each"), (l [(s "lambda"), (l [(s "row")]), (l [(s "let"), (l [(s "state"), (l [(s "car"), (s "row")])]), (l [(s "vector-set!"), (s "indexed"), (s "state"), (l [(s "cons"), (l [(s "cons"), (l [(s "key-procedure"), (s "row")]), (l [(s "value-procedure"), (s "row")])]), (l [(s "vector-ref"), (s "indexed"), (s "state")])])])])]), (s "rows")]), (l [(s "let"), (s "loop"), (l [(l [(s "state"), (n 0)])]), (l [(s "when"), (l [(s "<"), (s "state"), (s "state-count")]), (l [(s "vector-set!"), (s "indexed"), (s "state"), (l [(s "reverse"), (l [(s "vector-ref"), (s "indexed"), (s "state")])])]), (l [(s "loop"), (l [(s "+"), (s "state"), (n 1)])])])]), (s "indexed")])])
+theorem iterative_sites : (sites iterativeSource).length = 2 := by decide +kernel
+theorem iterative_effects : (effects iterativeSource).isSome = true := by decide +kernel
+theorem resume_checked : (decodeResume iterativeSource).map resumeAdmitted = some true := by decide +kernel
+theorem append_checked : appendChecked iterativeSource = true := by decide +kernel
+theorem rows_checked : (RowSource.decode rowSource).map RowSource.admitted = some true := by decide +kernel
+example : (sites rowSource).length = 2 := by decide +kernel
+example : (effects rowSource).isSome = true := by decide +kernel
+example : (decodeResume (replace (app "vector-set!" [s "frame", n 1, app "+" [s "i", n 1]]) (app "vector-set!" [s "frame", n 0, app "+" [s "i", n 1]]) iterativeSource)).map resumeAdmitted ≠ some true := by decide +kernel
+example : (decodeResume (replace (app "+" [s "i", n 1]) (app "+" [s "i", n 2]) iterativeSource)).map resumeAdmitted ≠ some true := by decide +kernel
+example : (decodeResume (replace (app "vector-ref" [s "frame", n 2]) (app "vector-ref" [s "frame", n 1]) iterativeSource)).map resumeAdmitted ≠ some true := by decide +kernel
+example : (decodeResume (replace (n 5) (n 4) iterativeSource)).map resumeAdmitted ≠ some true := by decide +kernel
+example : appendChecked (replace (get "event-code-append-blocks") (app "reverse" [get "event-code-append-blocks"]) iterativeSource) = false := by decide +kernel
+example : effects (replace (app "set!" [s "frames", app "cons" [nextPacket (s "block"), s "frames"]]) (app "set!" [s "frames", s "frames", s "extra"]) iterativeSource) = none := by decide +kernel
+example : sites (app "quote" [app "set!" [s "frames", s "ignored"]]) = [] := by decide +kernel
+example : (RowSource.decode (replace (app "reverse" [app "vector-ref" [s "indexed", s "state"]]) (app "vector-ref" [s "indexed", s "state"]) rowSource)).map RowSource.admitted ≠ some true := by decide +kernel
+example : (RowSource.decode (replace (app "+" [s "state", n 1]) (app "+" [s "state", n 2]) rowSource)).map RowSource.admitted ≠ some true := by decide +kernel
+example : (RowSource.decode (replace (l [l [s "state", n 0]]) (l [l [s "state", n 1]]) rowSource)).map RowSource.admitted ≠ some true := by decide +kernel
+example : RowSource.decode (replace (app "key-procedure" [s "row"]) (app "value-procedure" [s "row"]) rowSource) = none := by decide +kernel
+example : RowSource.decode (replace (s "indexed") (s "wrong-vector") rowSource) = none := by decide +kernel
+theorem frame_write (code : Ref) (index delta : Int) (moved : Bool) :
+    ∃ program, decodeResume iterativeSource = some program ∧
+      decodeFrame (executeResumeWrite program code index delta moved) = some (.chunk code (index + 1) delta moved) :=
+  source_chunk_write iterativeSource resume_checked code index delta moved
+theorem frame_resume (heap : Nat → Option (List Cell)) (code : Ref) (items : List Ref) (start finish : Int)
+    (read : readRecord heap code = some (.chunk items start finish))
+    (index : Nat) (head : Ref) (tail : List Ref) (remaining : items.drop index = head :: tail)
+    (delta : Int) (moved : Bool) (rest : List Frame) (out : List Observation) (counter : Nat) :
+    ∃ program, decodeResume iterativeSource = some program ∧
+      IteratorExecutor.advance heap ⟨.chunk code (index : Int) delta moved :: rest, out, counter⟩ =
+        some ⟨.next head delta moved :: resumePending program code index delta moved items rest, out, counter⟩ :=
+  source_resume_step iterativeSource resume_checked heap code items start finish read index head tail remaining delta moved rest out counter
+#print axioms frame_resume
+theorem blocks_assign (blocks : List Ref) (delta : Int) (moved : Bool) (environment : String → List Frame) :
+    appendSite iterativeSource = some appendSchema ∧
+    executeAssignments blocks delta moved environment "frames" =
+      blocks.reverse.map (fun block => Frame.next block delta moved) ++ environment "frames" :=
+  source_append_assignment iterativeSource append_checked blocks delta moved environment
+theorem lr_rows (state : Row → Nat) (payload : Row → Entry) (rows : List Row) (count index : Nat) (inside : index < count)
+    (bounded : ∀ row ∈ rows, state row < count) :
+    ∃ program result, RowSource.decode rowSource = some program ∧ RowSource.execute program state payload rows count = some result ∧
+      result index = (rows.filter (fun row => index == state row)).map payload :=
+  RowSource.checked_rows rowSource rows_checked state payload rows count index inside bounded
+#print axioms frame_write
+#print axioms blocks_assign
+#print axioms lr_rows
+end ParserEngine.EffectSourceWitness

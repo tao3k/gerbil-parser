@@ -908,9 +908,9 @@ those idioms and execution by the installed compiler is an external premise.
 | Boundary | Current universal result | Remaining obligation or explicit premise |
 |----------+--------------------------+------------------------------------------|
 | Native recursive walker | Current reader tree decodes; interpreted schedule equals hybrid plan; checked graph produces complete event/context execution | Reader/serialization fidelity, standard-form and primitive semantics, hygienic macro/compiler correctness |
-| Iterative fallback | Packet executor, physical frame transitions and completion are proved; real Scheme comparisons pass | Extract and admit the iterative procedure's assignments, vector writes and register transitions from its actual syntax; the new native decoder does not certify this body |
+| Iterative fallback | Packet executor, physical frame transitions and completion are proved; real Scheme comparisons pass | Assignments and chunk-resume writes now have source witnesses; admit the remaining register/dispatch control and prove physical frame ownership before claiming whole-loop source certification |
 | Record and packet adapters | Typed decoding, rank certificates, generated witnesses and graph completion are proved | Actual record classification, accessor projection, identity and stable storage reads remain adapter premises; finite controls do not discharge them universally |
-| Grammar lowering and LR construction | Existing derivation, worklist, table and selection theorems retain their stated premises | Extend source witnesses to actual compiler procedures and their mutable stores; generated finite grammar facts alone are insufficient |
+| Grammar lowering and LR construction | Existing derivation, worklist, table and selection theorems retain their stated premises | The row indexer now has a complete restricted source schema and universal stable-order proof; lowering, LR state construction and other compiler stores still need source witnesses |
 | Complete LR request and publication | Existing accepted-request, AST replay and callback-product theorems compose with the hybrid result | Extend checked extraction to the real request driver and publication adapters; callback effects remain governed by the admitted publisher protocol |
 | Host, ABI, GC and compiler | Explicit external contracts only | No implementation proof is claimed, and no Gambit modification or build is authorized |
 
@@ -946,6 +946,127 @@ At parent commit =927a5bb3414ddc91ca8055658cd95a23ca6308c1=,
 [[https://github.com/tao3k/gerbil-parser/actions/runs/38991438660][CI run 38991438660]] completed successfully, including macOS semantics and
 all Ubuntu generation, semantics, FFI and corpus jobs. These receipts qualify
 the parent; the new witness extension requires its own exact-revision CI.
+
+*** Source mutation effects, chunk resumption and LR row publication
+
+This extension follows the parser closure backlog above. It does not expand the
+host model or optimize the parser. The direct-style/control transformation in
+[[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][the LR paper, section 4]] motivates an explicit control interpretation; the
+paper does not discharge parser-specific assignment, storage or table-publication
+obligations. The source reader now retains the complete iterative declaration
+and the real =index-state-rows= declaration in the existing generated proof input.
+There is still one generator and one freshness gate.
+
+**** Complete explicit-mutation extraction and storage laws
+
+[[file:../../formal/ParserEngine/SourceEffects.lean][SourceEffects]] defines a structural mutation collector over reader trees.
+Its occurrence relation includes descendants under lambdas and branches; quoted
+values are data. =occurrence_retained= proves that every explicit =set!= or
+=vector-set!= occurrence in that relation is retained. Malformed mutation forms
+are collected too. =extracted_site_decodes= proves that successful extraction
+cannot silently omit an undecodable explicit mutation. This is a universal
+syntax property, not a search for two expected strings in the current source.
+It does not inspect the implementation or side effects of called procedures.
+
+Kernel checking establishes that the actual iterative procedure contains two
+explicit mutation sites: the chunk-frame index write and the local =frames=
+assignment. The actual row indexer also has two vector-write sites. Their raw
+syntax is serialized before Lean decodes it; reader, symbol conversion and
+serialization fidelity remain adapter premises.
+
+The store model preserves object identity. A write is visible through every
+alias of its target, preserves all different objects and all other slots,
+and preserves vector length. In-bounds reads of the written slot return the
+new value. Local assignment rebinds only its named variable. Primitive vector
+bounds, allocation, identity and integer arithmetic are explicit host contracts;
+they are not inferred from the equations or reimplemented in Gambit.
+
+**** Source-derived assignment and chunk-resume correspondence
+
+The append decoder consumes the complete source setup, =for-each= body and
+subsequent register transfer. It checks tail-first construction, the actual
+=set! frames= expression, original block order and the prefix continuation.
+=source_append_assignment= interprets repeated lexical assignments and derives
+=pushed_blocks_order= for arbitrary blocks, translations, provenance and prior
+environments. =assignments_other= preserves all unrelated variable bindings.
+It does not assume that a caller already supplied reversed blocks.
+
+The resume decoder consumes the initial six-register binding, pending-pop
+scope, chunk classification, both restoration alternatives, index read,
+last-element comparison, conditional =vector-set!= and all six next-call
+operands. Read/write slots, step and translation/provenance slots are extracted
+parameters and admitted against the packet contract. =source_chunk_write=
+connects that source-derived write to exact frame decoding for every reference,
+signed index/translation and moved flag.
+
+=last_guard_from_suffix= derives the source's =i + 1 = vector-length= condition
+from the remaining item suffix. =source_resume_step= combines that guard with
+the source-derived pop/retain decision and register parameters to prove the
+corresponding =IteratorExecutor.advance= transition for arbitrary stores,
+remaining items, pending suffixes, observation prefixes and counters. The write
+is the non-final branch; the final branch pops its continuation without writing.
+No source execution trace is supplied as a premise.
+
+These are restricted source-idiom correspondences over typed projections. The
+complete iterative dispatch loop is not yet source-certified. In particular,
+physical continuation ownership must ensure that a write to the current frame
+does not alias another pending frame. The generic alias law makes that condition
+visible; fresh primitive allocation alone does not prove that parser control
+never duplicates a frame reference. Remaining dispatch branches and ownership
+are parser obligations, not compiler assumptions that can be silently waived.
+
+**** LR source admission and stable row order
+
+[[file:../../formal/ParserEngine/RowSource.lean][RowSource]] decodes the complete real =index-state-rows= declaration. It consumes
+allocation, state extraction, pure key/value callbacks, cons insertion, the
+zero-based unit-step finalization loop, slot reversal and final return. It
+rejects additional expressions or a changed result binding. =accumulate_slot=
+proves the arbitrary-row cons pass; =reverse_slots= proves ascending physical
+slot updates using the current store. =checked_rows= composes them and preserves
+original per-state order, including duplicate keys.
+
+Every input row must have a state below the allocated vector length. This is an
+explicit theorem premise and executable admission check; the total functional
+store is not used to hide an out-of-bounds source access. Key/value functions
+are arbitrary pure projections whose normal return is assumed. Exceptions or
+mutation in those callbacks are outside this source schema's contract. The
+proof covers all row lists and state counts meeting those premises, not a fixed
+grammar or bounded enumeration. Other LR construction and grammar-lowering
+procedures still need their own checked source correspondences.
+
+**** Real Scheme controls and CI import repair
+
+The existing source owner now has seven cases. New controls evaluate the actual
+extracted assignment and vector-write expressions with the installed Scheme
+evaluator, check alias visibility, unchanged slots and retained tail sharing,
+and execute the actual LR declaration for empty vectors, multiple state counts,
+empty rows, 1/2/17/65/129 rows and duplicate keys. Out-of-bounds rows are rejected.
+The independent expected rows are selected from original input order. Existing
+complete-request, 64-record, ABI and canonical LR controls remain in the same
+two-worker run: 98 cases across nine owners pass in 21.6 seconds under unchanged
+90-second owner/five-second idle limits. This is qualification, not CPU evidence.
+
+The generated Lean input also rejects wrong frame slots, index increments,
+restoration operands, context widths, reversed append input, malformed mutation
+syntax, missing LR reversal, wrong loop seed/step, wrong callback and wrong
+result storage. A quoted mutation remains data. The normal Lean build includes
+these decisions and the universal composition laws using kernel reduction;
+no =native_decide=, custom axiom or =sorry= is introduced. The full build
+passes 87 Lean jobs; the source-input invalidation regression also passes.
+
+At parent =f1e4a56447c0e039ae01e39eff94527474c09c0d=,
+[[https://github.com/tao3k/gerbil-parser/actions/runs/38992903967][run 38992903967]] exposed the same failure in both semantics lanes, before
+the parser suites: =Verify Scheme source proof input is current= could not
+import =:gerbil-parser/t/fixtures/event-walk-source=. Production source discovery
+intentionally excludes =t/=; the local source-overlay load path had masked that
+missing package module. The failure is reproduced with only the prepared library
+path. The generator now uses Gerbil's official source-relative file import,
+="fixtures/event-walk-source.ss"=. Check mode passes with that same restricted
+load path. A deliberately stale proof input still exits with the expected
+rejection under that restricted path, so the repaired import does not bypass
+the freshness gate. No extra build product, custom loader, timeout increase or Gambit
+change is needed. Both failed job logs remain historical evidence; new-revision
+CI must confirm the repair.
 
 *** Current Ubuntu ABI watchdog failure and execution admission
 

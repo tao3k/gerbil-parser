@@ -188,8 +188,21 @@ keys in different plan slots refer to the same object.
 =decode_install= derives a new plan's decoded template. =decode_other= proves
 that installing another plan preserves older pair/reference reads, including
 when allocation occurs. The bounded =vectorize= producer and =vector_decode=
-connect plan slots to vector indices; =grow_decode= composes prefix copying with
-reference dereference. The addresses are logical identities, not numeric claims
+connect plan slots to vector indices. [[file:../../../formal/ParserEngine/VectorStorage.lean][VectorStorage]] additionally executes the
+ascending native copy recurrence into fresh false slots. =copy_read= proves copy
+coverage and untouched initialization; =grow_exact= identifies its result with
+the prefix-preserving growth specification. =append_refines= then derives the
+captured-ID write and retention of every older allocated slot. It applies to
+state, transition and plan values, rather than one selected fixture type.
+
+=PlanStorage.Trace= starts before state zero, with the initial 128-slot vector.
+Each novel kernel advances the captured count once and executes growth only at
+capacity. =trace_shape= derives positive capacity, the count bound, physical
+length and bounded read correspondence. =intern_physical=, =publish_physical=
+and =finish_physical= carry that actual vector witness alongside the same memory
+through the entire construction. =constructed_vector= returns the final vector
+and every allocated plan's decoded value without a supplied capacity or
+final-vector certificate. The addresses are logical identities, not numeric claims
 about host pointers or GC placement.
 
 The LeanPoo factory now constructs that memory operation. Its joint certificate
@@ -212,11 +225,34 @@ all template objects and physical plan slots. The source's fresh vectors and
 immutable template layout justify their separate model fields; host allocation
 and alias encoding remain explicit premises, checked by native identity controls.
 
-The native three-slot template also has a group hash index. Its physical hash
-operations are represented extensionally by the ordered rows; their primitive
-implementation remains external. =source_current= independently checks the
-complete builder, materializer and aggregate-key cache declarations. Source
-admission is separate from the universal representation and lifecycle proofs.
+The native three-slot template also has a group hash index.
+[[file:../../../formal/ParserEngine/TemplateIndex.lean][TemplateIndex]] models first-row creation, table insertion and subsequent
+mask updates. =record_view= relates each write to the existing accumulation
+state; induction gives =lookup= for every key, including absent entries and
+repeated symbols. The materializer now builds that index, and =runGroup= uses
+it for shared-row lookup. =own_exact= substitutes the constructed index into
+ordered sparse grouping. There is no caller-supplied final-index certificate.
+Physical hash equality, row-address encoding and primitive mutation remain
+external; the index producer's control flow and query meaning are proved.
+
+** Source extraction and executable recipes
+
+[[file:../../../formal/ParserEngine/ConstructionExtraction.lean][ConstructionExtraction]] reads allocation parameters from named lexical
+bindings in the generated reader AST. It rejects absent or duplicate bindings,
+requires the three initial capacities to agree and separately requires all three
+expansion factors to agree. Full independent builder, growth, append and template
+schemas then bind those scalar values to the copy loop and publication order.
+=extracted_sources= proves this complete correspondence for any accepted source.
+The current reader-derived recipe has initial capacity 128 and factor two,
+matching =PlanStorage.empty= and =VectorStorage.capacity=.
+
+Recipes initialize a vector and execute the proved copy/write protocol;
+=recipe_write= and =recipe_copy= apply to arbitrary bounded append requests.
+The source check uses equation rewriting and existing complete-schema theorems,
+not native decision or a source-text checksum. A source change to a scalar,
+copy destination, publication order or template update must pass extraction and
+all corresponding proof obligations again. The decoder admits the supported
+construction idiom; it does not assign semantics to arbitrary Scheme programs.
 
 LeanPoo's =ContextSlot= is deliberately not used: it retains only one context,
 whereas this builder retains multiple aggregate masks. =ConstructionCache=
@@ -233,17 +269,19 @@ arithmetic and FIFO induction remain ordinary functions and proofs.
 | Paper prediction, closure and goto | =PredictionMaterialization=, =PublishedClosure=, =ConstructionProtocol.paper_target= | Arbitrary constructed grammar; physical production identity retained |
 | Ordered direct/field callbacks | =TraversalCapabilities.callbacks= consumed by =CachedConstruction.runGroup= | Integer primitives and positive SDK field width |
 | Sparse order and scratch lifecycle | =groups_exact=, =runGroup_memory= and =tick_scratch=; persistent native vector controls | Prior scan supplies firsts; touched masks reset before reuse |
+| Shared group index | =TemplateIndex.lookup= and =own_exact= consumed by =runGroup= | Logical table writes proved; primitive hash/row encoding external |
 | Aggregate-key cache lifetime | =construct_covered=, =cache_hit=; native object identity and factory counts | Per-builder grammar/layout; no cross-builder admission |
-| Physical plan/reference reads | =decode_install=, =decode_other=, =grow_decode= and =construct_aligned= | Logical references; primitive pointer/vector encoding external |
+| Physical plan/reference reads | =decode_install=, =decode_other= and =construct_aligned= | Logical references; primitive pointer encoding external |
+| Physical vector growth | =copy_read=, =append_refines=, =trace_shape= and =constructed_vector= | Capacities and write bounds derived through the full queue; primitive vector operations external |
 | Interning, FIFO and final rows | =construct_exact= and returned =Product= | Hash equality and queue primitives |
-| Source authority | Complete independent declaration schemas and fresh extraction; forwarding native execution | Restricted schemas, not a general Scheme execution theorem |
+| Source authority | Named parameter extraction, =extracted_sources=, executable recipes and fresh reader witnesses | Restricted construction idioms, not a general Scheme execution theorem |
 | Compiler, GC and host memory | Explicit external premises | No Gambit modification or build; no native compiler correctness claim |
 
 This table is the integration checklist. Adding an isolated theorem does not
 close a row until the complete constructor consumes its evidence and a native
 control exercises the corresponding source boundary. The combined model now
-closes cache population, reference/plan decoding and the persistent scratch
-lifecycle. Concrete pointer encoding and primitive host realization remain
+closes cache population, shared index lookup, reference/plan decoding, counted
+vector growth and the persistent scratch lifecycle. Concrete pointer encoding and primitive host realization remain
 explicit premises. No runtime performance claim follows from this map.
 
 * External premises and remaining source boundary
@@ -267,7 +305,24 @@ No runtime performance optimization or CPU claim is included.
 
 * Lifecycle qualification
 
-The physical-plan and persistent-scratch integration passes the complete Lean
+The shared-index, vector-growth and source-extraction integration passes the
+complete Lean build (182 jobs), with standard Lean axioms only and no native
+decision axiom. Thirteen Scheme owners pass 271 macro-owned cases with natural
+exit 0 in 24.317 seconds under the unchanged 90-second total / 5-second idle
+bounds. Literal boundary cases exercise state counts 128, 129, 256, 257, 512 and
+513, checking physical capacities, every expansion's copy count and retained
+references. Native template controls compare all indexed symbol keys with an
+independent full-closure group reference and verify ordered-row/index identity.
+The full Quint command passes; the construction lifecycle has thirteen directed
+controls and 1,000 bounded 40-step histories, including a lost growth prefix and
+a missing shared-index row. Nineteen evidence/layout controls pass. Cold reader
+freshness succeeds; extracted witnesses with a wrong plan-copy source or shared
+lookup key are rejected with exit 70. The universal decoder laws separately
+reject any changed growth or template declaration. No performance improvement
+or general Scheme/compiler correctness claim is inferred from these results.
+
+
+The preceding physical-plan and persistent-scratch integration passed the complete Lean
 build (179 jobs), with standard Lean axioms only. Thirteen Scheme owners pass
 270 macro-owned cases with natural exit 0 in 25.266 seconds under the unchanged
 90-second total / 5-second idle limits. The native observer checks 128 plan

@@ -256,3 +256,20 @@ import ParserEngine.Components
 #print axioms ParserEngine.CachedConstruction.tick_scratch
 
 #print axioms ParserEngine.PlanStorage.fresh_separates
+
+#print axioms ParserEngine.TemplateIndex.record_view
+#print axioms ParserEngine.TemplateIndex.lookup
+#print axioms ParserEngine.TemplateIndex.own_exact
+#print axioms ParserEngine.VectorStorage.copy_read
+#print axioms ParserEngine.VectorStorage.grow_exact
+#print axioms ParserEngine.VectorStorage.append_refines
+#print axioms ParserEngine.PlanStorage.trace_shape
+#print axioms ParserEngine.PlanStorage.trace_decode
+#print axioms ParserEngine.CachedConstruction.constructed_vector
+#print axioms ParserEngine.ConstructionExtraction.extracted_sources
+#print axioms ParserEngine.ConstructionExtraction.recipe_write
+#print axioms ParserEngine.ConstructionExtraction.recipe_copy
+#print axioms ParserEngine.ConstructionExtraction.source_current
+
+#print axioms ParserEngine.ConstructionExtraction.changed_growth_rejected
+#print axioms ParserEngine.ConstructionExtraction.changed_template_rejected

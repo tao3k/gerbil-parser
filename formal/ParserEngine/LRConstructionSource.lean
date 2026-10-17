@@ -7,11 +7,11 @@ Storage, hash equality and host execution remain explicit external premises. -/
 namespace ParserEngine.LRConstructionSource
 open WalkSource NativeActions.Source CompilerSemanticsSource
 
-def grow : Datum := defn "grow!" [] [app "when" [
+def growWith (factor : Nat) : Datum := defn "grow!" [] [app "when" [
   app "=" [s "state-count", app "vector-length" [s "states"]],
-  app "let" [l [binding "next-states" (app "make-vector" [app "*" [n 2, s "state-count"], b false]),
-    binding "next-transitions" (app "make-vector" [app "*" [n 2, s "state-count"], emptyList]),
-    binding "next-plans" (app "make-vector" [app "*" [n 2, s "state-count"], b false])],
+  app "let" [l [binding "next-states" (app "make-vector" [app "*" [n factor, s "state-count"], b false]),
+    binding "next-transitions" (app "make-vector" [app "*" [n factor, s "state-count"], emptyList]),
+    binding "next-plans" (app "make-vector" [app "*" [n factor, s "state-count"], b false])],
     app "let" [s "copy", l [binding "index" (n 0)], app "when" [call "<" ["index", "state-count"],
       app "vector-set!" [s "next-states", s "index", call "vector-ref" ["states", "index"]],
       app "vector-set!" [s "next-transitions", s "index", call "vector-ref" ["state-transitions", "index"]],
@@ -19,6 +19,8 @@ def grow : Datum := defn "grow!" [] [app "when" [
       app "copy" [app "+" [s "index", n 1]]]],
     call "set!" ["states", "next-states"], call "set!" ["state-transitions", "next-transitions"],
     call "set!" ["kernel-plans", "next-plans"]]]]
+
+def grow : Datum := growWith 2
 
 def appendState : Datum := defn "append-state!" ["kernel"] [app "grow!" [],
   app "let" [l [binding "index" (s "state-count"), binding "template" (app "template-for" [s "kernel"])],

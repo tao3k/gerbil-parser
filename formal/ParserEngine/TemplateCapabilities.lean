@@ -1,6 +1,6 @@
 import ParserEngine.TemplateCache
 import ParserEngine.PlanStorage
-import ParserEngine.GroupScratch
+import ParserEngine.TemplateIndex
 import ParserEngine.KernelConstruction
 import LeanPoo.Functional.CertifiedConsumer
 
@@ -13,10 +13,12 @@ open Grammar LeanPoo.Functional
 structure Template where
   items : List Nat
   groups : List SparseGroupMasks.Row
+  index : TemplateIndex.Index
 
 def materialize (g : CFG) (mask : Nat) : Template :=
   let items := PredictionMaterialization.materialize g mask
-  ⟨items, SparseGroupMasks.sharedRows (SymbolDiscovery.physicalIDs g) items⟩
+  ⟨items, SparseGroupMasks.sharedRows (SymbolDiscovery.physicalIDs g) items,
+    TemplateIndex.build (SymbolDiscovery.physicalIDs g) items⟩
 
 def predictionMask (g : CFG) (kernel : Nat) : Nat :=
   PredictionMaterialization.aggregate g (NameDiscovery.catalogue g).index
@@ -51,7 +53,7 @@ structure Context (g : CFG) where
 
 def load (g : CFG) (context : Context g) : Template × Cache g :=
   let memory := PlanStorage.install (materialize g) (predictionMask g) context.cache.memory context.node context.kernel
-  ((PlanStorage.view memory (predictionMask g context.kernel)).getD ⟨[], []⟩,
+  ((PlanStorage.view memory (predictionMask g context.kernel)).getD ⟨[], [], fun _ => none⟩,
     ⟨memory, PlanStorage.install_valid _ _ _ context.cache.admitted _ _, context.cache.scratch, context.cache.clean⟩)
 
 theorem load_exact (g : CFG) (context : Context g) : (load g context).1 = materialize g (predictionMask g context.kernel) := by

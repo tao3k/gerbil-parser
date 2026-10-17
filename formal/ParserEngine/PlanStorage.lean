@@ -1,4 +1,4 @@
-import ParserEngine.StateInterning
+import ParserEngine.VectorStorage
 
 /-! Logical references model physical template identity. Fresh allocation never
 writes an address reachable through an older directory entry or plan. Host
@@ -16,8 +16,9 @@ structure Memory (Template : Type) where
   objects : Nat → Option Template
   next : Nat
   plans : Nat → Option Plan
+  capacity : Nat
 
-def empty : Memory Template := ⟨fun _ => none, fun _ => none, 0, fun _ => none⟩
+def empty : Memory Template := ⟨fun _ => none, fun _ => none, 0, fun _ => none, 128⟩
 
 structure Valid (make : Nat → Template) (key : Nat → Nat) (memory : Memory Template) : Prop where
   directory : ∀ mask reference, memory.directory mask = some reference →
@@ -81,7 +82,9 @@ theorem fetch_valid (make : Nat → Template) (key : Nat → Nat) (before : Memo
 
 def install (make : Nat → Template) (key : Nat → Nat) (before : Memory Template) (node kernel : Nat) : Memory Template :=
   let loaded := fetch make before (key kernel)
-  {loaded.2 with plans := Storage.update loaded.2.plans node ⟨kernel, loaded.1⟩}
+  {loaded.2 with
+    plans := Storage.update loaded.2.plans node ⟨kernel, loaded.1⟩
+    capacity := VectorStorage.capacity node before.capacity}
 
 theorem install_valid (make : Nat → Template) (key : Nat → Nat) (before : Memory Template)
     (valid : Valid make key before) (node kernel : Nat) : Valid make key (install make key before node kernel) := by
@@ -95,6 +98,10 @@ theorem install_valid (make : Nat → Template) (key : Nat → Nat) (before : Me
     subst plan
     exact fetch_installed make before (key kernel)
   · exact loaded.plans query plan (by simpa [install, Storage.update, same] using found)
+
+theorem install_plans (make : Nat → Template) (key : Nat → Nat) (before : Memory Template) (node kernel : Nat) :
+    (install make key before node kernel).plans = Storage.update before.plans node ⟨kernel, (fetch make before (key kernel)).1⟩ := by
+  cases read : before.directory (key kernel) <;> simp [install, fetch, read]
 
 def view (memory : Memory Template) (mask : Nat) : Option Template :=
   (memory.directory mask).bind memory.objects
@@ -189,5 +196,32 @@ theorem grow_decode (objects : Nat → Option Template) (slots : List (Option Pl
     (old : node < slots.length) :
     decodeVector objects (StateInterning.grow slots) node = decodeVector objects slots node := by
   simp only [decodeVector, StateInterning.grow_retains slots node old]
+
+/-- The copy/write vector is produced alongside logical plan installation.
+Captured IDs advance once per append, starting before initial installation. -/
+inductive Trace (make : Nat → Template) (key : Nat → Nat) : Memory Template → Nat → List (Option Plan) → Prop where
+  | start : Trace make key empty 0 (List.replicate 128 none)
+  | next {memory count slots} (earlier : Trace make key memory count slots) (kernel : Nat) :
+      Trace make key (install make key memory count kernel) (count + 1)
+        (VectorStorage.append slots count ⟨kernel, (fetch make memory (key kernel)).1⟩)
+
+theorem trace_shape {make : Nat → Template} {key : Nat → Nat} {memory : Memory Template} {count : Nat} {slots : List (Option Plan)}
+    (trace : Trace make key memory count slots) : memory.capacity = slots.length ∧ count ≤ slots.length ∧
+      0 < slots.length ∧ ∀ node, node < count → slots[node]?.join = memory.plans node := by
+  induction trace with
+  | start => simp [empty]
+  | @next memory count slots earlier kernel ih =>
+    have room := VectorStorage.room count slots.length ih.2.1 ih.2.2.1
+    refine ⟨?_, ?_, ?_, ?_⟩
+    · simpa only [install, VectorStorage.append_length] using congrArg (VectorStorage.capacity count) ih.1
+    · simpa only [VectorStorage.append_length] using Nat.succ_le_of_lt room
+    · simp only [VectorStorage.append_length]; omega
+    · rw [install_plans]
+      exact VectorStorage.append_refines slots memory.plans count _ ih.2.1 ih.2.2.1 ih.2.2.2
+
+theorem trace_decode {make : Nat → Template} {key : Nat → Nat} {memory : Memory Template} {count : Nat} {slots : List (Option Plan)}
+    (trace : Trace make key memory count slots) (node : Nat) (inside : node < count) :
+    decodeVector memory.objects slots node = decode memory node := by
+  simp only [decodeVector, (trace_shape trace).2.2.2 node inside, decode]
 
 end ParserEngine.PlanStorage

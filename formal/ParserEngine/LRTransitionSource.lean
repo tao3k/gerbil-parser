@@ -28,14 +28,14 @@ def workQueue : Datum := app "let" [binding "queue" (app "make-Queue" []),
           targets, app "vector-set!" [s "state-transitions", s "index", app "reverse" [s "rows"]]],
         app "loop" []]]]]
 
-def builder : Datum := defn "build-lr0-automaton" ["productions", "table", "layout", "core-symbols"] [
+def builderWith (initial : Nat) : Datum := defn "build-lr0-automaton" ["productions", "table", "layout", "core-symbols"] [
   app "let*" [l [binding "productions-by-lhs" (app "production-index-by-lhs" [s "productions"]),
     binding "prediction-catalog" (call "make-core-prediction-catalog" ["core-symbols", "productions-by-lhs", "layout"]),
     binding "initial-kernel" (app "compiler-index-set-add" [n 0, app "make-core-item" [n 0, n 0, s "layout"]]),
     binding "templates" (app "make-table" [.keyword "test", s "equal?"]),
-    binding "states" (app "make-vector" [n 128, b false]),
-    binding "state-transitions" (app "make-vector" [n 128, emptyList]),
-    binding "kernel-plans" (app "make-vector" [n 128, b false]),
+    binding "states" (app "make-vector" [n initial, b false]),
+    binding "state-transitions" (app "make-vector" [n initial, emptyList]),
+    binding "kernel-plans" (app "make-vector" [n initial, b false]),
     binding "state-index" (app "make-table" [.keyword "test", s "equal?"]),
     binding "state-count" (n 1), binding "processed-count" (n 0),
     binding "trace?" (app "equal?" [app "getenv" [.text "GERBIL_PARSER_LR_TRACE", b false], .text "1"])],
@@ -47,6 +47,8 @@ def builder : Datum := defn "build-lr0-automaton" ["productions", "table", "layo
           app "vector-set!" [s "states", n 0, call "lr0-closure" ["initial-kernel", "template"]],
           app "vector-set!" [s "kernel-plans", n 0, call "cons" ["initial-kernel", "template"]]],
         app "table-set!" [s "state-index", s "initial-kernel", n 0], grow, appendState, workQueue]]]]
+
+def builder : Datum := builderWith 128
 
 def checkedPublish {Template : Type} (source : Datum) (compute : Nat → List Nat × Template)
     (before : StateInterning.Registry Nat Template) (groups : List (Nat × Nat)) :

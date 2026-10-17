@@ -81,6 +81,10 @@ identifying its final machine with this canonical paper contract. Physical
 plan references are now allocated and decoded through =PlanStorage=, while the
 same owned scratch state flows through each group call and target publication.
 =construct_aligned= and =tick_scratch= supply those representation/frame laws.
+Shared-index writes now feed the grouping consumer through =TemplateIndex=;
+=constructed_vector= derives a counted copy/write witness for the whole queue.
+=ConstructionExtraction= binds source allocation parameters and complete schemas
+to the executable storage recipe.
 The selected LeanPoo traversal capability now supplies direct/field callback
 order to the complete queue through =traversal_finish_exact=. Its paper target
 theorem applies to final edges; concrete host primitives and compiler lowering

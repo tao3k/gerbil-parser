@@ -21,6 +21,16 @@
             (vector-set! row 2 (compiler-index-set-add (vector-ref row 2) (+ item 1))))))) closure)
     (map (lambda (id) (table-ref groups id)) (reverse order))))
 
+(def (template-index-valid? template ids)
+  (let* ((rows (vector-ref template 1))
+         (expected (full-group-reference (vector-ref template 0) ids)))
+    (and (equal? (map vector->list rows) (map vector->list expected))
+         (andmap (lambda (key)
+           (let ((row (find (lambda (row) (= (vector-ref row 1) key)) rows))
+                 (indexed (table-ref (vector-ref template 2) key #f)))
+             (if row (eq? row indexed) (not indexed))))
+           (iota (vector-length ids))))))
+
 (def (template-contents template)
   (list (map identity (vector-ref template 0))
         (map vector->list (vector-ref template 1))
@@ -37,7 +47,7 @@
          (template-count 0) (template-requests 0) (cache-ok? #t)
          (contents (make-table test: eq?)) (plans (make-table test: eq?))
          (scratch-owner #f) (first-owner #f) (last-firsts #f)
-         (storage-ok? #t) (plan-copies 0)
+         (storage-ok? #t) (plan-copies 0) (plan-owner #f) (growths '())
          (prediction (source-procedure path 'make-core-prediction-catalog prediction-dependencies))
          (symbols (source-procedure path 'make-lr0-symbol-catalog '()))
          (template (source-procedure path 'make-prediction-template
@@ -65,6 +75,7 @@
             (set! cache-ok? (and cache-ok? (not (table-ref created mask #f))))
             (table-set! created mask value)
             (table-set! contents value (template-contents value))
+            (set! storage-ok? (and storage-ok? (template-index-valid? value ids)))
             (set! template-count (+ template-count 1))
             value))
         compiler-index-set-for-each compiler-index-set-union
@@ -115,6 +126,9 @@
           ;; A physical plan is the actual (kernel . template-vector) pair.
           ;; Growth copies must retain the original shared template reference.
           (when (and (pair? value) (integer? (car value)) (vector? (cdr value)))
+            (when (and plan-owner (not (eq? plan-owner store)))
+              (set! growths (cons (list (vector-length plan-owner) (vector-length store)) growths)))
+            (set! plan-owner store)
             (let (prior (table-ref plans index #f))
               (when prior
                 (set! plan-copies (+ plan-copies 1))
@@ -129,4 +143,5 @@
             (reverse publications) calls groups-ok?
             (map (lambda (id) (vector-ref transitions id)) (iota count))
             (map (lambda (id) (vector-ref states id)) (iota count))
-            template-count template-requests cache-ok? storage-ok? plan-copies))))
+            template-count template-requests cache-ok? storage-ok? plan-copies
+            (vector-length plan-owner) (reverse growths)))))

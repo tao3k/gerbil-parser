@@ -72,6 +72,22 @@
     (equal (list-ref observed 11) #t)
     (equal (list-ref observed 12) #t)
     (equal (list-ref observed 13) 128))
+  (scenario "captured state IDs remain bounded across repeated physical vector expansion"
+    (each (case)
+      ('((127 128 0 ())
+         (128 256 128 ((128 256)))
+         (255 256 128 ((128 256)))
+         (256 512 384 ((128 256) (256 512)))
+         (511 512 384 ((128 256) (256 512)))
+         (512 1024 896 ((128 256) (256 512) (512 1024)))))
+      (scope ((width (car case)) (capacity (cadr case)) (copies (caddr case)) (growths (cadddr case)))
+        (scope ((observed (construction-observation
+          (list (list 0 'start (map (lambda (id) (list 'terminal 'token id)) (iota width)) 'concat #f)) #f)))
+        (equal (car observed) (+ width 1))
+        (equal (list-ref observed 12) #t)
+        (equal (list-ref observed 13) copies)
+        (equal (list-ref observed 14) capacity)
+        (equal (list-ref observed 15) growths)))))
   (scenario "source direct and field paths deliver the same ordered callbacks"
     (each (width) ((append '(1 2 5) (list (integer-length (##greatest-fixnum)))))
       (each (route) ('(native fixnum direct field))

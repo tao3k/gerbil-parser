@@ -88,20 +88,38 @@ structure Built (g : CFG) where
 
 /-- Output construction runs even on a cache hit: sharing predictions must
 never share the closure of two different kernels. -/
-def build (g : CFG) : Context g → Built g :=
+def produce (g : CFG) : Context g → Built g :=
   (certified g).consume fun context data proof =>
     let state := LRStateSemantics.merge (PublishedClosure.coreItems g context.kernel) data.1.1.items []
-    let reference := (PlanStorage.fetch (materialize g) context.cache.memory (predictionMask g context.kernel)).1
     ⟨(state, data.1.1.items),
-      ⟨data.1.2, proof.2.1, context.cache.scratch, context.cache.clean,
-        ConstructionStorage.append context.cache.storage context.node state ⟨context.kernel, reference⟩⟩⟩
+      ⟨data.1.2, proof.2.1, context.cache.scratch, context.cache.clean, context.cache.storage⟩⟩
 
-theorem build_exact (g : CFG) (context : Context g) :
-    (build g context).product = KernelConstruction.compute g context.kernel := by
+/-- The shared retained capability produces values and template memory first.
+The caller owns whether installation uses a source frame or the pure append. -/
+def build (g : CFG) (context : Context g) : Built g :=
+  let built := produce g context
+  let reference := (PlanStorage.fetch (materialize g) context.cache.memory (predictionMask g context.kernel)).1
+  {built with cache := {built.cache with storage := (ConstructionStorage.append context.cache.storage context.node
+    built.product.1 ⟨context.kernel, reference⟩)}}
+
+theorem produce_exact (g : CFG) (context : Context g) :
+    (produce g context).product = KernelConstruction.compute g context.kernel := by
   change (LRStateSemantics.merge (PublishedClosure.coreItems g context.kernel) (load g context).1.items [],
     (load g context).1.items) = _
   rw [load_exact]
   rfl
+
+theorem produce_storage (g : CFG) (context : Context g) : (produce g context).cache.storage = context.cache.storage := rfl
+
+/-- Heap preparation cannot change a retained template, its reference or the
+computed closure. Only the caller-owned physical heap is threaded through. -/
+theorem produce_reframe (g : CFG) (context : Context g) (heap : ConstructionStorage.Heap) :
+    produce g ⟨{context.cache with storage := heap}, context.kernel, context.node⟩ =
+      let built := produce g context
+      {built with cache := {built.cache with storage := heap}} := rfl
+
+theorem build_exact (g : CFG) (context : Context g) :
+    (build g context).product = KernelConstruction.compute g context.kernel := produce_exact g context
 
 theorem build_memory (g : CFG) (context : Context g) :
     (build g context).cache.memory = PlanStorage.install (materialize g) (predictionMask g)

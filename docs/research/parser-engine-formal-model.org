@@ -31,6 +31,9 @@ Its source-boundary table covers growth/append instructions, the distinct
 initial-state path and complete FIFO action emission. =source_complete= combines
 the actual generating factory, its safe actions, replay and physical row meaning.
 Parser-owned obligations must remain distinct from host assumptions.
+Source initialization and fresh installation generate their records from the
+shared LeanPoo value capability and instruction effects; abstract constructors
+are refinement targets rather than sources of preconstructed output records.
 
 * Module ownership
 

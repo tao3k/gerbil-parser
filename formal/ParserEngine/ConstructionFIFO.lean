@@ -81,11 +81,13 @@ def appendAction (g : Grammar.CFG) (cache : Cache g) (kernel : Nat) : Constructi
 
 def targetStep (g : Grammar.CFG) (symbol kernel : Nat) (frame : TargetFrame g) : TargetInstruction → TargetFrame g
   | .install =>
-    let installed := CachedConstruction.intern g frame.cache frame.registry kernel
-    {frame with
-      registry := {installed.1.registry with pending := frame.registry.pending},
-      cache := installed.2, id := installed.1.id, fresh := installed.1.fresh,
-      actions := if installed.1.fresh then frame.actions ++ [appendAction g frame.cache kernel] else frame.actions}
+    match frame.registry.index kernel with
+    | some id => {frame with id := id, fresh := false}
+    | none =>
+      let installed := ConstructionInstallation.append g frame.cache frame.registry kernel
+      {frame with
+        registry := installed.registry, cache := installed.cache, id := installed.id, fresh := true,
+        actions := frame.actions ++ [appendAction g frame.cache kernel]}
   | .row => {frame with rows := (symbol, frame.id) :: frame.rows}
   | .enqueue => if frame.fresh then {frame with registry := {frame.registry with pending := frame.registry.pending ++ [frame.id]}} else frame
 
@@ -93,14 +95,30 @@ def target (program : Program) (g : Grammar.CFG) (cache : Cache g)
     (before : StateInterning.Registry Nat (List Nat)) (symbol kernel : Nat) (rows : Row) : TargetFrame g :=
   program.target.foldl (targetStep g symbol kernel) ⟨before, cache, rows, 0, false, []⟩
 
+theorem target_existing (g : Grammar.CFG) (cache : Cache g) (before : StateInterning.Registry Nat (List Nat))
+    (symbol kernel id : Nat) (rows : Row) (found : before.index kernel = some id) :
+    target canonical g cache before symbol kernel rows = ⟨before, cache, (symbol, id) :: rows, id, false, []⟩ := by
+  simp [target, canonical, targetStep, found]
+
+theorem target_before_enqueue (g : Grammar.CFG) (cache : Cache g) (before : StateInterning.Registry Nat (List Nat))
+    (symbol kernel : Nat) (rows : Row) (fresh : before.index kernel = none) :
+    let frame := target {canonical with target := [.install, .row]} g cache before symbol kernel rows
+    frame.registry.pending = before.pending ∧ frame.rows = (symbol, before.keys.length) :: rows := by
+  simp only [target, List.foldl_cons, List.foldl_nil, targetStep, fresh]
+  exact ⟨(ConstructionInstallation.append_queue g cache before kernel).1,
+    by rw [ConstructionInstallation.append_id]⟩
+
 theorem target_exact (g : Grammar.CFG) (cache : Cache g) (before : StateInterning.Registry Nat (List Nat))
     (symbol kernel : Nat) (rows : Row) :
     target canonical g cache before symbol kernel rows =
       let installed := CachedConstruction.intern g cache before kernel
       ⟨installed.1.registry, installed.2, (symbol, installed.1.id) :: rows, installed.1.id, installed.1.fresh,
         if installed.1.fresh then [appendAction g cache kernel] else []⟩ := by
-  cases found : before.index kernel <;>
-    simp [target, canonical, targetStep, CachedConstruction.intern, found, StateInterning.intern]
+  cases found : before.index kernel with
+  | some id => simp [target, canonical, targetStep, CachedConstruction.intern, found]
+  | none =>
+    simp [target, canonical, targetStep, found, ConstructionInstallation.append_exact g cache before kernel found,
+      CachedConstruction.intern, StateInterning.intern]
 
 structure Groups (g : Grammar.CFG) where
   registry : StateInterning.Registry Nat (List Nat)

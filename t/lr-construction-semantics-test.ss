@@ -148,6 +148,18 @@
           (2 A () concat #f)) capacity) '(4 #t #t #t #t))))
   (scenario "source target callback treats ID zero as existing"
     (equal (existing-zero-observation) '((token . 0))))
+  (scenario "source FIFO retains identities across reconverging nullable branches"
+    (each (capacity) ('(1 3 128))
+      (scope ((observed (fifo-source-observation
+        '((0 start ((nonterminal A)) concat #f)
+          (1 A ((nonterminal B)) concat #f)
+          (2 A ((nonterminal C)) concat #f)
+          (3 B ((terminal token a) (nonterminal A)) concat #f)
+          (4 B () concat #f)
+          (5 C ((terminal token b) (nonterminal A)) concat #f)
+          (6 C () concat #f)) capacity)))
+        (equal (> (car observed) 4) #t)
+        (equal (cdr observed) '(#t #t #t #t)))))
   (scenario "source direct and field paths deliver the same ordered callbacks"
     (each (width) ((append '(1 2 5) (list (integer-length (##greatest-fixnum)))))
       (each (route) ('(native fixnum direct field))

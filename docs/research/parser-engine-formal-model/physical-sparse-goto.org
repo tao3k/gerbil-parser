@@ -365,6 +365,27 @@ cache heap is produced by those instructions, and the initial index is produced
 by replaying their registration effects. =initial_exact= leaves the queue empty;
 the outer queue alone enqueues ID zero in =start_exact=.
 
+The source initializer no longer reads =CachedConstruction.initial= to populate
+its result. [[file:../../../formal/ParserEngine/ConstructionInstallation.lean][ConstructionInstallation.registry]] generates its logical views from the
+certified product, captured frame index and registration writes. The source
+factory uses [[file:../../../formal/ParserEngine/TemplateCapabilities.lean][TemplateCapabilities.produce]], a shared LeanPoo consumer that returns
+template values and memory while preserving the caller's physical heap.
+=produce_exact= and =produce_storage= establish those responsibilities. The
+ordinary algorithm builder and both source installation paths reuse this same
+retained value capability.
+
+Fresh-target installation also no longer reads =CachedConstruction.intern= as
+its output. =ConstructionInstallation.append= first prepares the physical heap,
+then invokes the value capability with that heap, and finally executes the
+remaining append instructions. =produce_reframe= proves that this heap change
+cannot change template values, references or closure results. =growth_prefix=
+connects the remaining instructions to the complete source append frame.
+Its result supplies the returned ID and counter; =append_accounting= proves
+counter/allocated-length agreement. =append_queue= proves no hidden enqueue or
+processing increment occurs. The old constructors appear only in refinement
+theorems, where their results are compared with the independently generated
+source effects.
+
 =ConstructionFIFO.decode= checks the outer empty test, seed ID, dequeue,
 processed-count increment, plan read, ordered target callback, reverse/write
 publication and tail call. Target lookup preserves ID zero as an existing
@@ -375,6 +396,10 @@ target lists. During a fresh append, one allocated ID is temporarily absent
 from the queue; the callback restores the stable accounting only after cons
 and enqueue. This legal intermediate state must not be mistaken for a broken
 stable FIFO invariant.
+=target_existing= proves cache/registry identity on reuse without invoking a
+producer. =target_before_enqueue= proves that the row already contains the
+new returned ID while the queue is still unchanged. These prefix laws do not
+assume a final registry equality.
 
 =tick_exact= and =finish_exact= connect interpreted dequeue/publication to the
 complete cached construction. The loop terminates by the existing finite-core
@@ -433,9 +458,9 @@ are rejected, including receipts whose final vector contents would still agree.
 | Empty transition initializer | The model keeps an unpublished ghost tag; both unpublished and published-empty rows decode to the native empty list. This is not an extra native tag or allocation. |
 | Compiler and GC | External premises; no Gambit changes, builds or compiler-correctness claim. |
 
-The composition qualification passes 190 Lean build jobs with only the standard
+The composition qualification passes 191 Lean build jobs with only the standard
 =propext=, =Classical.choice= and =Quot.sound= axioms in the new audited theorems.
-The existing Scheme test macros run 281 cases across 13 owners, including final
+The existing Scheme test macros run 282 cases across 13 owners, including final
 physical queries, joint copies at capacities 1, 2, 3, 5 and 128, repeated growth,
 recursive shared-template growth, receipt mutations, nonpositive-capacity
 rejection, passive owner-control observations and the damaged-index control.
@@ -448,11 +473,15 @@ premature publication, early counter and wrong return rejection. The existing
 complete lifecycle remains a separate bounded check. These finite checks
 support the universal Lean composition and do not replace it. No CPU improvement
 is claimed.
-The source FIFO model additionally passes ten directed checks and 1,000
+The source FIFO model additionally passes twelve directed checks and 1,000
 histories of 80 transitions, including wrong initial counter, missing seed,
 duplicate existing enqueue, missing fresh enqueue and missing reverse controls.
 Its dequeue and processed-counter actions are separate, including the legal
 transient state before accounting catches up with the removed queue head.
+Growth preparation and template-value production are separate as well; a
+premature-production control rejects a missing growth prefix. Native controls
+also cover reconverging nullable branches with repeated target reuse at initial
+capacities 1, 3 and 128.
 
 These conditions are acceptance boundaries, not obligations silently discharged
 by finite tests. =current_admitted= admits the current source; =prepared= admits
@@ -480,6 +509,7 @@ No engine optimization is justified by this composition alone.
 | Source growth realization | =ConstructionControl.source_decoded= and forward-copy laws -> =ConstructionFIFO.construct_replay= -> =source_replay= | Full growth-declaration decoder, forward-loop safety and sequential owner stages; normal-return host contracts remain external |
 | Source append realization | =ConstructionAppend.intern_step= -> =ConstructionFIFO.intern_replay= -> same retained actions and =source_replay= | Complete append decoder; actual producer values; old ID, ordered registration and counter mutation; valid write bounds |
 | Initial and complete source execution | =ConstructionFIFO.build= -> LeanPoo retained factory -> =source_complete= | Special initial writes and index replay; source-generated actions; per-step safety; complete FIFO termination; same physical row/goto meaning |
+| Independent source installation | =TemplateCapabilities.produce= -> =ConstructionInstallation.append= and =ConstructionInitialization.initial= -> same FIFO factory | Certified value production preserves the heap; source frames generate physical writes and logical views; abstract initial/intern constructors are comparison targets only |
 | Interning, FIFO and final rows | =construct_exact= and returned =Product= | Hash equality and queue primitives |
 | Source authority | Named parameter extraction, =extracted_sources=, executable recipes and fresh reader witnesses | Restricted construction idioms, not a general Scheme execution theorem |
 | Compiler, GC and host memory | Explicit external premises | No Gambit modification or build; no native compiler correctness claim |
@@ -504,8 +534,8 @@ protocol, with their implementation boundary kept explicit:
 
 | Parser-owned obligation | Current evidence | Boundary |
 |--------------------------+------------------+---------------------------------|
-| Initial state | Dedicated decoder, instruction execution, actual heap/index effects, =initial_exact= and =start_exact=; positive capacities are source-derived. | Normal-form first append is a proved equivalence, not a claim that native initialization calls append or grows. |
-| Complete FIFO action emission | Decoded queue/target instructions, =construct_exact=, =construct_replay= and =construct_safe=; LeanPoo retains the generating factory and exact actions. | Helpers use their existing algorithm contracts; compiler and primitive host implementation remain external. |
+| Initial state | Dedicated decoder, independently generated logical views and heap/index effects, =initial_exact= and =start_exact=; positive capacities are source-derived. | No preconstructed initial registry is read. Normal-form first append is a proved equivalence, not a claim that native initialization calls append or grows. |
+| Complete FIFO action emission | Decoded queue/target instructions, independent fresh installation, =construct_exact=, =construct_replay= and =construct_safe=; LeanPoo retains the generating factory and exact actions. | Abstract intern is a comparison theorem only. Value helpers use their retained algorithm contracts; compiler and primitive host implementation remain external. |
 | Template and closure calls | =intern_step= uses the actual retained producer's computed closure and shared reference; independent producer laws prove their algorithmic meaning. | Actual host call/return evaluation and nonlocal continuation/exception effects are outside the normal-return parser effect protocol. |
 
 These are parser correspondence proofs, not compiler or GC proofs. They close

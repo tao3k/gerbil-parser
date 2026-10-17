@@ -348,3 +348,14 @@ import ParserEngine.Components
 #print axioms ParserEngine.ConstructionConsumer.source_replay
 #print axioms ParserEngine.ConstructionConsumer.source_complete
 #print axioms ParserEngine.ConstructionFIFO.rejected
+#print axioms ParserEngine.TemplateCapabilities.produce_exact
+#print axioms ParserEngine.TemplateCapabilities.produce_storage
+#print axioms ParserEngine.TemplateCapabilities.produce_reframe
+#print axioms ParserEngine.ConstructionInstallation.growth_prefix
+#print axioms ParserEngine.ConstructionInstallation.append_exact
+#print axioms ParserEngine.ConstructionInstallation.append_accounting
+#print axioms ParserEngine.ConstructionInstallation.append_id
+#print axioms ParserEngine.ConstructionInstallation.append_queue
+#print axioms ParserEngine.ConstructionInitialization.initial_accounting
+#print axioms ParserEngine.ConstructionFIFO.target_existing
+#print axioms ParserEngine.ConstructionFIFO.target_before_enqueue

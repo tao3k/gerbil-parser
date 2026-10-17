@@ -1,4 +1,4 @@
-import ParserEngine.ConstructionAppend
+import ParserEngine.ConstructionInstallation
 
 /-! The builder initializes slot zero with an already-one counter. This is a
 distinct source path, not an invocation of append-state!. Host vector and
@@ -91,17 +91,18 @@ theorem source_decoded (builder growth installation template : Datum) (recipe : 
   rw [(ConstructionExtraction.extracted_sources _ _ _ _ recipe admitted).1]
   exact schema_decoded recipe.initial
 
-/-- The cache heap used by the initial producer is replaced by the actual
-initialization instruction result, while its other retained values persist. -/
+/-- Certified template values feed the actual initialization frame. The
+registry and heap are generated from its effects; no cached initial result is
+read to populate the output. -/
 def initial (program : List Instruction) (g : Grammar.CFG) (layout : PlanStorage.Layout) :
     ConstructionQueue.Machine × CachedConstruction.Cache g :=
-  let installed := CachedConstruction.initial g layout
   let cache := TemplateCapabilities.empty g layout
+  let built := TemplateCapabilities.produce g ⟨cache, 1, 0⟩
   let plan : PlanStorage.Plan := ⟨1, (PlanStorage.fetch (TemplateCapabilities.materialize g)
     cache.memory (TemplateCapabilities.predictionMask g 1)).1⟩
-  let frame := run program layout (KernelConstruction.compute g 1).1 plan
-  (⟨{installed.1.registry with pending := [], index := replayIndex (fun _ => none) frame.registered}, installed.1.transitions⟩,
-    {installed.2 with storage := frame.heap})
+  let frame := run program layout built.product.1 plan
+  (⟨ConstructionInstallation.registry ConstructionQueue.empty 1 built.product frame, fun _ => none⟩,
+    {built.cache with storage := frame.heap})
 
 /-- Initialization has no enqueue. The outer source queue owns the single
 enqueue of ID zero, after initialization and registration complete. -/
@@ -109,22 +110,14 @@ theorem initial_exact (g : Grammar.CFG) (layout : PlanStorage.Layout) :
     initial canonical g layout =
       (⟨{(CachedConstruction.initial g layout).1.registry with pending := []},
         (CachedConstruction.initial g layout).1.transitions⟩, (CachedConstruction.initial g layout).2) := by
-  have heap : (run canonical layout (KernelConstruction.compute g 1).1
-      ⟨1, (PlanStorage.fetch (TemplateCapabilities.materialize g)
-        (TemplateCapabilities.empty g layout).memory (TemplateCapabilities.predictionMask g 1)).1⟩).heap =
-        (CachedConstruction.initial g layout).2.storage := by
-    rw [run_exact]
-    simp only [CachedConstruction.initial, CachedConstruction.intern, ConstructionQueue.empty,
-      TemplateCapabilities.build_storage, TemplateCapabilities.empty]
-    rfl
-  have index : replayIndex (fun _ => none) (run canonical layout (KernelConstruction.compute g 1).1
-      ⟨1, (PlanStorage.fetch (TemplateCapabilities.materialize g)
-        (TemplateCapabilities.empty g layout).memory (TemplateCapabilities.predictionMask g 1)).1⟩).registered =
-        (CachedConstruction.initial g layout).1.registry.index := by
-    rw [run_exact]
-    simp only [replayIndex, List.foldl_cons, List.foldl_nil, CachedConstruction.initial, CachedConstruction.intern,
-      ConstructionQueue.empty, StateInterning.intern]
-    rfl
-  simp only [initial, heap, index]
+  simp only [initial, run_exact, ConstructionInstallation.registry, replayIndex, List.foldl_cons, List.foldl_nil,
+    CachedConstruction.initial, CachedConstruction.intern, ConstructionQueue.empty, StateInterning.intern,
+    TemplateCapabilities.build]
+  rfl
+
+theorem initial_accounting (g : Grammar.CFG) (layout : PlanStorage.Layout) :
+    (initial canonical g layout).1.registry.keys = [1] ∧
+      (initial canonical g layout).1.registry.pending = [] ∧
+      (initial canonical g layout).1.registry.processed = 0 := ⟨rfl, rfl, rfl⟩
 
 end ParserEngine.ConstructionInitialization

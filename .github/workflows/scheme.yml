@@ -550,7 +550,7 @@ jobs:
         run: |
           CARGO_TARGET_DIR="$PWD/target" \
             gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 30 \
-            --log .data/rust-native-build.log \
+            --log .data/rust-native-build.log --compiler-outputs "$PWD/target/debug" \
             -- cargo build --locked --manifest-path t/fixtures/rust-language-abi/Cargo.toml
           GERBIL_PARSER_RUST_NATIVE_ARCHIVE="$PWD/target/debug/librust_language_abi_fixture.a" \
             GERBIL_BUILD_VERBOSE=1 gerbil env gxi qualify.ss run \

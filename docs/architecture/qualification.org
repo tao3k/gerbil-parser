@@ -51,6 +51,27 @@ A Scheme replacement for a rustc proxy would risk closing
 Cargo's inherited jobserver descriptors through Gambit's process launcher;
 the product owner therefore invokes Cargo directly without that proxy.
 
+Rust compilation can publish metadata and object files while Cargo emits no
+text. =qualify.ss run --compiler-outputs target/debug= observes changed nonempty
+=.rmeta=, =.rlib=, =.o= and =.a= products in that explicitly selected directory.
+The observer records an initial baseline by device/inode and rejects unchanged
+cached files, renamed or hard-linked cached objects, empty files and unrelated
+log output. Modification times reject old copied products; second-resolution
+SDK timestamps are combined with identity and size. A disappearing transient
+compiler path is ignored; other filesystem errors fail qualification.
+
+This is evidence of build activity, not semantic admission. Observer messages
+cannot satisfy child receipts. Compiler exit, complete receipts and the absolute
+deadline are still required. The Rust ABI build retains its 90-second total and
+30-second idle fences; no periodic heartbeat or timeout increase is used.
+The same observer is used by the runtime-host product owner. A cold local Cargo
+build exercises actual compiler outputs; macro-based controls reject cached
+and relocated products and verify fresh writes, stable files and deletions.
+The original Ubuntu failure contained only a compilation-start line before
+the idle fence, so it does not prove whether rustc was making progress. The new
+activity records distinguish those cases in subsequent CI; local validation
+does not establish that the Ubuntu failure is resolved.
+
 * Evidence boundary
 
 Process controls qualify cancellation and evidence transport. They do not

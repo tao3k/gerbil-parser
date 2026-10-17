@@ -3,6 +3,15 @@
 (import :std/test :std/io/tempfile
         (only-in :std/text/pregexp pregexp pregexp-match)
         :gerbil-parser/t/support/qualification/process)
+(import (only-in :gerbil-parser/t/support/qualification/compiler-output compiler-output-observer))
+
+(def (with-compiler-outputs proc)
+  (let (directory (make-temporary-file-name "parser-compiler-output-"))
+    (create-directory directory)
+    (try (proc directory) (finally (delete-file-or-directory directory #t)))))
+
+(def (write-compiler-output directory name text)
+  (call-with-output-file (path-expand name directory) (lambda (port) (display text port))))
 
 (def (with-output-result mode proc)
   (let ((log (make-temporary-file-name "parser-output-test-"))
@@ -26,6 +35,28 @@
         (when (file-exists? log) (delete-file log))))))
 (deflanguage-parser-tests qualification-output-test "qualification output framing"
   (engine)
+    (scenario "cached and relocated compiler products cannot supply progress"
+      (using (with-compiler-outputs) (directory)
+        (act (write-compiler-output directory "cached.rmeta" "cached"))
+        (scope ((observe (compiler-output-observer directory 0)))
+          (equal (observe) #f)
+          (act (rename-file (path-expand "cached.rmeta" directory) (path-expand "moved.rmeta" directory)))
+          (equal (observe) #f)
+          (equal (observe) #f))))
+    (scenario "only fresh nonempty compiler products advance the observer"
+      (using (with-compiler-outputs) (directory)
+        (scope ((observe (compiler-output-observer directory 0)))
+          (act (thread-sleep! 0.02))
+          (act (write-compiler-output directory "heartbeat.log" "still alive"))
+          (act (write-compiler-output directory "empty.rmeta" ""))
+          (equal (observe) #f)
+          (act (write-compiler-output directory "module.rmeta" "metadata"))
+          (equal (observe) #t)
+          (equal (observe) #f)
+          (act (write-compiler-output directory "module.rmeta" "more metadata"))
+          (equal (observe) #t)
+          (act (delete-file (path-expand "module.rmeta" directory)))
+          (equal (observe) #f))))
     (scenario "batched receipts preserve regexp line semantics and missing order"
       (sequential ((text "first\nx42\n\nliteral.end\nlast")
              (patterns '("^first$" "^x[0-9]+$" "literal\\.end" "^last$" "^absent$" "first\nx42" "^absent$"))

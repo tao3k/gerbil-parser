@@ -20,20 +20,33 @@ module ConstructionHeap {
     q'={...q,cursor:q.cursor+1,stage:{states:q.stage.states.replaceAt(q.cursor,q.heap.states.nth(q.cursor)),
       rows:q.stage.rows.replaceAt(q.cursor,q.heap.rows.nth(q.cursor)),
       plans:q.stage.plans.replaceAt(q.cursor,q.heap.plans.nth(q.cursor))}}}
-  action publishHeap=all {q.phase=="copy",q.cursor==q.count,q'={...q,heap:q.stage,phase:"ready"}}
+  action publishStates=all {q.phase=="copy",q.cursor==q.count,
+    q'={...q,heap:{...q.heap,states:q.stage.states},phase:"publish-rows"}}
+  action publishRows=all {q.phase=="publish-rows",
+    q'={...q,heap:{...q.heap,rows:q.stage.rows},phase:"publish-plans"}}
+  action publishPlans=all {q.phase=="publish-plans",
+    q'={...q,heap:{...q.heap,plans:q.stage.plans},phase:"ready"}}
   action writeRow(node:int):bool=all {
     q.phase=="ready",node<q.count,
     q'={...q,rows:q.rows.replaceAt(node,node+30),heap:{...q.heap,rows:q.heap.rows.replaceAt(node,node+30)}}}
   action publishRow={nondet node=Set(0,1,2,3,4,5,6,7,8).oneOf();writeRow(node)}
-  action step=any {appendState,beginGrowth,copyCell,publishHeap,publishRow,q'=q}
+  action step=any {appendState,beginGrowth,copyCell,publishStates,publishRows,publishPlans,publishRow,q'=q}
   val HeapSafety=all {
     q.origin>0,q.count>=0,q.count<=q.heap.states.length(),
-    q.heap.states.length()==q.heap.rows.length(),q.heap.states.length()==q.heap.plans.length(),
+    Set("ready","copy","publish-rows","publish-plans").contains(q.phase),
+    (q.phase=="ready" or q.phase=="copy") implies
+      (q.heap.states.length()==q.heap.rows.length() and q.heap.states.length()==q.heap.plans.length()),
     q.states.length()==q.count,q.rows.length()==q.count,q.plans.length()==q.count,
-    q.heap.states.indices().forall(node=>
-      if(node<q.count) q.heap.states.nth(node)==q.states.nth(node) and
-        q.heap.rows.nth(node)==q.rows.nth(node) and q.heap.plans.nth(node)==q.plans.nth(node)
-      else q.heap.states.nth(node)== -1 and q.heap.rows.nth(node)== -1 and q.heap.plans.nth(node)== -1),
+    if(q.heap.rows.length()>=q.count and q.heap.plans.length()>=q.count)
+      q.states.indices().forall(node=>q.heap.states.nth(node)==q.states.nth(node) and
+        q.heap.rows.nth(node)==q.rows.nth(node) and q.heap.plans.nth(node)==q.plans.nth(node)) else false,
+    q.heap.states.indices().forall(node=>node<q.count or q.heap.states.nth(node)== -1),
+    q.heap.rows.indices().forall(node=>node<q.count or q.heap.rows.nth(node)== -1),
+    q.heap.plans.indices().forall(node=>node<q.count or q.heap.plans.nth(node)== -1),
+    (q.phase=="publish-rows" or q.phase=="publish-plans") implies all {
+      q.cursor==q.count,q.heap.states==q.stage.states,q.heap.states.length()==2*q.count,
+      q.stage.rows.length()==2*q.count,q.stage.plans.length()==2*q.count,q.heap.plans.length()==q.count,
+      if(q.phase=="publish-rows") q.heap.rows.length()==q.count else q.heap.rows==q.stage.rows},
     (q.phase=="copy") implies all {
       q.count==q.heap.states.length(),q.cursor>=0,q.cursor<=q.count,
       q.stage.states.length()==2*q.count,q.stage.rows.length()==2*q.count,q.stage.plans.length()==2*q.count,
@@ -42,9 +55,10 @@ module ConstructionHeap {
           q.stage.rows.nth(node)==q.heap.rows.nth(node) and q.stage.plans.nth(node)==q.heap.plans.nth(node)
         else q.stage.states.nth(node)== -1 and q.stage.rows.nth(node)== -1 and q.stage.plans.nth(node)== -1)}}
   run unitGrowthTest=setup(1).then(appendState).then(writeRow(0)).then(beginGrowth)
-    .then(copyCell).then(publishHeap).then(appendState).expect(q.count==2 and q.heap.rows.nth(0)==30 and HeapSafety)
+    .then(copyCell).then(publishStates).then(publishRows).then(publishPlans).then(appendState)
+    .expect(q.count==2 and q.heap.rows.nth(0)==30 and HeapSafety)
   run nonPowerCapacityTest=setup(3).then(appendState).then(appendState).then(appendState)
-    .then(beginGrowth).then(copyCell).then(copyCell).then(copyCell).then(publishHeap)
+    .then(beginGrowth).then(copyCell).then(copyCell).then(copyCell).then(publishStates).then(publishRows).then(publishPlans)
     .then(appendState).expect(q.heap.states.length()==6 and q.count==4 and HeapSafety)
   run zeroCapacityRejectedTest=setup(0).expect(not(HeapSafety))
   run unequalCapacityRejectedTest=setup(2).then(q'={...q,heap:{...q.heap,rows:List()}}).expect(not(HeapSafety))
@@ -52,4 +66,8 @@ module ConstructionHeap {
     .then(q'={...q,stage:{...q.stage,rows:q.stage.rows.replaceAt(0,-1)}}).expect(not(HeapSafety))
   run earlyPublicationRejectedTest=setup(1).then(appendState).then(beginGrowth)
     .then(q'={...q,heap:q.stage,phase:"ready"}).expect(not(HeapSafety))
+  run partialOwnersPreservedTest=setup(1).then(appendState).then(beginGrowth).then(copyCell).then(publishStates)
+    .expect(q.phase=="publish-rows" and q.heap.states.length()==2 and q.heap.rows.length()==1 and q.heap.plans.length()==1 and HeapSafety)
+  run wrongOwnerOrderRejectedTest=setup(1).then(appendState).then(beginGrowth).then(copyCell)
+    .then(q'={...q,heap:{...q.heap,rows:q.stage.rows},phase:"publish-rows"}).expect(not(HeapSafety))
 }

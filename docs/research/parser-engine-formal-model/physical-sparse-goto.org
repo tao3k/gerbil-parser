@@ -298,26 +298,75 @@ controls change only captured receipts: missing copies, wrong indices and wrong
 values must be rejected. The existing published-index corruption control is
 retained. No runtime fixture substitutes a copied LR construction algorithm.
 
+** Source control and the joint history
+
+[[file:../../../formal/ParserEngine/ConstructionControl.lean][ConstructionControl]] audits the boundary between the joint append/publication
+history and actual =grow!= control. =decode= recognizes the entire supported
+declaration: the full-capacity guard, each allocation initializer, loop start
+zero, strict count bound, unit increment, matching copy sources/destinations
+and three ordered owner assignments. It returns an executable program derived
+from these instructions. Unsupported or malformed programs cannot execute via
+=executeSource=; a nonadvancing loop is rejected rather than translated to +1.
+
+The interpreter uses the native forward tail-recursive cursor. =forward_prefix=
+proves its equivalence to the counted joint copy for arbitrary heaps and bounds.
+=loop_safe= and =growth_safe= derive valid source and target accesses at every
+iteration from the owned shape. Native bounds safety is not inferred from the
+model's out-of-range list-set behavior. =owner_stages= makes intermediate owners
+explicit: after the first assignment, states are new while rows and plans are
+old; after the second, only plans remain old. The invariant requiring equal
+capacities applies again after all three assignments complete.
+
+Independent =let= allocation initializers need no extra order premise at the
+value representation: =allocation_permutation= proves their commutation.
+Fresh/disjoint physical allocation and address encoding remain host contracts.
+The model does not claim that allocation traces or physical addresses agree
+under different evaluation orders.
+
+=trace_realizes= generates a safe executable action history from every joint
+construction trace. Append actions carry shape and loop-access safety; row
+publication actions carry allocated-ID bounds. The LeanPoo retained family now
+certifies this realization together with the machine, alignment and owned
+heap; its consumer retains the realization. =source_execution= then decodes
+the admitted real growth source and reaches exactly the same complete heap.
+No arbitrary final-heap certificate or hand-supplied execution trace is needed.
+
+This is a refinement of the parser-owned vector-effect protocol on normal
+return. The surrounding certified queue supplies append and row actions;
+hash/queue primitives and the producer callbacks retain their existing
+contracts. It is not a small-step semantics for arbitrary Scheme, a compiler
+correctness theorem, or an exception/continuation refinement through primitive
+calls. Those host behaviors remain external rather than silently discharged by
+source equality or finite tests.
+
+The passive native control observes the actual nested growth body. It records
+the copy count at each lexical owner assignment and retains all three owner
+references. Full copies must precede every owner switch; the intermediate old
+references must match the source. Reversed, missing and premature owner receipts
+are rejected, including receipts whose final vector contents would still agree.
+
 | Remaining condition | Status and admission rule |
 |---------------------+---------------------------|
 | Initial capacity | Positive capacity is part of =Layout=. Extraction supplies it to the complete factory; capacity one and non-power-of-two capacities use the same universal queue proof. |
 | Expansion and supported instructions | Factor two and complete builder/growth/append/template schemas are checked before execution. Unsupported instructions are rejected. |
 | Source-to-host semantics | Restricted reader/schema correspondence, not interpretation of arbitrary Scheme; host arithmetic, allocation, vectors, hashing, queues and sorting remain external. |
 | Joint vector storage | One counted copy loop, state/plan installation and transition publication generate a joint trace. Shape, capacity, all three reads and complete paper targets are derived through the full queue. |
+| Source copy control | =source_decoded=, =forward_prefix=, =loop_safe=, =owner_stages= and =source_execution= connect the admitted real growth declaration to the complete heap on normal return. |
 | Empty transition initializer | The model keeps an unpublished ghost tag; both unpublished and published-empty rows decode to the native empty list. This is not an extra native tag or allocation. |
 | Compiler and GC | External premises; no Gambit changes, builds or compiler-correctness claim. |
 
-The composition qualification passes 185 Lean build jobs with only the standard
+The composition qualification passes 186 Lean build jobs with only the standard
 =propext=, =Classical.choice= and =Quot.sound= axioms in the new audited theorems.
-The existing Scheme test macros run 276 cases across 13 owners, including final
+The existing Scheme test macros run 278 cases across 13 owners, including final
 physical queries, joint copies at capacities 1, 2, 3, 5 and 128, repeated growth,
 recursive shared-template growth, receipt mutations, nonpositive-capacity
-rejection and the damaged-index control; the suite exits naturally in 23.89
-seconds under unchanged 90-second
-total and 5-second idle limits. Fresh source witnesses and 19 evidence controls
-pass. The joint-heap Quint model adds six directed controls and 1,000 bounded
+rejection, passive owner-control observations and the damaged-index control.
+The suite retains unchanged 90-second total and 5-second idle limits. Fresh
+source witnesses and 19 evidence controls pass. The joint-heap Quint model has
+eight directed controls and 1,000 bounded
 histories of 60 transitions, including staging copies, publication of copied
-rows, non-power-of-two growth and premature publication rejection. The existing
+rows, non-power-of-two growth, partially switched owners, wrong owner order and
+premature publication rejection. The existing
 complete lifecycle remains a separate bounded check. These finite checks
 support the universal Lean composition and do not replace it. No CPU improvement
 is claimed.
@@ -345,6 +394,7 @@ No engine optimization is justified by this composition alone.
 | Aggregate-key cache lifetime | =construct_covered=, =cache_hit=; native object identity and factory counts | Per-builder grammar/layout; no cross-builder admission |
 | Physical plan/reference reads | =decode_install=, =decode_other= and =construct_aligned= | Logical references; primitive pointer encoding external |
 | Joint physical vectors | =copy_fields=, =append_exact=, =publish_refines= and =ConstructionHeap.construct_owned= -> =joint_observations=, =joint_index=, =physical_complete= and =physical_paper_target= | Every positive initial capacity; native row initializer decoded with an unpublished ghost tag; primitive vector operations external |
+| Source control realization | =ConstructionControl.trace_realizes= -> LeanPoo joint contract -> =source_execution= | Full growth-declaration decoder, forward-loop safety and sequential owner stages; normal-return host contracts remain external |
 | Interning, FIFO and final rows | =construct_exact= and returned =Product= | Hash equality and queue primitives |
 | Source authority | Named parameter extraction, =extracted_sources=, executable recipes and fresh reader witnesses | Restricted construction idioms, not a general Scheme execution theorem |
 | Compiler, GC and host memory | Explicit external premises | No Gambit modification or build; no native compiler correctness claim |

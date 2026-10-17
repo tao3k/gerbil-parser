@@ -8,6 +8,7 @@
             (else '())))
    (gxc: "t/support/qualification/ownership")
    (gxc: "t/support/qualification/process")
+   (gxc: "t/support/qualification/compiler-output")
    (gxc: "t/support/qualification/products")
    (gxc: "t/support/qualification/environment")
    (gxc: "t/support/qualification/performance")

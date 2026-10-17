@@ -90,6 +90,9 @@ before executing the retained factory, then connects final physical-slot index
 queries and complete published rows to the same paper-level machine. Its
 maintained map records the joint three-vector history for every positive initial
 layout, the supported source protocol and the remaining external host premises.
+=ConstructionControl= decodes the growth declaration, proves the forward loop
+and intermediate owner stages, and realizes each joint history as safe source
+control; the LeanPoo consumer retains that realization for =source_execution=.
 The selected LeanPoo traversal capability now supplies direct/field callback
 order to the complete queue through =traversal_finish_exact=. Its paper target
 theorem applies to final edges; concrete host primitives and compiler lowering

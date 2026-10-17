@@ -1,5 +1,6 @@
 ;;; Native products retain SDK compiler and Cargo ownership.
 (import ./process ./environment :std/io/tempfile :std/misc/ports :std/text/pregexp :std/string/misc)
+(import (only-in ./compiler-output compiler-output-observer))
 (export #t)
 (def (with-product-directory prefix proc)
  (let (directory (make-temporary-file-name prefix))
@@ -115,7 +116,8 @@
       (build-language-library! library '("gerbil-parser/t/fixtures/shared-scanner/records-engine-abi"))))
     (run-qualified! (append ["cargo" "build" "--locked" "--manifest-path" "t/fixtures/rust-language-abi/Cargo.toml" "--features" "standalone,tokio"]
                            (if cpu-proof? '("--release") '()))
-                    ".data/native-host/rust-build.log" timeout: 90 idle-timeout: 30)
+                    ".data/native-host/rust-build.log" timeout: 90 idle-timeout: 30
+                    observe: (compiler-output-observer (path-expand (if cpu-proof? "target/release" "target/debug"))))
     (run-qualified! (append [compiler "-std=c11" "-D_POSIX_C_SOURCE=200809L" "-Iinclude" "-I." "t/runtime-host.c"
                             archive library "-lpthread" "-lm"]
                             (cond-expand (darwin '()) (else '("-ldl"))) ["-o" host])

@@ -301,3 +301,19 @@ import ParserEngine.Components
 #print axioms ParserEngine.ConstructionConsumer.joint_index
 #print axioms ParserEngine.ConstructionExtraction.schema_recipe
 #print axioms ParserEngine.ConstructionConsumer.schema_constructs
+
+#print axioms ParserEngine.ConstructionControl.forward_prefix
+#print axioms ParserEngine.ConstructionControl.allocation_permutation
+#print axioms ParserEngine.ConstructionControl.copy_exact
+#print axioms ParserEngine.ConstructionControl.loop_safe
+#print axioms ParserEngine.ConstructionControl.growth_safe
+#print axioms ParserEngine.ConstructionControl.owner_stages
+#print axioms ParserEngine.ConstructionControl.grow_exact
+#print axioms ParserEngine.ConstructionControl.append_exact
+#print axioms ParserEngine.ConstructionControl.source_decoded
+#print axioms ParserEngine.ConstructionControl.trace_realizes
+#print axioms ParserEngine.ConstructionControl.source_realizes
+#print axioms ParserEngine.ConstructionControl.malformed_rejected
+#print axioms ParserEngine.ConstructionControl.unsupported_rejected
+#print axioms ParserEngine.ConstructionControl.nonadvancing_rejected
+#print axioms ParserEngine.ConstructionConsumer.source_execution

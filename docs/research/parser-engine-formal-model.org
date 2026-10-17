@@ -20,6 +20,7 @@ Host and compiler behavior remain external premises; no host build is required.
 - [[file:parser-engine-formal-model/template-materialization-publication.org][Generated prediction witnesses and published closure rows]]
 - [[file:parser-engine-formal-model/physical-sparse-goto.org][LR construction lifecycle contract]]
 - [[file:parser-engine-formal-model/construction-vocabulary.org][Construction vocabulary and remaining correspondence responsibilities]]
+- [[file:parser-engine-formal-model/lowering-publication.org][Native lowering publication and failure control]]
 
 * Current construction entry
 

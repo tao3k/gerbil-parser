@@ -410,3 +410,16 @@ import ParserEngine.Components
 #print axioms ParserEngine.ConstructionVocabulary.factory_terminal
 #print axioms ParserEngine.ConstructionVocabulary.factory_symbol_index
 #print axioms ParserEngine.ConstructionVocabulary.factory_paper_target
+#print axioms ParserEngine.LoweringPublication.emission_failed
+#print axioms ParserEngine.LoweringPublication.origin_failure
+#print axioms ParserEngine.LoweringPublication.proof_failure
+#print axioms ParserEngine.LoweringPublication.successful_ids
+#print axioms ParserEngine.LoweringPublication.successful_payloads
+#print axioms ParserEngine.LoweringPublication.failed_not_constructed
+#print axioms ParserEngine.LoweringPublication.complete
+#print axioms ParserEngine.LoweringPublicationWitness.source_checked
+#print axioms ParserEngine.LoweringPublication.run_append
+#print axioms ParserEngine.LoweringPublication.failed_prefix
+#print axioms ParserEngine.LoweringPublication.dense_ids
+#print axioms ParserEngine.LoweringPublication.constructed_fields
+#print axioms ParserEngine.LoweringPublication.tape_append

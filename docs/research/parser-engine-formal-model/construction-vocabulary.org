@@ -56,6 +56,11 @@ The entry remains a restricted, normal-return parser protocol.
 | Arithmetic, storage, hashes, sorting, compiler and GC | Explicit external contracts | No Gambit changes/builds or host implementation proof |
 
 Input admission and a proved producer are different obligations.
+
+[[file:lowering-publication.org][The source publication refinement]] now derives counter allocation, observer
+failure and paired ordered publication through the same retained factory.
+The remaining native producer responsibility is branch-to-emission generation,
+helper allocation and context construction, rather than the common emitter.
 =ConstructionGrammar.Input= still receives rules, decoding and recipes; their
 checker is not a universal operational theorem about Scheme lowering.
 Likewise, table schema validation does not prove selector/conflict semantics.

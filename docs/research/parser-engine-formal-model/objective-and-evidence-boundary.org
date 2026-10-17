@@ -46,6 +46,13 @@ do not establish arbitrary producer execution. Host behavior remains external.
 This closes vocabulary composition within the supported construction protocol,
 not the complete engine model; local runtime optimization remains gated.
 
+[[file:lowering-publication.org][The lowering publication contract]] now connects the source constructor,
+initial bindings, common emitter and finalizer to the retained construction.
+It derives dense IDs, paired values/recipes and failure-before-commit for
+arbitrary finite emission trajectories. The recursive branch-to-trajectory
+producer, helper allocation and context recipe selection remain open; source
+admission of the common spine does not certify those other branch bodies.
+
 ** Parser ownership, prepared requests and the macOS timeout
 
 Host implementation is outside this parser change. Gambit sources, compiler,

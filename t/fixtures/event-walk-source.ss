@@ -98,6 +98,14 @@
 (def (source-bindings source)
   (parser-source-data
     (ParserEngine.WalkSourceWitness source source)
+    (ParserEngine.LoweringPublicationWitness emitterSource
+      (read-source-subdefinition "src/compiler/lr.ss" 'lower-rules 'emit-production))
+    (ParserEngine.LoweringPublicationWitness constructorSource
+      (read-source-definition "src/compiler/lr.ss" 'make-production))
+    (ParserEngine.LoweringPublicationWitness initialSource
+      (cadr (caddr (read-source-definition "src/compiler/lr.ss" 'lower-rules))))
+    (ParserEngine.LoweringPublicationWitness finalizerSource
+      (last (caddr (read-source-definition "src/compiler/lr.ss" 'lower-rules))))
     (ParserEngine.BitTraversalWitness source
       (read-source-definition "src/compiler/funcs.ss" 'compiler-index-set-for-each))
     (ParserEngine.BitTraversalWitness widthSource

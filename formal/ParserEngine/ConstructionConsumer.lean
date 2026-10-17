@@ -1,6 +1,6 @@
 import ParserEngine.ConstructionExtraction
 import ParserEngine.ConstructionHeap
-import ParserEngine.ConstructionFIFOTrace
+import ParserEngine.ConstructionReadiness
 
 /-! Source admission, the complete queue and physical/index observations share
 one retained construction. Host primitives remain external premises. -/
@@ -67,6 +67,7 @@ def Joint (request : Request)
     ConstructionControl.Safe ConstructionControl.canonical data.1.actions 0 (ConstructionStorage.empty request.layout) ∧
     ConstructionAppend.execute ConstructionControl.canonical ConstructionAppend.canonical data.1.actions 0
       (ConstructionStorage.empty request.layout) = (construction.1.machine.registry.keys.length, construction.2.storage) ∧
+    ConstructionReadiness.Complete request.context.grammar request.context.traversal request.layout ∧
     data.1 = ConstructionFIFO.build request.context.grammar request.context.nonempty request.context.traversal request.layout
 
 def retained : Requirements.Factories Request (fun c => Value c) [Capability.construction] :=
@@ -78,7 +79,8 @@ def certified : Requirements.Certified [Capability.construction] Joint :=
       intro request
       dsimp only [retained, Joint, Requirements.build]
       refine ⟨?_, ?_, ?_, ?_, ConstructionFIFO.build_safe _ request.context.nonempty _ request.layout,
-        ConstructionFIFO.build_replay _ request.context.nonempty _ request.layout, rfl⟩
+        ConstructionFIFO.build_replay _ request.context.nonempty _ request.layout,
+        ConstructionReadiness.complete _ request.context.nonempty _ request.layout, rfl⟩
       · rw [ConstructionFIFO.build_exact]; exact CachedConstruction.construct_exact _ request.context.nonempty _ request.layout
       · rw [ConstructionFIFO.build_exact]; exact CachedConstruction.construct_aligned _ request.context.nonempty _ request.layout
       · rw [ConstructionFIFO.build_exact]; exact CachedConstruction.construct_physical _ request.context.nonempty _ request.layout
@@ -96,15 +98,16 @@ structure Product (context : Context) where
   control : ConstructionControl.Safe ConstructionControl.canonical actions 0 (ConstructionStorage.empty layout)
   replayed : ConstructionAppend.execute ConstructionControl.canonical ConstructionAppend.canonical actions 0
     (ConstructionStorage.empty layout) = (construction.1.machine.registry.keys.length, construction.2.storage)
+  readiness : ConstructionReadiness.Complete context.grammar context.traversal layout
   produced : construction = (ConstructionFIFO.build context.grammar context.nonempty context.traversal layout).construction
   generated : actions = (ConstructionFIFO.build context.grammar context.nonempty context.traversal layout).actions
 
 def build (request : Request) : Product request.context :=
   certified.consume (Output := fun request => Product request.context) (fun request data proof =>
     ⟨request.layout, data.1.construction, proof.1, proof.2.1, proof.2.2.1, proof.2.2.2.1, data.1.actions,
-      proof.2.2.2.2.1, proof.2.2.2.2.2.1,
-      congrArg ConstructionFIFO.Built.construction proof.2.2.2.2.2.2,
-      congrArg ConstructionFIFO.Built.actions proof.2.2.2.2.2.2⟩) request
+      proof.2.2.2.2.1, proof.2.2.2.2.2.1, proof.2.2.2.2.2.2.1,
+      congrArg ConstructionFIFO.Built.construction proof.2.2.2.2.2.2.2,
+      congrArg ConstructionFIFO.Built.actions proof.2.2.2.2.2.2.2⟩) request
 
 /-- Admission precedes factory execution. The consumer retains the queue's
 actual cache; an index or storage certificate is never supplied by a caller. -/
@@ -335,5 +338,19 @@ theorem source_complete (sources : Sources) (context : Context) (product : Produ
         ConstructionRows.RowValid context.grammar product.construction.1.machine.registry node edges :=
   ⟨source_execution sources context product success, product.control, source_replay sources context product success,
     physical_complete context product⟩
+
+/-- Source execution and every reachable physical plan read belong to the
+same source-derived layout and retained construction contract. -/
+theorem source_readiness (sources : Sources) (context : Context) (product : Product context)
+    (success : construct sources context = some product) :
+    ConstructionFIFO.executeSource sources.builder sources.growth sources.append sources.template
+      context.grammar context.nonempty context.traversal =
+        some ((product.construction.1.machine, product.construction.2), product.actions) ∧
+      ConstructionReadiness.Complete context.grammar context.traversal product.layout ∧
+      ConstructionReadiness.Visit context.grammar context.traversal product.layout
+        product.construction.1.machine product.construction.2 := by
+  refine ⟨source_execution sources context product success, product.readiness, ?_⟩
+  rw [product.produced]
+  exact ConstructionReadiness.construct_visit context.grammar context.nonempty context.traversal product.layout
 
 end ParserEngine.ConstructionConsumer

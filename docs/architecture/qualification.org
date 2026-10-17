@@ -139,6 +139,16 @@ or an automatic stale-lock recovery policy. No timeout was increased.
 
 * Source test entry policy
 
+=t/fixtures/tla-sany-differential/test-suite.ss= is a thin direct entry. It loads
+the existing preload helpers, selects compiled interfaces, and observes actual
+imports while loading =suite-runtime.ss=. The latter owns the shared runtime
+and worker scheduler. Source import expansion precedes the importing file's
+first executed progress form, so an observer installed inside that file leaves
+the initial admission interval silent. The entry now installs it outside that
+boundary. Progress comes from actual nested imports, never periodic messages;
+the total and idle deadlines are unchanged. Historical pre-owner failures stay
+retained and do not establish a native-loader defect.
+
 Pure Scheme semantic checks run directly through the standard test runner.
 Alignment generates and compares the complete language fixture in one runtime;
 it requires neither a qualification executable nor a conformance executable.

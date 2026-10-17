@@ -38,6 +38,11 @@ The phase contract connects initial registration visibility, outer dequeue and
 accounting, target grouping and final publication to the same retained tick.
 Native controls observe those phases independently and reject missing or
 duplicated accounting events.
+The retained contract also carries all-prefix physical plan readiness:
+[[file:../../formal/ParserEngine/ConstructionReadiness.lean][ConstructionReadiness]] follows the actual source-order start/tick trajectory,
+including the returned constructor state. Its invariant supplies bounded
+physical plan decoding before every queued group call, rather than accepting
+a caller-provided plan or checking only the final cache.
 
 * Module ownership
 

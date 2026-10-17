@@ -365,3 +365,9 @@ import ParserEngine.Components
 #print axioms ParserEngine.ConstructionFIFO.groups_processed
 #print axioms ParserEngine.ConstructionFIFO.groups_boundary
 #print axioms ParserEngine.ConstructionFIFO.tick_phases
+#print axioms ParserEngine.ConstructionReadiness.visited
+#print axioms ParserEngine.ConstructionReadiness.ready
+#print axioms ParserEngine.ConstructionReadiness.complete
+#print axioms ParserEngine.ConstructionReadiness.finish_visit
+#print axioms ParserEngine.ConstructionReadiness.construct_visit
+#print axioms ParserEngine.ConstructionConsumer.source_readiness

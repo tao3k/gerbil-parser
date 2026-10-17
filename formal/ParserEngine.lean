@@ -1,3 +1,4 @@
+import ParserEngine.LookaheadExecution
 import ParserEngine.ProducerAdmission
 import ParserEngine.CompilerExecution
 import ParserEngine.NativeActions

@@ -4,9 +4,9 @@
         :std/io/tempfile
         (only-in :std/misc/ports read-all-as-string)
         (only-in :gerbil-parser/t/fixtures/event-walk-source read-source-definition write-event-walk-source-data)
-        (only-in :gerbil-parser/src/compiler/lr production-precedence union-values production-rhs production-lhs production-action base-symbol terminal-symbol? layout-end-action?)
+        (only-in :gerbil-parser/src/compiler/lr production-precedence union-values production-rhs production-lhs production-action base-symbol terminal-symbol? layout-end-action? production-id production-index-by-lhs nonterminal-name nonterminal-symbol?)
         (only-in :gerbil-parser/src/compiler/lr-automaton make-item-layout make-core-item core-item-count)
-        (only-in :gerbil-parser/src/compiler/funcs compiler-index-set-add compiler-index-set-for-each))
+        (only-in :gerbil-parser/src/compiler/funcs compiler-index-set-add compiler-index-set-for-each compiler-index-set-difference compiler-index-set-empty? compiler-index-set-singleton compiler-index-set-union))
 
 (def (source-procedure path name extras)
   (let (declaration (read-source-definition path name))
@@ -159,6 +159,49 @@
     (factory (vector-length states) states '#() '#((terminal eof)) #f '#()
              vector-ref values (lambda (transitions count) transitions))))
 
+(def (native-node-search)
+  (source-procedure "src/compiler/lr-lookahead.ss" 'lookahead-node-index '()))
+(def (native-propagation-graph productions states transitions)
+  (let* ((path "src/compiler/lr-lookahead.ss")
+         (table (list->vector productions)) (layout (make-item-layout table '#((terminal eof))))
+         (symbols (native-core-symbols productions))
+         (factory (source-procedure path 'make-lookahead-propagation-graph
+                    '(nonterminal-symbol? nonterminal-name production-id make-core-item lookahead-node-index))))
+    (let-values (((offsets items count) ((source-procedure path 'index-lr0-items '()) states (vector-length states))))
+      (factory transitions (production-index-by-lhs productions) symbols layout items offsets
+               nonterminal-symbol? nonterminal-name production-id make-core-item (native-node-search)))))
+(def (native-lookahead-run closures shifts items first nullable)
+  (let* ((path "src/compiler/lr-lookahead.ss") (count (vector-length items))
+         (stores (make-vector 4 #f)) (allocated 0) (events '())
+         (index (make-table test: equal?))
+         (factory (source-procedure path 'propagate-lalr-lookaheads
+           '(stdq-make-Queue stdq-enqueue! stdq-dequeue! stdq-queue-empty?
+             index-lr0-items trace-lookahead-phase make-lookahead-propagation-graph
+             lookahead-node-index make-core-item compiler-index-set-difference
+             compiler-index-set-empty? compiler-index-set-union compiler-index-set-singleton
+             +lr-eof+ make-vector getenv))))
+    (table-set! index '(terminal eof) 0)
+    (let-values (((masks offsets processed)
+      (factory '#() '#() 1 #f '#() '#() first nullable index #f
+        stdq-make-Queue
+        (lambda (queue node) (set! events (cons (list 'enqueue node) events)) (stdq-enqueue! queue node))
+        (lambda (queue)
+          (let (node (stdq-dequeue! queue))
+            (set! events (cons (list 'dequeue node (vector-ref (vector-ref stores 1) node)
+                                    (vector-ref (vector-ref stores 3) node)) events)) node))
+        stdq-queue-empty?
+        (lambda (states state-count) (values (vector 0 count) items count))
+        (lambda arguments (void))
+        (lambda arguments (values closures shifts))
+        (native-node-search) (lambda (production dot layout) 0)
+        compiler-index-set-difference compiler-index-set-empty? compiler-index-set-union compiler-index-set-singleton
+        '(terminal eof)
+        (lambda (size initial)
+          (let (store (make-vector size initial))
+            (vector-set! stores allocated store) (set! allocated (+ allocated 1)) store))
+        (lambda (name default) #f))))
+      (list masks processed (reverse events) (vector-ref stores 1) (vector-ref stores 2) (vector-ref stores 3)))))
+
 (deflanguage-parser-tests lr-native-source-test "native LR extraction conflict and validator correspondence"
   (engine)
   (matrix "all signed priority and policy branches match the decision model"
@@ -284,4 +327,35 @@
              (equal? offsets '#(0 2 2 3)) (equal? offsets lr0-offsets)
              (equal? node-items '#(0 3 8)) (= size 3) (= nodes 3)
              (equal? masks '#(1 0 36893488147419103232)))) #t))
+
+  (property "source graph clears state-owned prediction and transition scratch"
+    (bindings (productions '((0 start ((nonterminal root) (nonterminal root)) concat #f) (1 root () concat #f)))
+              (observed (call-with-values (lambda ()
+                (native-propagation-graph productions '#((0 1 2 3) (0 1 2 3))
+                  '#((((nonterminal root) . 0)) (((nonterminal root) . 1))))) list)))
+    (equal (car observed) '#((3) (3) () () (7) (7) () ()))
+    (equal (cadr observed) '#(1 2 #f #f 5 6 #f #f)))
+  (property "source graph rejects a missing physical prediction target"
+    (bindings)
+    (equal (rejected? (lambda () (native-propagation-graph
+      '((0 start ((nonterminal root)) concat #f) (1 root () concat #f)) '#((0 1))
+      '#((((nonterminal root) . 0)))))) #t))
+  (property "source lookahead loop clears before self requeue and sends FIRST only once"
+    (bindings)
+    (equal (native-lookahead-run '#((0)) '#(#f) '#(0) '#(0 2) '#(#f #t))
+           '(#(3) 2 ((enqueue 0) (dequeue 0 1 #f) (enqueue 0) (dequeue 0 2 #t)) #(0) #(#f) #(#t))))
+  (property "source lookahead loop coalesces closure and shift evidence before target dequeue"
+    (bindings)
+    (equal (native-lookahead-run '#((1) ()) '#(1 #f) '#(0 2) '#(0 2 0 0) '#(#f #t #f #f))
+           '(#(1 3) 2 ((enqueue 0) (dequeue 0 1 #f) (enqueue 1) (dequeue 1 3 #f)) #(0 0) #(#f #f) #(#t #f))))
+  (property "source lookahead loop preserves FIFO native IDs and never seeds disconnected FIRST"
+    (bindings)
+    (equal (native-lookahead-run '#((2 1) () () (1)) '#(#f #f #f #f) '#(0 2 4 6)
+              '#(0 2 0 0 0 0 0 4) '#(#f #f #f #f #f #f #f #f))
+           '(#(1 2 2 0) 3 ((enqueue 0) (dequeue 0 1 #f) (enqueue 2) (enqueue 1)
+                           (dequeue 2 2 #f) (dequeue 1 2 #f)) #(0 0 0 0) #(#f #f #f #f) #(#t #f #f #f))))
+  (property "source activation with empty nonnullable FIRST emits no callback"
+    (bindings)
+    (equal (native-lookahead-run '#((1) ()) '#(#f #f) '#(0 2) '#(0 0 0 0) '#(#f #f #f #f))
+           '(#(1 0) 1 ((enqueue 0) (dequeue 0 1 #f)) #(0 0) #(#f #f) #(#t #f))))
 )

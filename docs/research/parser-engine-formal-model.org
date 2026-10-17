@@ -5204,3 +5204,173 @@ jobs; macOS preparation had passed and its semantics/FFI/generation jobs were
 still running, with no red job. This is prior-revision CI metadata, not a result
 for the new commit. Remaining semantic producer/program/trace premises above
 are not relabeled as unconditional whole-parser closure.
+
+** Generated propagation graphs and source-shaped FIFO execution
+
+*** Paper rule and native representation
+
+[[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]], Section 2.2, defines prediction from an existing
+item with lookahead through =FIRST(beta rho)= and defines goto by advancing
+that item's dot. For one-token lookahead, the native propagation graph
+separates this into static suffix-FIRST evidence, nullable-tail propagation
+and a shift edge. This decomposition requires an existing source lookahead;
+static FIRST is not an unconditional seed at every LR0 core.
+
+[[file:../../formal/ParserEngine/LookaheadExecution.lean][LookaheadExecution.lean]] connects generated adjacency rows, native scheduling,
+source extraction and physical mask consumption. It preserves the actual
+first-activation guard, FIFO ordering, coalesced pending masks, clearing before
+callbacks and state-owned scratch reset. It does not reinterpret the parser's
+host VM or assign arbitrary Scheme programs the meaning of this model.
+
+| Owned source operation | Derived model fact | Composition endpoint |
+|------------------------+--------------------+----------------------|
+| Prediction target lookup | Every target comes from an indexed production's initial core in the same state | =searched_prediction= |
+| Shift target lookup | Transition followed by core+1 lookup in the target state's slice | =searched_shift= |
+| Graph row generation | Every generated row has its actual source coordinate and branch execution | =generated_reads=, =compiled_node= |
+| State-local prediction cache | Present empty lists remain cached; all touched references are cleared | =fetch_exact=, =reset_view=, =restart= |
+| Mask publication | Novel bits only; known/pending conservation; one queued owner | =enqueue_known=, =enqueue_queue= |
+| Dequeue and callbacks | Pending cleared before self-requeue; FIRST sent only on first activation | =step_valid= |
+| Source dequeue witness | The checker generates each transition and rejects impossible dequeues | =replay_trace=, =extracted_quiescent= |
+| Complete native algorithm | Finite-domain decreasing measure, without caller fuel | =Termination.finish=, =run_exact= |
+| Returned physical mask | Queried record bits agree with the checked propagation result | =Admission.physical_bits= |
+
+*** Graph generation, physical lookup and scratch ownership
+
+=Graph.build= generates prediction and shift edges by executing their actual
+lookup branches. Missing prediction or shift targets fail generation; they do
+not become absent edges in a successfully published graph. =predictions_members=
+proves the exact origin of every prediction in an arbitrary production list.
+=generated_reads= derives the branch execution for every generated row.
+
+=Search.find= models the source's half-open binary search. =sound= proves
+bounds and matching core for every successful result, independently of row
+ordering. =complete= proves lookup succeeds for an in-slice core under strict
+row ordering. The source's =low = high= termination test agrees with the
+model's empty-interval branch on admitted interval bounds. Physical slice
+bounds and strict ordering are LR state producer obligations, not host axioms.
+=searched_prediction= and =searched_shift= instantiate graph generation with
+this actual algorithm rather than an assumed correct node oracle.
+
+The prediction cache is owned by one state. Its value type distinguishes an
+uncomputed entry from a computed empty target list, matching Scheme truthiness.
+=fetch_exact= preserves both the state-specific computation and touched-key
+coverage. =reset_view= proves that ordered vector clears, including repeated
+keys, equal the logical cleared view. =reset_covers= applies to both prediction
+lists and transition targets. =restart= admits the next state's arbitrary
+prediction computation after reset; it never assumes two states have the same
+prediction targets. Stored adjacency lists are immutable values and retain
+their contents when scratch references are discarded.
+
+=Graph.compile= constructs the machine graph from these generated rows.
+=compiled_node= retains source coordinates and selects suffix-FIRST and
+nullable data at =core + 1=. A dense propagation node ID is not substituted
+for a core coordinate.
+
+*** Native scheduling and activation-guarded least fixed point
+
+The existing =Encoding.publish= inserts work at the head. Native Scheme uses
+=stdq-enqueue!=, which appends to the FIFO. The new machine therefore proves
+its own enqueue operation rather than silently treating those schedules as
+the same execution. It reuses the existing mask arithmetic results, including
+novel-bit conservation and the stability of already delivered bits.
+
+=Machine.Reach= has three edge rules: shift the same terminal, propagate that
+terminal through a nullable prediction tail, and send a static suffix-FIRST
+terminal from a source that already has some lookahead evidence. Only the
+designated initial seed is unconditional. This captures why a disconnected
+LR0 node must not emit FIRST merely because its core has prediction targets.
+
+The machine state mirrors known masks, pending masks, FIFO work and activation.
+Its invariants establish pending-to-known inclusion, exact queue support,
+unique queued owners, derivation soundness and closure of delivered evidence.
+A separate activation invariant accounts for static FIRST already sent, so
+subsequent batches can propagate only delta bits. Callback origins are derived
+from the consumed nonempty pending mask. Clearing the queued flag and pending
+row precedes callbacks, allowing a new bit to enqueue the same node again.
+Zero evidence produces no callback; an empty nonnullable FIRST can still mark
+a node activated without enqueuing any prediction target.
+
+=step_valid= proves these invariants through the entire callback list.
+=quiescent_exact= derives both directions of the least fixed point when the
+actual queue is empty. The caller supplies neither a final closed set nor a
+=Worklist.BatchTrace= for a different algorithm.
+
+*** Termination, witness extraction and physical publication
+
+The decreasing measure is twice the number of undiscovered coordinates in an
+admitted finite domain, plus FIFO length. A novel publication discovers at
+least one coordinate and adds at most one owner; a duplicate publication does
+not change the measure. Dequeue decreases FIFO length before callbacks.
+=step_rank= therefore strictly decreases on every complete native iteration.
+
+=reach_bounded= derives domain coverage from admitted seeds and edge closure.
+=Termination.finish= is well-founded recursion with no supplied fuel; it
+constructs the final empty-queue witness and execution trace. =run_exact=
+then derives the least-fixed-point result. Finite coordinate/edge admission
+must come from the producer's state and terminal bounds. A timeout is not used
+as a termination certificate, and the host's primitive-return behavior remains
+an external premise.
+
+The execution witness is only the actual dequeued node-ID stream. =replay=
+generates all pending, known, activation and FIFO states itself. A wrong next
+ID or a dequeue after exhaustion is rejected. =replay_trace= converts any
+successful witness of arbitrary length into the native machine trace.
+=checked_quiescent= derives its exact result without a supplied trace theorem.
+
+Independent schemas check the complete =lookahead-node-index=,
+=make-lookahead-propagation-graph= and =propagate-lalr-lookaheads= declarations,
+including guards, callback order, mutation order, recursive loop placement and
+return values. =Admission.execute= requires all three schemas before assigning
+restricted model meaning, then generates the graph and replays the witness.
+=extracted_quiescent= composes their results. =physical_bits= constructs the
+solver-owned mask view used by record consumers and transports the result to
+bounded terminal-mask membership.
+
+This is restricted source admission with explicit primitive interpretation,
+not a proof of a general Scheme evaluator or compiler. Concrete vector/hash
+identity, queue primitive behavior and host/compiler execution remain external.
+The source reader emits syntax data only and cannot emit proof conclusions.
+
+*** Native controls, independent protocols and remaining semantic frontier
+
+The existing =deflanguage-parser-tests= owner executes unchanged extracted
+source procedures. Added cases cover state-local scratch reuse, a missing
+prediction target, self-requeue after clearing, coalesced closure/shift
+publication, original-ID FIFO order, disconnected FIRST and zero-evidence
+activation. It records actual enqueue/dequeue operations with the pending
+mask and activation value observed at dequeue. Returned known, pending,
+queued and activated vectors are checked together.
+
+Eight Scheme owners pass 172 cases in 20.11 seconds under unchanged 90-second
+total/five-second idle limits. The new owner has 22 constrained cases. Earlier
+invalid macro/proof drafts are retained as failures and excluded from accepted
+results; no watchdog was widened.
+
+[[file:../../formal/quint/LookaheadExecution.qnt][LookaheadExecution.qnt]] uses finite sets rather than the Lean mask encoding.
+Its independent reference repeatedly scans every propagation rule, without
+FIFO, delta or activation storage, and compares the quiescent result. Seven
+named controls and 1,000 sampled traces of 12 transitions pass as part of the
+complete Quint package. This is bounded protocol evidence, not the universal
+termination proof above.
+
+The final pinned Lean root passes 96 jobs. Source-schema equality has no
+axioms; the new semantic theorem audits contain only standard Lean logic,
+without admitted goals or custom axioms. All 14 evidence controls pass. Model,
+protocol, source adapter and native controls are bound into input mutation
+invalidation. Current source data passes freshness admission; a deliberately stale copy
+is rejected with exit 70 before it can qualify.
+
+Revision =912ffde= completed all required Ubuntu, macOS and Rust CI tasks,
+including macOS semantics, FFI and generation. This is prior-revision metadata,
+not CI qualification for the new commit. No Gambit source was modified or
+built, and no runtime performance optimization was introduced.
+
+The remaining semantic frontier is narrower than a generic trace premise:
+relate admitted LR0 state coordinates/transitions, production expansion,
+sorted slices and suffix-FIRST/nullable catalogues to the paper's full item
+prediction/goto relation. The generated graph and its exact execution are
+proved relative to those inputs; this section does not silently turn that
+result into viable-prefix, complete-language or whole-compiler equivalence.
+Exact native conflict representation versus the publication abstraction also
+retains its separately documented boundary. These parser-owned premises must
+be composed before claiming unconditional whole-parser model closure.

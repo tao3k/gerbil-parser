@@ -87,7 +87,16 @@
         (equal (list-ref observed 12) #t)
         (equal (list-ref observed 13) copies)
         (equal (list-ref observed 14) capacity)
-        (equal (list-ref observed 15) growths)))))
+        (equal (list-ref observed 15) growths)
+        (equal (list-ref observed 16) #t)))))
+  (scenario "final physical queries reject a damaged shared index after publication"
+    (each (damage expected) ('(#f #t) '(#t #f))
+      (scope ((observed (construction-observation
+        '((0 start ((nonterminal A)) concat #f)
+          (1 A ((terminal token a) (nonterminal A)) concat #f)
+          (2 A () concat #f)) #f damage)))
+        (equal (list-ref observed 12) #t)
+        (equal (list-ref observed 16) expected))))
   (scenario "source direct and field paths deliver the same ordered callbacks"
     (each (width) ((append '(1 2 5) (list (integer-length (##greatest-fixnum)))))
       (each (route) ('(native fixnum direct field))

@@ -273,3 +273,15 @@ import ParserEngine.Components
 
 #print axioms ParserEngine.ConstructionExtraction.changed_growth_rejected
 #print axioms ParserEngine.ConstructionExtraction.changed_template_rejected
+
+#print axioms ParserEngine.ConstructionConsumer.rejected
+#print axioms ParserEngine.ConstructionConsumer.admitted
+#print axioms ParserEngine.ConstructionConsumer.physical_index
+#print axioms ParserEngine.ConstructionConsumer.paper_target
+
+#print axioms ParserEngine.ConstructionConsumer.wrong_layout_rejected
+#print axioms ParserEngine.ConstructionConsumer.current_admitted
+
+#print axioms ParserEngine.ConstructionConsumer.source_correspondence
+
+#print axioms ParserEngine.ConstructionConsumer.complete

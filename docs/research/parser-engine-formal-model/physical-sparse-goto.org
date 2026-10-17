@@ -48,7 +48,7 @@ arbitrary Scheme execution or of all mutable primitive behavior.
 
 * One construction contract
 
-The public model entry is [[file:../../../formal/ParserEngine/ConstructionProtocol.lean][ConstructionProtocol.construct]]. It starts at the
+The paper-level model entry is [[file:../../../formal/ParserEngine/ConstructionProtocol.lean][ConstructionProtocol.construct]]. It starts at the
 augmented dot-zero kernel and returns registry validity, complete published-row
 ownership and an exhausted queue. Consumers use =complete= and =paper_target=;
 they do not assemble local certificates for an arbitrary final table.
@@ -262,6 +262,50 @@ lifetime or key protocol would misrepresent the source. Capability retention,
 joint certification and proof-aware consumption reuse LeanPoo directly; mask
 arithmetic and FIFO induction remain ordinary functions and proofs.
 
+** Source-admitted complete observations
+
+[[file:../../../formal/ParserEngine/ConstructionConsumer.lean][ConstructionConsumer]] is the source-admitted entry for the retained complete
+construction. It runs =prepare= before the LeanPoo construction factory and
+consumes the joint machine, alignment and physical-history evidence once.
+Rejected sources cannot execute the factory. Successful construction retains
+one completed cache; observations never accept an independent final index or
+vector certificate.
+
+=physical_index= derives a copy/write trace for that completed cache, then
+quantifies over every allocated node and every symbol key. Decoding its actual
+physical slot yields the registered kernel and materialized shared template;
+querying the table reached through that slot yields the generated first item
+and mask, including absent keys. =paper_target= uses the same completed machine
+to connect that source kernel to each published target's paper closure/goto
+meaning. The native control now re-reads the final plan vector and index after
+all publications and expansions. Deliberate index corruption after publication
+must fail that observation even when all earlier callback checks succeeded.
+
+| Remaining condition | Status and admission rule |
+|---------------------+---------------------------|
+| Initial capacity | The full queue starts at 128. The scalar extractor is more general; =prepare= rejects other capacities. Arbitrary positive initial layouts are not claimed as complete-queue refinements. |
+| Expansion and supported instructions | Factor two and complete builder/growth/append/template schemas are checked before execution. Unsupported instructions are rejected. |
+| Source-to-host semantics | Restricted reader/schema correspondence, not interpretation of arbitrary Scheme; host arithmetic, allocation, vectors, hashing, queues and sorting remain external. |
+| State and transition storage | Their publication laws are proved separately. The physical copy/write history here concerns plan slots; a jointly traced three-vector heap is not yet proved. |
+| Compiler and GC | External premises; no Gambit changes, builds or compiler-correctness claim. |
+
+The composition qualification passes 183 Lean build jobs with only the standard
+=propext=, =Classical.choice= and =Quot.sound= axioms in the new audited theorems.
+The existing Scheme test macros run 272 cases across 13 owners, including final
+physical queries at repeated growth boundaries and the damaged-index negative
+control; the suite exits naturally in 23.45 seconds under unchanged 90-second
+total and 5-second idle limits. Fresh source witnesses and 19 evidence controls
+pass. The existing Quint lifecycle passes 13 directed controls and 1,000 bounded
+histories of 40 transitions; this finite check supports the universal Lean
+composition and does not replace it. No CPU improvement is claimed.
+
+These conditions are acceptance boundaries, not obligations silently discharged
+by finite tests. The current schema is admitted by =current_admitted=; any
+accepted recipe with a different initial layout is rejected by
+=wrong_layout_rejected=. Completing a general three-vector physical simulation
+and lifting the queue over arbitrary positive initial capacity remain model
+work. No engine optimization is justified by this composition alone.
+
 ** Maintained obligation map
 
 | Obligation | Producer and consumer evidence | Boundary |
@@ -279,9 +323,10 @@ arithmetic and FIFO induction remain ordinary functions and proofs.
 
 This table is the integration checklist. Adding an isolated theorem does not
 close a row until the complete constructor consumes its evidence and a native
-control exercises the corresponding source boundary. The combined model now
-closes cache population, shared index lookup, reference/plan decoding, counted
-vector growth and the persistent scratch lifecycle. Concrete pointer encoding and primitive host realization remain
+control exercises the corresponding source boundary. The combined algorithm model covers cache population, shared index lookup,
+reference/plan decoding, counted plan-vector growth and the persistent scratch
+lifecycle under the admission conditions above. It does not yet prove the
+remaining three-vector physical simulation. Concrete pointer encoding and primitive host realization remain
 explicit premises. No runtime performance claim follows from this map.
 
 * External premises and remaining source boundary

@@ -22,7 +22,8 @@ Host and compiler behavior remain external premises; no host build is required.
 
 * Current construction entry
 
-Use [[file:../../formal/ParserEngine/CachedConstruction.lean][CachedConstruction.construct]] and its [[file:parser-engine-formal-model/physical-sparse-goto.org][maintained contract map]] for LR construction.
+Use [[file:../../formal/ParserEngine/ConstructionConsumer.lean][ConstructionConsumer.construct]] for source-admitted LR construction.
+Its [[file:parser-engine-formal-model/physical-sparse-goto.org][maintained contract map]] records the remaining admission boundaries.
 The map names each producer law, consumer, source owner and executable control.
 Keep source admission, universal algorithm proofs and native qualification
 distinct; update the map when an obligation changes.
@@ -84,7 +85,11 @@ same owned scratch state flows through each group call and target publication.
 Shared-index writes now feed the grouping consumer through =TemplateIndex=;
 =constructed_vector= derives a counted copy/write witness for the whole queue.
 =ConstructionExtraction= binds source allocation parameters and complete schemas
-to the executable storage recipe.
+to the executable storage recipe. =ConstructionConsumer= admits that source
+before executing the retained factory, then connects final physical-slot index
+queries and complete published rows to the same paper-level machine. Its
+maintained map explicitly records unsupported initial layouts and the remaining
+three-vector heap simulation obligation.
 The selected LeanPoo traversal capability now supplies direct/field callback
 order to the complete queue through =traversal_finish_exact=. Its paper target
 theorem applies to final edges; concrete host primitives and compiler lowering

@@ -37,13 +37,13 @@
         (map (lambda (row) (eq? row (table-ref (vector-ref template 2) (vector-ref row 1) #f)))
              (vector-ref template 1))))
 
-(def (construction-observation productions (poison? #t))
+(def (construction-observation productions (poison? #t) (damage-index? #f))
   (let* ((path "src/compiler/lr-automaton.ss")
          (table (list->vector productions)) (layout (make-item-layout table '#()))
          (cores (make-core-symbol-catalog table layout))
          (dequeues '()) (enqueues '()) (publications '()) (current #f)
          (publishing #f) (groups-ok? #t) (calls 0)
-         (catalog #f) (created (make-table test: equal?))
+         (catalog #f) (symbol-ids #f) (created (make-table test: equal?))
          (template-count 0) (template-requests 0) (cache-ok? #t)
          (contents (make-table test: eq?)) (plans (make-table test: eq?))
          (scratch-owner #f) (first-owner #f) (last-firsts #f)
@@ -71,6 +71,7 @@
           catalog)
         compiler-index-set-add make-core-item symbols
         (lambda (mask layout ids)
+          (set! symbol-ids ids)
           (let (value (template mask layout ids compiler-index-set-for-each make-core-item compiler-index-set-add))
             (set! cache-ok? (and cache-ok? (not (table-ref created mask #f))))
             (table-set! created mask value)
@@ -139,9 +140,27 @@
             (set! groups-ok? (and groups-ok? (eqv? index current)))
             (set! publishing #f))
           (vector-set! store index value)))))
+      ;; Observe the returned physical plan vector after every publication and
+      ;; growth, rather than relying only on earlier callback snapshots.
+      (when damage-index?
+        (let loop ((node 0))
+          (when (< node count)
+            (let* ((plan (vector-ref plan-owner node))
+                   (template (cdr plan)) (rows (vector-ref template 1)))
+              (if (pair? rows)
+                (table-set! (vector-ref template 2) (vector-ref (car rows) 1) #f)
+                (loop (+ node 1)))))))
+      (let (final-index-ok?
+        (andmap (lambda (node)
+          (let* ((plan (vector-ref plan-owner node))
+                 (captured (table-ref plans node #f)))
+            (and captured (= (car plan) (car captured))
+                 (eq? (cdr plan) (cdr captured))
+                 (template-index-valid? (cdr plan) symbol-ids))))
+          (iota count)))
       (list count processed (reverse dequeues) (reverse enqueues)
             (reverse publications) calls groups-ok?
             (map (lambda (id) (vector-ref transitions id)) (iota count))
             (map (lambda (id) (vector-ref states id)) (iota count))
             template-count template-requests cache-ok? storage-ok? plan-copies
-            (vector-length plan-owner) (reverse growths)))))
+            (vector-length plan-owner) (reverse growths) final-index-ok?)))))

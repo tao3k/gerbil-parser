@@ -1,4 +1,4 @@
-import ParserEngine.ConstructionExtraction
+import ParserEngine.ConstructionConsumer
 import ParserEngine.SparseGroupSource
 import ParserEngine.PhysicalSymbolDiscovery
 import ParserEngine.PublishedClosure

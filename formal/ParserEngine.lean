@@ -1,3 +1,4 @@
+import ParserEngine.WalkWitness
 import ParserEngine.HybridIterator
 import ParserEngine.IteratorExecutor
 import ParserEngine.IteratorMachine

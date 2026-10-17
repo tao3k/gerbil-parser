@@ -849,6 +849,104 @@ semantics, FFI and corpus passed; macOS preparation, generation, semantics and
 FFI passed; all three Rust jobs passed. These remote results confirm the prior
 layer and do not substitute for exact-head CI on this new extension.
 
+*** Reader-tree witnesses and native source admission
+
+The next source-refinement audit separates parser obligations from external
+compiler and host assumptions. The earlier hybrid proof was universal over a
+manually specified control machine; source hashes and finite callback comparisons
+did not connect its direct-call plans to the actual Scheme procedure.
+
+[[file:../../t/fixtures/event-walk-source.ss][The reader adapter]] now locates exactly one =event-program-walk/inline=
+definition, validates its macro pattern, lexical procedure scope and initial call,
+and serializes the complete =walk= declaration. It does not extract selected
+calls while dropping other expressions. Unknown datum types, duplicate macros,
+additional scope expressions and changed macro envelopes fail closed.
+[[file:../../t/generate-walk-source-witness.ss][The generator]] emits [[file:../../formal/ParserEngine/WalkWitness.lean][a typed reader-tree proof input]]. This is generated source for
+kernel checking, not a textual output snapshot used as an assertion. Regeneration
+reads the current Scheme file. Check mode compares fresh serialization with the
+committed proof input, so a source or generator change cannot reuse stale syntax.
+
+**** Restricted syntax kernel and universal scheduler correspondence
+
+[[file:../../formal/ParserEngine/WalkSource.lean][WalkSource]] consumes the raw tree inside Lean. It validates all ten ordered
+=cond= clauses, exact callback operands, local =kind/node-state= bindings and
+saved footer context. Compositional decoders extract child routes, depth
+increments, relocation/provenance parameters, chunk index progression and the
+append block reversal. No unrecognized expression or trailing effect is accepted.
+The extracted cutoff is a parameter; the current-source witness separately
+proves that the production literal is 64.
+
+The extracted call schedule has an executable interpretation independent of
+=HybridIterator.plan=. Calls and sequential loops retain distinct activations.
+=admitted_plan= proves equality with that model for every projected record,
+signed translation, moved flag, depth, outer continuation, existing observation
+prefix and counter. =admitted_advance= and =admitted_run= transport it through
+direct dispatch and arbitrary finite runs. =checked_syntax_execution= constructs
+the decoded source program as well as the graph extraction witness, a completed
+run, event meaning and retained callback contexts from Boolean syntax and graph
+admission. The generated =extracted_execution= specializes that theorem to the
+actual reader tree, rather than supplying a hand-authored direct-control trace.
+
+Eight mutations of the actual tree must be rejected: wrong child depth,
+discarded moved provenance, duplicated branch route, missing append reversal,
+lost opening context, incorrect chunk index progression, an extra effect and
+fallback-before-empty priority. A changed cutoff of 63 remains admissible to the
+general model, while the separate production-cutoff theorem requires 64. This
+positive variation distinguishes semantic schedule admission from equality with
+one entire source-text golden. All decisions use Lean kernel reduction; no
+=native_decide=, custom axiom or =sorry= is introduced.
+
+This extends the direct-control/CPS correspondence described in the
+[[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][LR paper, section 4]] with parser-owned extraction obligations. It does not
+turn that paper's control transformation into a theorem about arbitrary Scheme
+programs, macro expansion, compiler code generation or host runtime behavior.
+The restricted decoder defines the admitted source idioms; equivalence between
+those idioms and execution by the installed compiler is an external premise.
+
+**** Remaining source-refinement obligations
+
+| Boundary | Current universal result | Remaining obligation or explicit premise |
+|----------+--------------------------+------------------------------------------|
+| Native recursive walker | Current reader tree decodes; interpreted schedule equals hybrid plan; checked graph produces complete event/context execution | Reader/serialization fidelity, standard-form and primitive semantics, hygienic macro/compiler correctness |
+| Iterative fallback | Packet executor, physical frame transitions and completion are proved; real Scheme comparisons pass | Extract and admit the iterative procedure's assignments, vector writes and register transitions from its actual syntax; the new native decoder does not certify this body |
+| Record and packet adapters | Typed decoding, rank certificates, generated witnesses and graph completion are proved | Actual record classification, accessor projection, identity and stable storage reads remain adapter premises; finite controls do not discharge them universally |
+| Grammar lowering and LR construction | Existing derivation, worklist, table and selection theorems retain their stated premises | Extend source witnesses to actual compiler procedures and their mutable stores; generated finite grammar facts alone are insufficient |
+| Complete LR request and publication | Existing accepted-request, AST replay and callback-product theorems compose with the hybrid result | Extend checked extraction to the real request driver and publication adapters; callback effects remain governed by the admitted publisher protocol |
+| Host, ABI, GC and compiler | Explicit external contracts only | No implementation proof is claimed, and no Gambit modification or build is authorized |
+
+The packet fallback remains a service obligation in =advanceSource=, backed by
+the existing typed executor proof and real controls. It is not silently promoted
+to a source-certified implementation. Likewise, the reader and macro-envelope
+adapter is tested Scheme code, not a formally verified reader. This matrix is
+the parser closure backlog; it prevents further host-model expansion from being
+mistaken for progress on parser-owned extraction. Model closure is still open,
+and no parser performance optimization is authorized by this evidence.
+
+**** Qualification and same-revision admission
+
+The new Scheme owner has four cases covering actual declaration completeness,
+missing/duplicate/enlarged scopes, stale proof inputs and unsupported reader
+datums. The initial integrated two-worker run passed 95 cases across nine owners in
+20.8 seconds; the final run passed the same owners in 19.1 seconds, including
+complete 64-record parsing, ABI negative paths and the
+unchanged 90-second owner/five-second idle fences. The final Lean build checks
+85 jobs, including current syntax, mutation rejections and universal composition.
+The evidence-input regression verifies invalidation for both new proof modules,
+the reader, generator and source controls. These are qualification durations,
+not CPU performance evidence.
+
+CI now checks witness freshness in each Scheme semantics lane. The Rust contracts
+lane kernel-checks the committed witness through the ordinary Lean build. Both
+must pass on the same revision: Lean alone does not establish current-source
+freshness, and generation alone does not prove schedule correctness. The model
+evidence collector continues to qualify its model layer only; source/host/runtime
+admission requires the separate corresponding gates.
+
+At parent commit =927a5bb3414ddc91ca8055658cd95a23ca6308c1=,
+[[https://github.com/tao3k/gerbil-parser/actions/runs/38991438660][CI run 38991438660]] completed successfully, including macOS semantics and
+all Ubuntu generation, semantics, FFI and corpus jobs. These receipts qualify
+the parent; the new witness extension requires its own exact-revision CI.
+
 *** Current Ubuntu ABI watchdog failure and execution admission
 
 At =f6985c9=, Ubuntu semantics job =117123877753= in run =38944020625=

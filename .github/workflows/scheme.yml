@@ -235,6 +235,8 @@ jobs:
             --log .data/module-loading-controls.log \
             --require '^MODULE-LOADING-CONTROLS-OK$' \
             -- gxi t/benchmarks/module-loading/controls.ss
+      - name: Verify Scheme source proof input is current
+        run: gerbil env gxi t/generate-walk-source-witness.ss check formal/ParserEngine/WalkWitness.lean
       - name: Verify generated arithmetic Scheme LR is current
         run: gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss check src/compiler/arithmetic-drive.ss
       - name: Verify generic POO Scheme reductions are current

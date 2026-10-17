@@ -179,3 +179,15 @@ import ParserEngine.Components
 #print axioms ParserEngine.NameDiscovery.coverage
 #print axioms ParserEngine.NameDiscovery.completed_slots_ignored
 #print axioms ParserEngine.PublishedClosure.discovered_factory_exact
+
+#print axioms ParserEngine.PhysicalCoreExtraction.advance_extracted
+#print axioms ParserEngine.PhysicalOperandExtraction.extracted_symbol
+#print axioms ParserEngine.PhysicalSymbolDiscovery.discovered_from_physical
+#print axioms ParserEngine.SymbolDiscovery.index_injective
+#print axioms ParserEngine.SparseGroupMasks.groups_bit
+#print axioms ParserEngine.SparseGoto.kernel_bound
+#print axioms ParserEngine.SparseGoto.generated_goto
+#print axioms ParserEngine.KernelConstruction.history_bound
+#print axioms ParserEngine.KernelConstruction.target_goto_exact
+#print axioms ParserEngine.SparseGroupWitness.source_checked
+#print axioms ParserEngine.SparseGroupSource.checked_bound

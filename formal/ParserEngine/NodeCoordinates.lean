@@ -116,7 +116,7 @@ theorem lookup_complete (before after : Rows) (row : List Nat) (sorted : row.Pai
 
 /-- The physical vector fill has the same read protocol as the flattening
 above. Writes into later slots do not change a previously written slot. -/
-theorem written_at (values : List Nat) (start index : Nat) (old : Nat → Option Nat)
+theorem written_at {Value : Type} (values : List Value) (start index : Nat) (old : Nat → Option Value)
     (inside : index < values.length) : Storage.write start values old (start + index) = values[index]? := by
   induction values generalizing start index old with
   | nil => simp at inside

@@ -83,14 +83,11 @@ and final transition-vector publication.
 * Remaining correspondence boundary
 
 The restricted source schemas identify supported idioms; they are not a general
-Scheme interpreter. Native physical name/symbol extraction still needs full
-composition with the constructed discovery stream. The sparse symbol-group
-scratch and earliest-item ordering still need a universal refinement to paper
-goto, generated kernels must discharge =KernelBound=, and physical enumeration
-ordering still needs composition with the sorted-state coordinate consumer. Final transition
-publication now has a universal model, but correct input group meaning is not
-inferred from source equality alone. Host/compiler behavior stays external.
-Gambit is neither modified nor built.
+Scheme interpreter. The subsequent [[file:physical-sparse-goto.org][physical extraction and sparse goto composition]]
+derives physical symbol discovery, group membership, goto meaning and kernel
+bounds. It records the remaining sorting, scratch and native control-flow
+obligations separately. Host/compiler behavior stays external. Gambit is neither
+modified nor built.
 
 * Qualification
 

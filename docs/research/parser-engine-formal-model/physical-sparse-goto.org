@@ -1,0 +1,80 @@
+#+title: Physical extraction and sparse goto composition
+
+* Paper and implementation boundary
+
+The closure and goto definitions in [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]], Section 2.2,
+are the semantic target. The implementation uses raw production records,
+a dense core-symbol vector, interned symbol IDs and sparse bit masks. This
+composition derives group meaning and layout bounds from those representations;
+it does not require a final group-correctness certificate.
+
+* Constructed representation
+
+[[file:../../../formal/ParserEngine/PhysicalOperandExtraction.lean][PhysicalOperandExtraction]] projects actual operand base fields, discarding
+annotations and actions. Induction over the native vector-write recurrence
+proves every bounded read, including the untouched completed slot, equals the
+constructed grammar's after-dot symbol. A fresh zero-filled vector is required.
+[[file:../../../formal/ParserEngine/PhysicalCoreExtraction.lean][PhysicalCoreExtraction]] inverts arbitrary physical addresses and proves that
+a symbol-bearing core advances to address plus one inside the same production.
+Duplicate semantic productions retain separate physical addresses.
+
+[[file:../../../formal/ParserEngine/PhysicalSymbolDiscovery.lean][PhysicalSymbolDiscovery]] derives the nonterminal discovery stream from the
+physical vector. [[file:../../../formal/ParserEngine/SymbolDiscovery.lean][SymbolDiscovery]] separately constructs terminal and nonterminal
+symbol IDs from an empty registry and proves index injectivity. Completed slots
+contribute neither kind of symbol; terminal and nonterminal namespaces remain
+distinct even when their numeric payloads agree.
+
+* Sparse groups and publication
+
+[[file:../../../formal/ParserEngine/SparseGroupMasks.lean][SparseGroupMasks]] follows accumulation, own/shared mask union and the
+skip/merge recurrence. Its membership theorem identifies the origin of every
+output bit in either the kernel or prediction items. [[file:../../../formal/ParserEngine/SparseGoto.lean][SparseGoto]] combines this
+origin with physical symbol discovery and bounded advance. Every returned mask
+is bounded without a caller-supplied bound; every decoded target is exactly a
+paper goto-kernel item from the generated closure.
+
+[[file:../../../formal/ParserEngine/KernelConstruction.lean][KernelConstruction]] starts at augmented physical core zero and derives
+bounds for every successor in its construction history. Composing group meaning,
+registry publication and the concrete closure factory gives the target closure
+of each returned symbol/target pair. The theorem quantifies over arbitrary
+grammars, histories, masks and published groups, rather than a fixture catalogue.
+
+[[file:../../../formal/ParserEngine/SparseGroupSource.lean][SparseGroupSource]] independently describes the complete native symbol-catalog
+and sparse-group declarations. The existing source extractor generates both
+witnesses, and Lean rejects a declaration mismatch. Its checked adapter exposes
+the proved mathematical group implementation only after schema equality.
+Source equality identifies the supported procedure; it alone is not a proof of
+arbitrary Scheme execution or of all mutable primitive behavior.
+
+* Remaining universal correspondence
+
+The set-level goto and kernel-bound obligations above are discharged. Universal
+refinement of earliest-item sorting, mutable scratch reset, physical registry
+storage and the complete native queue's control flow remains separate. In
+particular, the sorted model preserves membership; this work does not claim an
+arbitrary-host execution theorem for native list-sort. Existing native controls
+compare complete row order, scratch reset and repeated calls against a full
+closure traversal, but finite controls do not replace those universal proofs.
+Host vector/hash primitives, allocation, GC and compiler behavior remain external
+premises. Gambit is neither modified nor built. No performance claim follows.
+
+* Qualification
+
+The complete Lean package builds 142 jobs with the new declarations included
+in the axiom audit. Thirteen Scheme owners complete 262 cases with natural
+exit zero in 19.5 seconds under the unchanged 90-second total and five-second
+idle budgets. The additional macro-based control crosses 128 physical cores
+and retains duplicate empty productions. All 19 evidence/layout controls pass.
+The source witness freshness check succeeds; changing the sparse-group
+procedure name in a temporary extracted witness is rejected with exit 70.
+These controls qualify the source connection separately from the universal
+mathematical statements and establish no CPU performance result.
+
+The current parent CI run =39018836652= fails both source-freshness steps
+because the reader fixture imports =prediction-witness= by package identity
+without a prepared loadable product. The reader now imports the adjacent source
+explicitly. A separate load-path overlay excluding both fixture products passes
+the unchanged generator check; the old package import in that same overlay fails
+with the original missing-module error and exit 70. This fixes the direct-source
+dependency, rather than changing timeouts, retries or SDK behavior. Remote
+acceptance of the new commit is a separate result.

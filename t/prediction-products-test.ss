@@ -11,6 +11,17 @@
           (equal (car observed) (cadr observed))
           (equal (caddr observed) #t)
           (equal (cadddr observed) (car observed))))))
+  (property "wide physical kernels retain distinct duplicate production addresses"
+    (bindings
+      (productions
+        (list (list 0 'start '((nonterminal A)) 'concat #f)
+              (list 1 'A (make-list 140 '(terminal word)) 'concat #f)
+              (list 2 'A '() 'concat #f)
+              (list 3 'A '() 'concat #f)))
+      (observed (native-template-groups productions '(0 2 129 141 142 143 144))))
+    (equal (car observed) (cadr observed))
+    (equal (caddr observed) #t)
+    (equal (cadddr observed) (car observed)))
   (property "completed dot slots do not create advanced targets"
     (bindings (observed (native-template-groups
                          '((0 start ((nonterminal A)) concat #f)

@@ -1,3 +1,5 @@
+import ParserEngine.SparseGroupSource
+import ParserEngine.PhysicalSymbolDiscovery
 import ParserEngine.PublishedClosure
 import ParserEngine.LRTransitionSource
 import ParserEngine.PredictionObservation

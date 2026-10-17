@@ -18,6 +18,7 @@ Host and compiler behavior remain external premises; no host build is required.
 - [[file:parser-engine-formal-model/lr-state-suffix-correspondence.org][LR state and suffix producer correspondence]]
 - [[file:parser-engine-formal-model/prediction-interning-coordinates.org][Prediction queues, state interning and node coordinates]]
 - [[file:parser-engine-formal-model/template-materialization-publication.org][Generated prediction witnesses and published closure rows]]
+- [[file:parser-engine-formal-model/physical-sparse-goto.org][Physical extraction and sparse goto composition]]
 
 * Module ownership
 
@@ -63,8 +64,10 @@ closure publication and universal propagation-to-paper composition. The [[file:p
 grammar-row decoding, state-store preservation and two-pass coordinate
 extraction. The [[file:parser-engine-formal-model/template-materialization-publication.org][generated witness and publication composition]] now derives name coverage,
 completed queue replay, materialized templates and published closure meaning.
-Physical source extraction, sparse group/goto refinement and kernel bounds
-still have to discharge the remaining producer premises.
+The [[file:parser-engine-formal-model/physical-sparse-goto.org][physical extraction and sparse goto composition]] derives bounded advances,
+symbol-index injectivity, group membership and published target closure.
+Earliest-item ordering, mutable scratch and complete native queue execution
+remain universal refinement obligations.
 No parser performance or compiler/host correctness claim follows from it.
 
 * macOS contextual request qualification

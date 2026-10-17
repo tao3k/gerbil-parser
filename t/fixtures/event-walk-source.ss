@@ -1,5 +1,5 @@
 ;;; Reader adapter only: preserve source syntax for the Lean admission kernel.
-(import (only-in :gerbil-parser/t/fixtures/prediction-witness
+(import (only-in "./prediction-witness.ss"
                  prediction-observation prediction-dependencies prediction-fixtures)
         (only-in "../../src/testing/source-witness.ss"
                  parser-source-data write-parser-source-data source-data-current?))
@@ -97,6 +97,10 @@
 (def (source-bindings source)
   (parser-source-data
     (ParserEngine.WalkSourceWitness source source)
+    (ParserEngine.SparseGroupWitness symbolSource
+      (read-source-definition "src/compiler/lr-automaton.ss" 'make-lr0-symbol-catalog))
+    (ParserEngine.SparseGroupWitness groupSource
+      (read-source-definition "src/compiler/lr-automaton.ss" 'lr0-state-kernels))
     (ParserEngine.LRTransitionWitness builderSource
       (read-source-definition "src/compiler/lr-automaton.ss" 'build-lr0-automaton))
     (ParserEngine.LRTemplateWitness templateSource

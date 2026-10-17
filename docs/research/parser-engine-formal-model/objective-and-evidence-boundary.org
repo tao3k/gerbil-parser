@@ -32,6 +32,20 @@ specification. This section is the shared coverage ledger. Extend this ledger
 and its connected models before another runtime optimization. Do not use a new
 local object-count identity as evidence that an architecture gap has closed.
 
+** Unified construction correspondence audit
+
+[[file:construction-vocabulary.org][The vocabulary correspondence audit]] follows reader data, native records,
+catalogue indices, the retained LeanPoo factory and physical edges as one chain.
+The new transport proof closes the gap between injective raw encoding and the
+final producer-owned ordinal. Symbol discovery and the paper target are derived
+from the same raw operand occurrence and retained construction product.
+
+Its responsibility table records remaining native producer, lookahead/selector/
+policy and AST metadata obligations. Input admission and a finite native corpus
+do not establish arbitrary producer execution. Host behavior remains external.
+This closes vocabulary composition within the supported construction protocol,
+not the complete engine model; local runtime optimization remains gated.
+
 ** Parser ownership, prepared requests and the macOS timeout
 
 Host implementation is outside this parser change. Gambit sources, compiler,

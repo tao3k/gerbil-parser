@@ -1,0 +1,85 @@
+#+title: Construction vocabulary and unified correspondence
+
+* One integration boundary
+
+[[file:objective-and-evidence-boundary.org][The shared architecture ledger]] owns model coverage.
+[[file:physical-sparse-goto.org][The construction contract]] owns queue, storage and publication laws.
+This topic closes vocabulary transport into that same construction result;
+it introduces no separate factory or certification API.
+
+[[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]], sections 2.1--2.2, defines distinct terminal and
+nonterminal alphabets and goto by advancing over the same grammar symbol.
+The existing construction models the LR0 projection of closure/goto.
+Injective encoding alone does not establish that rebuilding a catalogue keeps
+ordinals. The paper's lookahead and augmented EOF convention need the separate
+lookahead/table/acceptance adapters; a non-EOF edge theorem does not close them.
+
+* Producer-to-consumer chain
+
+The real [[file:../../../src/compiler/lr.ss][production-terminal-catalog]] seeds EOF, scans productions and operands
+in order, conses unseen bases, reverses once and installs ordinal indices.
+Its supported source schema is =ProducerAdmission.Source.catalog=.
+=ConstructionEncoding= forms a reader catalogue; =ConstructionGrammar= forms
+another catalogue over encoded records before producing the CFG. Earlier
+roundtrip laws did not connect these two orders for arbitrary inputs.
+
+[[file:../../../formal/ParserEngine/ConstructionVocabulary.lean][ConstructionVocabulary]] supplies that missing composition:
+
+| Boundary | Derived law | Existing consumer |
+|----------+-------------+-------------------|
+| Successful raw key conversion | =encoded_key=, =key_encoded=, =key_roundtrip= | Total map notation is used only where successful lookup is proved |
+| First-discovery scan | =collect_transport= | Left inverse on the scanned domain preserves cons/skip behavior; no global injection assumption |
+| Every operand and row | =mapM_observe=, =operand_terminal=, =row_terminals=, =terminal_stream= | Reuses =mapM_trace=; preserves duplicates and complete ordering |
+| EOF seed and both catalogues | =catalogue_transport= | Producer catalogue is exactly the mapped reader catalogue |
+| Installed ordinal | =key_ordinal=, =terminal_symbol= | Producer-owned index, not a caller recoding function |
+| Retained CFG occurrence | =factory_terminal= | Same physical production and operand index |
+| Symbol discovery | =factory_symbol_index= | Symbol ID derived from the occurrence, not a separate certificate |
+| Final physical transition | =factory_paper_target= | Existing =ConstructionConsumer.physical_paper_target= for the same plan, state vector and edge row |
+
+=ConstructionConsumer.certified= remains the retained LeanPoo factory.
+The new laws consume its existing result rather than recomputing an automaton.
+The final law covers all allocated nodes and their published edges for the
+discovered terminal, retaining exact target closure/goto meaning for every child.
+
+* Remaining responsibilities
+
+The entry remains a restricted, normal-return parser protocol.
+
+| Responsibility | Current evidence | Remaining proof or premise |
+|----------------+------------------+----------------------------|
+| Reader identities and terminal ordinals | Generic roundtrip, occurrence, catalogue and final-edge composition | Host scalar extraction and interned-symbol identity are external |
+| Records, IDs, augmentation and references | Checked by =ConstructionGrammar.prepare= and consumed by the same factory | Does not show that every native DSL invocation produces an admitted record list |
+| Lowering source rules and recipes | =Names= proves generic recipe semantics; the gate checks every supplied row/recipe; native corpus preserves actual publication | Complete source-control refinement for arbitrary native lowering runs and supplied source/decode/recipe metadata, including rejection behavior |
+| Queue, scratch, templates and vectors | Complete source-order construction, ownership, readiness and physical publication | Supported schemas and normal-return primitive contracts; not arbitrary Scheme execution |
+| Lookahead, selector and conflict policy | Dedicated graph, table and request models | Integrate supported semantic admission with the same raw vocabulary and complete request; LR0 closure does not discharge LR1/policy semantics |
+| AST, field/alias/layout actions and events | Separate semantic-value and event models | Recognition erasure omits action metadata; construction input is not an AST correctness certificate |
+| Arithmetic, storage, hashes, sorting, compiler and GC | Explicit external contracts | No Gambit changes/builds or host implementation proof |
+
+Input admission and a proved producer are different obligations.
+=ConstructionGrammar.Input= still receives rules, decoding and recipes; their
+checker is not a universal operational theorem about Scheme lowering.
+Likewise, table schema validation does not prove selector/conflict semantics.
+Model closure is not claimed; runtime optimization remains gated.
+
+Continue along these producer/consumer seams through one complete admission
+path. Each closure needs a generic theorem, actual source owner, integration
+consumer and executable rejection control. A finite pass alone changes no status.
+
+* Qualification
+
+The complete Lean package builds 199 jobs. The axiom audit includes collector,
+catalogue, ordinal, occurrence, discovery and physical target laws, with standard
+Lean logical axioms only; no =sorry=, =native_decide= or host axiom is introduced.
+
+The existing =defparser-check= and =deflanguage-parser-tests= owners pass 69 cases,
+including an independent append-based vocabulary reference. Controls cover
+equal contents with different token/literal/layout tags, duplicate and marked
+operands, nullable/repeated rules, composed/decomposed accents and non-ASCII
+names. Every vector ordinal is compared with the actual native hash index;
+absent keys stay absent. Existing reader-data corpus checks remain active.
+The unchanged 90-second total and 5-second idle watchdogs apply.
+
+[[file:../../../formal/quint/ConstructionVocabulary.qnt][The vocabulary protocol]] passes eight directed controls and 1,000 histories of
+20 transitions. Negative controls remove EOF, reorder the catalogue, change an
+ordinal or drop an occurrence. They supplement arbitrary-list Lean laws and
+establish no CPU improvement.

@@ -60,6 +60,32 @@
   (equal (call-with-output-string write-construction-raw-data)
          (call-with-input-file "formal/ParserEngine/RawGrammarData.lean" read-all-as-string)))
 
+;; Independent append-based reference, distinct from native cons/reverse and
+;; its equal?-keyed seen table. Tags are part of the key, annotations are not.
+(def (reference-terminal-vocabulary productions)
+  (let loop ((operands (apply append (map production-rhs productions))) (keys (list +lr-eof+)))
+    (if (null? operands) keys
+      (let (key (base-symbol (car operands)))
+        (loop (cdr operands)
+          (if (and (terminal-symbol? key) (not (member key keys)))
+            (append keys (list key)) keys))))))
+
+(defparser-check (terminal-vocabulary-case)
+  (each (rules)
+    ((append native-fact-rules
+       '(((start (sequence (token word) (literal "word")
+                   (field item (token word)) (layout-start word) (layout-next word)
+                   (literal "word") (alias Item (literal "é")) (literal "é")
+                   (token 名称) (literal "名称"))))
+         ((start (choice (sequence) (repeat (token word)) (token word)))))))
+    (scope ((productions (lower-rules rules 'start)))
+      (scope-values (((terminals index) (production-terminal-catalog productions)))
+        (equal (vector->list terminals) (reference-terminal-vocabulary productions))
+        (equal (vector-ref terminals 0) +lr-eof+)
+        (each (offset) ((iota (vector-length terminals)))
+          (equal (table-ref index (vector-ref terminals offset) #f) offset))
+        (equal (table-ref index '(terminal literal "unpublished-vocabulary-key") #f) #f)))))
+
 (defparser-check (grammar-model-pipeline-case)
   ;; The same S -> A b; A -> a A | epsilon fixture as GrammarPipeline.qnt.
   (sequential ((grammar grammar-model-clauses)

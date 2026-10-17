@@ -403,3 +403,10 @@ import ParserEngine.Components
 #print axioms ParserEngine.NativeFacts.origin_facts
 #print axioms ParserEngine.NativeFacts.completion_decode_checked
 #print axioms ParserEngine.NativeFacts.origin_decode_checked
+#print axioms ParserEngine.ConstructionVocabulary.collect_transport
+#print axioms ParserEngine.ConstructionVocabulary.terminal_stream
+#print axioms ParserEngine.ConstructionVocabulary.catalogue_transport
+#print axioms ParserEngine.ConstructionVocabulary.key_ordinal
+#print axioms ParserEngine.ConstructionVocabulary.factory_terminal
+#print axioms ParserEngine.ConstructionVocabulary.factory_symbol_index
+#print axioms ParserEngine.ConstructionVocabulary.factory_paper_target

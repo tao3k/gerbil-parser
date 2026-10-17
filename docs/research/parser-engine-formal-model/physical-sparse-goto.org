@@ -716,13 +716,16 @@ remains external; Gambit is neither modified nor built.
 
 * External premises and remaining source boundary
 
+[[file:construction-vocabulary.org][The unified vocabulary audit]] connects raw terminal positions to the same
+retained physical edge semantics and records remaining producer/metadata duties.
+
 The audit separates input-domain obligations from derived parser facts and
 external implementation contracts. A standard-axiom report alone cannot close
 an input obligation; a native fixture alone cannot discharge a universal law.
 
 | Premise class | Status and owner | Required boundary |
 |---------------+------------------+-------------------|
-| Reader contents and native records to CFG | =ConstructionEncoding= proves directory/tag roundtrip and per-position partial conversion; =ConstructionGrammar.prepare= derives the nonempty CFG and feeds the same LeanPoo factory | Host reader, scalar extraction, interning and semantic metadata validation remain explicit; no independent caller CFG/nonempty proof. |
+| Reader contents and native records to CFG | =ConstructionEncoding= proves directory/tag roundtrip; =ConstructionVocabulary= transports catalogue order and ordinals to physical paper targets; =ConstructionGrammar.prepare= derives the nonempty CFG and feeds the same LeanPoo factory | Host reader, scalar extraction, interning and semantic metadata validation remain explicit; no independent caller CFG/nonempty proof. |
 | Supported source schemas and positive capacity | Derived from =prepare= and =extracted_sources= | Unsupported declarations reject admission; arbitrary Scheme is outside the protocol. |
 | Queue validity, plan availability, vector bounds and shared template identity | Derived at every reachable source-order prefix by =ConstructionReadiness=; consumed by LeanPoo | These are parser obligations, not host premises or caller certificates. |
 | Sort behavior, arithmetic, vectors, hash and queue primitives | Explicit ordinary host contracts, including sortedness and permutation | No correctness proof of the host implementation is claimed. |

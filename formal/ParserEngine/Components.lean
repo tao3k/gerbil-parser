@@ -1,6 +1,7 @@
 import ParserEngine.ConstructionConsumer
 import ParserEngine.ConstructionGrammar
 import ParserEngine.ConstructionEncodingWitness
+import ParserEngine.ConstructionVocabulary
 import ParserEngine.SparseGroupSource
 import ParserEngine.PhysicalSymbolDiscovery
 import ParserEngine.PublishedClosure

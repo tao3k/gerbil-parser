@@ -730,6 +730,7 @@
     (scenario "native dense item layout refines ordered grammar coordinates and goto" (verify dense-layout-refinement-case))
     (scenario "lowering proof replay publishes bindings and preserves native identity" (verify lowering-proof-publication-case))
     (scenario "physical names, emission ordinals and source occurrences agree" (verify emission-origin-alignment-case))
+    (scenario "terminal vocabulary preserves tagged first occurrence and native ordinals" (verify terminal-vocabulary-case))
     (scenario "grammar derivation chart, scanner and LR tables compose on the shared model fixture" (verify grammar-model-pipeline-case))
     (scenario "schema-valid LR tables need a separate grammar-support obligation" (verify table-support-counterexample-case))
     (scenario "one raw token selects different grammar terminals across LR states" (verify state-sensitive-terminal-case))

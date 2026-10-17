@@ -157,6 +157,68 @@ It neither inspects nor rebuilds Gambit. Normal callback order can
 be consumed by any order-sensitive fold; native controls separately exercise
 nested callbacks and immediate exception propagation.
 
+* Cache ownership in the unified construction
+
+[[file:../../../formal/ParserEngine/CachedConstruction.lean][CachedConstruction.construct]] executes the combined construction model.
+It threads one initially empty grammar-owned cache through initial installation,
+novel kernel interning, ordered transition publication and the terminating FIFO
+drain. It also consumes the selected LeanPoo traversal capability in each group
+call. =construct_exact= identifies the whole resulting machine with
+=ConstructionProtocol.construct=, so its complete-row and paper goto/closure
+contracts apply without a supplied final-state semantic certificate.
+
+The cache key is the aggregate prediction mask, not the kernel mask or state ID.
+[[file:../../../formal/ParserEngine/TemplateCapabilities.lean][TemplateCapabilities]] retains the fetching factory through LeanPoo
+=Requirements.certify=. Its joint contract includes both exact template data and
+validity of the next cache. =Certified.consume= uses those data to build the
+kernel-specific closure and next cache. Hits share predictions, never the complete
+closure of distinct kernels. The grammar indexes the retained factory/cache;
+there is no cross-grammar reuse or label-only admission.
+
+=build_stored= proves actual installation at the requested aggregate key;
+=build_retained= preserves prior entries even across nonadjacent requests.
+=intern_covered= and =publish_covered= derive coverage for every installed plan.
+=finish_covered= and =construct_covered= carry that coverage through the complete
+queue. =plan_template= connects each physical plan read to that retained entry.
+The actual queue step reads the installed plan, rather than substituting a key
+catalog read for it. Processing reads the retained template's items and shared groups; it does
+not rebuild them. First-item slots may have arbitrary stale contents on every
+iteration; their provenance cannot affect the final machine. The absent-cache
+branch is unreachable under this generated
+coverage invariant. Existing state IDs bypass the factory entirely.
+
+The native three-slot template has a group hash index as well as ordered rows.
+The model uses its extensional row representation. Agreement of the physical
+hash/index operations with those rows remains a storage premise; it is not an
+unproved cache-population premise. =source_current= independently checks the
+complete builder, materializer and aggregate-key cache declarations.
+
+LeanPoo's =ContextSlot= is deliberately not used: it retains only one context,
+whereas this builder retains multiple aggregate masks. =ConstructionCache=
+materializes dependency graphs; the LR prediction dependency graph has already
+been completed before this cache is constructed. Reusing either with a different
+lifetime or key protocol would misrepresent the source. Capability retention,
+joint certification and proof-aware consumption reuse LeanPoo directly; mask
+arithmetic and FIFO induction remain ordinary functions and proofs.
+
+** Maintained obligation map
+
+| Obligation | Producer and consumer evidence | Boundary |
+|------------+--------------------------------+----------|
+| Paper prediction, closure and goto | =PredictionMaterialization=, =PublishedClosure=, =ConstructionProtocol.paper_target= | Arbitrary constructed grammar; physical production identity retained |
+| Ordered direct/field callbacks | =TraversalCapabilities.callbacks= consumed by =CachedConstruction.groups= | Integer primitives and positive SDK field width |
+| Sparse order and scratch lifecycle | =native_group_call= and =groups_exact=; native whole-builder scratch controls | Extensional storage; arbitrary stale first slots allowed per iteration |
+| Aggregate-key cache lifetime | =construct_covered=, =cache_hit=; native object identity and factory counts | Per-builder grammar/layout; no cross-builder admission |
+| Interning, FIFO and final rows | =construct_exact= and returned =Product= | Hash equality, vector prefix copy and queue primitives |
+| Source authority | Complete independent declaration schemas and fresh extraction; forwarding native execution | Restricted schemas, not a general Scheme execution theorem |
+| Compiler, GC and host memory | Explicit external premises | No Gambit modification or build; no native compiler correctness claim |
+
+This table is the integration checklist. Adding an isolated theorem does not
+close a row until the complete constructor consumes its evidence and a native
+control exercises the corresponding source boundary. The combined model now
+closes cache population and consumption; physical storage/host realization is
+still an explicit premise. No runtime performance claim follows from this map.
+
 * External premises and remaining source boundary
 
 These are universal algorithm-level lifecycle proofs. Ascending callback order
@@ -178,10 +240,29 @@ No runtime performance optimization or CPU claim is included.
 
 * Lifecycle qualification
 
+The retained-template integration passes the complete Lean build (178 jobs),
+including explicit axiom reports for cache installation, retained entries,
+plan/template agreement, coverage and complete-machine equality. Only the
+standard Lean axioms occur; source-schema equality requires no axioms.
+The 13-owner Scheme qualification passes 269 macro-owned cases with natural exit
+0 in 53.866 seconds under the unchanged 90-second total / 5-second idle bounds.
+A focused repeat of the changed owner also verifies one zero-prediction template
+across 130 installed states and physical vector growth. Nineteen evidence/layout
+controls pass. The full Quint command passes; the construction lifecycle has nine
+directed controls and 1,000 bounded 40-step histories, including missing-template
+and wrong-cache-key rejection. A cold source-reader freshness check succeeds;
+a temporary extracted witness replacing the aggregate lookup key with the kernel
+key is rejected with exit 70. These are correctness receipts, not CPU evidence.
+
+
 [[file:../../../t/fixtures/construction-lifecycle.ss][The forwarding observer]] evaluates the unchanged complete builder. It
 records actual enqueue/dequeue and publication IDs, compares sparse groups
 against an independent full-closure traversal, poisons first slots before reuse,
-checks masks after return and checks immutable shared templates. The existing
+checks masks after return and checks immutable shared templates. It also counts
+actual materializer calls and closure requests, reconstructs each request's
+aggregate key from the prediction catalog, and checks template object identity.
+The recursive control creates four states using two templates and four closure
+requests. Repeating it with another vocabulary starts a fresh builder/cache. The existing
 parser-test macro owns these assertions in the construction test owner. Cases
 include cycles, empty predictions, missing symbols, duplicate production IDs and
 whole-builder execution across the initial 128-slot vector boundary.

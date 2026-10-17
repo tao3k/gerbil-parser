@@ -35,7 +35,19 @@
         (equal (list-ref observed 3) (iota (car observed)))
         (equal (list-ref observed 4) (iota (car observed)))
         (equal (list-ref observed 5) (car observed))
-        (equal (list-ref observed 6) #t))))
+        (equal (list-ref observed 6) #t)
+        (equal (list-ref observed 10) (car observed))
+        (equal (list-ref observed 11) #t))))
+  (scenario "distinct kernels share aggregate templates within each fresh builder"
+    (each (token) ('(alpha beta))
+      (scope ((observed (construction-observation
+        `((0 start ((nonterminal A)) concat #f)
+          (1 A ((terminal token ,token) (nonterminal A)) concat #f)
+          (2 A () concat #f)))))
+        (equal (car observed) 4)
+        (equal (list-ref observed 9) 2)
+        (equal (list-ref observed 10) 4)
+        (equal (list-ref observed 11) #t))))
   (property "complete publication retains FIFO IDs across physical vector growth"
     (bindings
       (productions (list (list 0 'start
@@ -46,7 +58,10 @@
     (equal (list-ref observed 2) (iota 130))
     (equal (list-ref observed 3) (iota 130))
     (equal (list-ref observed 4) (iota 130))
-    (equal (list-ref observed 6) #t))
+    (equal (list-ref observed 6) #t)
+    (equal (list-ref observed 9) 1)
+    (equal (list-ref observed 10) 130)
+    (equal (list-ref observed 11) #t))
   (scenario "source direct and field paths deliver the same ordered callbacks"
     (each (width) ((append '(1 2 5) (list (integer-length (##greatest-fixnum)))))
       (each (route) ('(native fixnum direct field))

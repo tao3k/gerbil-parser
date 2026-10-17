@@ -22,7 +22,7 @@ Host and compiler behavior remain external premises; no host build is required.
 
 * Current construction entry
 
-Use [[file:../../formal/ParserEngine/ConstructionProtocol.lean][ConstructionProtocol.construct]] and its [[file:parser-engine-formal-model/physical-sparse-goto.org][maintained contract map]] for LR construction.
+Use [[file:../../formal/ParserEngine/CachedConstruction.lean][CachedConstruction.construct]] and its [[file:parser-engine-formal-model/physical-sparse-goto.org][maintained contract map]] for LR construction.
 The map names each producer law, consumer, source owner and executable control.
 Keep source admission, universal algorithm proofs and native qualification
 distinct; update the map when an obligation changes.
@@ -75,6 +75,9 @@ The [[file:parser-engine-formal-model/physical-sparse-goto.org][physical extract
 symbol-index injectivity, group membership and published target closure.
 The same contract now integrates earliest-item ordering, borrowed scratch, FIFO
 termination and complete row publication through =ConstructionProtocol.construct=.
+=CachedConstruction.construct= now consumes retained templates and selected
+traversal in that same complete queue, deriving cache coverage for every plan and
+identifying its final machine with this canonical paper contract.
 The selected LeanPoo traversal capability now supplies direct/field callback
 order to the complete queue through =traversal_finish_exact=. Its paper target
 theorem applies to final edges; concrete host primitives and compiler lowering

@@ -3,6 +3,8 @@
 module ConstructionLifecycle {
   type Group={first:int,symbol:int,kernel:Set[int]}
   type Edge={symbol:int,target:int}
+  var templates:Set[Set[int]]
+  var materializations:int
   var phase:str
   var catalog:List[Set[int]]
   var work:List[int]
@@ -19,10 +21,10 @@ module ConstructionLifecycle {
     if(items.contains(core) and symbol(core)==key and core<found) core else found)
   pure def advanced(items:Set[int],key:int):Set[int] = items.fold(Set(),(out,core)=>
     if(symbol(core)==key) out.union(Set(core+1)) else out)
-  pure def row(kernel:Set[int],key:int):Group =
-    {first:earliest(closure(kernel),key),symbol:key,kernel:advanced(closure(kernel),key)}
-  pure def sparse(kernel:Set[int]):List[Group] = {
-    val left=row(kernel,0);val right=row(kernel,1)
+  pure def row(items:Set[int],key:int):Group =
+    {first:earliest(items,key),symbol:key,kernel:advanced(items,key)}
+  pure def sparse(items:Set[int]):List[Group] = {
+    val left=row(items,0);val right=row(items,1)
     if(left.first==999) (if(right.first==999) List() else List(right))
     else if(right.first==999) List(left)
     else if(left.first<right.first) List(left,right) else List(right,left)
@@ -31,29 +33,40 @@ module ConstructionLifecycle {
     values.indices().fold(-1,(found,id)=>if(values.nth(id)==key) id else found)
   pure def install(values:List[Set[int]],rows:List[Group]):List[Set[int]] =
     rows.foldl(values,(out,group)=>if(lookup(out,group.kernel)<0) out.append(group.kernel) else out)
+  pure def requested(values:List[Set[int]]):Set[Set[int]] =
+    values.foldl(Set(),(out,kernel)=>out.union(Set(predicted(kernel))))
+  pure def cached(kernel:Set[int],available:Set[Set[int]]):Set[int] =
+    if(available.contains(predicted(kernel))) predicted(kernel) else Set()
   action setup(stale:int):bool = all {
+    templates'=Set(predicted(Set(0))),materializations'=1,
     phase'="ready",catalog'=List(Set(0)),work'=List(0),processed'=0,owner'=-1,
     groups'=List(),masks'=List(Set(),Set()),firsts'=List(stale,stale),published'=List()}
   action init = {nondet stale=Set(0,7,999).oneOf();setup(stale)}
   action step = if(phase=="ready" and work.length()>0) all {
+    templates'=templates,materializations'=materializations,
     phase'="group",catalog'=catalog,work'=work.slice(1,work.length()),processed'=processed+1,
     owner'=work.nth(0),groups'=groups,masks'=masks,firsts'=firsts,published'=published}
     else if(phase=="group") {val kernel=catalog.nth(owner);all {
+      templates'=templates,materializations'=materializations,
       phase'="borrowed",catalog'=catalog,work'=work,processed'=processed,owner'=owner,
-      groups'=sparse(kernel),masks'=List(advanced(kernel,0),advanced(kernel,1)),
+      groups'=sparse(kernel.union(cached(kernel,templates))),masks'=List(advanced(kernel,0),advanced(kernel,1)),
       firsts'=List(if(earliest(kernel,0)<999) earliest(kernel,0) else firsts.nth(0),
         if(earliest(kernel,1)<999) earliest(kernel,1) else firsts.nth(1)),published'=published}}
     else if(phase=="borrowed") all {
+      templates'=templates,materializations'=materializations,
       phase'="publish",catalog'=catalog,work'=work,processed'=processed,owner'=owner,
       groups'=groups,masks'=List(Set(),Set()),firsts'=firsts,published'=published}
     else if(phase=="publish") {val grown=install(catalog,groups);all {
+      templates'=templates.union(requested(grown)),
+      materializations'=materializations+requested(grown).exclude(templates).size(),
       phase'="ready",catalog'=grown,
       work'=work.concat(List(0,1,2,3,4,5,6,7).foldl(List(),(out,id)=>if(id>=catalog.length() and id<grown.length()) out.append(id) else out)),
       processed'=processed,owner'=owner,groups'=groups,masks'=masks,firsts'=firsts,
       published'=published.append(groups.foldl(List(),(out,group)=>out.append({symbol:group.symbol,target:lookup(grown,group.kernel)})))}}
-    else all {phase'=phase,catalog'=catalog,work'=work,processed'=processed,owner'=owner,
+    else all {templates'=templates,materializations'=materializations,phase'=phase,catalog'=catalog,work'=work,processed'=processed,owner'=owner,
       groups'=groups,masks'=masks,firsts'=firsts,published'=published}
   val LifecycleSafety = all {
+    templates==requested(catalog),materializations==templates.size(),
     catalog.indices().forall(i=>catalog.indices().forall(j=>i==j or catalog.nth(i)!=catalog.nth(j))),
     processed<=catalog.length(),work.length()+processed==catalog.length(),
     work.indices().forall(i=>work.nth(i)==processed+i),
@@ -74,6 +87,17 @@ module ConstructionLifecycle {
       edge.target>=0 and edge.target<catalog.length() and
         catalog.nth(edge.target)==advanced(closure(catalog.nth(id)),edge.symbol)}))
   }
+  run missingTemplateRejectedTest = setup(999)
+    .then(all {templates'=Set(),materializations'=0,phase'=phase,catalog'=catalog,
+      work'=work,processed'=processed,owner'=owner,groups'=groups,masks'=masks,
+      firsts'=firsts,published'=published})
+    .expect(not(LifecycleSafety))
+  run kernelKeyRejectedTest = setup(999)
+    .then(all {templates'=Set(Set(0)),materializations'=1,phase'=phase,catalog'=catalog,
+      work'=work,processed'=processed,owner'=owner,groups'=groups,masks'=masks,
+      firsts'=firsts,published'=published})
+    .expect(not(LifecycleSafety))
+
   run staleFirstsTest = setup(999).then(step).then(step).expect(
     firsts==List(0,999) and groups==List({first:0,symbol:0,kernel:Set(1,3)},
       {first:1,symbol:1,kernel:Set(2)}) and LifecycleSafety)
@@ -82,13 +106,13 @@ module ConstructionLifecycle {
   run publicationEnqueuesOnlyNewIDsTest = setup(0).then(step).then(step).then(step).then(step)
     .expect(work==List(1,2) and catalog.length()==3 and published.length()==1 and LifecycleSafety)
   run missingResetRejectedTest = setup(0).then(step).then(step).then(step)
-    .then(all {phase'=phase,catalog'=catalog,work'=work,processed'=processed,owner'=owner,
+    .then(all {templates'=templates,materializations'=materializations,phase'=phase,catalog'=catalog,work'=work,processed'=processed,owner'=owner,
       groups'=groups,masks'=List(Set(1),Set()),firsts'=firsts,published'=published}).expect(not(LifecycleSafety))
   run duplicateQueueRejectedTest = setup(0)
-    .then(all {phase'=phase,catalog'=catalog,work'=List(0,0),processed'=processed,owner'=owner,
+    .then(all {templates'=templates,materializations'=materializations,phase'=phase,catalog'=catalog,work'=List(0,0),processed'=processed,owner'=owner,
       groups'=groups,masks'=masks,firsts'=firsts,published'=published}).expect(not(LifecycleSafety))
   run reversedGroupsRejectedTest = setup(0).then(step).then(step)
-    .then(all {phase'=phase,catalog'=catalog,work'=work,processed'=processed,owner'=owner,
+    .then(all {templates'=templates,materializations'=materializations,phase'=phase,catalog'=catalog,work'=work,processed'=processed,owner'=owner,
       groups'=List(groups.nth(1),groups.nth(0)),masks'=masks,firsts'=firsts,published'=published})
       .expect(not(LifecycleSafety))
   run completeDrainTest = setup(999)

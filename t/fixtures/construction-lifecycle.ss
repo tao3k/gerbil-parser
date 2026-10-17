@@ -27,6 +27,8 @@
          (cores (make-core-symbol-catalog table layout))
          (dequeues '()) (enqueues '()) (publications '()) (current #f)
          (publishing #f) (groups-ok? #t) (calls 0)
+         (catalog #f) (created (make-table test: equal?))
+         (template-count 0) (template-requests 0) (cache-ok? #t)
          (prediction (source-procedure path 'make-core-prediction-catalog prediction-dependencies))
          (symbols (source-procedure path 'make-lr0-symbol-catalog '()))
          (template (source-procedure path 'make-prediction-template
@@ -43,14 +45,26 @@
       (builder productions table layout cores
         production-index-by-lhs
         (lambda (core-symbols by-lhs layout)
-          (prediction core-symbols by-lhs layout nonterminal-symbol? nonterminal-name production-id
-            make-core-item compiler-index-set-add compiler-index-set-difference
-            compiler-index-set-union compiler-index-set-for-each make-Queue enqueue! dequeue! queue-empty? make-vector))
+          (set! catalog
+            (prediction core-symbols by-lhs layout nonterminal-symbol? nonterminal-name production-id
+              make-core-item compiler-index-set-add compiler-index-set-difference
+              compiler-index-set-union compiler-index-set-for-each make-Queue enqueue! dequeue! queue-empty? make-vector))
+          catalog)
         compiler-index-set-add make-core-item symbols
         (lambda (mask layout ids)
-          (template mask layout ids compiler-index-set-for-each make-core-item compiler-index-set-add))
+          (let (value (template mask layout ids compiler-index-set-for-each make-core-item compiler-index-set-add))
+            (set! cache-ok? (and cache-ok? (not (table-ref created mask #f))))
+            (table-set! created mask value)
+            (set! template-count (+ template-count 1))
+            value))
         compiler-index-set-for-each compiler-index-set-union
-        (lambda (mask template) (closure mask template compiler-index-set-for-each))
+        (lambda (mask template)
+          (let (prediction-mask 0)
+            (compiler-index-set-for-each mask (lambda (item)
+              (set! prediction-mask (compiler-index-set-union prediction-mask (vector-ref catalog item)))))
+            (set! template-requests (+ template-requests 1))
+            (set! cache-ok? (and cache-ok? (eq? template (table-ref created prediction-mask #f))))
+            (closure mask template compiler-index-set-for-each)))
         make-Queue
         (lambda (queue node) (set! enqueues (cons node enqueues)) (enqueue! queue node))
         (lambda (queue)
@@ -81,4 +95,5 @@
       (list count processed (reverse dequeues) (reverse enqueues)
             (reverse publications) calls groups-ok?
             (map (lambda (id) (vector-ref transitions id)) (iota count))
-            (map (lambda (id) (vector-ref states id)) (iota count))))))
+            (map (lambda (id) (vector-ref states id)) (iota count))
+            template-count template-requests cache-ok?))))

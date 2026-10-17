@@ -31,6 +31,24 @@ theorem preserves (compute : Nat → Product) (store : Store Product) (valid : V
     · subst key; simpa [fetch, read] using found.symm
     · exact valid key value (by simpa [fetch, read, same] using found)
 
+/-- First installation and later hits retain this exact key. Other populated
+slots survive a miss, so sharing does not depend on adjacent queue visits. -/
+theorem fetch_stored (compute : Nat → Product) (store : Store Product)
+    (valid : Valid compute store) (mask : Nat) :
+    (fetch compute store mask).2 mask = some (compute mask) := by
+  cases read : store mask with
+  | none => simp [fetch, read]
+  | some value => simp [fetch, read, valid mask value read]
+
+theorem fetch_retained (compute : Nat → Product) (store : Store Product)
+    (mask key : Nat) (value : Product) (found : store key = some value) :
+    (fetch compute store mask).2 key = some value := by
+  cases read : store mask with
+  | some existing => simpa [fetch, read] using found
+  | none =>
+    have different : key ≠ mask := by intro same; subst key; rw [read] at found; cases found
+    simpa [fetch, read, different] using found
+
 inductive Trace (compute : Nat → Product) : Store Product → Prop where
   | start : Trace compute empty
   | next {before} (earlier : Trace compute before) (mask : Nat) : Trace compute (fetch compute before mask).2

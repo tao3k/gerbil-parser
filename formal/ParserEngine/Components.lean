@@ -1,4 +1,4 @@
-import ParserEngine.ConstructionProtocol
+import ParserEngine.CachedConstruction
 import ParserEngine.SparseGroupSource
 import ParserEngine.PhysicalSymbolDiscovery
 import ParserEngine.PublishedClosure

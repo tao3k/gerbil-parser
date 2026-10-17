@@ -225,3 +225,19 @@ import ParserEngine.Components
 #print axioms ParserEngine.ConstructionProtocol.traversal_finish_exact
 #print axioms ParserEngine.BitTraversalSource.changed_source_rejected
 #print axioms ParserEngine.BitTraversalSource.changed_width_rejected
+
+#print axioms ParserEngine.TemplateCapabilities.build_exact
+#print axioms ParserEngine.TemplateCapabilities.build_stored
+#print axioms ParserEngine.TemplateCapabilities.build_retained
+#print axioms ParserEngine.TemplateCapabilities.cache_hit
+#print axioms ParserEngine.CachedConstruction.intern_exact
+#print axioms ParserEngine.CachedConstruction.publish_exact
+#print axioms ParserEngine.CachedConstruction.finish_exact
+#print axioms ParserEngine.CachedConstruction.construct_exact
+
+#print axioms ParserEngine.CachedConstruction.groups_exact
+#print axioms ParserEngine.CachedConstruction.tick_covered
+#print axioms ParserEngine.CachedConstruction.construct_covered
+#print axioms ParserEngine.CachedConstruction.source_current
+
+#print axioms ParserEngine.CachedConstruction.plan_template

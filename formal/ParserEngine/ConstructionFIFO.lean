@@ -223,6 +223,68 @@ def tick (program : Program) (g : Grammar.CFG) (traversal : Traversal) (cache : 
   if before.registry.pending = [] then ⟨before, cache, []⟩ else
     (program.queue.foldl (queueStep program g traversal) ⟨⟨before, cache, []⟩, 0, []⟩).toOutput
 
+/-- Before grouping, dequeue and accounting affect only their owned fields.
+This is an equality of the entire frame, including the untouched cache,
+transition table and empty action stream. -/
+theorem counted_prefix (g : Grammar.CFG) (traversal : Traversal) (cache : Cache g)
+    (before : Machine) (node : Nat) (tail : List Nat)
+    (front : before.registry.pending = node :: tail) :
+    ([QueueInstruction.dequeue, .process].foldl (queueStep canonical g traversal)
+      ⟨⟨before, cache, []⟩, 0, []⟩) =
+      ⟨⟨{before with registry := {before.registry with pending := tail, processed := before.registry.processed + 1}},
+        cache, []⟩, node, []⟩ := by
+  simp [List.foldl, queueStep, front]
+
+theorem target_processed (g : Grammar.CFG) (cache : Cache g)
+    (before : StateInterning.Registry Nat (List Nat)) (symbol kernel : Nat) (rows : Row) :
+    (target canonical g cache before symbol kernel rows).registry.processed = before.processed := by
+  cases found : before.index kernel with
+  | some id => simp [target, canonical, targetStep, found]
+  | none =>
+    simp only [target, canonical, List.foldl_cons, List.foldl_nil, targetStep, found]
+    exact (ConstructionInstallation.append_queue g cache before kernel).2
+
+/-- Any number of fresh or reused targets leaves outer accounting alone. -/
+theorem groups_processed (g : Grammar.CFG) (cache : Cache g)
+    (before : StateInterning.Registry Nat (List Nat)) (inputs : List (Nat × Nat)) (rows : Row) :
+    (groups canonical g cache before inputs rows).registry.processed = before.processed := by
+  induction inputs generalizing cache before rows with
+  | nil => rfl
+  | cons edge rest ih =>
+    simp only [groups]
+    rw [ih, target_processed]
+
+/-- Group callbacks retain the unpublished table. Only publish owns the
+transition write; callbacks cannot account for another dequeued state. -/
+theorem groups_boundary (g : Grammar.CFG) (traversal : Traversal) (frame : QueueFrame g) :
+    let after := queueStep canonical g traversal frame .groups
+    after.machine.registry.processed = frame.machine.registry.processed ∧
+      after.machine.transitions = frame.machine.transitions ∧ after.node = frame.node := by
+  simp only [queueStep]
+  cases frame.cache.readTemplate frame.node with
+  | none => exact ⟨rfl, rfl, rfl⟩
+  | some plan => exact ⟨groups_processed _ _ _ _ _, rfl, rfl⟩
+
+/-- The actual tick factors through the accounted frame and unpublished group
+result. This connects the prefix laws to the same loop retained by LeanPoo. -/
+theorem tick_phases (g : Grammar.CFG) (traversal : Traversal) (cache : Cache g)
+    (before : Machine) (node : Nat) (tail : List Nat)
+    (front : before.registry.pending = node :: tail) :
+    let counted : QueueFrame g :=
+      ⟨⟨{before with registry := {before.registry with pending := tail, processed := before.registry.processed + 1}},
+        cache, []⟩, node, []⟩
+    let grouped := queueStep canonical g traversal counted .groups
+    grouped.machine.registry.processed = before.registry.processed + 1 ∧
+      grouped.machine.transitions = before.transitions ∧
+      tick canonical g traversal cache before = (queueStep canonical g traversal grouped .publish).toOutput := by
+  dsimp only
+  refine ⟨(groups_boundary _ _ _).1, (groups_boundary _ _ _).2.1, ?_⟩
+  simp only [tick, front, List.cons_ne_nil, ↓reduceIte]
+  change (([QueueInstruction.dequeue, .process] ++ [QueueInstruction.groups, .publish]).foldl
+    (queueStep canonical g traversal) ⟨⟨before, cache, []⟩, 0, []⟩).toOutput = _
+  rw [List.foldl_append, counted_prefix g traversal cache before node tail front]
+  rfl
+
 theorem tick_exact (g : Grammar.CFG) (traversal : Traversal) (cache : Cache g) (before : Machine)
     (admitted : Invariant g before) (aligned : Aligned g cache before.registry) :
     ((tick canonical g traversal cache before).machine, (tick canonical g traversal cache before).cache) =

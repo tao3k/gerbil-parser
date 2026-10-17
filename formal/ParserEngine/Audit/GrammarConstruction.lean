@@ -359,3 +359,9 @@ import ParserEngine.Components
 #print axioms ParserEngine.ConstructionInitialization.initial_accounting
 #print axioms ParserEngine.ConstructionFIFO.target_existing
 #print axioms ParserEngine.ConstructionFIFO.target_before_enqueue
+#print axioms ParserEngine.ConstructionInitialization.before_registration
+#print axioms ParserEngine.ConstructionFIFO.counted_prefix
+#print axioms ParserEngine.ConstructionFIFO.target_processed
+#print axioms ParserEngine.ConstructionFIFO.groups_processed
+#print axioms ParserEngine.ConstructionFIFO.groups_boundary
+#print axioms ParserEngine.ConstructionFIFO.tick_phases

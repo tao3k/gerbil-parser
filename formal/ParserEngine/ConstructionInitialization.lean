@@ -58,6 +58,14 @@ theorem write_bounds (layout : PlanStorage.Layout) :
     0 < (ConstructionStorage.empty layout).states.length ∧ 0 < (ConstructionStorage.empty layout).plans.length := by
   simpa [ConstructionStorage.empty] using And.intro layout.positive layout.positive
 
+/-- Both values exist before the initial key becomes visible. The special
+path neither advances the already-one counter nor returns an append ID. -/
+theorem before_registration (layout : PlanStorage.Layout) (state : List Nat) (plan : PlanStorage.Plan) :
+    let frame := run [.state, .plan] layout state plan
+    frame.registered = [] ∧ frame.count = 1 ∧ frame.index = 0 ∧ frame.returned = none ∧
+      frame.heap = (run canonical layout state plan).heap := by
+  exact ⟨rfl, rfl, rfl, rfl, rfl⟩
+
 set_option maxRecDepth 8192 in
 theorem schema_decoded (initial : Nat) : decode (LRTransitionSource.builderWith initial) = some canonical := by
   have counters (name : String) : counter name (LRTransitionSource.builderWith initial) =

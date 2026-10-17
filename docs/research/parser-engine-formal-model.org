@@ -34,6 +34,10 @@ Parser-owned obligations must remain distinct from host assumptions.
 Source initialization and fresh installation generate their records from the
 shared LeanPoo value capability and instruction effects; abstract constructors
 are refinement targets rather than sources of preconstructed output records.
+The phase contract connects initial registration visibility, outer dequeue and
+accounting, target grouping and final publication to the same retained tick.
+Native controls observe those phases independently and reject missing or
+duplicated accounting events.
 
 * Module ownership
 

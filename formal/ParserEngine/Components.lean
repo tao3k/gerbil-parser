@@ -1,3 +1,4 @@
+import ParserEngine.ConstructionProtocol
 import ParserEngine.SparseGroupSource
 import ParserEngine.PhysicalSymbolDiscovery
 import ParserEngine.PublishedClosure

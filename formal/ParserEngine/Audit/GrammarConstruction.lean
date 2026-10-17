@@ -191,3 +191,19 @@ import ParserEngine.Components
 #print axioms ParserEngine.KernelConstruction.target_goto_exact
 #print axioms ParserEngine.SparseGroupWitness.source_checked
 #print axioms ParserEngine.SparseGroupSource.checked_bound
+
+#print axioms ParserEngine.DiscoveryOrder.keys_sorted
+#print axioms ParserEngine.GroupOrder.native_own_sort
+#print axioms ParserEngine.GroupOrder.generated_sorted
+#print axioms ParserEngine.GroupScratch.first_ready
+#print axioms ParserEngine.GroupScratch.order_permutation
+#print axioms ParserEngine.GroupScratch.borrowed_reset
+#print axioms ParserEngine.ConstructionQueue.dequeue_fifo
+#print axioms ParserEngine.ConstructionQueue.tick_rank
+#print axioms ParserEngine.ConstructionQueue.finish_empty
+#print axioms ParserEngine.ConstructionRows.complete
+#print axioms ParserEngine.ConstructionProtocol.source_current
+#print axioms ParserEngine.ConstructionProtocol.native_group_call
+#print axioms ParserEngine.ConstructionProtocol.grouping
+#print axioms ParserEngine.ConstructionProtocol.complete
+#print axioms ParserEngine.ConstructionProtocol.paper_target

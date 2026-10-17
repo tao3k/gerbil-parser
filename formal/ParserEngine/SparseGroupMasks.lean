@@ -44,6 +44,18 @@ theorem mask_bit (symbol : Nat → Option Nat) (items : List Nat) (key bit : Nat
 
 def keys (symbol : Nat → Option Nat) (items : List Nat) : List Nat := (items.filterMap symbol).eraseDups
 
+private theorem dedup_unique (values : List Nat) : values.eraseDups.Nodup := by
+  cases values with
+  | nil => simp
+  | cons value rest =>
+    rw [List.eraseDups_cons]
+    exact List.nodup_cons.mpr ⟨by simp, dedup_unique _⟩
+termination_by values.length
+decreasing_by have bounded := List.length_filter_le (fun b => !b == value) rest; simp only [List.length_cons]; omega
+
+theorem keys_unique (symbol : Nat → Option Nat) (items : List Nat) : (keys symbol items).Nodup :=
+  dedup_unique _
+
 theorem key_present (symbol : Nat → Option Nat) (items : List Nat) (key : Nat) :
     key ∈ keys symbol items ↔ ∃ item ∈ items, symbol item = some key := by simp [keys]
 
@@ -128,10 +140,13 @@ def first (symbol : Nat → Option Nat) (items : List Nat) (key : Nat) : Nat :=
 
 def sharedRows (symbol : Nat → Option Nat) (predictions : List Nat) : List Row :=
   (keys symbol predictions).map fun key => ⟨first symbol predictions key, key, mask symbol predictions key⟩
-def ownRows (symbol : Nat → Option Nat) (kernel predictions : List Nat) : List Row :=
-  ((keys symbol kernel).map fun key =>
+def ownUnsorted (symbol : Nat → Option Nat) (kernel predictions : List Nat) : List Row :=
+  (keys symbol kernel).map fun key =>
     ⟨if key ∈ keys symbol predictions then min (first symbol kernel key) (first symbol predictions key)
-      else first symbol kernel key, key, mask symbol kernel key ||| mask symbol predictions key⟩).mergeSort (fun a b => a.first ≤ b.first)
+      else first symbol kernel key, key, mask symbol kernel key ||| mask symbol predictions key⟩
+
+def ownRows (symbol : Nat → Option Nat) (kernel predictions : List Nat) : List Row :=
+  (ownUnsorted symbol kernel predictions).mergeSort (fun a b => a.first ≤ b.first)
 
 def groups (symbol : Nat → Option Nat) (kernel predictions : List Nat) : List Row :=
   merge (fun key => mask symbol kernel key != 0) (ownRows symbol kernel predictions) (sharedRows symbol predictions) []

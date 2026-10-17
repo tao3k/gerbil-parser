@@ -1,6 +1,7 @@
 ;;; Whole-producer controls complement the universal construction proofs.
 (import :gerbil-parser/language-test-support
-        :gerbil-parser/t/fixtures/lr-construction-semantics)
+        :gerbil-parser/t/fixtures/lr-construction-semantics
+        (only-in "fixtures/construction-lifecycle.ss" construction-observation))
 
 (deflanguage-parser-tests lr-construction-semantics-test "LR construction protocols"
   (engine)
@@ -25,6 +26,26 @@
     (equal (cadddr observed)
       '((((nonterminal A) . 1) ((terminal token a) . 2)) ()
         (((terminal token a) . 2) ((nonterminal A) . 3)) ())))
+  (scenario "complete queue publishes every ID once while borrowed scratch resets"
+    (each (productions) (prediction-fixtures)
+      (scope ((observed (construction-observation productions)))
+        (equal (list-ref observed 1) (car observed))
+        (equal (list-ref observed 2) (iota (car observed)))
+        (equal (list-ref observed 3) (iota (car observed)))
+        (equal (list-ref observed 4) (iota (car observed)))
+        (equal (list-ref observed 5) (car observed))
+        (equal (list-ref observed 6) #t))))
+  (property "complete publication retains FIFO IDs across physical vector growth"
+    (bindings
+      (productions (list (list 0 'start
+        (map (lambda (id) (list 'terminal 'token id)) (iota 129)) 'concat #f)))
+      (observed (construction-observation productions)))
+    (equal (car observed) 130)
+    (equal (list-ref observed 1) 130)
+    (equal (list-ref observed 2) (iota 130))
+    (equal (list-ref observed 3) (iota 130))
+    (equal (list-ref observed 4) (iota 130))
+    (equal (list-ref observed 6) #t))
   (property "two-pass coordinates retain empty states and repeated core IDs"
     (bindings (observed (native-coordinates '(() (0 65 2048) () (0 130))
                           '((0 0) (1 0) (1 65) (1 2048) (1 66) (2 0) (3 0) (3 130)))))

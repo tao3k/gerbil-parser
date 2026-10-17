@@ -18,7 +18,14 @@ Host and compiler behavior remain external premises; no host build is required.
 - [[file:parser-engine-formal-model/lr-state-suffix-correspondence.org][LR state and suffix producer correspondence]]
 - [[file:parser-engine-formal-model/prediction-interning-coordinates.org][Prediction queues, state interning and node coordinates]]
 - [[file:parser-engine-formal-model/template-materialization-publication.org][Generated prediction witnesses and published closure rows]]
-- [[file:parser-engine-formal-model/physical-sparse-goto.org][Physical extraction and sparse goto composition]]
+- [[file:parser-engine-formal-model/physical-sparse-goto.org][LR construction lifecycle contract]]
+
+* Current construction entry
+
+Use [[file:../../formal/ParserEngine/ConstructionProtocol.lean][ConstructionProtocol.construct]] and its [[file:parser-engine-formal-model/physical-sparse-goto.org][maintained contract map]] for LR construction.
+The map names each producer law, consumer, source owner and executable control.
+Keep source admission, universal algorithm proofs and native qualification
+distinct; update the map when an obligation changes.
 
 * Module ownership
 
@@ -66,8 +73,10 @@ extraction. The [[file:parser-engine-formal-model/template-materialization-publi
 completed queue replay, materialized templates and published closure meaning.
 The [[file:parser-engine-formal-model/physical-sparse-goto.org][physical extraction and sparse goto composition]] derives bounded advances,
 symbol-index injectivity, group membership and published target closure.
-Earliest-item ordering, mutable scratch and complete native queue execution
-remain universal refinement obligations.
+The same contract now integrates earliest-item ordering, borrowed scratch, FIFO
+termination and complete row publication through =ConstructionProtocol.construct=.
+Its paper target theorem applies to final edges; concrete host primitives and
+compiler lowering remain external to the restricted source model.
 No parser performance or compiler/host correctness claim follows from it.
 
 * macOS contextual request qualification

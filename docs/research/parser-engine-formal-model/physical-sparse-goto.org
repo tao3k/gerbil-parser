@@ -1,4 +1,4 @@
-#+title: Physical extraction and sparse goto composition
+#+title: LR construction lifecycle: paper, source and model
 
 * Paper and implementation boundary
 
@@ -46,19 +46,111 @@ the proved mathematical group implementation only after schema equality.
 Source equality identifies the supported procedure; it alone is not a proof of
 arbitrary Scheme execution or of all mutable primitive behavior.
 
-* Remaining universal correspondence
+* One construction contract
 
-The set-level goto and kernel-bound obligations above are discharged. Universal
-refinement of earliest-item sorting, mutable scratch reset, physical registry
-storage and the complete native queue's control flow remains separate. In
-particular, the sorted model preserves membership; this work does not claim an
-arbitrary-host execution theorem for native list-sort. Existing native controls
-compare complete row order, scratch reset and repeated calls against a full
-closure traversal, but finite controls do not replace those universal proofs.
-Host vector/hash primitives, allocation, GC and compiler behavior remain external
-premises. Gambit is neither modified nor built. No performance claim follows.
+The public model entry is [[file:../../../formal/ParserEngine/ConstructionProtocol.lean][ConstructionProtocol.construct]]. It starts at the
+augmented dot-zero kernel and returns registry validity, complete published-row
+ownership and an exhausted queue. Consumers use =complete= and =paper_target=;
+they do not assemble local certificates for an arbitrary final table.
 
-* Qualification
+#+begin_example
+raw grammar -> physical cores -> prediction/closure -> ordered sparse groups
+             -> borrowed scratch restored -> FIFO discovery -> published table
+             -> paper goto/closure meaning
+#+end_example
+
+| Obligation | Paper meaning / native owner | Producer law and consumer | Executable control |
+|------------+------------------------------+---------------------------+--------------------|
+| First discovery | Item sets / symbol catalogue | DiscoveryOrder.keys_sorted -> GroupOrder.generated_sorted | Full closure reference order |
+| Primitive sorting | Deterministic representation / list-sort | GroupOrder.native_own_sort -> native_group_call | Sparse/full traversal comparison |
+| Borrowed storage | Representation frame / lr0-state-kernels | GroupScratch.first_ready, order_permutation, borrowed_reset -> native_group_call | Stale first slots, zero masks, immutable template |
+| FIFO discovery | Finite reachable states / build-lr0-automaton | dequeue_fifo, tick_invariant, tick_rank -> finish | Actual enqueue/dequeue IDs and recursive grammars |
+| Publication | Complete transitions / vector-set! | ConstructionRows.finish_published -> complete | Actual publication IDs and target rows |
+| Semantic target | Section 2.2 goto/closure | ConstructionProtocol.paper_target | Existing LR reference owners |
+| Source identity | Complete Scheme declarations | ConstructionProtocol.source_current | Freshness and changed-source rejection |
+| Bit callback order (open) | Sorted item traversal / compiler-index-set-for-each | Field membership proved; direct/field callback order remains a source refinement | Existing wide-bit native controls |
+
+This is a maintained contract map, not a diary of proof additions. A producer
+change must preserve its output law and revalidate the named consumer. The
+existing source generator checks complete declarations, the axiom audit imports
+the public entry, and model-input discovery binds the native fixtures and this
+topic to qualification. A theorem or an added file alone does not close a row.
+
+* Sorting and borrowed storage
+
+[[file:../../../formal/ParserEngine/DiscoveryOrder.lean][DiscoveryOrder]] proves first-occurrence order for arbitrary sorted physical
+core streams and repeated symbols. [[file:../../../formal/ParserEngine/GroupOrder.lean][GroupOrder]] derives template order from
+production offsets, proves the actual accumulator/skip/merge order and shows
+that equal earliest addresses identify equal rows. Any sort with the ordinary
+sorted-permutation contract therefore gives the same own rows; stability and
+a particular sorting algorithm are unnecessary.
+
+[[file:../../../formal/ParserEngine/GroupScratch.lean][GroupScratch]] follows the native zero-test, first-slot write, bit insertion,
+touched-list insertion and cleanup. The touched list is a permutation of the
+constructed keys. Every selected first slot is initialized before use and then
+retained. Cleanup restores every mask to zero while leaving first slots stale.
+=native_group_call= combines these mutable facts with sorting and sparse merge,
+proving equality with the group producer consumed by the goto proof.
+
+* Complete queue and publication
+
+[[file:../../../formal/ParserEngine/ConstructionQueue.lean][ConstructionQueue]] models dequeue before discovery, processed-count
+increment and interning/enqueue of novel kernels. The FIFO invariant identifies
+pending IDs with the exact unprocessed interval. The finite physical kernel
+universe minus processed states strictly decreases each nonempty iteration.
+This is a termination bound, not a practical estimate, timeout or test fuel.
+
+[[file:../../../formal/ParserEngine/ConstructionRows.lean][ConstructionRows]] proves that each processed ID owns a complete row.
+Later interning preserves source and target IDs. Exhaustion publishes every
+discovered state. =paper_target= composes the final table with generated
+prediction, physical extraction and paper goto/closure for every final edge.
+
+* External premises and remaining source boundary
+
+These are universal algorithm-level lifecycle proofs. Ascending bit-callback
+traversal is a parser representation premise inherited from the existing
+factory: =Encoding.field_complete= proves field membership, but the complete
+source direct/field traversal still needs an execution-order refinement. This
+is an open parser obligation, not host correctness and not discharged by native
+controls. It is tracked alongside the primitive boundary below.
+
+The restricted schemas
+identify complete supported Scheme declarations; forwarding native observers
+execute those declarations. They are not a universal Scheme interpreter.
+Concrete heap/vector/hash/queue primitive implementations and compiler lowering
+remain external; the host sorting premise is explicitly sortedness plus
+permutation. Source equality and finite native agreement do not establish
+arbitrary native execution. The construction contract is the integration
+boundary for subsequent work; remaining representation-to-host simulation must
+not be presented as an algorithm theorem. Gambit is neither modified nor built.
+No runtime performance optimization or CPU claim is included.
+
+* Lifecycle qualification
+
+[[file:../../../t/fixtures/construction-lifecycle.ss][The forwarding observer]] evaluates the unchanged complete builder. It
+records actual enqueue/dequeue and publication IDs, compares sparse groups
+against an independent full-closure traversal, poisons first slots before reuse,
+checks masks after return and checks immutable shared templates. The existing
+parser-test macro owns these assertions in the construction test owner. Cases
+include cycles, empty predictions, missing symbols, duplicate production IDs and
+whole-builder execution across the initial 128-slot vector boundary.
+
+[[file:../../../formal/quint/ConstructionLifecycle.qnt][ConstructionLifecycle]] checks dequeue, grouping, cleanup and publication
+as one bounded protocol. Negative controls reject missing cleanup, duplicate
+queue entries and reversed groups. Lean supplies arbitrary-grammar proofs;
+Quint does not certify unbounded execution or native speed.
+
+The integrated package builds 148 Lean jobs with the new declarations in the
+axiom audit. Thirteen Scheme owners complete 264 cases in 23.7 seconds with
+natural exit zero under unchanged 90-second total and five-second idle budgets.
+All 19 evidence/layout controls pass. The complete Quint command passes;
+ConstructionLifecycle contributes seven directed controls and 1,000 forty-step
+histories. Source freshness succeeds in an overlay without compiled fixture
+products, and a changed extracted declaration is rejected with exit 70.
+Current parent =9a7cd0d= has all enabled CI checks successful, including both
+platforms' semantics lanes; this is distinct from CI for the next pushed commit.
+
+* Prior qualification at 9a7cd0d
 
 The complete Lean package builds 142 jobs with the new declarations included
 in the axiom audit. Thirteen Scheme owners complete 262 cases with natural
@@ -70,7 +162,7 @@ procedure name in a temporary extracted witness is rejected with exit 70.
 These controls qualify the source connection separately from the universal
 mathematical statements and establish no CPU performance result.
 
-The current parent CI run =39018836652= fails both source-freshness steps
+The preceding CI run =39018836652= failed both source-freshness steps
 because the reader fixture imports =prediction-witness= by package identity
 without a prepared loadable product. The reader now imports the adjacent source
 explicitly. A separate load-path overlay excluding both fixture products passes

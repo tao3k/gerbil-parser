@@ -336,7 +336,7 @@ facts, distinct from facts published but still pending in the native queue.
 These laws cover the mathematical counter update; they do not prove every
 Scheme mutation executes it correctly.
 
-[[file:../../../formal/ParserEngine/NativeFacts.lean][NativeFacts.lean]] instantiates the checkers with four typed inputs generated
+[[file:../../../formal/ParserEngine/NativeFacts.lean][NativeFacts.lean]] instantiates the checkers with four typed inputs decoded
 from the actual native =lower-rules=, =compute-completion= and =compute-first=
 outputs. The fixtures cover epsilon/recursion, repeated dependencies and cycles,
 an unproductive suffix and undefined reference, and annotated optional/repeat
@@ -346,9 +346,11 @@ constructors. For each fixture, Lean checks the Boolean certificate with
 =by decide= and derives exact semantic membership for all names and terminals.
 No =native_decide= trust extension, new axiom or admitted theorem is used.
 
-The existing Scheme owner independently regenerates the entire typed input
-module and compares it with the checked source. Thus a stale fixture, changed
-native publication, changed encoding or edited certificate declaration cannot
+The existing Scheme owner independently regenerates the entire
+[[file:../../../formal/ParserEngine/NativeGrammarData.lean][macro-published data module]] and compares it with the checked source.
+[[file:../../../formal/ParserEngine/GrammarWitnessDecoder.lean][The strict decoder]] checks the whole corpus; proofs are maintained in Lean,
+and the Scheme writer emits no proof declarations. Thus a stale fixture, changed
+native publication, changed encoding or edited data cannot
 silently preserve the qualification. These are small executable proof fixtures,
 not benchmark result reports. The explicit regeneration command is:
 

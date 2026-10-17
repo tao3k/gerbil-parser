@@ -18,7 +18,7 @@ import ParserEngine.Components
 #print axioms ParserEngine.Viable.lr1_graph_constructed
 #print axioms ParserEngine.Completion.nullable_certificate_exact
 #print axioms ParserEngine.Completion.first_certificate_exact
-#print axioms ParserEngine.NativeFacts.fixture0_first_exact
+#print axioms ParserEngine.NativeFacts.first_exact
 #print axioms ParserEngine.Completion.fresh_notification_counts_occurrences
 #print axioms ParserEngine.Completion.zero_remaining
 #print axioms ParserEngine.Lowering.lowering_exact
@@ -394,3 +394,12 @@ import ParserEngine.Components
 #print axioms ParserEngine.ConstructionEncoding.complete
 #print axioms ParserEngine.ConstructionEncodingWitness.source_checked
 #print axioms ParserEngine.ConstructionEncodingWitness.no_truncation
+
+#print axioms ParserEngine.NativeFacts.nullable_exact
+#print axioms ParserEngine.NativeFacts.origin_sound
+#print axioms ParserEngine.NativeFacts.origin_language_sound
+#print axioms ParserEngine.GrammarWitnessDecoder.array_positions
+#print axioms ParserEngine.GrammarWitnessDecoder.malformed_rejected
+#print axioms ParserEngine.NativeFacts.origin_facts
+#print axioms ParserEngine.NativeFacts.completion_decode_checked
+#print axioms ParserEngine.NativeFacts.origin_decode_checked

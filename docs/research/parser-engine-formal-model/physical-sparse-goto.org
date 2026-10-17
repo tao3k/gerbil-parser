@@ -678,6 +678,42 @@ needed. An earlier local run exposed an outdated compiled reader fixture;
 recompiling that project fixture restored value-declaration extraction and the
 unchanged source-freshness check. The failed run is not counted as acceptance.
 
+* Declarative grammar witness publication
+
+The former Scheme serializers for completion and lowering origins have been
+removed completely, including the optional raw-output branch and all generated
+Lean proof text. Both public data writers use =parser-source-data= and the shared
+=write-parser-source-data= renderer. The command entry only publishes their data;
+it no longer prints its own progress receipt.
+
+[[file:../../../formal/ParserEngine/NativeGrammarData.lean][NativeGrammarData]] contains completion certificates and full lowering origin
+records. [[file:../../../formal/ParserEngine/GrammarWitnessDecoder.lean][GrammarWitnessDecoder]] decodes them with strict tagged schemas and a
+structurally computed input budget. Missing fields, unknown tags, truncated
+recipes and a malformed entry after a valid prefix reject whole-list decoding.
+Its =array_positions= theorem reuses =ConstructionEncoding.mapM_trace=, preserving
+all positions and duplicates without a second traversal proof.
+
+[[file:../../../formal/ParserEngine/NativeFacts.lean][NativeFacts]] is now maintained proof code. It checks successful whole-corpus
+decoding and cardinality before deriving generic nullable/FIRST exactness,
+lowering origin soundness, arbitrary-word source-language soundness and native
+construction admission/projection expectations. The raw encoding witness
+consumes that decoded origin list directly; no parallel numbered input list or
+compatibility serializer remains.
+
+Kernel equality controls against the preserved pre-migration module compare all
+four completion inputs, all 18 source-rule lists, native grammars, recursive
+recipes, physical records, augmentation IDs, helper bindings and expected
+admission/projection results. The separate raw-data module is byte-identical.
+These are migration controls, not a new parser execution theorem.
+
+Qualification builds 198 Lean jobs, passes 302 Scheme cases across 14 owners,
+and passes the focused 68-case source-contract/corpus run including the new
+declarative regression gate. Nineteen evidence/layout controls pass. The gate
+audits both Scheme producer and command source through the existing AST test
+contract, granting neither console nor owned-port serialization capabilities.
+The unchanged 90-second total and 5-second idle watchdogs apply. Host behavior
+remains external; Gambit is neither modified nor built.
+
 * External premises and remaining source boundary
 
 The audit separates input-domain obligations from derived parser facts and

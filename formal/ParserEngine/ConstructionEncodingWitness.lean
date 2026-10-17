@@ -8,13 +8,7 @@ not synthesize proofs in the producer or assume native IDs are correct. -/
 namespace ParserEngine.ConstructionEncodingWitness
 open ConstructionEncoding
 
-def expected : List ConstructionGrammar.Input := [
-  NativeFacts.origin0Input, NativeFacts.origin1Input, NativeFacts.origin2Input,
-  NativeFacts.origin3Input, NativeFacts.origin4Input, NativeFacts.origin5Input,
-  NativeFacts.origin6Input, NativeFacts.origin7Input, NativeFacts.origin8Input,
-  NativeFacts.origin9Input, NativeFacts.origin10Input, NativeFacts.origin11Input,
-  NativeFacts.origin12Input, NativeFacts.origin13Input, NativeFacts.origin14Input,
-  NativeFacts.origin15Input, NativeFacts.origin16Input, NativeFacts.origin17Input]
+def expected : List ConstructionGrammar.Input := NativeFacts.origins.map GrammarWitnessDecoder.Origin.input
 
 def fields (input : ConstructionGrammar.Input) :=
   (input.records, input.augmented, input.root, input.source)

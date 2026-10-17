@@ -6,13 +6,15 @@
 (import (only-in :std/test check test-case test-suite))
 
 
-(def (test-source-allowed? path forbidden)
+(def (test-source-allowed? path forbidden (owned-output #f))
   (call-with-input-file path
     (lambda (port)
       (let loop ()
         (let (form (read port))
           (or (eof-object? form)
-              (and (parser-test-form-admitted? form forbidden) (loop))))))))
+              (and (if owned-output
+                     (parser-test-form-admitted? form forbidden owned-output)
+                     (parser-test-form-admitted? form forbidden)) (loop))))))))
 
 (def (test-sources root)
   (apply append
@@ -143,6 +145,15 @@
       (equal (parser-test-form-admitted?
                '(quasisyntax (quasiquote (unsyntax (display "snapshot"))))
                '(display displayln)) #f))
+    (property "grammar witness producers publish only through the shared data macro"
+      (bindings)
+      (equal (parser-test-form-admitted?
+               '(call-with-output-string (lambda (port) (write-string "def fixture := []" port)))
+               '(display displayln write write-string write-char newline force-output format) '()) #f)
+      (equal (test-source-allowed? "t/fixtures/lr1-construction.ss"
+               '(display displayln write write-string write-char newline force-output format) '()) #t)
+      (equal (test-source-allowed? "t/generate-grammar-model-facts.ss"
+               '(display displayln write write-string write-char newline force-output format) '()) #t))
     (property "Rust AOT tests avoid textual source assembly"
       (bindings)
       (equal (test-source-allowed? "t/rust-syntax-test.ss"

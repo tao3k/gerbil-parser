@@ -256,12 +256,15 @@ consumes both lists completely and rejects missing or excess recipes.
 source evaluation for arbitrary finite words and recursive grammars.
 
 The native fixture writer emits source rules, helper decoding, actual native
-rules and their generated recipes into =NativeFacts.lean=. Seventeen grammar
+rules and their generated recipes through =parser-source-data= into
+=NativeGrammarData.lean=. The maintained =GrammarWitnessDecoder= and
+=NativeFacts= modules decode and check those data without generated proof text.
+Eighteen grammar
 families exercise every supported lowering branch, undefined references,
 duplicate authored names, reserved helper-looking names, dynamic precedence,
 empty choice and nested choices. Lean checks each publication and proves its
 source-language implication for all finite words. Native tests compare the
-complete generated module, preserve production object identity and order,
+complete generated data module, preserve production object identity and order,
 check binding-before-use, and require proof-sink failures to propagate. These
 are implementation controls, not universal proof of Scheme evaluation.
 Negative Lean controls reject a wrong helper binding, changed endpoint,

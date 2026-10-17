@@ -25,7 +25,7 @@ The production grammar.ss / parser.ss / parser-test.ss interfaces are unchanged.
 This extends [[file:parser-engine-formal-model.org][the reduction and sequence model]]. The existing
 [[file:parser-execution-evidence.org][measurement admission]] remains authoritative for actual requests.
 Passing a model does not establish implementation conformance or improvement.
-The [[file:parser-engine-formal-model.org::*Architecture alignment audit and qualification order][architecture alignment ledger]] is authoritative for missing model coverage.
+The [[file:parser-engine-formal-model/objective-and-evidence-boundary.org::*Architecture alignment audit and qualification order][architecture alignment ledger]] is authoritative for missing model coverage.
 The four command-claim receipts below are evidence layers for a scoped change,
 not a completeness test for the paper program or the full engine. In particular,
 =lean-model= plus =quint-protocol= may pass while grammar/table, scanner, branch,

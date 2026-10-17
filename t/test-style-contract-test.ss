@@ -22,7 +22,8 @@
                   (cond
                    ((eq? (file-info-type info) 'directory)
                     (test-sources path))
-                   ((string-suffix? "-test.ss" name) (list path))
+                   ((or (string-suffix? "-test.ss" name)
+                        (string-suffix? ".ssi" name)) (list path))
                    (else '()))))
               (directory-files root))))
 

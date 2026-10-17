@@ -1,4 +1,4 @@
-"""Model observations bind each source and preserve model-only claim scope."""
+"""Input discovery and stale-observation controls, not parser semantics."""
 from pathlib import Path
 import tempfile
 import unittest
@@ -8,160 +8,95 @@ from parser_evidence import snapshot
 
 
 class ModelInputControls(unittest.TestCase):
-    def test_reuse_models_are_bound_and_layers_stay_separate(self):
-        with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
-            dependency = root / "formal/.lake/packages/LeanPoo/LeanPoo"
-            dependency.mkdir(parents=True)
-            source = root / "formal/ParserEngine/Reuse.lean"
-            source.parent.mkdir(parents=True)
-            source.write_text("namespace Example\nend Example\n")
-            capture = root / "formal/ParserEngine/Capture.lean"
-            capture.write_text("namespace Capture\nend Capture\n")
-            lookahead = root / "formal/ParserEngine/Lookahead.lean"
-            lookahead.write_text("namespace Lookahead\nend Lookahead\n")
-            request = root / "formal/ParserEngine/Request.lean"
-            request.write_text("namespace Request\nend Request\n")
-            (root / "formal/ParserEngine/Grammar.lean").write_text("namespace Grammar\nend Grammar\n")
-            for module in ("LookaheadExecution", "ProducerAdmission", "CompilerExecution", "NativeActions", "TablePublication", "ItemLayout", "SourceData", "FrameOwnership", "IteratorSource", "SourceEffects", "RowSource", "WalkSource", "WalkWitness", "HybridIterator", "IteratorExecutor", "Extraction", "IteratorMachine", "Callback", "IteratorEncoding", "EventIterator", "RequestAST", "Publication", "TableBridge", "SemanticValues", "Viable", "RawRequest", "Completion", "NativeFacts", "Lowering", "Worklist", "Solver", "Encoding", "Names", "Construction", "Operational", "Host", "HostLowering"):
-                (root / f"formal/ParserEngine/{module}.lean").write_text(f"namespace {module}\nend {module}\n")
-            lean, quint = model_checks(root)
-            self.assertEqual((lean.claim, quint.claim), ("lean-model", "quint-protocol"))
-            self.assertEqual(len(lean.inputs), len(set(lean.inputs)))
-            self.assertIn("formal/ParserEngine/Completion.lean", lean.inputs)
-            self.assertIn("formal/ParserEngine/NativeFacts.lean", lean.inputs)
-            self.assertIn("formal/quint/Completion.qnt", quint.inputs)
-            self.assertIn("formal/ParserEngine/Viable.lean", lean.inputs)
-            self.assertIn("formal/ParserEngine/Construction.lean", lean.inputs)
-            self.assertIn("formal/ParserEngine/Operational.lean", lean.inputs)
-            self.assertIn("formal/ParserEngine/Host.lean", lean.inputs)
-            self.assertIn("formal/ParserEngine/HostLowering.lean", lean.inputs)
-            self.assertIn("src/runtime/lr-parser/checkpoint-base.ss", lean.inputs)
-            self.assertIn("src/runtime/lr-parser/checkpoint-base.ss", quint.inputs)
-            self.assertIn("t/layout-boundary-test.ss", lean.inputs)
-            self.assertIn("t/layout-boundary-test.ss", quint.inputs)
-            self.assertIn("t/fixtures/layout-columns.ss", lean.inputs)
-            self.assertIn("t/fixtures/layout-columns.ss", quint.inputs)
-            self.assertIn("t/fixtures/compiler-reservation.ss", lean.inputs)
-            self.assertIn("t/fixtures/compiler-reservation.ss", quint.inputs)
-            self.assertIn("formal/ParserEngine/RawRequest.lean", lean.inputs)
-            self.assertIn("formal/ParserEngine/TableBridge.lean", lean.inputs)
-            self.assertIn("formal/ParserEngine/SemanticValues.lean", lean.inputs)
-            self.assertIn("formal/ParserEngine/RequestAST.lean", lean.inputs)
-            self.assertIn("formal/ParserEngine/Publication.lean", lean.inputs)
-            self.assertIn("formal/ParserEngine/EventIterator.lean", lean.inputs)
-            self.assertIn("formal/ParserEngine/IteratorEncoding.lean", lean.inputs)
-            self.assertIn("formal/ParserEngine/Callback.lean", lean.inputs)
-            self.assertIn("formal/ParserEngine/Extraction.lean", lean.inputs)
-            self.assertIn("formal/ParserEngine/IteratorMachine.lean", lean.inputs)
-            self.assertIn("formal/ParserEngine/IteratorExecutor.lean", lean.inputs)
-            self.assertIn("formal/ParserEngine/HybridIterator.lean", lean.inputs)
-            for source in ("formal/ParserEngine/LookaheadExecution.lean", "formal/ParserEngine/ProducerAdmission.lean", "formal/ParserEngine/CompilerExecution.lean", "formal/ParserEngine/NativeActions.lean", "t/lr-native-source-test.ss", "formal/ParserEngine/TablePublication.lean", "docs/research/dense-lr-item-space.org", "formal/ParserEngine/ItemLayout.lean", "t/test-style-contract-test.ss", "docs/research/scheme-dsl-author-interface.org", "src/testing/contracts.ss", "language-test-support.ss", "t/line-structure-assertions.ss", "t/rust-aot-test-syntax.ss", "formal/ParserEngine/SourceData.lean", "formal/ParserEngine/FrameOwnership.lean", "formal/ParserEngine/IteratorSource.lean", "src/testing/source-witness.ss", "src/testing/language-parser.ss", "t/language-test-syntax-test.ss", "formal/ParserEngine/SourceEffects.lean", "formal/ParserEngine/RowSource.lean",
-                           "formal/ParserEngine/WalkSource.lean", "formal/ParserEngine/WalkWitness.lean",
-                           "t/fixtures/event-walk-source.ss", "t/generate-walk-source-witness.ss", "t/event-walk-source-test.ss"):
-                self.assertIn(source, lean.inputs)
-            self.assertIn("formal/ParserEngine/Grammar.lean", lean.inputs)
-            self.assertIn("formal/ParserEngine/Request.lean", lean.inputs)
-            self.assertIn("formal/ParserEngine/Reuse.lean", lean.inputs)
-            self.assertIn("formal/ParserEngine/Capture.lean", lean.inputs)
-            self.assertIn("formal/ParserEngine/Lookahead.lean", lean.inputs)
-            self.assertIn("formal/quint/RawRequest.qnt", quint.inputs)
-            self.assertIn("formal/quint/ItemLayout.qnt", quint.inputs)
-            self.assertIn("formal/quint/LookaheadExecution.qnt", quint.inputs)
-            self.assertIn("formal/quint/ProducerAdmission.qnt", quint.inputs)
-            self.assertIn("formal/quint/CompilerExecution.qnt", quint.inputs)
-            self.assertIn("formal/quint/NativeActions.qnt", quint.inputs)
-            self.assertIn("t/lr-native-source-test.ss", quint.inputs)
-            self.assertIn("formal/quint/TablePublication.qnt", quint.inputs)
-            self.assertIn("formal/quint/GrammarPipeline.qnt", quint.inputs)
-            self.assertIn("formal/quint/RequestFlow.qnt", quint.inputs)
-            self.assertIn("formal/quint/LookaheadScope.qnt", quint.inputs)
-            self.assertIn("formal/quint/ModuleAdmission.qnt", quint.inputs)
-            self.assertIn("formal/quint/SparseCapture.qnt", quint.inputs)
-            self.assertIn("formal/quint/ReuseAdmission.qnt", quint.inputs)
-            self.assertIn("formal/quint/HistoryCommit.qnt", quint.inputs)
-            self.assertIn("formal/quint/CapturePlan.qnt", quint.inputs)
-            self.assertIn("formal/quint/OwnedTerminal.qnt", quint.inputs)
-            self.assertIn("formal/quint/YieldMemo.qnt", quint.inputs)
-            self.assertIn("formal/quint/CaptureContext.qnt", quint.inputs)
-            for check in (lean, quint):
-                self.assertIn("build-language-conformance-link.ss", check.inputs)
-                self.assertIn("scripts/tests/conformance-runner-test.ss", check.inputs)
-                self.assertIn("docs/research/parser-engine-formal-model.org", check.inputs)
-                self.assertIn("src/ffi/language-handles.ss", check.inputs)
-                self.assertIn("src/runtime/lr-parser/checkpoint.ss", check.inputs)
-                self.assertIn("src/runtime/lr-parser/prepare.ss", check.inputs)
-                self.assertIn("src/runtime/lr-parser/entry.ss", check.inputs)
-                self.assertIn("t/canonical-lr1-reference-test.ss", check.inputs)
-                self.assertIn("t/resolved-grammar-test.ss", check.inputs)
-                self.assertIn("src/compiler/lr-table.ss", check.inputs)
-                self.assertIn("src/compiler/lr-partition.ss", check.inputs)
-                self.assertIn("src/compiler/lr-compiler.ss", check.inputs)
-                self.assertIn("src/runtime/lr-action-index.ss", check.inputs)
-                self.assertIn("src/runtime/lr-stack-storage.ss", check.inputs)
-                self.assertIn("src/runtime/scan/regular.ss", check.inputs)
-                self.assertIn("t/ranked-regular-scanner-test.ss", check.inputs)
-                self.assertIn("t/fixtures/tla-sany-differential/test-suite.ss", check.inputs)
-                self.assertIn("t/lr-input-protocol-test.ss", check.inputs)
-                self.assertIn("t/lr-semantic-preparation-test.ss", check.inputs)
-                self.assertIn("t/lr-model-correspondence-test.ss", check.inputs)
-                self.assertIn("t/event-iterator-test.ss", check.inputs)
-                for source in ("t/fixtures/event-iterator-extraction.ss", "t/fixtures/event-walk-source.ss",
-                               "t/event-walk-source-test.ss", "t/generate-walk-source-witness.ss"):
-                    self.assertIn(source, check.inputs)
-                self.assertIn("t/support/qualification/process.ss", check.inputs)
-                self.assertIn("t/qualification-output-test.ss", check.inputs)
-                self.assertIn("scripts/tests/process-qualification-test.ss", check.inputs)
-                self.assertIn("t/language-abi-test.ss", check.inputs)
-                self.assertIn("t/build-product-contract-test.ss", check.inputs)
-                self.assertIn("src/build-support/rust-runtime-aot.ss", check.inputs)
-                self.assertIn("t/fixtures/ffi/language-probe.ss", check.inputs)
-                self.assertIn("t/lr-request-product-test.ss", check.inputs)
-                self.assertIn("t/fixtures/lr-request-product.ss", check.inputs)
-                self.assertIn("src/runtime/funcs.ss", check.inputs)
-                self.assertIn("src/runtime/artifact.ss", check.inputs)
-                self.assertIn("src/runtime/significant.ss", check.inputs)
-                self.assertIn("src/runtime/lexer.ss", check.inputs)
-                self.assertIn("src/runtime/event-program.ss", check.inputs)
-                self.assertIn("t/lr-goto-plan-test.ss", check.inputs)
-                self.assertIn("t/lr-fragment-transfer-test.ss", check.inputs)
-                self.assertIn("t/benchmarks/capture-prefix/phase-cost.ss", check.inputs)
-                self.assertIn("t/benchmarks/parser-stage-cost/benchmark.ss", check.inputs)
-                self.assertIn("src/compiler/bound-ir.ss", check.inputs)
-                self.assertIn("t/bound-ir-index-test.ss", check.inputs)
-                self.assertIn("t/rust-runtime-generation-test.ss", check.inputs)
-                self.assertIn("test-processes.ss", check.inputs)
-                self.assertIn("src/runtime/token.ss", check.inputs)
-                self.assertIn("src/language/module-input.ss", check.inputs)
-                self.assertIn("t/fixtures/tla-sany-differential/preload.ss", check.inputs)
-                self.assertIn("scripts/tests/history-commit-test.ss", check.inputs)
-            self.assertNotIn("formal/quint/ReuseAdmission.qnt", lean.inputs)
-            for name in lean.inputs:
-                path = root / name
-                path.parent.mkdir(parents=True, exist_ok=True)
-                if not path.exists():
-                    path.write_text("input")
-            for module in ("LookaheadExecution", "ProducerAdmission", "CompilerExecution", "NativeActions", "TablePublication", "ItemLayout", "SourceData", "FrameOwnership", "IteratorSource", "SourceEffects", "RowSource", "WalkSource", "WalkWitness", "HybridIterator", "IteratorExecutor", "Extraction", "IteratorMachine", "Callback", "IteratorEncoding", "EventIterator", "RequestAST", "Publication", "TableBridge", "SemanticValues", "Viable", "RawRequest", "Completion", "NativeFacts", "Lowering", "Worklist", "Solver", "Encoding", "Names", "Operational"):
-                before = snapshot(root, lean.inputs)
-                (root / f"formal/ParserEngine/{module}.lean").write_text("changed graph/request premise")
-                self.assertNotEqual(before, snapshot(root, lean.inputs))
-            for name in quint.inputs:
-                path = root / name
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text("input")
-            first = snapshot(root, quint.inputs)
-            (root / "formal/quint/ReuseAdmission.qnt").write_text("changed protocol")
-            self.assertNotEqual(first, snapshot(root, quint.inputs))
-            for name in ("formal/quint/LookaheadExecution.qnt", "formal/quint/ProducerAdmission.qnt", "formal/quint/CompilerExecution.qnt", "formal/quint/NativeActions.qnt", "t/lr-native-source-test.ss", "formal/quint/TablePublication.qnt", "docs/research/dense-lr-item-space.org", "formal/quint/ItemLayout.qnt", "t/test-style-contract-test.ss", "docs/research/scheme-dsl-author-interface.org", "src/testing/contracts.ss", "src/testing/language-parser.ss", "language-test-support.ss", "t/line-structure-assertions.ss", "t/rust-aot-test-syntax.ss", "t/fixtures/event-walk-source.ss", "t/event-walk-source-test.ss", "t/generate-walk-source-witness.ss", "formal/quint/Completion.qnt", "formal/ParserEngine/NativeFacts.lean", "t/generate-grammar-model-facts.ss", "formal/quint/RawRequest.qnt", "src/compiler/lr-follow-automaton.ss", "formal/quint/GrammarPipeline.qnt", "src/compiler/lr-table.ss", "src/compiler/funcs.ss", "src/schema.ss", "src/ffi/schema.ss", "src/modules/parser/types.ss", "t/language-surface-test.ss", "src/compiler/language-artifact.ss", "t/language-artifact-test.ss", "src/compiler/lr-compiler.ss",
-                         "t/resolved-grammar-test.ss", "t/layout-boundary-test.ss", "formal/quint/RequestFlow.qnt", "docs/research/parser-engine-formal-model.org",
-                         "formal/quint/LookaheadScope.qnt", "formal/quint/ModuleAdmission.qnt",
-                         "src/runtime/lr-parser/checkpoint.ss", "src/runtime/token.ss",
-                         "src/language/module-input.ss", "t/fixtures/tla-sany-differential/preload.ss"):
-                with self.subTest(input=name):
-                    before = snapshot(root, quint.inputs)
-                    (root / name).write_text("changed extent premise")
-                    self.assertNotEqual(before, snapshot(root, quint.inputs))
-            self.assertEqual({lean.claim, quint.claim}, {"lean-model", "quint-protocol"})
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.folder.cleanup)
+        self.root = Path(self.folder.name)
+        self.write("formal/.lake/packages/LeanPoo/LeanPoo/Contract.lean")
+        self.write("formal/ParserEngine/Grammar.lean")
+        self.write("formal/quint/GrammarPipeline.qnt")
+        self.write("src/compiler/lr-automaton.ss")
+        self.write("docs/research/parser-engine-formal-model/grammar-semantics.org")
+        self.write("t/fixtures/grammar-controls.ssi")
+        self.checks = model_checks(self.root)
+        for check in self.checks:
+            for name in check.inputs:
+                self.write(name)
+
+    def write(self, name, text="fixture"):
+        path = self.root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+
+    def test_claims_commands_and_model_layers_are_distinct(self):
+        lean, quint = self.checks
+        self.assertEqual((lean.claim, quint.claim), ("lean-model", "quint-protocol"))
+        self.assertEqual((lean.argv, quint.argv), (("lake", "build"), ("npm", "test")))
+        self.assertIn("formal/ParserEngine/Grammar.lean", lean.inputs)
+        self.assertNotIn("formal/ParserEngine/Grammar.lean", quint.inputs)
+        self.assertIn("formal/quint/GrammarPipeline.qnt", quint.inputs)
+        self.assertNotIn("formal/quint/GrammarPipeline.qnt", lean.inputs)
+        for check in self.checks:
+            self.assertEqual(len(check.inputs), len(set(check.inputs)))
+
+    def test_new_modules_and_document_topics_are_discovered(self):
+        modules = (
+            ("formal/ParserEngine/Grammar/Suffix.lean", {"lean-model"}),
+            ("formal/quint/SuffixFacts.qnt", {"quint-protocol"}),
+            ("docs/research/parser-engine-formal-model/suffix-facts.org",
+             {"lean-model", "quint-protocol"}),
+            ("t/fixtures/suffix-controls.ssi", {"lean-model", "quint-protocol"}),
+        )
+        for name, expected in modules:
+            with self.subTest(input=name):
+                self.write(name)
+                bound = {check.claim for check in model_checks(self.root) if name in check.inputs}
+                self.assertEqual(bound, expected)
+        self.write("formal/.lake/build/generated.lean")
+        self.assertNotIn("formal/.lake/build/generated.lean", model_checks(self.root)[0].inputs)
+
+    def test_changed_and_missing_sources_invalidate_both_layers(self):
+        for check in self.checks:
+            for name in ("src/compiler/lr-automaton.ss", "t/fixtures/grammar-controls.ssi",
+                         "docs/research/parser-engine-formal-model/grammar-semantics.org"):
+                with self.subTest(claim=check.claim, input=name):
+                    before = snapshot(self.root, check.inputs)
+                    self.write(name, "changed premise")
+                    self.assertNotEqual(before, snapshot(self.root, check.inputs))
+                    (self.root / name).unlink()
+                    with self.assertRaises(FileNotFoundError):
+                        snapshot(self.root, check.inputs)
+                    self.write(name)
+
+    def test_missing_locked_dependency_is_an_error(self):
+        dependency = self.root / "formal/.lake/packages/LeanPoo/LeanPoo"
+        dependency.rename(dependency.with_name("unavailable"))
+        with self.assertRaisesRegex(RuntimeError, "locked Lean dependency"):
+            model_checks(self.root)
+
+    def test_repository_catalogue_resolves(self):
+        root = Path(__file__).resolve().parents[2]
+        for check in model_checks(root):
+            with self.subTest(claim=check.claim):
+                self.assertEqual(len(snapshot(root, check.inputs)), len(check.inputs))
+
+
+class RepositoryLayoutControls(unittest.TestCase):
+    def test_authored_sources_stay_within_the_module_budget(self):
+        root = Path(__file__).resolve().parents[2]
+        oversized = []
+        for folder, extensions in (
+            ("docs", {".org"}), ("formal/ParserEngine", {".lean"}),
+            ("formal/quint", {".qnt"}), ("formal/evidence", {".py"}),
+            ("src", {".ss"}), ("t", {".ss", ".ssi"}),
+        ):
+            for path in (root / folder).rglob("*"):
+                if {"node_modules", ".venv", ".lake"}.intersection(path.parts) or path.suffix not in extensions:
+                    continue
+                count = len(path.read_text().splitlines())
+                if count > 1000:
+                    oversized.append((str(path.relative_to(root)), count))
+        self.assertEqual(oversized, [], "split by semantic responsibility, without numbered continuations")
 
 
 if __name__ == "__main__":

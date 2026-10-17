@@ -1,0 +1,826 @@
+#+title: First connected kernel: retained terminal flow
+
+[[file:../parser-engine-formal-model.org][Model and evidence index]]
+
+* First connected kernel: retained terminal flow
+
+[[file:../../../formal/ParserEngine/Request.lean][Request.lean]] composes the existing =Capture.splitPrefix= semantics with LR
+state/value depth. A configuration contains a top-first state stack, top-first
+terminal-yield frames and the unconsumed significant-token suffix. Its invariant
+is both stack alignment and:
+
+#+begin_example
+flatten(reverse(frames)) ++ rest = admitted significant-token input
+#+end_example
+
+=shift_valid= consumes exactly one pending token. =reduce_valid= uses an admitted
+width, contracts only that prefix in source order, preserves its suffix and
+leaves pending input unchanged, including width zero. =trace_valid= composes
+these steps over arbitrary finite traces. =root_and_remainder= separates prefix
+observation from =complete_root='s explicit empty-remainder premise.
+
+[[file:../../../formal/quint/RequestFlow.qnt][RequestFlow.qnt]] uses the same state and observation, with an empty input control and input ordinals
+1--3, at most six frames, arbitrary abstract targets and reduction widths 0--3.
+Its ten directed controls include full consumption, nullable/repeated
+reductions, retained suffix, prefix acceptance, rejection and three deliberate
+faults. Seeded 1,000-sample/20-step exploration checks this envelope; it is not
+exhaustive model checking. Fault actions are excluded from the admitted step.
+Neither model asserts grammar acceptance, scan correctness, AST yield equality,
+native identity, progress or complete engine coverage.
+
+Historical qualification at =24e47d9=: =lake build= completed 57 jobs;
+=npm --prefix formal/quint test= passed 137 directed controls across 16 modules
+and 15 seeded invariant explorations; the evidence host/input controls passed
+four tests. =RequestFlow='s final ten controls and 1,000-sample exploration also
+passed independently. These results establish the stated model properties and
+input invalidation behavior, not native refinement or model completeness.
+
+The Scheme correspondence obligations are concrete:
+
+- =batch.ss= shift adds the current terminal and advances =rest= once.
+- =batch.ss= reduction obtains source-order operands, retains the remaining
+  states/values and recurses with the original =rest= after a successful goto.
+- =recognition.ss= capture retains a terminal-yield description independent of
+  the possibly lossy semantic value. =Request.frames= denotes that description,
+  not arbitrary public AST children.
+- =batch.ss= accept returns a root and remainder. =parser.ss='s
+  =parse-tokenized/with= checks the remainder before success publication.
+  Low-level accept checks the top semantic value, not a singleton stack.
+  The single-frame premise of =root_and_remainder= must therefore come from
+  the start-production/table correspondence; it is not discharged here.
+- The direct checkpoint, contextual and generated paths need their own
+  transition correspondence. Hash-binding these owners does not prove it.
+
+These obligations are now visible; the source-to-model simulation is still
+open. Counterexamples demonstrate that correct depth can coexist with reversed
+terminals, and that a valid prefix is not a complete request. They are model
+falsifiers, not claims that the production runtime has those faults.
+
+* Connected grammar, scanner and table foundation
+
+The new [[file:../../../formal/ParserEngine/Grammar.lean][Grammar.lean]] starts at admitted base symbols. Its terminal
+ordinals denote grammar terminals, not raw token kinds. DSL hygiene, lowering
+of annotations and native ordinal encoding are outside that initial boundary.
+It connects the earlier request kernel to grammar meaning in one namespace:
+
+| Boundary | Definition / theorem | What it actually establishes |
+|----------+----------------------+------------------------------|
+| CFG -> finite terminal words | =Derives=, =derives_append= | Production membership and ordered contextual composition |
+| Empty derivation -> nullable | =nullable_iff_derives= | Both directions for the inductive nullable closure |
+| Grammar clauses -> fact environments | =nullable_least=, =first_least= | Semantic facts belong to any environment closed under the stated clauses; no native queue invariant is assumed proved |
+| FIRST -> reachable sentence prefix | =Rewrite=, =Reach=, =first_reach= | A reachable terminal prefix, without requiring the remaining sentence to be productive |
+| Nullable -> productive | =nullable_productive= | An empty finite derivation is a productivity witness; the converse is not asserted |
+| Nullable/FIRST -> LR(1) lookahead | =LookaheadAllowed=, =Predicts= | FIRST of the suffix plus inherited lookahead only when the suffix is nullable |
+| LR item -> goto/action support | =Advances=, =CellSupported=, =TableSupported= | Named semantic producer obligations; not a proof that the current compiler satisfies them |
+| Grammar frames -> capture contraction | =reduction_derives=, =erase_reduce= | Actual RHS symbol agreement preserves a grammatical frame and erases exactly to the earlier capture/request operation |
+| Table-driven finite request -> CFG result | =driven_trace_valid=, =table_driven_acceptance= | Selected shifts/reductions/gotos, admitted cells, RHS agreement and complete start-root premises compose |
+| Fixed lexical policy -> complete source claim | =Lexes=, =source_request_derivation= | A character-source segmentation and the same grammar-terminal request theorem compose without confusing characters with token ordinals |
+
+This applies the grammar/item/lookahead meanings of
+[[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing, section 2]], with an explicit stack representation.
+It does not claim equivalence to the paper's direct-style or CPS specializer.
+The least-closure statements use the distinction between semantic facts and
+closed abstract environments motivated by the
+[[https://www.di.ens.fr/~cousot/COUSOTpapers/publications.www/CousotCousot-POPL-77-ACM-p238--252-1977.pdf][abstract interpretation paper]]. They do not prove the native worklist's
+convergence, least solution or physical scheduling from file hashes.
+
+** Scanner selection has a producer obligation
+
+=Preparation.ranked_fold_maximum= proves membership and weak maximum over the
+entire supplied admitted catalog. Its ordering is exclusive end, precedence,
+then lower declaration ordinal. Exact ties choose the right operand, matching
+=scan/lexical.ss:prefer=. This proof assumes neither speculative callback
+purity nor completeness of the native catalog. The native producer must still
+establish all legal candidates, eligibility masks and payload/ordinal identity.
+Character endpoints must not silently become byte endpoints.
+
+** One shared executable fixture through the engine
+
+[[file:../../../formal/quint/GrammarPipeline.qnt][GrammarPipeline.qnt]] uses =S -> A b; A -> a A | epsilon=. It connects nullable
+and FIRST publication, literal candidate enumeration/ranking, pending-token
+admission, a reference LR graph, nullable and repeated reductions, goto,
+acceptance and rejection. Its safety predicate checks graph edges, grammar
+frame yields, consumed/scanned token order and complete-publication conditions.
+The graph IDs are reference IDs, not an unproved native numeric-state mapping.
+
+The nine directed histories cover a wide lexical match, unit matches, nullable
+A, rejection, and missing-FIRST/wrong-goto/advanced-lookahead/reversed-yield/
+early-accept mutations. Deliberate mutations are excluded from admitted steps.
+The seeded 1,000-trace/40-step exploration is finite sampling, not exhaustive
+checking or a generic LR correctness theorem.
+
+The existing [[file:../../../t/resolved-grammar-test.ss][resolved-grammar test owner]] supplies an independent finite CFG
+chart. Its facts =(lhs, start, end)= are derived from separate grammar clauses;
+it reads no lowered productions, nullable/FIRST sets or LR tables. Both native
+=canonical-lr1= and =follow-partition-lr1= paths are checked against the chart
+for all 31 words of length 0--4 over a/b. The same grammar is instantiated in
+=Grammar.Fixture=: nullable A and both FIRST(S) entries have derivation proofs,
+and =repeated_S= constructs a derivation of =a^n b= for arbitrary n. That is a
+positive semantic family witness, not unbounded native conformance or a proof
+that no other words can be accepted by a native backend. Separate actual ranked-scanner calls
+check longest/rank/order, mode masks, exact endpoints and the complete prepared
+parser with the resulting two-token or three-token stream. These finite checks
+bind a real route to the shared fixture; they do not discharge every generic
+producer premise in the Lean theorem.
+
+** Two witnessed correspondence gaps
+
+1. *Table format admission is insufficient.* =validate-lr-tables= checks
+   dimensions, vocabulary, indices, row forms and reachable acceptance. A
+   deliberate EOF-action mutation still passes it and low-level
+   =lr-parse/prepared= accepts =a= for a grammar
+   requiring a trailing =b=. The independent derivation chart rejects that word.
+   =CellSupported= is a separate obligation. A completed item and a viable
+   stack must justify reductions; a start-root/EOF condition must justify
+   acceptance. The negative control does not claim that the normal compiler
+   produces the mutated table or that arbitrary tables must be recompiled on
+   every request. It disproves using schema admission as semantic evidence.
+2. *Raw tokens have state-dependent terminal interpretations.* The built-in
+   =make-lr-action-selector= tries exact literal, optional casefolded literal,
+   then token kind in the current state. The same immutable =word/"if"= token
+   selects a literal in one row and a token terminal in another. The new
+   =Lookahead.selectRaw= laws and =raw_terminal_is_state_sensitive= witness,
+   together with the real selector control, make this difference explicit.
+   =Grammar='s fixed-terminal trace cannot be claimed to cover all such paths.
+   The raw-request extension below supplies this logical relation and retains
+   the pending observation through reductions; native refinement remains open.
+
+The producer obligations require native nullable/FIRST worklist refinement,
+closure/goto and conflict construction correspondence, and source-to-raw scanner
+observations. The extension below derives RHS agreement and singleton acceptance
+from explicit graph certificates. GLR, layout, recovery, edits and ABI remain
+later compositions listed in the architecture ledger. Runtime tuning remains
+deferred.
+
+** Preparation failures remain evidence
+
+The first local source qualification stopped before tests because an old
+compiled =lr1-construction= interface lacked the current =skew-width-rules=
+export. Rebuilding that fixture from source corrected preparation. An initial
+native test compilation then hit the unchanged five-second silence limit
+while GCC was compiling generated code. Enabling the repository's established
+GCC =-v -Q= progress and compiler verbosity completed the native build without
+changing compiler, optimization flags, total deadline or silence limit.
+The failed logs are retained separately; they are not semantic passes.
+
+A later build exposed buffering before those diagnostic lines reached the
+supervisor. The disposable compiler caller now uses the SDK's
+=port-settings-set!= with =buffering: #f= on stdout/stderr. This delivers actual
+compiler diagnostics immediately, with no periodic synthetic progress messages.
+The final build completed in 11.333 seconds with the same 90-second total and
+five-second silence limits. The earlier buffered build's 7.123-second
+=idle-timeout= remains a failed preparation record.
+
+Local qualification of the connected foundation:
+
+| Check | Result and scope |
+|-------+------------------|
+| Locked Lean =lake build= | 58 jobs; printed theorem axioms; no admitted native refinement |
+| Full Quint =npm test= | 146 directed controls, 17 modules, 16 seeded invariant explorations |
+| Shared grammar pipeline | Nine directed controls; 1,000 traces bounded at 40 steps |
+| Final Scheme resolved-grammar owner | 43 cases, 5.195 seconds, exit 0, no supervisor reason or missing receipt |
+| Evidence host/input controls | Four tests; new model/compiler/test input changes invalidate observations |
+
+The Scheme result includes the schema-valid semantic mutation and the
+state-sensitive raw-token witness. The negative controls establish that the
+stronger correspondence premises are necessary. They do not turn the current
+schema validator into a semantic checker. Runtime code and CPU benchmark
+admission are unchanged; the earlier CPU failure remains unqualified.
+
+
+** Viable prefixes, LR construction and state-dependent raw requests
+
+[[file:../../../formal/ParserEngine/Viable.lean][Viable.lean]] connects the earlier =Grammar.Predicts= relation, including
+=FIRST(beta, lookahead)= and nullable inheritance, to a graph of production/dot
+cores. =lr1_closure_erases= preserves production and dot while erasing lookahead.
+=lr1_graph_constructed= derives the core graph certificate from LR1 closure/goto
+membership and exact item projection. It does not assume a completed item
+already describes the runtime stack.
+
+The graph certificate requires initial items to originate in closure of the
+augmented seed, and target items to originate in closure of the source items
+advanced across that edge. Subset inclusion permits omission of predictions
+with no lookahead. No prediction may introduce the augmented production as a
+user rule. These are construction obligations, not conclusions from state IDs,
+action schemas or an accept state being reachable.
+
+Induction on the actual top-first stack path establishes:
+
+- =item_suffix=: every item's consumed RHS prefix is a suffix of the stack in
+  source order, with the dot within the production width.
+- =completed_rhs=: the completed production fits the stack and its popped
+  symbols, reversed into source order, equal its RHS. Epsilon is included.
+- =drop_path=: popping the used prefix retains the earlier graph path.
+- =accepting_stack=: a completed isolated augmented production of width one
+  implies exactly one start symbol and two physical states. The singleton is
+  derived rather than supplied as a request premise.
+
+[[file:../../../formal/ParserEngine/RawRequest.lean][RawRequest.lean]] uses these results in one complete deterministic request.
+It retains original raw observations separately from chosen grammar terminals.
+Only shift commits a terminal and consumes raw input; reduce preserves the raw
+suffix and the next query uses the new LR state. Frame derivations, raw input
+conservation and the ordered terminal/raw relation are preserved together.
+=complete_request= derives a CFG word related to the entire original raw input
+from the initial state, a legal trace, exhausted input and a selected accept.
+It requires neither a per-reduction RHS premise nor a singleton-root premise.
+This is conditional acceptance soundness, not language completeness.
+
+=Lookahead.RowSupported= certifies EOF, exact literal, folded literal and kind
+branches. =selected_raw_supported= preserves that certificate through the actual
+priority order. =RawRequest.builtin_action_and_terminal= projects it into both
+published-cell support and the terminal predicate needed by the request proof.
+The certificates remain obligations of the row producer. Mutable Scheme token
+fields and effectful custom selectors do not inherit them automatically.
+
+[[file:../../../formal/quint/RawRequest.qnt][RawRequest.qnt]] supplies a second connected fixture: =S -> X literal-if |
+Y token-word=, =X -> a=, =Y -> b=. The same raw =word/if= observation commits
+different grammar terminals in two complete requests. Directed histories cover
+retained lookahead through reduction, normal rejection and full acceptance.
+Mutations consume lookahead during reduction, commit a state-independent
+terminal, accept a prefix or reverse a reduction yield. Each is rejected by the
+shared path/derivation/conservation invariant. This is a finite protocol check,
+not a proof of native LR table construction.
+
+** Compiler defect exposed by the construction obligation
+
+The native graph check initially failed on an authored =$accept= nonterminal:
+=lower-rules= always named the augmented production =$accept=, so prediction
+could reintroduce augmented dot-zero items into goto targets. The same namespace
+also allowed authored rules to collide with generated helper names.
+
+The engine now reserves authored rule names and reference targets before
+lowering, claims helper names deterministically, and allocates an unused
+augmented name. Ordinary non-colliding grammars retain their naming sequence.
+No user namespace restriction or compatibility mode was added.
+
+The existing [[file:../../../t/resolved-grammar-test.ss][resolved-grammar owner]] now checks four grammars across LR0/LALR,
+canonical LR1 and follow-partition LR1 construction. An independent list-pair
+closure oracle checks item origins and augmented separation without using the
+producer's closure templates or packed increment rule. ACTION checks require a
+shift edge and item, or a completed item with its published lookahead; GOTO
+checks require an actual nonterminal edge. Invented edge labels and production
+zero used as a reduction fail the controls. These checks compare the published
+tables to generated graph/lookahead data; they do not independently prove the
+native lookahead propagation fixed point. Partitioned LR1, layout guards and
+full GLR execution are outside this new control.
+
+Public compile/prepare/parse checks cover =$accept=, =$accept.0= and =$start.0=
+collisions, deterministic repeated lowering, valid full input and rejection.
+Root aliases follow the public recognition-result contract. The raw selector
+check reuses the same token object across two complete requests with distinct
+root kinds and verifies the committed literal/kind terminals.
+
+Local qualification of this extension:
+
+| Check | Result and scope |
+|-------+------------------|
+| Locked Lean =lake build= | 60 jobs; new graph/request/selector theorem axioms printed; no =sorry= |
+| Full Quint =npm test= | 153 directed controls, 18 modules, 17 seeded invariant explorations |
+| New raw request protocol | Seven directed controls; 1,000 traces bounded at 20 steps |
+| Scheme resolved-grammar owner | 46 cases, 5.010 seconds, exit 0, no supervisor reason or missing receipt |
+| Evidence host/input/product controls | Five tests; new model and follow-construction inputs invalidate observations |
+
+The original graph failure and subsequent preparation/test-authoring failures
+remain failed local records. Correcting a missing public root alias, a checker
+syntax error and a capacity-versus-published-state iteration error did not
+change a compiler expectation to manufacture a pass. The final owner run uses
+the same 90-second total and five-second silence limits. CPU benchmarks were
+not rerun, and no CPU improvement is claimed.
+
+The new Lean source-mutation control also exposed duplicate owners in the
+Lean observation input list, which made the strict snapshot function reject
+that observation before running Lean. The collector now forms an ordered set
+of all owners; the control checks uniqueness and invalidation for both new
+Lean modules. No owner or premise was removed.
+
+The logical graph-to-raw-request soundness chain is now connected. A universal
+Scheme-to-model simulation remains open: native lowering/fixed points,
+interning/partitioning, row publication and selector observations must establish
+the named certificates for every admitted grammar. Completeness, scanner modes,
+AST spans/actions, recovery and ABI observations remain separate ledger gaps.
+Model closure for the full engine is therefore not claimed, and architecture
+performance work remains gated by those obligations.
+
+** Checked native publications and solver correspondence
+
+The earlier table-support check used the producer's own lookahead masks as
+premises. The new checks strengthen that boundary in three coordinated layers.
+They do not treat agreement between two views of one mask as an independent
+lookahead derivation.
+
+*** Executable completion certificates
+
+[[file:../../../formal/ParserEngine/Completion.lean][Completion.lean]] implements finite nullable/FIRST derivation rounds and
+publication checkers. A check succeeds only when the supplied set equals a
+sound finite round *and* is closed under every grammar rule. Rounds retain set
+membership rather than duplicate derivation entries. Theorems
+=nullable_certificate_exact= and =first_certificate_exact= establish both
+soundness and completeness against =Grammar.Nullable= and =Grammar.First= for
+arbitrary supplied grammars and certificates. Neither theorem assumes the
+native queue has terminated correctly. An inadequate fuel value fails closed;
+no theorem treats exhaustion or a locally empty queue as publication evidence.
+
+The sequence operator is proved equivalent to =Grammar.SequenceFirst=.
+Nullable closure feeds FIRST leastness, and FIRST remains a terminal-prefix
+property when a later suffix is unproductive. Negative kernel checks reject
+self-supporting nullable/FIRST cycles, empty-fuel publication missing an epsilon
+consequence and omitted FIRST facts. A positive control retains FIRST for an
+unproductive suffix.
+
+The same module models the native clause counter as the number of *unresolved
+occurrences*, not the number of distinct dependencies. A fresh notification
+removes exactly the source's occurrence multiplicity. A duplicate notification
+changes no unresolved obligation. A zero counter means every dependency is
+known; an undefined name remains unresolved. Here =known= describes delivered
+facts, distinct from facts published but still pending in the native queue.
+These laws cover the mathematical counter update; they do not prove every
+Scheme mutation executes it correctly.
+
+[[file:../../../formal/ParserEngine/NativeFacts.lean][NativeFacts.lean]] instantiates the checkers with four typed inputs generated
+from the actual native =lower-rules=, =compute-completion= and =compute-first=
+outputs. The fixtures cover epsilon/recursion, repeated dependencies and cycles,
+an unproductive suffix and undefined reference, and annotated optional/repeat
+lowering with a helper-name collision. The exported data retain production
+order and consistently encode named symbols into separate terminal/nonterminal
+constructors. For each fixture, Lean checks the Boolean certificate with
+=by decide= and derives exact semantic membership for all names and terminals.
+No =native_decide= trust extension, new axiom or admitted theorem is used.
+
+The existing Scheme owner independently regenerates the entire typed input
+module and compares it with the checked source. Thus a stale fixture, changed
+native publication, changed encoding or edited certificate declaration cannot
+silently preserve the qualification. These are small executable proof fixtures,
+not benchmark result reports. The explicit regeneration command is:
+
+#+begin_src sh
+gerbil env gxi t/generate-grammar-model-facts.ss
+cd formal && lake build
+#+end_src
+
+Regeneration alone is not acceptance: both the Lean checker and native
+conformance owner must subsequently pass. The encoder and bounded fixture
+coverage remain explicit implementation boundaries. This is not a formal
+interpreter for arbitrary Scheme source.
+
+*** Authored DSL and lowering meaning
+
+The Scheme =source-dsl-accepts?= oracle evaluates authored expression trees
+using span saturation over named references. It does not call lowering,
+nullable/FIRST, generated helpers or LR tables. Choice, sequence, optional,
+repeat/repeat1, references, literals, fixture token kinds and field/alias/static
+precedence wrappers are evaluated directly. Repeat admits only positive-width
+iterations after its empty case, preserving finite-word meaning without a
+nullable loop.
+
+For eight grammars and all 15 words over =a/b= through length three, the owner
+compares this meaning with a separate CFG span chart over actual lowered
+productions. The controls include epsilon, recursive cycles, undefined names,
+annotations and generated helper collisions. A removed mandatory suffix is
+witnessed as a semantic mismatch. This establishes bounded terminal-language
+correspondence; AST fields/spans, dynamic precedence, layout, DSL admission and
+a universal lowering theorem remain open.
+
+*** LR lookahead provenance independent of native masks
+
+The new symbolic tuple oracle reconstructs LR lookaheads from the augmented
+EOF seed and saturates the complete published transition graph. Its prediction
+step recomputes =FIRST(beta, inherited)= with independent nullable/FIRST
+reference solvers. It uses neither native suffix masks, packed increments,
+closure scratch arrays nor dependency queues. Symbolic lookaheads are compared
+in both directions against every decoded native state/item mask.
+
+Four grammars across LR0/LALR, canonical LR1 and follow-partition LR1 now pass
+this complete finite comparison, alongside the earlier graph-origin and
+ACTION/GOTO cell checks. The fourth fixture deliberately reaches an
+unproductive suffix through the low-level builder; it makes no public grammar
+admission claim. An invented terminal has no provenance. Graph IDs and edges
+are still supplied by the native constructor, so this does not prove native
+state interning, partition minimality, graph completeness or conflict policy.
+The earlier core-path and raw-request proofs retain those named premises.
+
+[[file:../../../formal/quint/Completion.qnt][Completion.qnt]] aligns the publication lifecycle with =compute-completion=:
+all dependencies exist before draining; nullable/productive deltas coalesce per
+owner; queue entries are unique; repeated references decrement by multiplicity;
+undefined references remain blocked; publication waits for all seeded work to
+finish. Its invariant relates every counter to delivered facts. Directed
+histories exercise both seed orders and reject distinct-only counts, a missing
+publisher treated as satisfied, early publication and duplicate queue entries.
+Productive semantics beyond this fixture remain a separate proof obligation.
+
+Local qualification of the extension:
+
+| Check | Result and scope |
+|-------+------------------|
+| Locked Lean =lake build= | 62 jobs; counter/certificate/native-fixture axioms printed; no admitted proof |
+| Native completion publications | Four fixtures, eight kernel-decided certificates and eight derived exactness theorems |
+| Authored DSL/lowered CFG | 120 bounded language comparisons plus a semantic mutation witness |
+| Native LR lookaheads | Four grammars, three construction routes; all decoded items compared in both directions |
+| Scheme resolved-grammar owner | 49 cases, 5.117 seconds, exit 0, no supervisor reason or missing receipt |
+| Full Quint =npm test= | 159 directed controls, 19 modules, 18 seeded invariant explorations |
+| Solver lifecycle | Six directed controls; 1,000 traces capped at 20 steps |
+| Evidence host/input/product controls | Five tests; 400 Lean inputs and 105 Quint inputs form strict snapshots |
+| Regeneration entrypoint | Exit 0, receipt present, 4.747 seconds under the existing process gate |
+
+An initial exporter build failed on an undeclared =append-map= import. The
+failed result is retained. Complete exception diagnostics were written to a
+separate file before rethrowing the same exception; the error-output rejection,
+90-second total deadline and five-second silence deadline stayed enabled.
+Adding the official list-library import repaired preparation. Proof-authoring
+failures and the first invalid Quint API spelling are also not counted as
+passes. No runtime algorithm or CPU benchmark was changed in this extension.
+
+The remaining priority is universal source/lowering correspondence and native
+solver/graph implementation refinement, including productive admission and
+conflict/partition behavior. Checked finite native outputs close concrete
+premises; they do not establish full engine model closure. Performance work
+remains deferred.
+
+** Universal lowering and preparation control flow
+
+This extension moves beyond equality certificates for four publications. Its
+main results quantify over arbitrary grammars, recursive derivations and finite
+input lengths. Finite Scheme/Quint controls continue to qualify the physical
+implementation; they are not the source of those universal results.
+
+The paper anchor is [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing, sections 2.1--2.2]]: parser
+behavior is specified against the grammar's derivation relation, with an
+isolated augmented start production. The source DSL must therefore preserve
+CFG derivations before an LR algorithm or specialization can be justified.
+The new proof is our lowering construction, not a theorem claimed by that
+paper, and no PEG ordered-choice law or specialization speed result is used.
+
+*** Recursive source DSL and emitted-rule correspondence
+
+[[file:../../../formal/ParserEngine/Lowering.lean][Lowering.lean]] defines source evaluation and a production schema with
+intrinsic expression owners. =lowering_exact= and =named_lowering_exact= prove
+soundness and completeness for every finite recursive rule list, expression
+and terminal word. Constructors include failure/empty, terminal/reference,
+choice/sequence, optional, repeat/repeat1 and terminal-language-transparent
+annotations. =choice_list_exact= and =sequence_list_exact= connect arbitrary
+source arities to the binary induction. Empty choice is failure; empty sequence
+is epsilon. Nullable repeated children are permitted in the mathematical
+finite-derivation semantics; native admission policy is a separate judgment.
+
+This is a schema with scoped expression owners, not a claim that Scheme's
+physical names already have that type. The native bridge uses finite syntactic
+=Expansion= witnesses for emitted productions, including legal unit inlining
+and atomic operand erasure. =native_derivation_sound= and =native_root_sound=
+quantify over every native CFG and every input word satisfying that structural
+bridge. They do not take desired per-input language equality as a premise.
+
+Folding a named source rule into its defining expression additionally requires
+=UniqueBody=. One branch of a choice cannot supply that witness for the entire
+shared left side. =isolated_repeat_origin= and =isolated_repeat1_origin= prove
+the native self-recursive rule shape for arbitrary child expressions and
+recursive source contexts when the unique-body premise holds. AST fields,
+spans, dynamic precedence, lexical layout effects and an executable verifier for
+every native origin/name witness remain outside these terminal-language laws.
+
+*** Arbitrary finite worklists and CFG preparation
+
+[[file:../../../formal/ParserEngine/Worklist.lean][Worklist.lean]] models complete publication and dependent notification,
+with separate =known=, =delivered= and =pending= lists. Publication admits a fact
+once. Initial scanning seeds empty-dependency clauses. Delivery removes pending
+work, records it as delivered and scans exactly the affected registered clauses.
+The invariants preserve sound known facts, pending/delivered accounting and
+closure over delivered dependencies. Queue order does not establish semantics.
+
+=quiescent_exact= derives least Horn meaning for an arbitrary finite program
+from its operational history and an empty final pending queue. The caller does
+not supply final closure, a successful equality certificate or a fact-set
+soundness assumption. The theorem does not prove a termination bound or turn
+fuel exhaustion into quiescence.
+
+[[file:../../../formal/ParserEngine/Solver.lean][Solver.lean]] compiles the source-shaped programs from any =Grammar.CFG=:
+
+- Nullable clauses retain every nonterminal occurrence, discard terminal-blocked
+  nullable clauses and keep undefined references as unsatisfied dependencies.
+  =nullable_horn_exact= connects those clauses to =Grammar.Nullable=.
+- =notification_enables_exactly= connects native per-occurrence counter decrements
+  to the operational enabled test using the existing multiplicity theorem.
+- FIRST scans each nullable prefix, emits a seed for the encountered terminal
+  and propagates each nonterminal dependency over the finite terminal catalog.
+  =prefix_sequence= connects those edges to =Grammar.SequenceFirst=.
+- =named_first_in_catalog= proves that the catalog derived from grammar RHS
+  terminals covers every semantic FIRST fact. The caller need not guess a
+  bound on terminal ordinals.
+- =preparation_pipeline_exact= composes both operational histories in native
+  preparation order: FIRST consumes the completed nullable publication. Both
+  semantic conclusions follow without external final-fact certificates.
+
+These are algorithmic control-flow results for all grammars, rather than a
+finite execution of one example. Native bit masks, coalesced two-domain queue
+payloads, physical counters, table indexing and shared mutable records still
+need representation adapters to the proved transitions. Productive-domain
+shortcuts and native termination are not silently included in the nullable and
+FIRST claims. The independent native solver/LR controls remain the executable
+boundary checks for those adapters.
+
+*** Lowering defect found by the ownership proof
+
+The source =choice(repeat("a"), "b")= should denote =a* | b=. Previously,
+=lower-to= reused the choice's left side for the repeat branch and emitted:
+
+#+begin_example
+A -> epsilon | A a | b
+#+end_example
+
+That grammar admits =ba= and =baa=. The same defect affected repeat1,
+precedence-wrapped repetition and repeated authored declarations with the same
+left side. The new native authored-DSL comparison failed before the repair.
+
+[[file:../../../src/compiler/lr.ss][lower-rules]] now threads an ownership constraint: choice alternatives share
+their left side; precedence preserves that constraint; fresh helpers are
+exclusive; an authored left side is exclusive only for a single declaration.
+A repetition under a shared left side emits through its own fresh helper.
+Ordinary isolated repetition retains production/action order. No compatibility
+mode, schema upgrade, new user declaration requirement or benchmark shortcut
+was introduced.
+
+The existing owner now checks actual emission-origin isolation and complete
+parse requests through LALR, canonical LR1 and follow-partition LR1. Repeated
+=a= and the =b= alternative succeed; =ba=, =baa=, =ab= and =bb= fail. The source
+chart also covers all 15 words through length three for twelve grammars. These
+controls witness the real repair; universal scope comes from the derivation and
+origin theorems above, with the remaining native adapter premises explicit.
+=GrammarPipeline= now retains both the old shared-owner counterexample and the
+private-owner positive control.
+
+*** CI and qualification closure
+
+The previous native CI failed the existing test AST contract because typed
+proof-input serialization lived in a =-test.ss= file. The serializer and shared
+grammar data now reside in the existing
+[[file:../../../t/fixtures/lr1-construction.ss][LR construction fixture module]]. The test owner only compares values and
+the regeneration command imports that fixture directly. The AST restriction
+was retained unchanged; negative harness controls were not treated as defects.
+
+| Check | Result and scope |
+|-------+------------------|
+| Full locked Lean build | 65 jobs; new derivation, origin and operational theorem axioms printed |
+| Full Quint suite | 161 directed controls, 19 modules, 18 seeded invariant explorations |
+| Resolved grammar owner | 50 cases, including full repetition-isolation requests and emission origins |
+| Related native closure | Four owners, 88 cases: resolved grammar, fused reductions, canonical LR1 and AST style |
+| Native qualification | Three workers, 25.265 seconds, exit 0; four owner receipts present |
+| Native preparation | Official Gerbil compiler and GCC; unchanged 90-second total and five-second silence limits |
+
+The former shared-loop failure, a malformed new fixture declaration and proof/
+protocol authoring failures remain failures. This extension contains a
+correctness repair derived from the model and no CPU performance experiment.
+The whole engine is not declared model-closed: native name/origin generation,
+bit/batch adapters, productive/termination and later parser/ABI boundaries remain
+the next proof obligations. Performance optimization stays deferred.
+
+** Native names, checked origins and coalesced masks
+
+This extension retains the grammar/derivation contract of [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR
+Parsing, sections 2.1--2.2]]: physical representations must preserve grammar
+symbols, productions and derivations. The paper does not prove our allocator,
+bit operations or mutable queue; the following are separate implementation
+correspondence obligations and machine-checked results.
+
+*** Names and production provenance
+
+[[file:../../../formal/ParserEngine/Names.lean][Names.lean]] models =claim-name= success, collision retry, and counter
+advancement in [[file:../../../src/compiler/lr.ss][lower-rules]]. For every allocation history:
+
+- =unique_names= and =binding_functional= establish unique physical bindings;
+  distinct helpers may legitimately decode to the same expression owner.
+- =helpers_avoid_source= reserves the root, every authored declaration and
+  every reference, including undefined references and later declarations.
+  Safety does not depend on a helper's printed spelling.
+- =observer_alignment= and =ordinal_alignment= preserve the reverse emission
+  tape, the callback's exact production, and contiguous positive production IDs
+  for arbitrary emission counts. Augmentation is a separate production-zero step.
+
+The executable =verify= checker recursively constructs =Lowering.Expansion=
+proofs from local schema rules, append/inlining recipes and uniquely owned
+named-body folds. =admitOrigin= compares both checked endpoints with the actual
+physical production under its name decoder. =checked_native_root_sound=
+composes successful checks with the source DSL derivation theorem for any
+grammar, recipe depth and terminal word. It assumes checked syntactic recipes,
+not final language equality. Controls reject invalid schema rows, ambiguous
+named folding and a changed physical RHS with an unchanged recipe.
+
+The remaining producer obligation is to generate/check these recipes for every
+actual Scheme lowering branch, supply the physical-name decoder, and account
+for augmentation and AST/layout effects. The existing diagnostic callback's
+owner/path/expression label alone is not a proof recipe. Allocation termination,
+source occurrence conversion and observer side effects are not silently proved.
+
+*** Bit representations and owner queues
+
+[[file:../../../formal/ParserEngine/Encoding.lean][Encoding.lean]] represents nonnegative arbitrary precision masks with =Nat=.
+=difference_fresh=, =delta_conservation= and =delta_disjoint= characterize
+new-bit publication. =singleton_membership= connects nonzero intersection with
+a shifted singleton to bit membership. =field_member= and =field_complete=
+cover extraction for any positive field width and arbitrary bit address, without
+a fixed fixnum bound. =merge_delivered= proves that coalescing does not erase
+already delivered bits. Correct Scheme integer primitives remain a host premise;
+these laws do not yet prove the entire direct/field iterator's callback order.
+
+=publish_queue_valid= and =drain_queue_valid= preserve unique queued owners
+and the equivalence between queue membership and a nonzero pending row.
+=queue_empty_exact= derives actual mask quiescence. Clearing happens before
+callbacks, so a fresh bit can requeue the same owner without creating duplicates.
+The finite coordinate catalog is explicit; its coverage must come from the
+producer, not from an arbitrary chosen bound.
+
+=clear_owner_partition= derives a batch/rest partition from row clearing.
+=mask_notification_valid= connects that decoding to the worklist's validity
+invariant without assuming the partition. =batch_quiescent_exact= derives
+least Horn meaning for every batch size and queue order. Finally,
+[[file:../../../formal/ParserEngine/Solver.lean][batched_preparation_exact]] composes batched nullable and FIRST histories
+with arbitrary-CFG semantics and the grammar-derived terminal catalog.
+
+Native occurrence-counter arithmetic still needs its complete mutable
+registration/delivery simulation; productive-domain shortcuts, iterator order,
+termination bounds and LR interning/partition/conflict construction remain
+explicit gaps. A nullable-only history must not be presented as a proof of the
+joint nullable/productive implementation.
+
+*** Concrete checks and evidence boundaries
+
+The existing resolved-grammar owner now checks 128 helper-looking declarations
+and references, including undefined names, deterministic lowering, callback
+object identity, ordinal order and authored source paths. The existing canonical
+LR1 owner checks bit traversal across host fields, sparse gaps and reentrant
+callbacks. These controls qualify the source adapters; the general theorems above
+do not follow from enumerating those examples.
+
+The local GCC/native run used three workers: four owners, 89 cases, 34.14 seconds,
+exit zero and all owner receipts. The first new test build used an unimported
+list helper and failed; the official list import repaired it. The unchanged
+90-second total and five-second idle watchdogs were retained. No CPU benchmark
+or parser performance optimization was introduced. New proof modules and the
+actual bit-primitive source are included in evidence invalidation controls.
+
+*** Fresh-source identity and CI repair
+
+The previous CI had two independent failures: the isolated ABI task omitted the
+project dependency environment, and its expected GQL parser identity preceded
+the shared-repetition repair. The dependency-environment fix was integrated
+from the concurrent PR revision. Later diagnostic output in =-test.ss= violated
+the existing AST contract; reporting now belongs to the fixture generator,
+while the assertion remains in the test. No admission rule was weakened.
+
+A cached local ABI pass initially concealed the stale compiler identity.
+Independent reconstruction from the exact stored Grammar IR with the current
+compiler reproduced Ubuntu's GQL digest. Comparing the old and fresh Parser IR
+identified =lr-spec= as the only changed section. Ten reconstructions covering
+nine distinct LR grammar inputs found no additional identity changes. Only the
+GQL descriptor digest and its binary header digest were updated; source, token
+records, AST events and accepted/rejected expectations were retained. Complete
+Scheme byte parity and Rust admission subsequently passed for all twenty cases.
+
+Both parser and complete-declaration cache keys now carry the explicit
+=repetition-owner-isolation= generator revision. Artifact and loader schemas
+remain unchanged. The new regression seeds both historical generator receipts
+and proves they cannot skip current compilation; it also checks that the
+historical receipts remain present. Existing positive reuse controls still
+require a single compilation and a subsequent cache hit. The cache failure was
+an implementation/source correspondence defect, not a performance experiment.
+
+| Check | Current local evidence |
+|-------+------------------------|
+| Locked Lean build | 67 jobs; new theorem axiom dependencies printed; no admitted proof |
+| Completion lifecycle | Six directed controls and 1,000 traces capped at 20 steps |
+| Native grammar/LR/style | Four owners, 89 cases, three workers, 34.14 seconds |
+| ABI/cache/style closure | Three owners, 26 cases, three workers, 14.01 seconds; exact twenty-product parity |
+| Fresh compiler identity | Ten reconstructions, 11.36 seconds; GQL change independently reproduced |
+| Rust ABI consumer | One test admitting all twenty accepted/rejected products |
+| Evidence controls | Five tests; 408 Lean inputs and 108 Quint inputs bound by strict snapshots |
+
+The initial local ABI attempts failed on incomplete source-test products and
+then a missing loadable fixture closure. Those failures were retained; complete
+native fixture preparation resolved them before byte-parity admission. The
+immediate fresh-rebuild child termination was retained as a failed attempt;
+explicit dependency admission completed the reconstruction. Final remote CI
+remains an independent gate for the pushed revision. None of these checks proves
+complete Scheme-to-model refinement or authorizes performance claims.
+
+** Stable source identities and shared schema metadata
+
+Source files, namespaces, types, functions and language declaration bindings
+must keep stable names. Format versions and generator revisions belong to
+schema or metadata values. No release/schema upgrade is part of this change.
+
+[[file:../../../src/schema.ss][The shared schema owner]] now declares the grammar/artifact/cache format
+identities and ABI version values. [[file:../../../src/ffi/schema.ss][The FFI declaration module]] derives its
+C version query from those same values, including at macro expansion time.
+=GrammarSchema= is a stable POO contract identity whose classifier consumes the
+shared schema value. The concise-language witness and Rust arithmetic module
+also use stable names. The tracked first-party source inventory found no
+remaining version-bearing declaration or file path under the checked naming
+patterns; schema strings remain metadata rather than source identifiers.
+
+Generator identity is a stable name plus structured semantic metadata:
+=entry-root= is =authored-alias= and =repetition-owner= is =exclusive=. Both
+cache layers hash the complete metadata and store it in =generator=. Admission
+checks the metadata as well as schema, key and required fields. The old compound
+generator-name strings are no longer active identities. Historical metadata in
+negative fixtures remains available to prove that old receipts cannot bypass
+the current lowering. A new control changes the repetition-owner metadata under
+the same receipt key and verifies rejection without invoking the compiler again.
+
+Moving binding ownership requires recompiling native consumers. The initial
+mixed-product run failed ABI datum publication, and the extended grammar run
+found an old constructor still referring to its former schema binding. Both
+failures were retained; rebuilding all direct schema consumers repaired these
+routes. No compatibility alias or assertion weakening was introduced.
+
+** Mutable registration and counter histories
+
+[[file:../../../formal/ParserEngine/Completion.lean][Completion.lean]] now models the per-occurrence mutations in
+[[file:../../../src/compiler/lr.ss][compute-completion]], beyond the previous aggregate subtraction identity.
+Clause-record IDs are distinct allocation identities, not published nonterminal
+IDs: multiple records may publish the same left side.
+
+- =register_count= derives the number of references to a mutable record from
+  its dependency occurrences for any finite, uniquely identified clause list.
+  Duplicate dependencies are retained; undefined names remain obligations.
+- =notified_counter= proves that a sequence of single integer decrements has
+  exactly the registered multiplicity effect. =notified_reverse= connects this
+  to the native builder's cons/reverse registration order. Integer subtraction
+  cannot conceal an underflow by clamping to zero.
+- =mutable_notification_exact= and =mutable_enables_exact= connect the resulting
+  record value and zero crossing to the original clause body.
+- =mutable_prefix_nonnegative= covers every intermediate prefix of the reversed
+  native notification order, rather than just its final value.
+- =counter_trace_exact= derives every active field's invariant from executable
+  initialization and arbitrary finite fresh-source delivery histories. The
+  caller does not provide a final counter equality or a successful certificate.
+
+Fresh-source delivery composes with the mask/publication boundary established
+above. Physical record allocation/alias mapping and the active-domain projection
+remain host representation premises. Disabled nullable fields, productive-domain
+shortcuts, publication callbacks and the complete joint scheduler still require
+their full composition. The theorem does not silently replace that work with a
+nullable-only argument. Full native lowering recipe generation and LR graph/
+table construction remain separate open obligations; performance work stays
+deferred.
+
+| Check | Local evidence |
+|-------+----------------|
+| Locked Lean build | 67 jobs; mutable registration, enabling and trace theorem axioms printed |
+| Completion lifecycle | Six directed controls; 1,000 traces capped at 20 steps |
+| DSL/metadata/ABI/style | Four owners, 36 cases, three workers, 13.97 seconds; all twenty ABI products match |
+| Resolved grammar and FFI | Two owners, 57 cases, two workers, 12.04 seconds |
+| Native C ABI and Rust bridge | GCC compilation from shared schema metadata completed |
+| Rust stable module name | Build-support test targets compile; no timing run executed |
+
+* Completion gates before architecture optimization
+
+These gates apply to the parser-owned DSL, scanner, table construction and
+request execution. Host language/ABI, allocation/GC and synchronization are
+explicit external premises, not implementation tasks or silently discharged
+proof obligations. Parser qualification remains conditional on them. Historical
+host counterexamples and negative receipts remain in this document, and no
+unconditional host correctness or memory-safety claim follows from parser closure.
+
+1. Specify the admitted DSL/grammar and scanner meaning, including effects and
+   invalid declarations. Connect derived facts and tables to that meaning.
+2. Extend the shared LR kernel with selected actions/gotos, branch/layout and
+   recovery, then connect capture/projection and checkpoint transfer to it.
+3. Compose edit/retry/cancellation/history and artifact/ABI observations with
+   the same request semantics. Name every unsupported route and premise.
+4. Bind executable conformance controls to these abstraction relations; model
+   command success and source hashes alone cannot discharge the relations.
+5. Derive complete cost recurrences from admitted transitions. Rank optimization
+   hypotheses only after the applicable semantic boundaries close, then use
+   complete-request Scheme benchmarks for CPU qualification.
+
+The latest =a50882f= Ubuntu CPU trial remains a failed performance gate:
+production P90 =0.9724769011= against the unchanged =0.95= ceiling with valid
+controls. A passing earlier trial cannot cancel it. The current model changes
+make no CPU improvement or runtime repair claim and do not authorize treating
+that revision as performance-qualified.
+
+* Papers, obligations and implementation owners
+
+Sperber and Thiemann's [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]] separates grammar-static
+information from request-dependent execution through partial evaluation.
+Our immediate obligation is narrower: retaining selected action functions must
+preserve their declaration order and semantics. This is not a reproduction of
+the paper's full LR generator or its speed measurements.
+
+Wagner and Graham's [[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Efficient and Flexible Incremental Parsing]] motivates
+explicit treatment of retained parsing structure. Here persistent child joins
+are modeled separately from complete publication. Incremental invalidation,
+reuse certificates and grammar recognition soundness remain later obligations;
+existing [[file:../../architecture/0010-persistent-recognition-snapshots.org][snapshot architecture]] owns those implementation requirements.
+
+| Obligation / Lean theorem | Scheme owner | Implementation controls |
+|---------------------------+--------------+-------------------------|
+| Prepared action chain equals interpretation: =prepared_plan_equivalent= | =src/runtime/reduction-plan.ss= | =t/fused-reduction-test.ss= |
+| Prepared reverse reduction preserves source order and operand anchors: =prepared_reverse_reduction_equivalent= | =src/runtime/reduction-plan.ss= | =t/lr-stack-reduction-test.ss= |
+| Field labels survive nesting; empty aliases retain supplied anchors | =src/runtime/reduce.ss= | =t/fused-reduction-test.ss= |
+| Materialization preserves children and suffix: =materialize_into_exact= | =src/runtime/funcs.ss= | =t/recognition-sequence-test.ss= |
+| Shift/reduction preserve state/value depth relation | =src/runtime/lr-parser.ss= | =t/lr-stack-reduction-test.ss= |
+| Full publication has byte and event obligations | =src/runtime/artifact.ss= | =t/artifact-publication-cost-test.ss= |
+
+The table identifies conformance owners, not a proved refinement from Scheme
+into Lean. Existing controls must be inspected and extended when either side
+changes. =Examples.lean= also checks both action orders, nested fields, distinct
+empty-operand anchors, empty leaves, suffix preservation and a prefix-copy
+count. They complement the general theorems; finite examples do not prove them.

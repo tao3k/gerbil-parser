@@ -26,6 +26,10 @@
         (rejects #'(deflanguage-parser-tests bad "bad" (engine) (scenario "bad" (wind (before (act (void))) (body (equal 1 1)) (wrong (act (void)))))))
         (rejects #'(deflanguage-parser-tests bad "bad" (engine) (scenario "bad" (choose x ((1) (begin #t))))))
         (rejects #'(deflanguage-parser-tests bad "bad" (engine) (profiled "bad" (begin #t))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (engine) (suite "bad" (begin #t))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (engine) (suite "bad" child extra)))
+        (rejects #'(deflanguage-parser-tests bad "bad" (fixture) (scenario "bad" (display "snapshot"))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (fixture) (scenario "bad" (act (void)))))
         (rejects #'(deflanguage-parser-tests bad "bad" (engine) (scenario "bad" (verify))))
         (rejects #'(deflanguage-parser-tests bad "bad" (engine) (scenario "bad" (act (void)))))
         (rejects #'(deflanguage-parser-tests bad "bad" (engine) (scenario "bad" (equal #t))))
@@ -106,7 +110,9 @@
 (deflanguage-parser-tests language-test-syntax-test "language parser test declarations"
   (engine (exclusive #f))
     (scenario "unknown, empty, malformed and duplicate declarations reject during expansion"
-      (equal (invalid-test-declarations)  (make-list 89 #t))
+      (scope ((results (invalid-test-declarations)))
+        (equal (pair? results) #t)
+        (equal (andmap (lambda (result) result) results) #t))
       (equal test-worker-exclusive? #f)))
 
 (def owner-calls 0)
@@ -290,3 +296,18 @@
         (equal value 7)
         (act (set! calls (+ calls 1))))
       (equal calls 1))))
+
+;;; Composition must execute each child once in the parent's normal case order.
+(def composition-calls 0)
+(deflanguage-parser-tests language-test-composition-child "composition child"
+  (fixture)
+  (property "child assertion"
+    (bindings (_ (set! composition-calls (+ composition-calls 1))))
+    (equal (+ 2 3) 5)))
+(deflanguage-parser-tests language-test-composition-test "constrained suite composition"
+  (engine)
+  (scenario "reset the request-local test counter"
+    (act (set! composition-calls 0))
+    (equal composition-calls 0))
+  (suite "declared child" language-test-composition-child)
+  (property "child ran exactly once" (bindings) (equal composition-calls 1)))

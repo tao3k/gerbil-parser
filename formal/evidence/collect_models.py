@@ -4,80 +4,34 @@ import os
 from pathlib import Path
 
 from parser_evidence import Check, NativeReview, observe, review
+from model_inputs import SHARED_OWNERS, SHARED_INPUTS, LEAN_INPUTS, QUINT_INPUTS
 
 
 def model_checks(root: Path):
-    lean_inputs = tuple(str(path.relative_to(root)) for path in sorted((root / "formal").rglob("*.lean"))
-                        if ".lake" not in path.parts)
-    lean_inputs += ("formal/lean-toolchain", "formal/lakefile.toml", "formal/lake-manifest.json",
-                    "src/runtime/recognition.ss", "src/runtime/token.ss", "src/runtime/reduce.ss", "src/runtime/reduction-plan.ss", "src/runtime/funcs.ss")
-    lean_inputs += ("src/compiler/event-fold-analysis.ss",
-                    "src/compiler/event-fold-call-plan.ss", "t/fold-call-plan-test.ss",
-                    "src/compiler/event-fold-zero-state.ss",
-                    "src/compiler/event-fold-byte-dispatch.ss",
-                    "src/compiler/event-fold-prefix-family.ss",
-                    "src/compiler/event-fold-shared-probes.ss",
-                    "src/compiler/event-fold-scheme-context.ss",
-                    "src/compiler/event-fold-scheme-modules.ss",
-                    "src/compiler/event-fold-scheme-expressions.ss",
-                    "src/compiler/event-fold-scheme-statements.ss")
-    lean_inputs += ("src/compiler/event-fold-ordinary-run.ss",
-                    "src/compiler/event-fold-consumer-state.ss", "t/fold-consumer-state-test.ss",
-                    "src/compiler/event-fold-scheme-runs.ss",
-                    "src/compiler/event-fold-scheme.ss",
-                    "src/runtime/byte-spans.ss",
-                    "src/runtime/source-lines.ss", "src/runtime/fold-tape.ss",
-                    "t/fold-buffer-consumer-test.ss",
-                    "t/fold-call-environment-test.ss",
-                    "t/fold-run-test.ss",
-                    "t/fold-byte-dispatch-test.ss",
-                    "t/fold-condition-test.ss", "t/fold-frame-facts-test.ss", "t/fold-statement-scans-test.ss")
-    # Materialized dependency contents are bound separately from the lockfile pin.
+    """Discover model modules and bind the shared native/policy owner catalogue."""
     dependency = root / "formal/.lake/packages/LeanPoo/LeanPoo"
-    lean_inputs += tuple(str(path.relative_to(root)) for path in sorted(dependency.rglob("*.lean")))
     if not dependency.is_dir():
         raise RuntimeError("prepare the locked Lean dependency with just formal first")
-    # Bind actual owners and controls for traceability, not checked refinement.
-    bridge_inputs = ("t/lr-native-source-test.ss", "t/test-style-contract-test.ss", "docs/research/scheme-dsl-author-interface.org", "src/testing/contracts.ss", "language-test-support.ss", "t/line-structure-assertions.ss", "t/rust-aot-test-syntax.ss", "src/testing/source-witness.ss", "src/testing/language-parser.ss", "t/language-test-syntax-test.ss", "build-language-conformance-link.ss", "scripts/tests/conformance-runner-test.ss", "t/benchmarks/lr-request-stack/lookahead.ss", "t/core-observability-test.ss", "t/language-abi-benchmark-test.ss",
-                     "t/selective-glr-benchmark-test.ss", "t/lalr-fixed-point-benchmark-test.ss",
-                     "t/recovery-frontier-benchmark-test.ss", "t/versioned-language-benchmark-test.ss",
-                     "t/incremental-suffix-benchmark-test.ss", "t/gql/runtime-benchmark-test.ss",
-                     "t/opencypher-large-query-benchmark-test.ss", "t/benchmark-test.ss", "t/fixtures/tla-sany-differential/worker-control.ss",
-                     "t/fixtures/tla-sany-differential/worker-left.ss", "t/fixtures/tla-sany-differential/worker-right.ss",
-                     "t/fixtures/tla-sany-differential/worker-exclusive.ss",
-                     "t/fixtures/tla-sany-differential/affinity-exclusive.ss",
-                     "t/fixtures/tla-sany-differential/worker-exclusive-invalid.ss", "test-processes.ss", "src/compiler/bound-ir.ss", "t/bound-ir-index-test.ss", "t/rust-runtime-generation-test.ss",
-                     "src/runtime/scan/lexical.ss", "src/runtime/scan/literal.ss", "src/runtime/scan/regular.ss", "t/ranked-regular-scanner-test.ss",
-                     "t/generate-grammar-model-facts.ss", "formal/ParserEngine/NativeFacts.lean", "t/canonical-lr1-reference-test.ss", "t/resolved-grammar-test.ss", "t/fixtures/lr1-construction.ss", "src/compiler/lr.ss", "src/compiler/funcs.ss", "src/schema.ss", "src/ffi/schema.ss", "src/modules/parser/types.ss", "t/language-surface-test.ss", "src/compiler/language-artifact.ss", "t/language-artifact-test.ss", "src/compiler/lr-compiler.ss", "src/compiler/lr-conflict-candidates.ss", "src/compiler/lr-table.ss", "src/compiler/lr-partition.ss", "src/compiler/lr-automaton.ss", "src/compiler/lr-lookahead.ss", "src/compiler/lr-follow-automaton.ss", "src/ffi/language-handles.ss", "scripts/tests/history-commit-test.ss",
-                     "src/runtime/funcs.ss", "src/runtime/artifact.ss", "src/runtime/significant.ss", "src/runtime/lexer.ss", "src/runtime/recognition.ss", "src/runtime/event-program.ss", "src/runtime/lr-parser/recognition.ss", "src/runtime/lr-parser/checkpoint.ss", "src/runtime/lr-parser/checkpoint-base.ss", "src/runtime/lr-parser/entry.ss",
-                     "src/runtime/lr-parser/transfer.ss", "src/runtime/lr-parser/prepare.ss", "src/runtime/lr-action-index.ss", "src/runtime/parser.ss",
-                     "src/runtime/lr-parser/batch.ss", "src/runtime/layout.ss", "t/layout-boundary-test.ss", "t/fixtures/layout-columns.ss", "t/fixtures/compiler-reservation.ss", "src/runtime/lr-stack-storage.ss",
-                     "t/fixtures/tla-sany-differential/test-suite.ss", "t/lr-input-protocol-test.ss", "t/lr-model-correspondence-test.ss", "t/build-product-contract-test.ss", "src/build-support/rust-runtime-aot.ss", "t/language-abi-test.ss", "t/fixtures/ffi/language-probe.ss", "t/fixtures/event-iterator-extraction.ss", "t/fixtures/event-walk-source.ss", "t/event-walk-source-test.ss", "t/generate-walk-source-witness.ss", "t/support/qualification/process.ss", "t/qualification-output-test.ss", "scripts/tests/process-qualification-test.ss", "t/event-iterator-test.ss", "t/lr-request-product-test.ss", "t/fixtures/lr-request-product.ss", "t/lr-semantic-preparation-test.ss", "t/lr-goto-plan-test.ss",
-                     "t/lr-action-preparation-test.ss", "t/fixtures/lr-action-selection.ss",
-                     "t/sparse-capture-test.ss", "t/lr-fragment-transfer-test.ss", "t/runtime-module-organization-test.ss",
-                     "src/runtime/lr-parser/state.ss", "src/runtime/token.ss",
-                     "src/language/module-input.ss", "src/ffi/rust-runtime-aot.ss",
-                     "t/fixtures/tla-sany-differential/preload.ss",
-                     "t/benchmarks/module-loading/controls.ss", "t/benchmarks/module-loading/benchmark.ss",
-                     "t/benchmarks/module-loading/reference-preload.ss",
-                     "t/benchmarks/capture-prefix/controls.ss", "t/benchmarks/capture-prefix/worker.ss",
-                     "t/benchmarks/capture-prefix/benchmark.ss", "t/support/qualification/benchmark-qos.ss",
-                     "t/benchmarks/capture-prefix/build-reference.ss",
-                     "t/benchmarks/capture-prefix/phase-cost.ss", "t/benchmarks/parser-stage-cost/benchmark.ss",
-                     "t/benchmarks/lr-request-stack/capture-reference.ss")
-    policy_inputs = ("docs/research/dense-lr-item-space.org", ".github/workflows/ci.yml", ".github/workflows/scheme.yml",
-                     "docs/research/parser-engine-formal-model.org", "docs/research/dsl-test-preparation.org", "docs/research/lr-request-model-foundation.org", "docs/research/capture-fold-cost-model.org",
-                     "formal/evidence/parser_evidence.py", "formal/evidence/collect_models.py",
-                     "formal/evidence/pyproject.toml", "formal/evidence/uv.lock")
+
+    def discover(folder, pattern):
+        return tuple(str(path.relative_to(root)) for path in sorted((root / folder).rglob(pattern))
+                     if ".lake" not in path.relative_to(root / folder).parts)
+
+    def inputs(*groups):
+        return tuple(sorted(set(path for group in groups for path in group)))
+
+    owners = tuple(str(path.relative_to(root)) for pattern in SHARED_OWNERS
+                   for path in root.glob(pattern) if path.is_file())
+    shared = inputs(SHARED_INPUTS, owners)
+    dependency_inputs = tuple(str(path.relative_to(root)) for path in sorted(dependency.rglob("*.lean")))
     return (
-        Check("lean-model", ("lake", "build"), tuple(dict.fromkeys(lean_inputs + bridge_inputs + policy_inputs)),
+        Check("lean-model", ("lake", "build"),
+              inputs(discover("formal", "*.lean"), dependency_inputs, LEAN_INPUTS, shared),
               ("Build completed successfully",), cwd="formal"),
         Check("quint-protocol", ("npm", "test"),
-              ("formal/quint/LookaheadExecution.qnt", "formal/quint/ProducerAdmission.qnt", "formal/quint/CompilerExecution.qnt", "formal/quint/Completion.qnt", "formal/quint/RawRequest.qnt", "formal/quint/ItemLayout.qnt", "formal/quint/TablePublication.qnt", "formal/quint/NativeActions.qnt", "formal/quint/GrammarPipeline.qnt", "formal/quint/RequestFlow.qnt", "formal/quint/CaptureContext.qnt", "formal/quint/YieldMemo.qnt", "formal/quint/OwnedTerminal.qnt", "formal/quint/SparseCapture.qnt", "formal/quint/ModuleAdmission.qnt", "formal/quint/LookaheadScope.qnt", "formal/quint/CapturePlan.qnt", "formal/quint/HistoryCommit.qnt", "formal/quint/ReuseAdmission.qnt", "formal/quint/Publication.qnt", "formal/quint/TapeOwner.qnt", "formal/quint/FoldPlan.qnt", "formal/quint/IdlePlan.qnt", "formal/quint/RunPlan.qnt", "formal/quint/ConsumerScope.qnt", "formal/quint/package.json",
-               "formal/quint/package-lock.json", "formal/quint/node_modules/@informalsystems/quint/package.json") + bridge_inputs + policy_inputs,
-              ("fifoNativeIDsTest", "selfRequeueTest", "coalescedEvidenceTest", "disconnectedFirstTest", "zeroFirstActivationTest", "sourceScopedEmptyCacheTest", "zeroNodeLookupTest", "orderedBaseKeysTest", "annotationNoCapabilityTest", "layoutOperandCapabilityTest", "layoutActionCapabilityTest", "lhsOnlyVocabularyTest", "packedEmptyRowsTest", "zeroMaskPreservedTest", "completedSlotFalseTest", "physicalStateIDTest", "acceptingExpansionTest", "cycleExhaustionTest", "reachableAcceptTest", "failedReplayTest", "firstTouchTest", "ordinalMaskTest", "cancelledViewRetainsProofTest", "siblingContextWitnessTest", "appendBlockOrderTest", "retainedOpeningIdTest", "currentCounterIsNotSavedIdWitnessTest", "physicalChunkAdvanceTest", "finiteRankCertificateTest", "selfCycleCertificateWitnessTest", "equalRankEdgeWitnessTest", "missingReferenceWitnessTest", "hybridEmptyBeforeFallbackTest", "hybridCutoffBoundaryTest", "hybridCounterResumeTest", "hybridResetCounterWitnessTest", "emptyTableTest", "epsilonCompletedDotTest", "missingCompletedDotTest", "wrongOwnerTest", "completePublicationTest", "rejectedValidationTest", "countMismatchTest", "earlyPublicationTest", "terminalZeroTest", "missingTransitionTest", "authoredReductionTest", "augmentationAcceptTest", "signedPriorityTest", "negativeIndexTest", "25 passing", "Completion", "RawRequest", "GrammarPipeline", "11 passing", "RequestFlow", "10 passing", "11 passing", "16 passing", "23 passing", "8 passing", "7 passing", "12 passing", "4 passing", "5 passing", "6 passing", "No violation found"), cwd="formal/quint"),
+              inputs(discover("formal/quint", "*.qnt"), QUINT_INPUTS, shared),
+              ("No violation found",), cwd="formal/quint"),
     )
-
 
 def collect(root: Path):
     checks = model_checks(root)

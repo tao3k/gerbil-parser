@@ -475,6 +475,12 @@ jobs:
             "$generated"
           rustfmt --edition 2024 "$generated"
           cmp "$generated" "$fixture/src/generated/records.rs"
+      - name: Diagnose macOS SDK mapping failure
+        if: failure() && runner.os == 'macOS'
+        timeout-minutes: 1
+        run: |
+          mkdir -p .data
+          bash tools/ci/sdk-load-diagnostics.sh 2>&1 | tee .data/sdk-load-diagnostics.log
       - name: Upload qualification logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

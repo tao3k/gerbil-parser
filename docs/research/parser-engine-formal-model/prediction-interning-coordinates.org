@@ -1,0 +1,123 @@
+#+title: Prediction queues, state interning and node coordinates
+
+* Paper and implementation scope
+
+The prediction relation in [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]], Section 2.2,
+separates prediction, goto and lookahead transport. The parser's LR0 prediction
+catalogue computes the transitive first-nonterminal relation, preserving physical
+production IDs; suffix-FIRST and nullable facts supply lookahead separately.
+These relations must compose before a complete LR table can claim paper meaning.
+
+This topic closes specific parser-owned protocols. It does not verify arbitrary
+Scheme execution, hash-table primitives, the compiler or the host. Gambit is
+neither modified nor built. Runtime optimization remains outside this work.
+
+* Prediction queue and grammar extraction
+
+[[file:../../../formal/ParserEngine/PredictionQueue.lean][PredictionQueue]] starts from multiple own masks, exactly as
+=make-core-prediction-catalog= does. Each publication adds only novel bits to
+known and pending masks and queues an owner at most once. Dequeue clears pending
+and queued status before notifying reverse dependencies. This permits legitimate
+reentry through a cycle without losing a delta. The replay checker consumes
+actual dequeue IDs in order and rejects an extra or out-of-order dequeue.
+
+=checked_exact= proves that exhausted checked execution contains exactly the
+seed bits reachable along reverse dependencies, for arbitrary finite seed lists
+and parent lists. It does not take final-mask correctness as a premise.
+=step_rank= proves strict progress under a finite owner/production domain.
+[[file:../../../formal/ParserEngine/PredictionTermination.lean][PredictionTermination]] derives that domain directly from the catalogue
+and proves every valid history has a finite exhausted extension. The replay
+adapter still checks exhaustion explicitly; native witness generation remains
+a separate obligation.
+
+[[file:../../../formal/ParserEngine/PredictionCatalog.lean][PredictionCatalog]] derives own masks and reverse dependency lists
+from indexed rows. Its universal correspondence retains distinct IDs even when
+two grammar productions have equal semantic values. [[file:../../../formal/ParserEngine/PredictionExtraction.lean][PredictionExtraction]] constructs
+the row correspondence from grammar lookup and the local name-index law. Its
+first-nonterminal coverage premise states which names must have been interned;
+it does not assume that final prediction masks mean the grammar relation.
+
+* State identity and storage
+
+[[file:../../../formal/ParserEngine/StateInterning.lean][StateInterning]] models lookup, captured append ID, row/plan writes,
+hash publication and FIFO insertion. Existing keys preserve the complete store
+and queue, including ID zero. A new key captures the old state count before
+incrementing it. The universal preservation theorem maintains distinct keys,
+hash/list agreement, row and plan identity, queue uniqueness and
+=pending.length + processed = state count=. Vector growth preserves every
+existing slot; the theorem applies to states, transitions and kernel plans.
+
+The pointwise closure/template factory remains an explicit input. Symbol-group
+construction and complete dequeue/transition publication are not inferred from
+interning alone. Physical hash probing remains a storage primitive premise.
+
+* Coordinate extraction
+
+[[file:../../../formal/ParserEngine/NodeCoordinates.lean][NodeCoordinates]] derives both offsets and flattened items from the
+same arbitrary list of state rows. Empty rows retain their state ordinal.
+=slice_coordinate= reconstructs a node's state/core pair from slice boundaries,
+without assuming a final coordinate certificate for each node. Binary-search
+soundness and completeness compose with this extraction; completeness requires
+a strictly sorted row. Equal core IDs in different states are independent.
+=written_at= connects sequential physical slot writes to the flattened reads.
+
+* Source admission and native controls
+
+[[file:../../../formal/ParserEngine/LRConstructionSource.lean][LRConstructionSource]] independently describes the complete prediction
+producer and the complete nested =grow!= and =append-state!= declarations.
+The reader extracts named nested declarations uniquely, excludes quoted data,
+and rejects missing or duplicate matches. No numbered AST path selects these
+bodies. Equality against fresh [[file:../../../formal/ParserEngine/SourceData.lean][SourceData]] checks the admitted source idiom.
+Existing independently checked item-index and binary-search schemas are reused.
+[[file:../../../formal/ParserEngine/ConstructionAdmission.lean][ConstructionAdmission]] gates queue replay, interning and coordinate
+lookup on those source identities before composing their universal theorems.
+This remains a restricted interpretation, not a general Scheme refinement.
+
+[[file:../../../t/lr-construction-semantics-test.ss][The test owner]] uses =deflanguage-parser-tests= throughout. Its
+[[file:../../../t/fixtures/lr-construction-semantics.ss][fixture]] runs the actual producers, covering cyclic prediction,
+duplicate production IDs, state counts around the initial 128-slot boundary,
+161-state growth, recursive target reuse, empty state rows and wide/repeated
+core IDs. Finite native controls complement, rather than replace, Lean proofs.
+[[file:../../../formal/quint/PredictionConstruction.qnt][PredictionConstruction]] explores finite delta-queue histories and
+checks independent closure, empty seeds, zero-ID reentry and interning controls.
+
+* Remaining composition obligations
+
+- Derive name-index coverage, physical row extraction and actual dequeue witness
+  generation from the whole native producer execution, rather than local inputs.
+- Connect materialized prediction templates to =decoded_closure.templateExact=.
+- Refine symbol-group scratch, state dequeue and final transition publication to
+  the interning registry and the paper's complete goto construction.
+- Compose extracted coordinates, native FIRST/nullable completion histories and
+  transition targets into all remaining =PropagationSemantics.Coordinates= fields.
+
+These obligations remain explicit. Neither source equality nor finite controls
+establish the entire parser model as closed.
+
+* Qualification and current CI boundary
+
+The complete Lean package builds 125 jobs, including the new axiom audit targets.
+Independent equality for the prediction producer and both nested state-storage
+declarations uses no axioms. Fresh source verification succeeds; changing the
+extracted prediction declaration is rejected with exit 70. Twelve Scheme owners
+complete 259 cases with natural exit zero in 24.7 seconds under the unchanged
+90-second total and five-second idle budgets. All 19 Python evidence and layout
+controls pass. The new modules are semantically named; the largest new authored
+Lean file has 203 lines.
+
+The finite queue controls include five directed tests and 1,000 seeded histories
+of 20 steps. Their closure oracle is independent of delta scheduling. They do
+not replace the arbitrary-list Lean correspondence or the native controls.
+
+CI run =39014452357= at parent =72608b0= completes Ubuntu semantics, generation,
+FFI and corpus, plus macOS preparation, semantics and FFI successfully. macOS
+generation fails before its module-source generator starts, while importing the
+SDK object =std/io/interface/base~1.o1=: =mmap(size=0x63348) failed with errno=84=.
+This is a distinct loader failure, not the preceding contextual-test timeout.
+The existing log does not establish its underlying cause.
+
+The generation lane now collects signature verification, file identity, exact
+archive-byte comparison and a bounded system-log query when it fails on macOS.
+This reads the SDK without modifying it, re-signing it or rebuilding the host.
+Adding diagnostics is not a claim that the loader defect has been repaired.
+The new commit still requires its own remote CI result.

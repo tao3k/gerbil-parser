@@ -127,8 +127,10 @@ an arbitrary-grammar proof or a native execution certificate.
 
 * Remaining parser obligations
 
-- Refine native =make-core-prediction-catalog= dependency masks, queue execution
-  and production IDs to =Prediction=; remove =decoded_closure.templateExact=.
+- The [[file:prediction-interning-coordinates.org][prediction queue correspondence]] now proves indexed prediction meaning
+  from extracted grammar rows and checked FIFO replay. Derive its raw metadata
+  and replay witness from whole-producer execution, then remove
+  =decoded_closure.templateExact= through template materialization.
 - Connect kernel interning and symbol-group construction to the proved closure
   and goto relations throughout =build-lr0-automaton=.
 - Compose native name/key decoding and actual FIRST/nullable mutable solver

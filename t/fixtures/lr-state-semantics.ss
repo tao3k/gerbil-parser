@@ -1,6 +1,6 @@
 ;;; Execute complete unchanged private producer declarations, injecting only
 ;;; imported dependencies. Assertions remain in the parser test DSL owner.
-(import (only-in :gerbil-parser/t/fixtures/event-walk-source read-source-definition)
+(import (only-in :gerbil-parser/t/fixtures/event-walk-source source-procedure)
         (only-in :gerbil-parser/src/compiler/lr
                  production-rhs production-terminal-catalog compute-nullable compute-first
                  nonterminal-symbol? nonterminal-name)
@@ -10,11 +10,6 @@
                  compiler-index-set-add compiler-index-set-union compiler-index-set-singleton
                  compiler-index-set-for-each))
 (export native-closure-items native-suffix-slots)
-
-(def (source-procedure path name dependencies)
-  (let (declaration (read-source-definition path name))
-    (eval (cons 'lambda
-            (cons (append (cdr (cadr declaration)) dependencies) (cddr declaration))))))
 
 (def (native-closure-items kernel predictions)
   (let ((mask (foldl (lambda (item result) (compiler-index-set-add result item)) 0 kernel))

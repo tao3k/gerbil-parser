@@ -134,3 +134,22 @@ import ParserEngine.Components
 #print axioms ParserEngine.SuffixSemantics.after_dot_read
 #print axioms ParserEngine.PropagationSemantics.compiled_suffix
 #print axioms ParserEngine.PropagationSemantics.extracted_supported
+
+#print axioms ParserEngine.PredictionQueue.checked_exact
+#print axioms ParserEngine.PredictionQueue.step_rank
+#print axioms ParserEngine.PredictionCatalog.checked_prediction
+#print axioms ParserEngine.PredictionExtraction.decoded
+#print axioms ParserEngine.StateInterning.intern_valid
+#print axioms ParserEngine.StateInterning.retained
+#print axioms ParserEngine.StateInterning.grow_retains
+#print axioms ParserEngine.NodeCoordinates.lookup_sound
+#print axioms ParserEngine.NodeCoordinates.lookup_complete
+#print axioms ParserEngine.NodeCoordinates.written_at
+#print axioms ParserEngine.LRConstructionWitness.source_checked
+#print axioms ParserEngine.ConstructionAdmission.prediction_exact
+#print axioms ParserEngine.ConstructionAdmission.state_preserves
+#print axioms ParserEngine.ConstructionAdmission.coordinate_exact
+#print axioms ParserEngine.ConstructionAdmission.changed_prediction_rejected
+
+#print axioms ParserEngine.PredictionTermination.finite_rank
+#print axioms ParserEngine.PredictionTermination.finishes

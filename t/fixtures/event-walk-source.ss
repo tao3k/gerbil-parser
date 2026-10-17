@@ -1,7 +1,7 @@
 ;;; Reader adapter only: preserve source syntax for the Lean admission kernel.
 (import (only-in "../../src/testing/source-witness.ss"
                  parser-source-data write-parser-source-data source-data-current?))
-(export read-event-walk-source read-event-walk-source-port read-event-iterative-source read-source-definition source-mutation-sites write-event-walk-source-data event-walk-data-current?)
+(export read-event-walk-source read-event-walk-source-port read-event-iterative-source read-source-definition source-procedure read-source-subdefinition source-mutation-sites write-event-walk-source-data event-walk-data-current?)
 
 (def (read-event-walk-source path)
   (call-with-input-file path read-event-walk-source-port))
@@ -64,6 +64,27 @@
     (unless (= (length found) 1) (error "expected one source declaration" path name))
     (car found)))
 
+;;; Execute a complete producer declaration with explicitly supplied imports.
+(def (source-procedure path name dependencies)
+  (let (declaration (read-source-definition path name))
+    (eval (cons 'lambda
+            (cons (append (cdr (cadr declaration)) dependencies) (cddr declaration))))))
+
+;;; Select a named nested declaration without positional AST paths. Quoted
+;;; data is excluded; duplicates and missing definitions fail closed.
+(def (read-source-subdefinition path outer name)
+  (def (collect form)
+    (cond ((not (pair? form)) '())
+          ((eq? (car form) 'quote) '())
+          (else
+            (append (if (and (list? form) (>= (length form) 3)
+                             (eq? (car form) 'def) (pair? (cadr form))
+                             (eq? (caadr form) name)) (list form) '())
+                    (apply append (map collect form))))))
+  (let (found (collect (read-source-definition path outer)))
+    (unless (= (length found) 1) (error "expected one nested source declaration" outer name))
+    (car found)))
+
 ;;; Independent reader-level control; Lean proves its own collector completeness.
 (def (source-mutation-sites form)
   (cond ((not (pair? form)) '())
@@ -74,6 +95,12 @@
 (def (source-bindings source)
   (parser-source-data
     (ParserEngine.WalkSourceWitness source source)
+    (ParserEngine.LRConstructionWitness growSource
+      (read-source-subdefinition "src/compiler/lr-automaton.ss" 'build-lr0-automaton 'grow!))
+    (ParserEngine.LRConstructionWitness appendSource
+      (read-source-subdefinition "src/compiler/lr-automaton.ss" 'build-lr0-automaton 'append-state!))
+    (ParserEngine.LRConstructionWitness predictionSource
+      (read-source-definition "src/compiler/lr-automaton.ss" 'make-core-prediction-catalog))
     (ParserEngine.EffectSourceWitness iterativeSource (read-event-iterative-source "src/runtime/event-program.ss"))
     (ParserEngine.EffectSourceWitness rowSource (read-source-definition "src/compiler/lr-compiler.ss" 'index-state-rows))
     (ParserEngine.ItemLayoutWitness layoutSource (read-source-definition "src/compiler/lr-automaton.ss" 'make-item-layout))

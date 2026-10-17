@@ -317,3 +317,13 @@ import ParserEngine.Components
 #print axioms ParserEngine.ConstructionControl.unsupported_rejected
 #print axioms ParserEngine.ConstructionControl.nonadvancing_rejected
 #print axioms ParserEngine.ConstructionConsumer.source_execution
+#print axioms ParserEngine.ConstructionAppend.run_exact
+#print axioms ParserEngine.ConstructionAppend.registration_stage
+#print axioms ParserEngine.ConstructionAppend.write_bounds
+#print axioms ParserEngine.ConstructionAppend.source_decoded
+#print axioms ParserEngine.ConstructionAppend.execute_exact
+#print axioms ParserEngine.ConstructionAppend.trace_realizes
+#print axioms ParserEngine.ConstructionAppend.source_realizes
+#print axioms ParserEngine.ConstructionAppend.unsupported_rejected
+#print axioms ParserEngine.ConstructionAppend.intern_step
+#print axioms ParserEngine.ConstructionAppend.intern_index

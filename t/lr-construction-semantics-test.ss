@@ -4,6 +4,7 @@
         (only-in "fixtures/construction-lifecycle.ss" construction-observation)
         (only-in "fixtures/construction-storage.ss" joint-construction-observation)
         (only-in "fixtures/construction-control.ss" growth-control-observation)
+        (only-in "fixtures/construction-append.ss" append-control-observation)
         (only-in "fixtures/bit-traversal.ss" traversal-observation traversal-reference traversal-masks))
 
 (deflanguage-parser-tests lr-construction-semantics-test "LR construction protocols"
@@ -133,6 +134,10 @@
     (each (capacity) ('(1 3 128))
       (equal (growth-control-observation capacity 0) '(#t #t #t))
       (equal (growth-control-observation capacity (- capacity 1)) '(#t #t #t))))
+  (scenario "source append captures the old ID and registers before advancing the counter"
+    (each (capacity) ('(1 2 3 5 128))
+      (each (count) ((list 0 (- capacity 1) capacity))
+        (equal (append-control-observation capacity count) '(#t #t #t #t #t)))))
   (scenario "source direct and field paths deliver the same ordered callbacks"
     (each (width) ((append '(1 2 5) (list (integer-length (##greatest-fixnum)))))
       (each (route) ('(native fixnum direct field))

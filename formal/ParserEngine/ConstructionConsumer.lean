@@ -1,6 +1,6 @@
 import ParserEngine.ConstructionExtraction
 import ParserEngine.ConstructionHeap
-import ParserEngine.ConstructionControl
+import ParserEngine.ConstructionAppend
 
 /-! Source admission, the complete queue and physical/index observations share
 one retained construction. Host primitives remain external premises. -/
@@ -63,7 +63,7 @@ def Joint (request : Request)
     CachedConstruction.Aligned request.context.grammar data.1.2 data.1.1.machine.registry ∧
     CachedConstruction.Physical request.context.grammar data.1.2 data.1.1.machine.registry ∧
     ConstructionHeap.Owned request.layout request.context.grammar data.1.2 data.1.1.machine.registry data.1.1.machine.transitions ∧
-    ConstructionControl.Realizes request.layout data.1.1.machine.registry.keys.length data.1.2.storage
+    ConstructionAppend.Realizes request.layout data.1.1.machine.registry.keys.length data.1.2.storage
 
 def retained : Requirements.Factories Request (fun c => Value c) [Capability.construction] :=
   (fun request => CachedConstruction.construct request.context.grammar request.context.nonempty
@@ -76,7 +76,7 @@ def certified : Requirements.Certified [Capability.construction] Joint :=
         CachedConstruction.construct_aligned _ request.context.nonempty _ request.layout,
         CachedConstruction.construct_physical _ request.context.nonempty _ request.layout,
         ConstructionHeap.construct_owned request.layout _ request.context.nonempty _,
-        ConstructionControl.trace_realizes (ConstructionHeap.construct_owned request.layout _ request.context.nonempty _).trace⟩)
+        ConstructionAppend.trace_realizes (ConstructionHeap.construct_owned request.layout _ request.context.nonempty _).trace⟩)
 
 structure Product (context : Context) where
   layout : PlanStorage.Layout
@@ -85,7 +85,7 @@ structure Product (context : Context) where
   aligned : CachedConstruction.Aligned context.grammar construction.2 construction.1.machine.registry
   physical : CachedConstruction.Physical context.grammar construction.2 construction.1.machine.registry
   owned : ConstructionHeap.Owned layout context.grammar construction.2 construction.1.machine.registry construction.1.machine.transitions
-  control : ConstructionControl.Realizes layout construction.1.machine.registry.keys.length construction.2.storage
+  control : ConstructionAppend.Realizes layout construction.1.machine.registry.keys.length construction.2.storage
 
 def build (request : Request) : Product request.context :=
   certified.consume (Output := fun request => Product request.context) (fun request data proof =>
@@ -149,19 +149,20 @@ theorem source_correspondence (sources : Sources) (context : Context) (product :
   rw [layout]
   exact matching
 
-/-- Decode the admitted actual source, then execute the generated safe action
-history with forward copy control and sequential owner assignments. -/
+/-- Decode both admitted declarations, then execute the generated safe action
+history with growth control, append writes, registration and counter mutation. -/
 theorem source_execution (sources : Sources) (context : Context) (product : Product context)
     (success : construct sources context = some product) :
     ∃ actions, ConstructionControl.Safe ConstructionControl.canonical actions 0 (ConstructionStorage.empty product.layout) ∧
-      ConstructionControl.executeSource sources.growth actions product.layout =
+      ConstructionAppend.executeSource sources.growth sources.append actions product.layout =
         some (product.construction.1.machine.registry.keys.length, product.construction.2.storage) := by
   obtain ⟨receipt, _, _⟩ := admitted sources context product success
   obtain ⟨actions, safe, execution⟩ := product.control
   refine ⟨actions, safe, ?_⟩
-  simp only [ConstructionControl.executeSource,
+  simp only [ConstructionAppend.executeSource,
     ConstructionControl.source_decoded _ _ _ _ receipt.recipe receipt.extracted,
-    Option.bind_some, ↓reduceIte, execution]
+    ConstructionAppend.source_decoded _ _ _ _ receipt.recipe receipt.extracted,
+    Option.bind_some, and_self, ↓reduceIte, execution]
 
 def Product.query (product : Product context) (node key : Nat) : Option SparseGroupMasks.Row :=
   (product.construction.2.readTemplate node).bind fun pair => pair.2.index key

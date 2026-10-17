@@ -279,9 +279,25 @@ import ParserEngine.Components
 #print axioms ParserEngine.ConstructionConsumer.physical_index
 #print axioms ParserEngine.ConstructionConsumer.paper_target
 
-#print axioms ParserEngine.ConstructionConsumer.wrong_layout_rejected
+#print axioms ParserEngine.ConstructionConsumer.prepared
 #print axioms ParserEngine.ConstructionConsumer.current_admitted
 
 #print axioms ParserEngine.ConstructionConsumer.source_correspondence
 
 #print axioms ParserEngine.ConstructionConsumer.complete
+
+#print axioms ParserEngine.ConstructionStorage.copy_fields
+#print axioms ParserEngine.ConstructionStorage.empty_row_encoding
+#print axioms ParserEngine.ConstructionStorage.append_exact
+#print axioms ParserEngine.ConstructionStorage.append_refines
+#print axioms ParserEngine.ConstructionStorage.publish_refines
+#print axioms ParserEngine.ConstructionStorage.trace_shape
+#print axioms ParserEngine.ConstructionHeap.intern_owned
+#print axioms ParserEngine.ConstructionHeap.tick_owned
+#print axioms ParserEngine.ConstructionHeap.construct_owned
+#print axioms ParserEngine.ConstructionConsumer.joint_observations
+#print axioms ParserEngine.ConstructionConsumer.physical_complete
+#print axioms ParserEngine.ConstructionConsumer.physical_paper_target
+#print axioms ParserEngine.ConstructionConsumer.joint_index
+#print axioms ParserEngine.ConstructionExtraction.schema_recipe
+#print axioms ParserEngine.ConstructionConsumer.schema_constructs

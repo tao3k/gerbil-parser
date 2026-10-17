@@ -88,8 +88,8 @@ Shared-index writes now feed the grouping consumer through =TemplateIndex=;
 to the executable storage recipe. =ConstructionConsumer= admits that source
 before executing the retained factory, then connects final physical-slot index
 queries and complete published rows to the same paper-level machine. Its
-maintained map explicitly records unsupported initial layouts and the remaining
-three-vector heap simulation obligation.
+maintained map records the joint three-vector history for every positive initial
+layout, the supported source protocol and the remaining external host premises.
 The selected LeanPoo traversal capability now supplies direct/field callback
 order to the complete queue through =traversal_finish_exact=. Its paper target
 theorem applies to final edges; concrete host primitives and compiler lowering

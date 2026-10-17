@@ -1,5 +1,6 @@
 import ParserEngine.TemplateCache
 import ParserEngine.PlanStorage
+import ParserEngine.ConstructionStorage
 import ParserEngine.TemplateIndex
 import ParserEngine.KernelConstruction
 import LeanPoo.Functional.CertifiedConsumer
@@ -30,19 +31,21 @@ structure Cache (g : CFG) where
   admitted : PlanStorage.Valid (materialize g) (predictionMask g) memory
   scratch : GroupScratch.State
   clean : scratch.masks = (fun _ => 0) ∧ scratch.order = []
+  storage : ConstructionStorage.Heap
 
 def Cache.store (cache : Cache g) := PlanStorage.view cache.memory
 theorem Cache.valid (cache : Cache g) : TemplateCache.Valid (materialize g) cache.store :=
   PlanStorage.view_valid _ _ _ cache.admitted
 
-def empty (g : CFG) : Cache g where
-  memory := PlanStorage.empty
+def empty (g : CFG) (layout : PlanStorage.Layout) : Cache g where
+  memory := PlanStorage.empty layout
   admitted := by
     constructor
     · intro _ _ found; cases found
     · intro _ _ found; cases found
   scratch := GroupScratch.borrow (fun _ => 0)
   clean := ⟨rfl, rfl⟩
+  storage := ConstructionStorage.empty layout
 
 def Cache.readTemplate (cache : Cache g) (node : Nat) := PlanStorage.decode cache.memory node
 
@@ -54,7 +57,8 @@ structure Context (g : CFG) where
 def load (g : CFG) (context : Context g) : Template × Cache g :=
   let memory := PlanStorage.install (materialize g) (predictionMask g) context.cache.memory context.node context.kernel
   ((PlanStorage.view memory (predictionMask g context.kernel)).getD ⟨[], [], fun _ => none⟩,
-    ⟨memory, PlanStorage.install_valid _ _ _ context.cache.admitted _ _, context.cache.scratch, context.cache.clean⟩)
+    ⟨memory, PlanStorage.install_valid _ _ _ context.cache.admitted _ _, context.cache.scratch, context.cache.clean,
+      context.cache.storage⟩)
 
 theorem load_exact (g : CFG) (context : Context g) : (load g context).1 = materialize g (predictionMask g context.kernel) := by
   have installed := PlanStorage.install_stored (materialize g) (predictionMask g) context.cache.memory
@@ -86,8 +90,11 @@ structure Built (g : CFG) where
 never share the closure of two different kernels. -/
 def build (g : CFG) : Context g → Built g :=
   (certified g).consume fun context data proof =>
-    ⟨(LRStateSemantics.merge (PublishedClosure.coreItems g context.kernel) data.1.1.items [], data.1.1.items),
-      ⟨data.1.2, proof.2.1, context.cache.scratch, context.cache.clean⟩⟩
+    let state := LRStateSemantics.merge (PublishedClosure.coreItems g context.kernel) data.1.1.items []
+    let reference := (PlanStorage.fetch (materialize g) context.cache.memory (predictionMask g context.kernel)).1
+    ⟨(state, data.1.1.items),
+      ⟨data.1.2, proof.2.1, context.cache.scratch, context.cache.clean,
+        ConstructionStorage.append context.cache.storage context.node state ⟨context.kernel, reference⟩⟩⟩
 
 theorem build_exact (g : CFG) (context : Context g) :
     (build g context).product = KernelConstruction.compute g context.kernel := by
@@ -99,6 +106,13 @@ theorem build_exact (g : CFG) (context : Context g) :
 theorem build_memory (g : CFG) (context : Context g) :
     (build g context).cache.memory = PlanStorage.install (materialize g) (predictionMask g)
       context.cache.memory context.node context.kernel := rfl
+
+theorem build_storage (g : CFG) (context : Context g) :
+    (build g context).cache.storage = ConstructionStorage.append context.cache.storage context.node
+      (KernelConstruction.compute g context.kernel).1
+      ⟨context.kernel, (PlanStorage.fetch (materialize g) context.cache.memory (predictionMask g context.kernel)).1⟩ := by
+  change ConstructionStorage.append _ _ (build g context).product.1 _ = _
+  rw [build_exact]
 
 /-- The consumer's next cache really contains the requested aggregate, not
 merely a validity proof for whichever entries happened to be retained. -/

@@ -179,7 +179,7 @@ def runGroup (g : CFG) (traversal : Traversal) (cache : Cache g) (kernel : Nat)
   let scanned := GroupScratch.scan (SymbolDiscovery.physicalIDs g) (TraversalCapabilities.callbacks context).val cache.scratch
   let rows := SparseGroupMasks.merge (fun key => scanned.masks key != 0)
     (traversal.sort (TemplateIndex.own template.index scanned)) template.groups []
-  (rows, ⟨cache.memory, cache.admitted, GroupScratch.reset scanned, reset_clean _ _ _ cache.clean⟩)
+  (rows, ⟨cache.memory, cache.admitted, GroupScratch.reset scanned, reset_clean _ _ _ cache.clean, cache.storage⟩)
 
 theorem groups_exact (g : CFG) (traversal : Traversal) (cache : Cache g) (kernel : Nat)
     (bounded : PublishedClosure.KernelBound g kernel) :
@@ -211,7 +211,8 @@ def tick (g : CFG) (traversal : Traversal) (cache : Cache g) (before : Machine) 
       let grouped := runGroup g traversal cache kernel template
       let inputs := grouped.1.map fun row => (row.key, row.mask)
       let published := publish g grouped.2 (TransitionPublication.drain before.registry tail) inputs
-      (⟨published.1.registry, ProducerAdmission.Storage.update before.transitions node published.1.rows⟩, published.2)
+      (⟨published.1.registry, ProducerAdmission.Storage.update before.transitions node published.1.rows⟩,
+        {published.2 with storage := ConstructionStorage.publish published.2.storage node published.1.rows})
 
 theorem tick_exact (g : CFG) (traversal : Traversal) (cache : Cache g) (before : Machine)
     (admitted : Invariant g before) (_covered : Covered g cache before.registry) (aligned : Aligned g cache before.registry) :
@@ -346,28 +347,28 @@ decreasing_by
   rw [tick_exact g traversal cache before admitted covered aligned]
   exact tick_rank g before admitted (by assumption)
 
-def initial (g : CFG) : Machine × Cache g :=
-  let installed := intern g (TemplateCapabilities.empty g) ConstructionQueue.empty 1
+def initial (g : CFG) (layout : PlanStorage.Layout) : Machine × Cache g :=
+  let installed := intern g (TemplateCapabilities.empty g layout) ConstructionQueue.empty 1
   (⟨installed.1.registry, fun _ => none⟩, installed.2)
 
-theorem initial_exact (g : CFG) : (initial g).1 = ConstructionQueue.initial g := by
+theorem initial_exact (g : CFG) (layout : PlanStorage.Layout) : (initial g layout).1 = ConstructionQueue.initial g := by
   simp only [initial, intern_exact, ConstructionQueue.initial]
 
-theorem initial_covered (g : CFG) : Covered g (initial g).2 (initial g).1.registry :=
+theorem initial_covered (g : CFG) (layout : PlanStorage.Layout) : Covered g (initial g layout).2 (initial g layout).1.registry :=
   intern_covered g _ ConstructionQueue.empty (by intro _ member; cases member) 1
 
-theorem initial_aligned (g : CFG) : Aligned g (initial g).2 (initial g).1.registry :=
+theorem initial_aligned (g : CFG) (layout : PlanStorage.Layout) : Aligned g (initial g layout).2 (initial g layout).1.registry :=
   intern_aligned g _ ConstructionQueue.empty (by intro _ _ read; cases read) 1
 
-theorem initial_physical (g : CFG) : Physical g (initial g).2 (initial g).1.registry :=
-  intern_physical g _ ConstructionQueue.empty ⟨_, PlanStorage.Trace.start⟩ 1
+theorem initial_physical (g : CFG) (layout : PlanStorage.Layout) : Physical g (initial g layout).2 (initial g layout).1.registry :=
+  intern_physical g _ ConstructionQueue.empty ⟨_, PlanStorage.Trace.start layout⟩ 1
 
 /-- Cache ownership begins before initial installation and passes through
 all discovered targets. No final-state validity certificate is supplied. -/
-def construct (g : CFG) (nonempty : g ≠ []) (traversal : Traversal) : ConstructionProtocol.Product g × Cache g :=
-  let start := initial g
+def construct (g : CFG) (nonempty : g ≠ []) (traversal : Traversal) (layout : PlanStorage.Layout) : ConstructionProtocol.Product g × Cache g :=
+  let start := initial g layout
   have valid : Invariant g start.1 := by rw [initial_exact]; exact initial_invariant g nonempty
-  let result := finish g traversal start.2 start.1 valid (initial_covered g) (initial_aligned g)
+  let result := finish g traversal start.2 start.1 valid (initial_covered g layout) (initial_aligned g layout)
   have same : result.1 = (ConstructionProtocol.construct g nonempty).machine := by
     dsimp only [result]
     rw [finish_exact]
@@ -376,30 +377,30 @@ def construct (g : CFG) (nonempty : g ≠ []) (traversal : Traversal) : Construc
       same.symm ▸ (ConstructionProtocol.construct g nonempty).published,
       same.symm ▸ (ConstructionProtocol.construct g nonempty).empty⟩, result.2)
 
-theorem construct_exact (g : CFG) (nonempty : g ≠ []) (traversal : Traversal) :
-    (construct g nonempty traversal).1.machine = (ConstructionProtocol.construct g nonempty).machine := by
+theorem construct_exact (g : CFG) (nonempty : g ≠ []) (traversal : Traversal) (layout : PlanStorage.Layout) :
+    (construct g nonempty traversal layout).1.machine = (ConstructionProtocol.construct g nonempty).machine := by
   simp only [construct, finish_exact, initial_exact, ConstructionProtocol.construct]
 
-theorem construct_covered (g : CFG) (nonempty : g ≠ []) (traversal : Traversal) :
-    Covered g (construct g nonempty traversal).2 (construct g nonempty traversal).1.machine.registry :=
-  finish_covered g traversal _ _ _ (initial_covered g) (initial_aligned g)
+theorem construct_covered (g : CFG) (nonempty : g ≠ []) (traversal : Traversal) (layout : PlanStorage.Layout) :
+    Covered g (construct g nonempty traversal layout).2 (construct g nonempty traversal layout).1.machine.registry :=
+  finish_covered g traversal _ _ _ (initial_covered g layout) (initial_aligned g layout)
 
-theorem construct_aligned (g : CFG) (nonempty : g ≠ []) (traversal : Traversal) :
-    Aligned g (construct g nonempty traversal).2 (construct g nonempty traversal).1.machine.registry :=
-  finish_aligned g traversal _ _ _ (initial_covered g) (initial_aligned g)
+theorem construct_aligned (g : CFG) (nonempty : g ≠ []) (traversal : Traversal) (layout : PlanStorage.Layout) :
+    Aligned g (construct g nonempty traversal layout).2 (construct g nonempty traversal layout).1.machine.registry :=
+  finish_aligned g traversal _ _ _ (initial_covered g layout) (initial_aligned g layout)
 
-theorem construct_physical (g : CFG) (nonempty : g ≠ []) (traversal : Traversal) :
-    Physical g (construct g nonempty traversal).2 (construct g nonempty traversal).1.machine.registry :=
-  finish_physical g traversal _ _ _ (initial_covered g) (initial_aligned g) (initial_physical g)
+theorem construct_physical (g : CFG) (nonempty : g ≠ []) (traversal : Traversal) (layout : PlanStorage.Layout) :
+    Physical g (construct g nonempty traversal layout).2 (construct g nonempty traversal layout).1.machine.registry :=
+  finish_physical g traversal _ _ _ (initial_covered g layout) (initial_aligned g layout) (initial_physical g layout)
 
 /-- Every final plan read has a concrete vector generated by the entire append
 history. Capacity and copy coverage are derived, not supplied by the caller. -/
-theorem constructed_vector (g : CFG) (nonempty : g ≠ []) (traversal : Traversal) :
-    let result := construct g nonempty traversal
+theorem constructed_vector (g : CFG) (nonempty : g ≠ []) (traversal : Traversal) (layout : PlanStorage.Layout) :
+    let result := construct g nonempty traversal layout
     ∃ slots, slots.length = result.2.memory.capacity ∧ result.1.machine.registry.keys.length ≤ slots.length ∧
       ∀ node, node < result.1.machine.registry.keys.length →
         PlanStorage.decodeVector result.2.memory.objects slots node = result.2.readTemplate node := by
-  obtain ⟨slots, trace⟩ := construct_physical g nonempty traversal
+  obtain ⟨slots, trace⟩ := construct_physical g nonempty traversal layout
   exact ⟨slots, (PlanStorage.trace_shape trace).1.symm, (PlanStorage.trace_shape trace).2.1,
     fun node inside => PlanStorage.trace_decode trace node inside⟩
 

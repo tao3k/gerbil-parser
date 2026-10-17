@@ -18,7 +18,12 @@ structure Memory (Template : Type) where
   plans : Nat → Option Plan
   capacity : Nat
 
-def empty : Memory Template := ⟨fun _ => none, fun _ => none, 0, fun _ => none, 128⟩
+structure Layout where
+  initial : Nat
+  positive : 0 < initial
+
+def empty (layout : Layout) : Memory Template :=
+  ⟨fun _ => none, fun _ => none, 0, fun _ => none, layout.initial⟩
 
 structure Valid (make : Nat → Template) (key : Nat → Nat) (memory : Memory Template) : Prop where
   directory : ∀ mask reference, memory.directory mask = some reference →
@@ -200,7 +205,7 @@ theorem grow_decode (objects : Nat → Option Template) (slots : List (Option Pl
 /-- The copy/write vector is produced alongside logical plan installation.
 Captured IDs advance once per append, starting before initial installation. -/
 inductive Trace (make : Nat → Template) (key : Nat → Nat) : Memory Template → Nat → List (Option Plan) → Prop where
-  | start : Trace make key empty 0 (List.replicate 128 none)
+  | start (layout : Layout) : Trace make key (empty layout) 0 (List.replicate layout.initial none)
   | next {memory count slots} (earlier : Trace make key memory count slots) (kernel : Nat) :
       Trace make key (install make key memory count kernel) (count + 1)
         (VectorStorage.append slots count ⟨kernel, (fetch make memory (key kernel)).1⟩)
@@ -209,7 +214,7 @@ theorem trace_shape {make : Nat → Template} {key : Nat → Nat} {memory : Memo
     (trace : Trace make key memory count slots) : memory.capacity = slots.length ∧ count ≤ slots.length ∧
       0 < slots.length ∧ ∀ node, node < count → slots[node]?.join = memory.plans node := by
   induction trace with
-  | start => simp [empty]
+  | start layout => simp [empty, layout.positive]
   | @next memory count slots earlier kernel ih =>
     have room := VectorStorage.room count slots.length ih.2.1 ih.2.2.1
     refine ⟨?_, ?_, ?_, ?_⟩

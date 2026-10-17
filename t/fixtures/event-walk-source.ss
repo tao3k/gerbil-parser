@@ -68,8 +68,8 @@
     (car found)))
 
 ;;; Execute a complete producer declaration with explicitly supplied imports.
-(def (source-procedure path name dependencies)
-  (let (declaration (read-source-definition path name))
+(def (source-procedure path name dependencies (transform identity))
+  (let (declaration (transform (read-source-definition path name)))
     (eval (cons 'lambda
             (cons (append (cdr (cadr declaration)) dependencies) (cddr declaration))))))
 

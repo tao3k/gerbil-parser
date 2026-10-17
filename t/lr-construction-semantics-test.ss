@@ -2,6 +2,7 @@
 (import :gerbil-parser/language-test-support
         :gerbil-parser/t/fixtures/lr-construction-semantics
         (only-in "fixtures/construction-lifecycle.ss" construction-observation)
+        (only-in "fixtures/construction-storage.ss" joint-construction-observation)
         (only-in "fixtures/bit-traversal.ss" traversal-observation traversal-reference traversal-masks))
 
 (deflanguage-parser-tests lr-construction-semantics-test "LR construction protocols"
@@ -97,6 +98,33 @@
           (2 A () concat #f)) #f damage)))
         (equal (list-ref observed 12) #t)
         (equal (list-ref observed 16) expected))))
+  (scenario "one physical copy loop preserves three vectors for every supported positive layout"
+    (each (initial) ('(1 2 3 5 128))
+      (scope ((observed (joint-construction-observation
+        (list (list 0 'start (map (lambda (id) (list 'terminal 'token id)) (iota 129)) 'concat #f)) initial)))
+        (equal (car observed) 130)
+        (equal (list-ref observed 2) #t)
+        (equal (list-ref observed 3) #t)
+        (equal (list-ref observed 4) #t)
+        (equal (list-ref observed 5) #t))))
+  (scenario "initial allocation without growth keeps aligned empty transition rows"
+    (each (initial) ('(1 3 128))
+      (scope ((observed (joint-construction-observation '((0 start () concat #f)) initial)))
+        (equal observed (list 1 initial #t #t #t #t)))))
+  (scenario "joint growth retains shared prediction objects and recursive target rows"
+    (each (initial) ('(1 3))
+      (scope ((observed (joint-construction-observation
+        '((0 start ((nonterminal A)) concat #f)
+          (1 A ((terminal token a) (nonterminal A)) concat #f)
+          (2 A () concat #f)) initial)))
+        (equal (car observed) 4)
+        (equal (list-ref observed 2) #t)
+        (equal (list-ref observed 3) #t)
+        (equal (list-ref observed 4) #t)
+        (equal (list-ref observed 5) #t))))
+  (scenario "zero and negative initial capacities are rejected before source execution"
+    (each (initial) ('(0 -1))
+      (raises (joint-construction-observation '((0 start () concat #f)) initial) true)))
   (scenario "source direct and field paths deliver the same ordered callbacks"
     (each (width) ((append '(1 2 5) (list (integer-length (##greatest-fixnum)))))
       (each (route) ('(native fixnum direct field))

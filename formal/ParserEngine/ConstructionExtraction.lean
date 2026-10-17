@@ -47,6 +47,8 @@ structure Recipe where
   factor : Nat
   doubled : factor = 2
 
+def Recipe.layout (recipe : Recipe) : PlanStorage.Layout := ⟨recipe.initial, recipe.positive⟩
+
 def extract (builder growth append template : Datum) : Option Recipe := do
   let initial ← sizes literal "states" "state-transitions" "kernel-plans" builder
   let factor ← sizes multiplier "next-states" "next-transitions" "next-plans" growth
@@ -109,6 +111,26 @@ theorem recipe_write (recipe : Recipe) (slots : List (Option Value)) (count : Na
 theorem recipe_copy (recipe : Recipe) (slots : List (Option Value)) (count : Nat) (value : Value) (node : Nat)
     (inside : node < count) (bounded : count ≤ slots.length) :
     (recipe.install slots count value)[node]? = slots[node]? := VectorStorage.append_old _ _ _ _ inside bounded
+
+set_option maxRecDepth 8192 in
+/-- Parameter extraction accepts every positive capacity of the supported
+complete builder schema, not only the current concrete source instance. -/
+theorem schema_recipe (initial : Nat) (positive : 0 < initial) :
+    (extract (LRTransitionSource.builderWith initial) (LRConstructionSource.growWith 2)
+      LRConstructionSource.appendState LRTemplateSource.template).map
+        (fun recipe => (recipe.initial, recipe.factor)) = some (initial, 2) := by
+  have start : sizes literal "states" "state-transitions" "kernel-plans" (LRTransitionSource.builderWith initial) = some initial := by
+    dsimp only [LRTransitionSource.builderWith, NativeActions.Source.defn, NativeActions.Source.names,
+      NativeActions.Source.call, CompilerSemanticsSource.binding, CompilerSemanticsSource.emptyList, app,
+      LRConstructionSource.grow, LRConstructionSource.growWith, LRConstructionSource.appendState,
+      LRTemplateSource.templateFor, LRTransitionSource.workQueue, LRTransitionSource.targets, LRTransitionSource.traceProgress]
+    simp [sizes, binding, bindings, bindingList, literal]
+  have growth : sizes multiplier "next-states" "next-transitions" "next-plans" (LRConstructionSource.growWith 2) = some 2 := by
+    dsimp only [LRConstructionSource.growWith, NativeActions.Source.defn, NativeActions.Source.names,
+      NativeActions.Source.call, CompilerSemanticsSource.binding, CompilerSemanticsSource.emptyList, app]
+    simp [sizes, binding, bindings, bindingList, multiplier]
+  simp only [extract, start, growth]
+  simp [positive]
 
 set_option maxRecDepth 8192 in
 /-- Current scalar values are reader-derived from all three allocations; the

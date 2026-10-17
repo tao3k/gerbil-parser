@@ -59,9 +59,13 @@ recipes and source occurrences. =run_append= composes any recursive partition
 of this list, but does not derive the list from arbitrary Scheme evaluation.
 Actual branch dispatch, continuation/context recipe construction, private
 helper allocation and dynamic-precedence rejection must still be connected to
-this common protocol by a complete source-control refinement. Generic =Names=
-recipe-generation laws and the native branch controls support that next seam;
-they do not replace it. Whole native lowering correspondence remains open.
+this common protocol by a complete source-control refinement.
+[[file:lowering-traversal.org][The recursive producer]] now generates contexts, recurrences and complete
+emission lists for arbitrary native-shaped syntax and declaration counts. Its
+recipes feed this executor directly and compose with physical realization into
+the existing origin gate. Universal generation of that physical realization by
+the actual Scheme call stack, helper allocation and rejection paths remains
+open; finite native trace comparisons do not replace that proof.
 
 Observer outcomes assume termination and preservation of borrowed production
 contents. Callbacks receive the real mutable production objects; arbitrary

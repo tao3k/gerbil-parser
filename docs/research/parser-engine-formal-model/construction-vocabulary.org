@@ -59,8 +59,11 @@ Input admission and a proved producer are different obligations.
 
 [[file:lowering-publication.org][The source publication refinement]] now derives counter allocation, observer
 failure and paired ordered publication through the same retained factory.
-The remaining native producer responsibility is branch-to-emission generation,
-helper allocation and context construction, rather than the common emitter.
+[[file:lowering-traversal.org][Recursive branch-to-emission generation]] now constructs valid contexts and
+recipes for arbitrary depth, n-ary width and authored declaration counts. Its
+per-occurrence physical realization derives the complete existing origin gate.
+The remaining native responsibility is universally generating that realization
+from Scheme control flow, mutable helper allocation and raw syntax extraction.
 =ConstructionGrammar.Input= still receives rules, decoding and recipes; their
 checker is not a universal operational theorem about Scheme lowering.
 Likewise, table schema validation does not prove selector/conflict semantics.

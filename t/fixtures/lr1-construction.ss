@@ -7,6 +7,7 @@
                  production-terminal-catalog production-id canonical-base-symbol? validate-production-semantics compute-completion compute-first)
         (only-in :gerbil-parser/src/testing/source-witness parser-source-data write-parser-source-data parser-source-symbol-text))
 (export grammar-model-rules native-fact-rules write-native-grammar-facts write-construction-raw-data
+        write-lowering-traversal-data
         lr1-not-lalr-rules shared-lookahead-rules
         state-local-candidate-family-rules
         genuine-reduce-conflict-rules precedence-expression-rules
@@ -335,6 +336,16 @@
           ((named) (list 'named (name-id (cadr value))))
           ((expression) (list 'expression (expression (cadr value))))
           (else (error "unsupported proof owner" value))))
+      ;; Preserve dispatch barriers for the recursive producer model. Labels,
+      ;; precedence ranks and AST actions are outside recognition projection.
+      (def (syntax value)
+        (case (car value)
+          ((field alias) (list (car value) 0 (syntax (caddr value))))
+          ((precedence) (list 'precedence 0 0 (syntax (cadddr value))))
+          ((layout-end) '(layout-end))
+          ((sequence choice) (cons (car value) (map syntax (cdr value))))
+          ((optional repeat repeat1) (list (car value) (syntax (cadr value))))
+          (else (expression value))))
       (def (symbol value)
         (if (eq? (car value) 'terminal)
           (list 'terminal (terminal-id (cadr value) (caddr value)))
@@ -370,7 +381,8 @@
                 (with-catch (lambda (_) #f) (lambda () (validate-production-semantics productions) #t)) decodable?)
           (list (map parser-source-symbol-text names)
                 (map (lambda (production) (list (production-id production) (production-lhs production) (production-rhs production))) productions)
-                (production-lhs (car productions)) 'start decodable?))))))
+                (production-lhs (car productions)) 'start decodable?)
+          (map (lambda (row) (list (name-id (car row)) (syntax (cadr row)))) rules))))))
 
 (def (origin-rule-corpus)
   (append native-fact-rules
@@ -401,3 +413,27 @@
   (write-parser-source-data
     (parser-source-data
       (ParserEngine.RawGrammarData corpus (map (lambda (rules) (cadr (origin-data rules))) (origin-rule-corpus)))) output))
+
+(def (traversal-rule-corpus)
+  (append (origin-rule-corpus)
+    '(((start (sequence (optional (repeat1 (token word)))
+                (field item (alias Item (choice (sequence) (reference start))))
+                (repeat (optional (literal "x"))))))
+      ((start (choice (repeat (sequence (literal "a") (optional (token word))))
+                (repeat1 (precedence left 2 (alias Item (token word))))
+                (layout-end indent))))
+      ((start (sequence (precedence left 1 (literal "a"))
+                (field item (precedence right 2 (literal "b")))
+                (alias Item (precedence dynamic 3 (token word))))))
+      ((start (repeat (literal "a"))) (start (repeat (literal "a"))))
+      ((start (choice (repeat (literal "a")) (repeat1 (token word))))
+       ($start.0 (empty)) ($accept (empty))))))
+
+(def (traversal-data rules)
+  (let (data (origin-data rules)) (list (caddr data) (car data))))
+
+(def (write-lowering-traversal-data output)
+  (write-parser-source-data
+    (parser-source-data
+      (ParserEngine.LoweringTraversalWitness corpus
+        (map traversal-data (traversal-rule-corpus)))) output))

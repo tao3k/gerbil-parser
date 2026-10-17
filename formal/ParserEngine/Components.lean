@@ -3,6 +3,8 @@ import ParserEngine.ConstructionGrammar
 import ParserEngine.ConstructionEncodingWitness
 import ParserEngine.ConstructionVocabulary
 import ParserEngine.LoweringPublicationWitness
+import ParserEngine.LoweringTraversalWitness
+import ParserEngine.LoweringTraversalPublication
 import ParserEngine.SparseGroupSource
 import ParserEngine.PhysicalSymbolDiscovery
 import ParserEngine.PublishedClosure

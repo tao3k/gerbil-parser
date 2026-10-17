@@ -423,3 +423,13 @@ import ParserEngine.Components
 #print axioms ParserEngine.LoweringPublication.dense_ids
 #print axioms ParserEngine.LoweringPublication.constructed_fields
 #print axioms ParserEngine.LoweringPublication.tape_append
+#print axioms ParserEngine.LoweringBranches.every_emission_checked
+#print axioms ParserEngine.LoweringBranches.realized_native
+#print axioms ParserEngine.LoweringTraversal.single_declaration
+#print axioms ParserEngine.LoweringTraversal.declarations_admitted
+#print axioms ParserEngine.LoweringTraversal.declarations_language_sound
+#print axioms ParserEngine.LoweringTraversalPublication.published_recipes
+#print axioms ParserEngine.LoweringTraversalPublication.complete
+#print axioms ParserEngine.LoweringTraversalWitness.compared
+#print axioms ParserEngine.LoweringTraversalWitness.precedence_barrier
+#print axioms ParserEngine.LoweringTraversalWitness.truncated_rejected

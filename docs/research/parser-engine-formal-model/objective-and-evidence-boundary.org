@@ -49,9 +49,13 @@ not the complete engine model; local runtime optimization remains gated.
 [[file:lowering-publication.org][The lowering publication contract]] now connects the source constructor,
 initial bindings, common emitter and finalizer to the retained construction.
 It derives dense IDs, paired values/recipes and failure-before-commit for
-arbitrary finite emission trajectories. The recursive branch-to-trajectory
-producer, helper allocation and context recipe selection remain open; source
-admission of the common spine does not certify those other branch bodies.
+arbitrary finite emission trajectories. [[file:lowering-traversal.org][Recursive lowering generation]] now derives
+the ordered emission/recipe list for arbitrary syntax depth, n-ary width and
+authored declaration counts, then feeds the same retained LeanPoo factory.
+Its complete physical realization yields grammar-language soundness. Native
+mutable helper allocation and complete recursive source-control extraction must
+still generate that realization universally; source admission of the common
+spine and 23 native trace controls do not certify arbitrary Scheme execution.
 
 ** Parser ownership, prepared requests and the macOS timeout
 

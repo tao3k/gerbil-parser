@@ -35,6 +35,71 @@ open WalkSource
 def dotSource : Datum :=
 (l [(s "def"), (l [(s "core-item-dot"), (s "item"), (s "layout")]), (l [(s "-"), (s "item"), (l [(s "vector-ref"), (l [(s "lr-item-layout-offsets"), (s "layout")]), (l [(s "core-item-production-id"), (s "item"), (s "layout")])])])])
 end ParserEngine.ItemLayoutWitness
+namespace ParserEngine.ProducerAdmissionWitness
+open WalkSource
+def baseSource : Datum :=
+(l [(s "def"), (l [(s "base-symbol"), (s "value")]), (l [(s "if"), (l [(s "marked-symbol?"), (s "value")]), (l [(s "cadr"), (s "value")]), (s "value")])])
+end ParserEngine.ProducerAdmissionWitness
+namespace ParserEngine.ProducerAdmissionWitness
+open WalkSource
+def markedSource : Datum :=
+(l [(s "def"), (l [(s "marked-symbol?"), (s "value")]), (l [(s "and"), (l [(s "pair?"), (s "value")]), (l [(s "eq?"), (l [(s "car"), (s "value")]), (l [(s "quote"), (s "marked")])])])])
+end ParserEngine.ProducerAdmissionWitness
+namespace ParserEngine.ProducerAdmissionWitness
+open WalkSource
+def terminalTagSource : Datum :=
+(l [(s "def"), (l [(s "terminal-symbol?"), (s "value")]), (l [(s "and"), (l [(s "pair?"), (s "value")]), (l [(s "eq?"), (l [(s "car"), (s "value")]), (l [(s "quote"), (s "terminal")])])])])
+end ParserEngine.ProducerAdmissionWitness
+namespace ParserEngine.ProducerAdmissionWitness
+open WalkSource
+def layoutEndSource : Datum :=
+(l [(s "def"), (l [(s "layout-end-action?"), (s "action")]), (l [(s "or"), (l [(s "eq?"), (s "action"), (l [(s "quote"), (s "layout-end")])]), (l [(s "and"), (l [(s "pair?"), (s "action")]), (l [(s "eq?"), (l [(s "car"), (s "action")]), (l [(s "quote"), (s "layout-end")])])])])])
+end ParserEngine.ProducerAdmissionWitness
+namespace ParserEngine.ProducerAdmissionWitness
+open WalkSource
+def terminalSource : Datum :=
+(l [(s "def"), (l [(s "terminal?"), (s "value")]), (l [(s "or"), (l [(s "equal?"), (s "value"), (s "+lr-eof+")]), (l [(s "and"), (l [(s "pair?"), (s "value")]), (l [(s "eq?"), (l [(s "car"), (s "value")]), (l [(s "quote"), (s "terminal")])]), (l [(s "canonical-base-symbol?"), (s "value")])])])])
+end ParserEngine.ProducerAdmissionWitness
+namespace ParserEngine.ProducerAdmissionWitness
+open WalkSource
+def outerSource : Datum :=
+(l [(s "def"), (l [(s "validate-lr-tables"), (s "productions"), (s "actions"), (s "gotos")]), (l [(s "def"), (s "production-count"), (l [(s "length"), (s "productions")])]), (l [(s "def"), (s "layout?"), (l [(s "layout-productions?"), (s "productions")])]), (l [(s "unless"), (l [(s "and"), (l [(s "fixnum?"), (s "production-count")]), (l [(s "fx>="), (s "production-count"), (n 0)]), (l [(s "vector?"), (s "actions")]), (l [(s "vector?"), (s "gotos")]), (l [(s "positive?"), (l [(s "vector-length"), (s "actions")])]), (l [(s "="), (l [(s "vector-length"), (s "actions")]), (l [(s "vector-length"), (s "gotos")])])]), (l [(s "error"), (.text "invalid LR table dimensions"), (s "production-count"), (s "actions"), (s "gotos")])]), (l [(s "let-values"), (l [(l [(l [(s "terminals"), (s "nonterminals")]), (l [(s "production-vocabulary"), (s "productions")])])]), (l [(s "def"), (s "states"), (l [(s "vector-length"), (s "actions")])]), (l [(s "validate-rows"), (s "actions"), (l [(s "lambda"), (l [(s "key")]), (l [(s "and"), (l [(s "terminal?"), (s "key")]), (l [(s "table-ref"), (s "terminals"), (s "key"), (b false)]), (l [(s "or"), (s "layout?"), (l [(s "not"), (l [(s "memq"), (l [(s "cadr"), (s "key")]), (l [(s "quote"), (l [(s "layout-start"), (s "layout-next")])])])])])])]), (l [(s "make-action-validator"), (s "states"), (s "production-count"), (s "layout?")]), (l [(s "quote"), (s "actions")])]), (l [(s "validate-rows"), (s "gotos"), (l [(s "lambda"), (l [(s "key")]), (l [(s "and"), (l [(s "symbol?"), (s "key")]), (l [(s "table-ref"), (s "nonterminals"), (s "key"), (b false)])])]), (l [(s "lambda"), (l [(s "target"), (s "_")]), (l [(s "bounded-index?"), (s "target"), (s "states")])]), (l [(s "quote"), (s "gotos")])])]), (l [(s "validate-accept-reachability"), (s "actions"), (s "gotos")]), (l [(s "values"), (s "actions"), (s "gotos")])])
+end ParserEngine.ProducerAdmissionWitness
+namespace ParserEngine.ProducerAdmissionWitness
+open WalkSource
+def fallbackSource : Datum :=
+(l [(s "layout?"), (l [(s "vector-any"), (l [(s "lambda"), (l [(s "production")]), (l [(s "layout-end-action?"), (l [(s "production-action"), (s "production")])])]), (s "table")])])
+end ParserEngine.ProducerAdmissionWitness
+namespace ParserEngine.ProducerAdmissionWitness
+open WalkSource
+def layoutSource : Datum :=
+(l [(s "def"), (l [(s "layout-productions?"), (s "productions")]), (l [(s "any"), (l [(s "lambda"), (l [(s "production")]), (l [(s "or"), (l [(s "layout-end-action?"), (l [(s "production-action"), (s "production")])]), (l [(s "any"), (l [(s "lambda"), (l [(s "operand")]), (l [(s "match"), (l [(s "base-symbol"), (s "operand")]), (l [(l [(s "@list"), (l [(s "quote"), (s "terminal")]), (l [(s "or"), (l [(s "quote"), (s "layout-start")]), (l [(s "quote"), (s "layout-next")])]), (s "_")]), (b true)]), (l [(s "_"), (b false)])])]), (l [(s "production-rhs"), (s "production")])])])]), (s "productions")])])
+end ParserEngine.ProducerAdmissionWitness
+namespace ParserEngine.ProducerAdmissionWitness
+open WalkSource
+def vocabularySource : Datum :=
+(l [(s "def"), (l [(s "production-vocabulary"), (s "productions")]), (l [(s "def"), (s "nonterminals"), (l [(s "make-table"), (.keyword "test"), (s "eq?")])]), (l [(s "for-each"), (l [(s "lambda"), (l [(s "production")]), (l [(s "table-set!"), (s "nonterminals"), (l [(s "production-lhs"), (s "production")]), (b true)])]), (s "productions")]), (l [(s "let-values"), (l [(l [(l [(s "_"), (s "terminals")]), (l [(s "production-terminal-catalog"), (s "productions")])])]), (l [(s "values"), (s "terminals"), (s "nonterminals")])])])
+end ParserEngine.ProducerAdmissionWitness
+namespace ParserEngine.ProducerAdmissionWitness
+open WalkSource
+def catalogSource : Datum :=
+(l [(s "def"), (l [(s "production-terminal-catalog"), (s "productions")]), (l [(s "let"), (l [(l [(s "seen"), (l [(s "make-table"), (.keyword "test"), (s "equal?")])])]), (l [(s "table-set!"), (s "seen"), (s "+lr-eof+"), (b true)]), (l [(s "let"), (s "loop-productions"), (l [(l [(s "rest"), (s "productions")]), (l [(s "found"), (l [(s "list"), (s "+lr-eof+")])])]), (l [(s "if"), (l [(s "null?"), (s "rest")]), (l [(s "let"), (l [(l [(s "terminal-values"), (l [(s "list->vector"), (l [(s "reverse"), (s "found")])])]), (l [(s "terminal-index"), (l [(s "make-table"), (.keyword "test"), (s "equal?")])])]), (l [(s "let"), (s "install"), (l [(l [(s "offset"), (n 0)])]), (l [(s "when"), (l [(s "<"), (s "offset"), (l [(s "vector-length"), (s "terminal-values")])]), (l [(s "table-set!"), (s "terminal-index"), (l [(s "vector-ref"), (s "terminal-values"), (s "offset")]), (s "offset")]), (l [(s "install"), (l [(s "+"), (s "offset"), (n 1)])])])]), (l [(s "values"), (s "terminal-values"), (s "terminal-index")])]), (l [(s "let"), (s "loop-symbols"), (l [(l [(s "symbols"), (l [(s "production-rhs"), (l [(s "car"), (s "rest")])])]), (l [(s "next"), (s "found")])]), (l [(s "if"), (l [(s "null?"), (s "symbols")]), (l [(s "loop-productions"), (l [(s "cdr"), (s "rest")]), (s "next")]), (l [(s "let"), (l [(s "symbol"), (l [(s "base-symbol"), (l [(s "car"), (s "symbols")])])]), (l [(s "loop-symbols"), (l [(s "cdr"), (s "symbols")]), (l [(s "if"), (l [(s "and"), (l [(s "terminal-symbol?"), (s "symbol")]), (l [(s "not"), (l [(s "table-ref"), (s "seen"), (s "symbol"), (b false)])])]), (l [(s "begin"), (l [(s "table-set!"), (s "seen"), (s "symbol"), (b true)]), (l [(s "cons"), (s "symbol"), (s "next")])]), (s "next")])])])])])])])])])
+end ParserEngine.ProducerAdmissionWitness
+namespace ParserEngine.ProducerAdmissionWitness
+open WalkSource
+def coreSymbolsSource : Datum :=
+(l [(s "def"), (l [(s "make-core-symbol-catalog"), (s "table"), (s "layout")]), (l [(s "let"), (l [(l [(s "catalog"), (l [(s "make-vector"), (l [(s "core-item-count"), (s "layout")]), (b false)])])]), (l [(s "let"), (s "production-loop"), (l [(l [(s "production-id"), (n 0)])]), (l [(s "when"), (l [(s "<"), (s "production-id"), (l [(s "vector-length"), (s "table")])]), (l [(s "let"), (s "symbol-loop"), (l [(l [(s "rest"), (l [(s "production-rhs"), (l [(s "vector-ref"), (s "table"), (s "production-id")])])]), (l [(s "dot"), (n 0)])]), (l [(s "unless"), (l [(s "null?"), (s "rest")]), (l [(s "vector-set!"), (s "catalog"), (l [(s "make-core-item"), (s "production-id"), (s "dot"), (s "layout")]), (l [(s "base-symbol"), (l [(s "car"), (s "rest")])])]), (l [(s "symbol-loop"), (l [(s "cdr"), (s "rest")]), (l [(s "+"), (s "dot"), (n 1)])])])]), (l [(s "production-loop"), (l [(s "+"), (s "production-id"), (n 1)])])])]), (s "catalog")])])
+end ParserEngine.ProducerAdmissionWitness
+namespace ParserEngine.ProducerAdmissionWitness
+open WalkSource
+def itemIndexSource : Datum :=
+(l [(s "def"), (l [(s "index-lr0-items"), (s "states"), (s "state-count")]), (l [(s "let"), (l [(l [(s "offsets"), (l [(s "make-vector"), (l [(s "+"), (s "state-count"), (n 1)]), (n 0)])]), (l [(s "node-count"), (n 0)])]), (l [(s "let"), (s "count-states"), (l [(l [(s "state"), (n 0)])]), (l [(s "when"), (l [(s "<"), (s "state"), (s "state-count")]), (l [(s "vector-set!"), (s "offsets"), (s "state"), (s "node-count")]), (l [(s "set!"), (s "node-count"), (l [(s "+"), (s "node-count"), (l [(s "length"), (l [(s "vector-ref"), (s "states"), (s "state")])])])]), (l [(s "count-states"), (l [(s "+"), (s "state"), (n 1)])])])]), (l [(s "vector-set!"), (s "offsets"), (s "state-count"), (s "node-count")]), (l [(s "let"), (l [(s "node-items"), (l [(s "make-vector"), (s "node-count"), (n 0)])]), (l [(s "let"), (s "index-states"), (l [(l [(s "state"), (n 0)])]), (l [(s "when"), (l [(s "<"), (s "state"), (s "state-count")]), (l [(s "let"), (l [(l [(s "node"), (l [(s "vector-ref"), (s "offsets"), (s "state")])])]), (l [(s "for-each"), (l [(s "lambda"), (l [(s "item")]), (l [(s "vector-set!"), (s "node-items"), (s "node"), (s "item")]), (l [(s "set!"), (s "node"), (l [(s "+"), (s "node"), (n 1)])])]), (l [(s "vector-ref"), (s "states"), (s "state")])])]), (l [(s "index-states"), (l [(s "+"), (s "state"), (n 1)])])])]), (l [(s "values"), (s "offsets"), (s "node-items"), (s "node-count")])])])])
+end ParserEngine.ProducerAdmissionWitness
+namespace ParserEngine.ProducerAdmissionWitness
+open WalkSource
+def canonicalSource : Datum :=
+(l [(s "let"), (l [(l [(s "core-states"), (l [(s "make-vector"), (s "state-count"), (b false)])]), (l [(s "offsets"), (l [(s "make-vector"), (l [(s "+"), (s "state-count"), (n 1)]), (n 0)])]), (l [(s "node-count"), (n 0)])]), (l [(s "let"), (s "state-loop"), (l [(l [(s "index"), (n 0)])]), (l [(s "when"), (l [(s "<"), (s "index"), (s "state-count")]), (l [(s "let"), (l [(s "state"), (l [(s "ExtensibleVector-ref"), (s "states"), (s "index")])]), (l [(s "vector-set!"), (s "offsets"), (s "index"), (s "node-count")]), (l [(s "vector-set!"), (s "core-states"), (s "index"), (l [(s "map"), (s "car"), (s "state")])]), (l [(s "set!"), (s "node-count"), (l [(s "+"), (s "node-count"), (l [(s "length"), (s "state")])])])]), (l [(s "state-loop"), (l [(s "+"), (s "index"), (n 1)])])])]), (l [(s "vector-set!"), (s "offsets"), (s "state-count"), (s "node-count")]), (l [(s "let"), (l [(l [(s "lookaheads"), (l [(s "make-vector"), (s "node-count"), (n 0)])]), (l [(s "node"), (n 0)])]), (l [(s "let"), (s "fill"), (l [(l [(s "index"), (n 0)])]), (l [(s "when"), (l [(s "<"), (s "index"), (s "state-count")]), (l [(s "for-each"), (l [(s "lambda"), (l [(s "entry")]), (l [(s "vector-set!"), (s "lookaheads"), (s "node"), (l [(s "cdr"), (s "entry")])]), (l [(s "set!"), (s "node"), (l [(s "+"), (s "node"), (n 1)])])]), (l [(s "ExtensibleVector-ref"), (s "states"), (s "index")])]), (l [(s "fill"), (l [(s "+"), (s "index"), (n 1)])])])]), (l [(s "values"), (s "core-states"), (s "state-count"), (s "lookaheads"), (s "offsets"), (l [(s "materialize-transitions"), (l [(s "ExtensibleVector->vector"), (s "state-transitions")]), (s "state-count")]), (s "terminal-values"), (s "layout"), (s "core-symbols"), (s "state-count"), (s "node-count")])])])
+end ParserEngine.ProducerAdmissionWitness
 namespace ParserEngine.CompilerExecutionWitness
 open WalkSource
 def queueSource : Datum :=

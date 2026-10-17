@@ -4,7 +4,8 @@
         :std/io/tempfile
         (only-in :std/misc/ports read-all-as-string)
         (only-in :gerbil-parser/t/fixtures/event-walk-source read-source-definition write-event-walk-source-data)
-        (only-in :gerbil-parser/src/compiler/lr production-precedence union-values)
+        (only-in :gerbil-parser/src/compiler/lr production-precedence union-values production-rhs production-lhs production-action base-symbol terminal-symbol? layout-end-action?)
+        (only-in :gerbil-parser/src/compiler/lr-automaton make-item-layout make-core-item core-item-count)
         (only-in :gerbil-parser/src/compiler/funcs compiler-index-set-add compiler-index-set-for-each))
 
 (def (source-procedure path name extras)
@@ -133,6 +134,31 @@
       (lambda (state terminal current incoming table policy reject items) (dispatch current incoming table policy))
       '#((0 root () concat #f) (1 root () concat #f) (2 root () concat #f)) policy #f '() 0 events)))
 
+(def (native-catalog productions)
+  ((source-procedure "src/compiler/lr.ss" 'production-terminal-catalog
+     '(+lr-eof+ production-rhs base-symbol terminal-symbol?))
+   productions '(terminal eof) production-rhs base-symbol terminal-symbol?))
+(def (native-layout productions)
+  ((source-procedure "src/compiler/lr-table.ss" 'layout-productions?
+     '(layout-end-action? production-action base-symbol production-rhs))
+   productions layout-end-action? production-action base-symbol production-rhs))
+(def (native-vocabulary productions)
+  ((source-procedure "src/compiler/lr-table.ss" 'production-vocabulary
+     '(production-lhs production-terminal-catalog)) productions production-lhs native-catalog))
+(def (native-core-symbols productions)
+  (let* ((table (list->vector productions)) (layout (make-item-layout table '#((terminal eof)))))
+    ((source-procedure "src/compiler/lr-automaton.ss" 'make-core-symbol-catalog
+       '(core-item-count production-rhs make-core-item base-symbol))
+     table layout core-item-count production-rhs make-core-item base-symbol)))
+(def (native-canonical-pack states)
+  (let* ((declaration (read-source-definition "src/compiler/lr-lookahead.ss" 'build-states-via-canonical-lr1))
+         (block (foldl (lambda (index form) (list-ref form index)) declaration '(2 1 2 2 2 4 5)))
+         (factory (eval (list 'lambda
+           '(state-count states state-transitions terminal-values layout core-symbols
+             ExtensibleVector-ref ExtensibleVector->vector materialize-transitions) block))))
+    (factory (vector-length states) states '#() '#((terminal eof)) #f '#()
+             vector-ref values (lambda (transitions count) transitions))))
+
 (deflanguage-parser-tests lr-native-source-test "native LR extraction conflict and validator correspondence"
   (engine)
   (matrix "all signed priority and policy branches match the decision model"
@@ -225,4 +251,37 @@
              '#(0 #f #f #f #f #f #f #f #f) '#(0)
              '#((0 root () concat #f) (1 root () concat (left 7)) (2 root () concat #f) (3 root () concat #f))
              (vector #f #f #f #f #f #f #f mask) '(0 3 8) 5)
-           '(((0 shift 0 (left 7)) (65 reduce 3) (129 reduce 3)) (3 8)))))
+           '(((0 shift 0 (left 7)) (65 reduce 3) (129 reduce 3)) (3 8))))
+  (property "source terminal directory preserves EOF ordinal first appearance and canonical base"
+    (bindings (productions '((0 root ((marked (terminal token word) ((field title)))
+                                     (terminal literal "x") (terminal token word)) concat #f)
+                            (1 unused ((terminal literal "x") (terminal layout-next ";")) concat #f))))
+    (equal (let-values (((values index) (native-catalog productions))
+                   ((terminals nonterminals) (native-vocabulary productions)))
+        (and (equal? values '#((terminal eof) (terminal token word) (terminal literal "x") (terminal layout-next ";")))
+             (= (table-ref index '(terminal eof)) 0) (= (table-ref index '(terminal layout-next ";")) 3)
+             (table-ref nonterminals 'root #f) (table-ref nonterminals 'unused #f)
+             (not (table-ref nonterminals 'title #f))
+             (not (table-ref terminals '(field title) #f)))) #t))
+  (property "layout capability derives from base tags and action tags rather than annotations"
+    (bindings)
+    (equal (native-layout '((0 root ((marked (terminal token word) ((layout-end)))) concat #f))) #f)
+    (equal (native-layout '((0 root ((marked (terminal layout-start "{") ((field opening)))) concat #f))) #t)
+    (equal (native-layout '((0 root () (layout-end block) #f))) #t))
+  (property "source core symbol producer preserves epsilon and completed false slots"
+    (bindings)
+    (equal (native-core-symbols '((0 empty () concat #f)
+              (1 root ((marked (terminal token word) ((field name))) (nonterminal empty)) concat #f)))
+           '#(#f (terminal token word) (nonterminal empty) #f)))
+  (property "source canonical and LR0 publication share offsets with empty rows and zero masks"
+    (bindings (states '#(((0 . 1) (3 . 0)) () ((8 . 36893488147419103232)))))
+    (equal (let-values (((cores count masks offsets transitions terminals layout symbols visits nodes)
+                    (native-canonical-pack states))
+                   ((lr0-offsets node-items size)
+                    ((source-procedure "src/compiler/lr-lookahead.ss" 'index-lr0-items '())
+                      '#((0 3) () (8)) 3)))
+        (and (equal? cores '#((0 3) () (8))) (= count 3)
+             (equal? offsets '#(0 2 2 3)) (equal? offsets lr0-offsets)
+             (equal? node-items '#(0 3 8)) (= size 3) (= nodes 3)
+             (equal? masks '#(1 0 36893488147419103232)))) #t))
+)

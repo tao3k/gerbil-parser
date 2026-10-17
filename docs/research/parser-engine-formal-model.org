@@ -5064,3 +5064,143 @@ This is prior-revision CI metadata, not a result for the new commit.
 No Gambit source was changed or built. Scheme primitives, host/compiler
 behavior and numerical representation remain external premises. No local
 runtime optimization or CPU-speedup claim is introduced by this work.
+
+** Producer directories, lookahead publication and declaration admission
+
+*** Correspondence chain and paper boundary
+
+The item/state interpretation in [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]], Sections 2.1--2.2,
+remains the semantic vocabulary. Directory ordinals, physical row offsets and
+validator capability are implementation obligations added by the native
+compiler. They must preserve that interpretation; their correctness does not
+establish viable-stack or complete grammar-language equivalence by itself.
+
+[[file:../../formal/ParserEngine/ProducerAdmission.lean][ProducerAdmission.lean]] fills the representation and declaration-admission
+links left explicit by =CompilerExecution=. It uses arbitrary production lists,
+RHS lengths, sparse state rows, terminal keys and prior store contents. The
+reader still emits data only. Independently maintained source schemas admit
+complete directory, vocabulary, capability and LR0 indexing procedures, plus
+the complete canonical publication block and enclosing validator. Base-symbol,
+marked-symbol, terminal-tag and layout-end helpers are also source checked.
+This is restricted source admission, not a general Scheme interpreter.
+
+| Source owner | Generated representation | Universal composition |
+|--------------+--------------------------+-----------------------|
+| =production-terminal-catalog= | Seeded EOF; reversed unseen-base accumulator; index installation | Membership, uniqueness, stable first-observation order and vector/index round trip |
+| =make-core-symbol-catalog= | Writes RHS bases and skips each completed slot | Correct symbol at every RHS occurrence; initialized false retained at every completed slot |
+| =index-lr0-items= and canonical publication | Prefix offsets and ordered flattened core/mask rows | Matching physical reads, including empty rows and zero masks |
+| Lookahead worklist and publication | Generated mask values at actual record ordinals | Quiescent worklist entailment transported through physical publication |
+| =production-vocabulary= | Terminal directory and declared LHS names | Exact action/goto key predicates |
+| =layout-productions?= and =build-actions= binding | Two different declaration-derived predicates | Full capability derivation; narrower fallback predicate implies capability |
+| =validate-lr-tables= | Dimensions, key/value callbacks, then graph check | Structural admission combined with reachable acceptance |
+
+*** Directory and core-symbol production
+
+=collect_reverse= relates the native reverse accumulator to stable insertion
+in source scan order. =catalogue_members= and =catalogue_unique= prove exact
+membership and uniqueness with EOF seeded before RHS scanning. Operand
+annotations never become directory keys. =catalogue_roundtrip= proves that
+installation into the native index and publication into the terminal vector
+agree at every generated ordinal, even over arbitrary prior stores.
+
+=CoreSymbols.fill= models the actual source writes: a production writes only
+its RHS bases, then advances by =rhs.length + 1=. =symbol_at= proves each
+written value; =complete_at= proves the skipped completed slot retains its
+initial =#f=. This includes epsilon productions and avoids inventing a write
+to a slot that the source leaves initialized.
+
+=terminal_producer= combines those results for an arbitrary actual RHS
+terminal occurrence. Its physical core slot, installed index, terminal vector
+entry and validator vocabulary all designate the same canonical base. The
+ordinal is derived by catalogue membership and the actual write replay; no
+caller supplies a completed index/vector agreement property.
+=eof_ordinal= proves that EOF is always installed at ordinal zero. =keyCode=
+is computed from the installed directory, and =key_code_exact= proves every
+non-EOF encoding; a caller-provided ordinal mapping is not required.
+
+*** Lookahead rows and physical record consumption
+
+=Lookahead.starts_at= proves prefix offsets for arbitrary rows. =offset_at=
+includes the source's final sentinel write and shows it cannot overwrite a
+real state's offset. Empty adjacent rows may share an offset. =packed_pair=
+proves that core and mask projections preserve the same row/ordinal address;
+a zero mask remains an entry and cannot be dropped as absent.
+
+=publish= reconstructs the actual record consumer fields from ordered source
+rows and the two write passes. =published_record= derives state item, state
+offset and mask reads together. =published_bits= transports a producer-mask
+interpretation through those actual writes. It assumes no equality or support
+property of the final event list or action table.
+
+=published_quiescent= further composes the existing
+=Worklist.batch_quiescent_exact= theorem with the generated physical mask.
+A completed worklist execution establishes Horn-program entailment; final
+semantic equality or a final closure certificate is not assumed. The queried
+mask read is proved successful before the totalized bit view is used, so an
+unavailable physical field is not silently admitted as a zero mask.
+
+The propagation-program construction and its relation to the real native
+execution trace remain parser-owned obligations. A conditional worklist
+execution theorem is not a proof that an arbitrary source-produced graph
+implements the paper's lookahead relation. This boundary must remain visible
+when connecting FIRST/nullable, prediction, transitions and viable items.
+
+*** Vocabulary, capability and outer validator
+
+=goto_key_exact= admits exactly the declared LHS names, rather than every
+RHS reference or an annotation name. =action_key_exact= admits EOF or a
+terminal in the generated directory, subject to the declaration-derived
+layout predicate. =layout_exact= accounts for both layout-end actions and
+layout-start/layout-next RHS bases. =catalogue_admitted= derives the key
+callback for every generated directory entry.
+
+Two source predicates intentionally remain distinct. The validator derives
+layout capability from layout terminals or layout-end actions. The action
+builder enables raw-reduction fallback retention only from layout-end
+actions. =fallback_capable= proves the latter implies the former; a directed
+control shows a layout-terminal-only declaration makes the converse false.
+This work does not alter either runtime predicate or presume they must agree.
+
+=Admission.normalized_actions= and =normalized_gotos= derive graph bounds from
+the actual declaration callbacks and per-entry action admission.
+=queue_after_declarations= feeds those bounds into the previous exact queue
+result. =table_check_exact= composes the production-count ceiling, positive
+state count, equal action/goto dimensions, row callbacks and reachable
+acceptance. Earlier rejection cannot be replaced by success in the graph
+layer. Duplicate-key handling remains owned by =Validator.rows_admit=.
+
+The typed view starts with admitted canonical production operands and keys.
+Native symbol/string identity, positive literal validation and the typed
+projection must retain their contracts. Host primitive, numeric and compiler
+behavior remain external premises. The semantic relation of produced states
+and lookaheads to viable items, and the exact native conflict representation
+to the publication abstraction, are not silently discharged by key admission.
+
+*** Qualification
+
+The actual-source Scheme controls use =deflanguage-parser-tests=. Eight owners
+pass 166 cases in 16.06 seconds in the final run under unchanged 90-second total/five-second
+idle limits. Added controls cover repeated marked terminals, EOF ordinal zero,
+annotation erasure, LHS vocabulary, both capability sources, epsilon/completed
+slots, empty state rows, zero masks and matching LR0/canonical physical offsets.
+They run unchanged extracted procedures with explicit primitive dependencies.
+
+[[file:../../formal/quint/ProducerAdmission.qnt][ProducerAdmission.qnt]] adds eight directed controls and finite directory
+traces. The complete Quint package and pinned Lean root remain the model
+qualification gates; source-schema equalities introduce no axioms. New
+semantic theorem audits retain only standard Lean logic. The evidence input
+collector binds this proof owner, protocol file, source adapter and controls,
+including their mutation-invalidation checks. No Gambit source is modified or
+built and no runtime performance optimization is introduced.
+
+The final pinned Lean root passes all 95 build jobs. The complete Quint package
+passes, including the eight new controls and 1,000 sampled producer traces of
+10 transitions. All 14 native evidence controls pass. The current reader data
+passes freshness admission and a deliberately stale copy fails with exit 70.
+Earlier unsuccessful proof/protocol drafts are excluded from accepted evidence.
+
+At the final pre-push check, revision =74361f0= had passed all Ubuntu and Rust
+jobs; macOS preparation had passed and its semantics/FFI/generation jobs were
+still running, with no red job. This is prior-revision CI metadata, not a result
+for the new commit. Remaining semantic producer/program/trace premises above
+are not relabeled as unconditional whole-parser closure.

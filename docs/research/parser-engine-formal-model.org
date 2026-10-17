@@ -15,6 +15,8 @@ Host and compiler behavior remain external premises; no host build is required.
 - [[file:parser-engine-formal-model/collection-continuation-reentry-and-distinct-lr-schedulers.org][Collection, continuation reentry and distinct LR schedulers]]
 - [[file:parser-engine-formal-model/generated-propagation-graphs-and-source-shaped-fifo-execution.org][Generated propagation graphs and source-shaped FIFO execution]]
 
+- [[file:parser-engine-formal-model/lr-state-suffix-correspondence.org][LR state and suffix producer correspondence]]
+
 * Module ownership
 
 | Responsibility | Entry point | Meaning |
@@ -53,10 +55,11 @@ expected list length.
 
 * Current semantic frontier
 
-The parser model remains incomplete. The next obligation connects LR0 state
-construction and the reverse suffix-FIRST/nullable producer to paper prediction
-and goto semantics for arbitrary admitted grammars. This organization change
-preserves existing proofs and controls; it does not discharge that obligation.
+The parser model remains incomplete. The [[file:parser-engine-formal-model/lr-state-suffix-correspondence.org][LR state and suffix correspondence]]
+now proves reverse suffix execution, physical after-dot reads, ordered LR0
+closure publication and universal propagation-to-paper composition. Native
+prediction-mask scheduling, state interning and physical coordinate/name/key
+extraction still have to discharge the producer premises of that composition.
 No parser performance or compiler/host correctness claim follows from it.
 
 * macOS contextual request qualification

@@ -112,3 +112,25 @@ import ParserEngine.Components
 #print axioms ParserEngine.Construction.shifted_lookahead_retained
 #print axioms ParserEngine.Construction.cell_events_origin
 #print axioms ParserEngine.Construction.vector_layout_publication
+
+#print axioms ParserEngine.SuffixSemantics.scan_exact
+#print axioms ParserEngine.SuffixSemantics.catalogue_semantic
+#print axioms ParserEngine.SuffixSemantics.packed_at
+#print axioms ParserEngine.SuffixSemantics.from_completed_exact
+#print axioms ParserEngine.LRStateSemantics.closure_exact
+#print axioms ParserEngine.LRStateSemantics.merge_accumulator
+#print axioms ParserEngine.LRStateSemantics.closure_merge_sorted
+#print axioms ParserEngine.LRStateSemantics.decoded_closure
+#print axioms ParserEngine.LRStateSemantics.completed_prediction
+#print axioms ParserEngine.LRStateSemantics.physical_goto
+#print axioms ParserEngine.CompilerSemanticsSource.checked_suffix_semantic
+#print axioms ParserEngine.CompilerSemanticsWitness.source_checked
+#print axioms ParserEngine.SuffixSemantics.reverse_execution
+#print axioms ParserEngine.LRStateSemantics.foldl_cons_tail
+#print axioms ParserEngine.CompilerSemanticsSource.checked_closure_exact
+#print axioms ParserEngine.CompilerSemanticsSource.changed_suffix_rejected
+#print axioms ParserEngine.PropagationSemantics.reach_supported
+#print axioms ParserEngine.PropagationSemantics.replay_supported
+#print axioms ParserEngine.SuffixSemantics.after_dot_read
+#print axioms ParserEngine.PropagationSemantics.compiled_suffix
+#print axioms ParserEngine.PropagationSemantics.extracted_supported

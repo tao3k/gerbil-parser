@@ -1,0 +1,884 @@
+#+title: LR construction lifecycle: paper, source and model
+
+* Paper and implementation boundary
+
+The closure and goto definitions in [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]], Section 2.2,
+are the semantic target. The implementation uses raw production records,
+a dense core-symbol vector, interned symbol IDs and sparse bit masks. This
+composition derives group meaning and layout bounds from those representations;
+it does not require a final group-correctness certificate.
+
+* Constructed representation
+
+[[file:../../../formal/ParserEngine/PhysicalOperandExtraction.lean][PhysicalOperandExtraction]] projects actual operand base fields, discarding
+annotations and actions. Induction over the native vector-write recurrence
+proves every bounded read, including the untouched completed slot, equals the
+constructed grammar's after-dot symbol. A fresh zero-filled vector is required.
+[[file:../../../formal/ParserEngine/PhysicalCoreExtraction.lean][PhysicalCoreExtraction]] inverts arbitrary physical addresses and proves that
+a symbol-bearing core advances to address plus one inside the same production.
+Duplicate semantic productions retain separate physical addresses.
+
+[[file:../../../formal/ParserEngine/PhysicalSymbolDiscovery.lean][PhysicalSymbolDiscovery]] derives the nonterminal discovery stream from the
+physical vector. [[file:../../../formal/ParserEngine/SymbolDiscovery.lean][SymbolDiscovery]] separately constructs terminal and nonterminal
+symbol IDs from an empty registry and proves index injectivity. Completed slots
+contribute neither kind of symbol; terminal and nonterminal namespaces remain
+distinct even when their numeric payloads agree.
+
+* Sparse groups and publication
+
+[[file:../../../formal/ParserEngine/SparseGroupMasks.lean][SparseGroupMasks]] follows accumulation, own/shared mask union and the
+skip/merge recurrence. Its membership theorem identifies the origin of every
+output bit in either the kernel or prediction items. [[file:../../../formal/ParserEngine/SparseGoto.lean][SparseGoto]] combines this
+origin with physical symbol discovery and bounded advance. Every returned mask
+is bounded without a caller-supplied bound; every decoded target is exactly a
+paper goto-kernel item from the generated closure.
+
+[[file:../../../formal/ParserEngine/KernelConstruction.lean][KernelConstruction]] starts at augmented physical core zero and derives
+bounds for every successor in its construction history. Composing group meaning,
+registry publication and the concrete closure factory gives the target closure
+of each returned symbol/target pair. The theorem quantifies over arbitrary
+grammars, histories, masks and published groups, rather than a fixture catalogue.
+
+[[file:../../../formal/ParserEngine/SparseGroupSource.lean][SparseGroupSource]] independently describes the complete native symbol-catalog
+and sparse-group declarations. The existing source extractor generates both
+witnesses, and Lean rejects a declaration mismatch. Its checked adapter exposes
+the proved mathematical group implementation only after schema equality.
+Source equality identifies the supported procedure; it alone is not a proof of
+arbitrary Scheme execution or of all mutable primitive behavior.
+
+* One construction contract
+
+The paper-level model entry is [[file:../../../formal/ParserEngine/ConstructionProtocol.lean][ConstructionProtocol.construct]]. It starts at the
+augmented dot-zero kernel and returns registry validity, complete published-row
+ownership and an exhausted queue. Consumers use =complete= and =paper_target=;
+they do not assemble local certificates for an arbitrary final table.
+
+#+begin_example
+raw grammar -> physical cores -> prediction/closure -> ordered sparse groups
+             -> borrowed scratch restored -> FIFO discovery -> published table
+             -> paper goto/closure meaning
+#+end_example
+
+| Obligation | Paper meaning / native owner | Producer law and consumer | Executable control |
+|------------+------------------------------+---------------------------+--------------------|
+| First discovery | Item sets / symbol catalogue | DiscoveryOrder.keys_sorted -> GroupOrder.generated_sorted | Full closure reference order |
+| Primitive sorting | Deterministic representation / list-sort | GroupOrder.native_own_sort -> native_group_call | Sparse/full traversal comparison |
+| Borrowed storage | Representation frame / lr0-state-kernels | GroupScratch.first_ready, order_permutation, borrowed_reset -> native_group_call | Stale first slots, zero masks, immutable template |
+| FIFO discovery | Finite reachable states / build-lr0-automaton | dequeue_fifo, tick_invariant, tick_rank -> finish | Actual enqueue/dequeue IDs and recursive grammars |
+| Publication | Complete transitions / vector-set! | ConstructionRows.finish_published -> complete | Actual publication IDs and target rows |
+| Semantic target | Section 2.2 goto/closure | ConstructionProtocol.paper_target | Existing LR reference owners |
+| Source identity | Complete Scheme declarations | ConstructionProtocol.source_current | Freshness and changed-source rejection |
+| Bit callback order | Sorted item traversal / compiler-index-set-for-each | BitTraversal.dispatch_exact -> TraversalCapabilities -> traversal_finish_exact | Forced direct/field paths, native width, empty fields and callback effects |
+
+This is a maintained contract map, not a diary of proof additions. A producer
+change must preserve its output law and revalidate the named consumer. The
+existing source generator checks complete declarations, the axiom audit imports
+the public entry, and model-input discovery binds the native fixtures and this
+topic to qualification. A theorem or an added file alone does not close a row.
+
+* Sorting and borrowed storage
+
+[[file:../../../formal/ParserEngine/DiscoveryOrder.lean][DiscoveryOrder]] proves first-occurrence order for arbitrary sorted physical
+core streams and repeated symbols. [[file:../../../formal/ParserEngine/GroupOrder.lean][GroupOrder]] derives template order from
+production offsets, proves the actual accumulator/skip/merge order and shows
+that equal earliest addresses identify equal rows. Any sort with the ordinary
+sorted-permutation contract therefore gives the same own rows; stability and
+a particular sorting algorithm are unnecessary.
+
+[[file:../../../formal/ParserEngine/GroupScratch.lean][GroupScratch]] follows the native zero-test, first-slot write, bit insertion,
+touched-list insertion and cleanup. The touched list is a permutation of the
+constructed keys. Every selected first slot is initialized before use and then
+retained. Cleanup restores every mask to zero while leaving first slots stale.
+=native_group_call= combines these mutable facts with sorting and sparse merge,
+proving equality with the group producer consumed by the goto proof.
+
+* Complete queue and publication
+
+[[file:../../../formal/ParserEngine/ConstructionQueue.lean][ConstructionQueue]] models dequeue before discovery, processed-count
+increment and interning/enqueue of novel kernels. The FIFO invariant identifies
+pending IDs with the exact unprocessed interval. The finite physical kernel
+universe minus processed states strictly decreases each nonempty iteration.
+This is a termination bound, not a practical estimate, timeout or test fuel.
+
+[[file:../../../formal/ParserEngine/ConstructionRows.lean][ConstructionRows]] proves that each processed ID owns a complete row.
+Later interning preserves source and target IDs. Exhaustion publishes every
+discovered state. =paper_target= composes the final table with generated
+prediction, physical extraction and paper goto/closure for every final edge.
+
+* Ordered bit traversal and LeanPoo consumption
+
+[[file:../../../formal/ParserEngine/BitTraversal.lean][BitTraversal]] proves that =rest & (rest - 1)= removes exactly the least
+selected bit, including arbitrary-precision borrow chains. The direct loop
+terminates and produces a strictly ascending list with exact bit membership.
+The field loop finishes each local traversal before advancing its offset. Empty
+fields and a partial final field preserve that order. Aligned start and integer
+length bounds derive the same complete callback list as the direct loop for
+any positive field width. Population-count accuracy affects branch selection,
+but either selected branch has the same callback sequence.
+
+The relational =DirectRun= and =FieldRun= rules describe recursive source
+control flow without assuming final sortedness. Their soundness laws derive
+the sequence above. [[file:../../../formal/ParserEngine/BitTraversalSource.lean][BitTraversalSource]] independently checks the complete
+traversal declaration and the SDK-derived field-width binding, including the
+fixnum loop, direct loop, field visitor and branch arithmetic. Reordering the
+callback and clear operations or changing offset advancement invalidates the
+source witness. The reader handles both procedure and value declarations.
+
+[[file:../../../formal/ParserEngine/TraversalCapabilities.lean][TraversalCapabilities]] reuses the pinned LeanPoo APIs instead of defining
+another family/certificate mechanism:
+
+- =Requirements.certify= retains direct, field and selected factories with a
+  joint equality contract at the exact mask/width context.
+- =Certified.entails= derives ordered callbacks while retaining those factories.
+- =Certified.project= narrows the family to the selected capability.
+- =Certified.consume= constructs the proof-aware callback interface. It applies
+  the selected factory, not every strategy in the broad proof family.
+
+Pure integer/loop proofs remain mathematical functions. Capability retention,
+contract consequence, projection and consumption use LeanPoo. Existing parser
+preparation also uses LeanPoo Requirements and lookahead uses DictionaryBridge;
+this adds the same contract discipline to construction traversal.
+
+=callback_cores= derives equality with the grammar's physical =coreItems=.
+=traversedGroups_exact= substitutes the selected callback sequence into scratch
+accumulation, and =traversal_tick_exact= connects that producer to append/enqueue
+and publication. Finally, =traversal_finish_exact= proves equality of the entire
+terminating queue drain with the canonical construction. Classification and
+population are functions of each mask, so a run may switch traversal paths
+between states. This is a consumer
+connection, not a certificate attached to an unused traversal implementation.
+
+The external primitive boundary states the ordinary meanings of first-set-bit,
+integer-length, extraction, bitwise arithmetic and a positive SDK field width.
+=least_unique= relates a primitive satisfying the least-bit specification to
+the model. Source execution explicitly requires zero to classify as a fixnum,
+so it never admits a nonzero-path first-set-bit invocation on an empty mask.
+It neither inspects nor rebuilds Gambit. Normal callback order can
+be consumed by any order-sensitive fold; native controls separately exercise
+nested callbacks and immediate exception propagation.
+
+* Cache ownership in the unified construction
+
+[[file:../../../formal/ParserEngine/CachedConstruction.lean][CachedConstruction.construct]] executes the combined construction model.
+It threads one initially empty grammar-owned cache through initial installation,
+novel kernel interning, ordered transition publication and the terminating FIFO
+drain. It also consumes the selected LeanPoo traversal capability in each group
+call. =construct_exact= identifies the whole resulting machine with
+=ConstructionProtocol.construct=, so its complete-row and paper goto/closure
+contracts apply without a supplied final-state semantic certificate.
+
+The cache key is the aggregate prediction mask, not the kernel mask or state ID.
+[[file:../../../formal/ParserEngine/TemplateCapabilities.lean][TemplateCapabilities]] retains the fetching factory through LeanPoo
+=Requirements.certify=. Its joint contract includes both exact template data and
+validity of the next cache. =Certified.consume= uses those data to build the
+kernel-specific closure and next cache. Hits share predictions, never the complete
+closure of distinct kernels. The grammar indexes the retained factory/cache;
+there is no cross-grammar reuse or label-only admission.
+
+=build_stored= proves installation at the requested aggregate key and
+=build_retained= preserves earlier entries. =construct_covered= carries cache
+coverage through the complete queue. [[file:../../../formal/ParserEngine/PlanStorage.lean][PlanStorage]] now gives the retained data
+an explicit representation: a directory maps aggregate masks to logical object
+references; objects hold immutable templates; physical plan slots contain
+=(kernel, reference)= pairs. A miss allocates the next fresh reference, while a
+hit retains its reference. =fresh_separates= and =objects_retained= exclude writes
+to previously reachable objects. =shared_reference= proves that equal prediction
+keys in different plan slots refer to the same object.
+
+=decode_install= derives a new plan's decoded template. =decode_other= proves
+that installing another plan preserves older pair/reference reads, including
+when allocation occurs. The bounded =vectorize= producer and =vector_decode=
+connect plan slots to vector indices. [[file:../../../formal/ParserEngine/VectorStorage.lean][VectorStorage]] additionally executes the
+ascending native copy recurrence into fresh false slots. =copy_read= proves copy
+coverage and untouched initialization; =grow_exact= identifies its result with
+the prefix-preserving growth specification. =append_refines= then derives the
+captured-ID write and retention of every older allocated slot. It applies to
+state, transition and plan values, rather than one selected fixture type.
+
+=PlanStorage.Trace= starts before state zero, with the admitted positive initial capacity.
+Each novel kernel advances the captured count once and executes growth only at
+capacity. =trace_shape= derives positive capacity, the count bound, physical
+length and bounded read correspondence. =intern_physical=, =publish_physical=
+and =finish_physical= carry that actual vector witness alongside the same memory
+through the entire construction. =constructed_vector= returns the final vector
+and every allocated plan's decoded value without a supplied capacity or
+final-vector certificate. The addresses are logical identities, not numeric claims
+about host pointers or GC placement.
+
+The LeanPoo factory now constructs that memory operation. Its joint certificate
+contains exact template data, validity of the next memory and the exact install
+operation. =Certified.consume= uses the memory validity evidence to construct the
+next owned cache. =construct_aligned= derives agreement of every installed plan
+with the canonical grammar factory through initial installation, every target
+append and the complete queue. The queue reads =Cache.readTemplate= by following
+the physical plan reference and supplies the returned template directly to
+=runGroup=. It does not substitute a key-catalog read or rematerialize a template.
+
+The same owned cache carries scratch masks, firsts and touched order. =runGroup=
+scans that actual preceding state and resets its touched masks before returning
+it. =tick_scratch= proves that subsequent target installations and publication
+preserve precisely that returned scratch; =publish_scratch= derives the frame
+law for an arbitrary number of targets. Firsts remain stale by design, but their
+values now come from the preceding scan rather than an externally supplied
+function. =runGroup_memory= proves the converse frame: scratch operations retain
+all template objects and physical plan slots. The source's fresh vectors and
+immutable template layout justify their separate model fields; host allocation
+and alias encoding remain explicit premises, checked by native identity controls.
+
+The native three-slot template also has a group hash index.
+[[file:../../../formal/ParserEngine/TemplateIndex.lean][TemplateIndex]] models first-row creation, table insertion and subsequent
+mask updates. =record_view= relates each write to the existing accumulation
+state; induction gives =lookup= for every key, including absent entries and
+repeated symbols. The materializer now builds that index, and =runGroup= uses
+it for shared-row lookup. =own_exact= substitutes the constructed index into
+ordered sparse grouping. There is no caller-supplied final-index certificate.
+Physical hash equality, row-address encoding and primitive mutation remain
+external; the index producer's control flow and query meaning are proved.
+
+** Source extraction and executable recipes
+
+[[file:../../../formal/ParserEngine/ConstructionExtraction.lean][ConstructionExtraction]] reads allocation parameters from named lexical
+bindings in the generated reader AST. It rejects absent or duplicate bindings,
+requires the three initial capacities to agree and separately requires all three
+expansion factors to agree. Full independent builder, growth, append and template
+schemas then bind those scalar values to the copy loop and publication order.
+=extracted_sources= proves this complete correspondence for any accepted source.
+The current reader-derived recipe has initial capacity 128 and factor two.
+The same constructor accepts every positive initial capacity through
+=Recipe.layout=; =PlanStorage.empty= and the complete queue use that value.
+
+Recipes initialize a vector and execute the proved copy/write protocol;
+=recipe_write= and =recipe_copy= apply to arbitrary bounded append requests.
+The source check uses equation rewriting and existing complete-schema theorems,
+not native decision or a source-text checksum. A source change to a scalar,
+copy destination, publication order or template update must pass extraction and
+all corresponding proof obligations again. The decoder admits the supported
+construction idiom; it does not assign semantics to arbitrary Scheme programs.
+
+LeanPoo's =ContextSlot= is deliberately not used: it retains only one context,
+whereas this builder retains multiple aggregate masks. =ConstructionCache=
+materializes dependency graphs; the LR prediction dependency graph has already
+been completed before this cache is constructed. Reusing either with a different
+lifetime or key protocol would misrepresent the source. Capability retention,
+joint certification and proof-aware consumption reuse LeanPoo directly; mask
+arithmetic and FIFO induction remain ordinary functions and proofs.
+
+** Source-admitted complete observations
+
+[[file:../../../formal/ParserEngine/ConstructionConsumer.lean][ConstructionConsumer]] is the source-admitted entry for the retained complete
+construction. It runs =prepare= before the LeanPoo construction factory and
+consumes the joint machine, alignment and three-vector history evidence once.
+Rejected sources cannot execute the factory. Successful construction retains
+one completed cache; observations never accept an independent final index or
+vector certificate.
+
+=joint_observations= exposes the actual heap threaded through the complete
+queue, not three vectors reconstructed from its final logical table.
+[[file:../../../formal/ParserEngine/ConstructionStorage.lean][ConstructionStorage]] uses one counted copy loop: state, transition row,
+then plan at each ascending index. =copy_fields= derives the projections of that
+loop; =append_exact= proves synchronized expansion and captured-ID writes.
+Transitions are copied without being overwritten by state installation.
+=publish_refines= separately accounts for each row publication.
+
+[[file:../../../formal/ParserEngine/ConstructionHeap.lean][ConstructionHeap]] transports one =Owned= contract through initial installation,
+interning, each group publication and the terminating queue. =construct_owned=
+derives both a joint operational history and the three read correspondences.
+The retained LeanPoo factory supplies that evidence to the complete consumer.
+=joint_index= queries the shared table reached through the actual plan vector,
+including absent keys. =physical_complete= gives every allocated node a row
+in the actual transition vector; =physical_paper_target= connects such rows and
+the physical target-state vector to paper goto/closure semantics.
+
+The source-procedure test helper permits an explicit AST transform. The layout
+fixture changes exactly the three named initial allocation literals, retaining
+all other source instructions and initializers. The new independent observer
+forwards every allocation and write unchanged, records the actual copy order,
+and compares complete results with the ordinary source constructor. Negative
+controls change only captured receipts: missing copies, wrong indices and wrong
+values must be rejected. The existing published-index corruption control is
+retained. No runtime fixture substitutes a copied LR construction algorithm.
+
+** Source control and the joint history
+
+[[file:../../../formal/ParserEngine/ConstructionControl.lean][ConstructionControl]] audits the boundary between the joint append/publication
+history and actual =grow!= control. =decode= recognizes the entire supported
+declaration: the full-capacity guard, each allocation initializer, loop start
+zero, strict count bound, unit increment, matching copy sources/destinations
+and three ordered owner assignments. It returns an executable program derived
+from these instructions. Unsupported or malformed programs cannot execute via
+=executeSource=; a nonadvancing loop is rejected rather than translated to +1.
+
+The interpreter uses the native forward tail-recursive cursor. =forward_prefix=
+proves its equivalence to the counted joint copy for arbitrary heaps and bounds.
+=loop_safe= and =growth_safe= derive valid source and target accesses at every
+iteration from the owned shape. Native bounds safety is not inferred from the
+model's out-of-range list-set behavior. =owner_stages= makes intermediate owners
+explicit: after the first assignment, states are new while rows and plans are
+old; after the second, only plans remain old. The invariant requiring equal
+capacities applies again after all three assignments complete.
+
+Independent =let= allocation initializers need no extra order premise at the
+value representation: =allocation_permutation= proves their commutation.
+Fresh/disjoint physical allocation and address encoding remain host contracts.
+The model does not claim that allocation traces or physical addresses agree
+under different evaluation orders.
+
+=trace_realizes= remains a joint-history refinement tool. The retained LeanPoo
+factory now executes [[file:../../../formal/ParserEngine/ConstructionFIFO.lean][ConstructionFIFO.build]], which generates the exact actions
+during initialization and FIFO execution. Its joint contract certifies those
+actions, their safety and replay together with the same machine, cache and
+owned heap. =source_execution= reaches the generating factory, while
+=source_replay= uses the retained actions rather than an unrelated existential
+history. No final-heap certificate or execution trace is supplied by a caller.
+
+[[file:../../../formal/ParserEngine/ConstructionAppend.lean][ConstructionAppend]] decodes the complete supported =append-state!= declaration:
+growth, capture of the old index, template lookup binding, state write, plan
+write, table registration, counter increment and return of the captured index.
+The executable frame keeps its counter, captured index, registration effects
+and return value distinct. =registration_stage= proves that both vector writes
+are visible while registration still observes the old counter. =run_exact=
+derives the new counter and returned old ID; =write_bounds= proves valid writes
+for every owned shape. =intern_step= supplies the actual retained producer's
+closure and shared template reference to that execution. =execute_exact= and
+=trace_realizes= lift the instruction protocol through every complete joint
+history. Source admission checks growth and append declarations before replay.
+=intern_index= replays the registration effects into the prior logical table
+and proves equality with the producer's resulting index function at every key;
+registration is not merely an emitted event label.
+
+Native controls execute the actual append declaration with forwarding writes
+and passive snapshots. Capacities 1, 2, 3, 5 and 128 exercise count zero, the
+last free slot and growth. They verify template/closure callback identity,
+state/plan write order, registration before counter advancement and return of
+the old ID. Missing, reversed and premature-counter receipts are rejected.
+The joint Quint model also separates state write, plan write, registration,
+counter advancement and return; random simulation uses these microsteps.
+
+** Initialization and FIFO action generation
+
+[[file:../../../formal/ParserEngine/ConstructionInitialization.lean][ConstructionInitialization]] decodes the initial writes and registration
+separately from =append-state!=. Root counters must be one and zero, slot-zero
+state and plan writes precede registration, and there is no initial increment
+or growth call. =run_exact= relates this special path to the normal-form first
+append; =write_bounds= uses the extracted positive capacity. The actual initial
+cache heap is produced by those instructions, and the initial index is produced
+by replaying their registration effects. =initial_exact= leaves the queue empty;
+the outer queue alone enqueues ID zero in =start_exact=.
+
+The source initializer no longer reads =CachedConstruction.initial= to populate
+its result. [[file:../../../formal/ParserEngine/ConstructionInstallation.lean][ConstructionInstallation.registry]] generates its logical views from the
+certified product, captured frame index and registration writes. The source
+factory uses [[file:../../../formal/ParserEngine/TemplateCapabilities.lean][TemplateCapabilities.produce]], a shared LeanPoo consumer that returns
+template values and memory while preserving the caller's physical heap.
+=produce_exact= and =produce_storage= establish those responsibilities. The
+ordinary algorithm builder and both source installation paths reuse this same
+retained value capability.
+
+Fresh-target installation also no longer reads =CachedConstruction.intern= as
+its output. =ConstructionInstallation.append= first prepares the physical heap,
+then invokes the value capability with that heap, and finally executes the
+remaining append instructions. =produce_reframe= proves that this heap change
+cannot change template values, references or closure results. =growth_prefix=
+connects the remaining instructions to the complete source append frame.
+Its result supplies the returned ID and counter; =append_accounting= proves
+counter/allocated-length agreement. =append_queue= proves no hidden enqueue or
+processing increment occurs. The old constructors appear only in refinement
+theorems, where their results are compared with the independently generated
+source effects.
+
+=ConstructionFIFO.decode= checks the outer empty test, seed ID, dequeue,
+processed-count increment, plan read, ordered target callback, reverse/write
+publication and tail call. Target lookup preserves ID zero as an existing
+value. The effect interpreter separates installation, accumulator cons and
+conditional enqueue. =target_exact= and =groups_exact= prove equivalence to the
+retained producer, including cache and reversed accumulator, for arbitrary
+target lists. During a fresh append, one allocated ID is temporarily absent
+from the queue; the callback restores the stable accounting only after cons
+and enqueue. This legal intermediate state must not be mistaken for a broken
+stable FIFO invariant.
+=target_existing= proves cache/registry identity on reuse without invoking a
+producer. =target_before_enqueue= proves that the row already contains the
+new returned ID while the queue is still unchanged. These prefix laws do not
+assume a final registry equality.
+
+=tick_exact= and =finish_exact= connect interpreted dequeue/publication to the
+complete cached construction. The loop terminates by the existing finite-core
+capacity minus processed count, without fuel or a final-state premise. The same
+execution emits its actions. =groups_replay=, =tick_replay= and =finish_replay=
+compose their heap effects; =construct_replay= normalizes the special initial
+path and reaches the actual returned heap and count.
+
+[[file:../../../formal/ParserEngine/ConstructionFIFOTrace.lean][ConstructionFIFOTrace]] proves safety of these exact generated actions.
+Owned shapes provide append/growth bounds; queued-node validity and append-only
+allocation provide every publication bound. =construct_safe= is generated
+through the same terminating loop, not borrowed from some equal final heap.
+LeanPoo consumes this safe action stream, replay and producer identity.
+=ConstructionConsumer.source_complete= combines source execution, exact-action
+safety, replay and physical row validity; =physical_paper_target= connects the
+same retained row and target vectors to the existing paper closure/goto meaning.
+
+The execution entry extracts its own layout from all admitted source schemas.
+A caller cannot pass an unrelated positive capacity. Malformed admission returns
+before construction. Normal-return helper algorithms retain their separately
+proved meanings; diagnostic I/O, primitive operations, compiler execution and
+nonlocal control behavior remain external contracts.
+
+The phase contract now exposes =before_registration= for the two slot-zero
+writes before index visibility. =counted_prefix= identifies the whole frame
+after dequeue and accounting, including the unchanged cache and transition
+table. =groups_processed= proves by induction over arbitrary target lists that
+fresh installation and reuse cannot change the outer processed counter.
+=groups_boundary= preserves the unpublished transition table and node, and
+=tick_phases= composes those properties with the actual tick used by the
+LeanPoo-retained factory. These are normal-return parser effect laws, with no
+host scheduling or primitive implementation claim.
+
+[[file:../../../formal/ParserEngine/ConstructionReadiness.lean][ConstructionReadiness]] closes the all-prefix plan-read obligation. =Visit=
+starts at the actual special initializer and follows only the actual source
+=tick=, including terminal stuttering. Induction derives queue validity,
+template coverage/alignment and joint physical ownership at every prefix.
+=ready= then supplies the queued kernel, the physical slot bound and equality
+between the actual plans-vector decode and its canonical template. No missing
+plan is assumed away by a final-state equality. =finish_visit= and
+=construct_visit= put the returned result on this same trajectory.
+LeanPoo's =Joint= and =Product.readiness= consume =Complete=;
+=source_readiness= combines source admission, the prefix invariant and actual
+result membership. Native group-entry controls independently check that the
+physical plan kernel maps back to the current state ID and that the stored
+state equals the closure of that kernel and its shared template. A damaged
+plan receipt is rejected, including for states with no outgoing rows.
+
+Passive native controls read and execute the real builder at capacities 1, 3
+and 128. They check initialization before seeding, dequeue order, a distinct
+accounting event before the group call, physical plan availability, per-target
+counter values, row-before-enqueue order, reuse without enqueue and exactly one
+reversed row publication. Receipt mutations reject missing seed, missing
+accounting or grouping, duplicate accounting and wrong row owners. Both empty
+and nonempty transition rows require the group entry event. A source-extracted
+target callback separately verifies that an existing
+ID zero calls neither append nor enqueue. The dedicated Quint source protocol
+checks deferred enqueue, duplicate target reuse and reversed-row publication.
+
+This is a refinement of the parser-owned vector-effect protocol on normal
+return. The decoded certified queue generates append and row actions;
+hash/queue primitives and the producer callbacks retain their existing
+contracts. It is not a small-step semantics for arbitrary Scheme, a compiler
+correctness theorem, or an exception/continuation refinement through primitive
+calls. Those host behaviors remain external rather than silently discharged by
+source equality or finite tests.
+
+The passive native control observes the actual nested growth body. It records
+the copy count at each lexical owner assignment and retains all three owner
+references. Full copies must precede every owner switch; the intermediate old
+references must match the source. Reversed, missing and premature owner receipts
+are rejected, including receipts whose final vector contents would still agree.
+
+| Remaining condition | Status and admission rule |
+|---------------------+---------------------------|
+| Initial capacity | Positive capacity is part of =Layout=. Extraction supplies it to the complete factory; capacity one and non-power-of-two capacities use the same universal queue proof. |
+| Expansion and supported instructions | Factor two and complete builder/growth/append/template schemas are checked before execution. Unsupported instructions are rejected. |
+| Source-to-host semantics | Restricted reader/schema correspondence, not interpretation of arbitrary Scheme; host arithmetic, allocation, vectors, hashing, queues and sorting remain external. |
+| Joint vector storage | One counted copy loop, state/plan installation and transition publication generate a joint trace. Shape, capacity, all three reads and complete paper targets are derived through the full queue. |
+| Source copy control | =source_decoded=, =forward_prefix=, =loop_safe=, =owner_stages= and =source_execution= connect the admitted real growth declaration to the complete heap on normal return. |
+| Source append control | =ConstructionAppend.run_exact=, =registration_stage=, =write_bounds= and =intern_step= bind the retained producer to ordered writes, registration and returned ID. Logical table effects are represented; host hash implementation is external. |
+| Initial-state control | =ConstructionInitialization.run_exact=, =initial_exact= and =ConstructionFIFO.start_exact= derive slot zero, initial registration and the single outer seed from the distinct source path. |
+| FIFO action generation | =ConstructionFIFO.construct_exact=, =construct_replay= and =construct_safe= derive the actual retained machine/cache, exact action stream, bounds and replay through the terminating source-order queue. |
+| Empty transition initializer | The model keeps an unpublished ghost tag; both unpublished and published-empty rows decode to the native empty list. This is not an extra native tag or allocation. |
+| Compiler and GC | External premises; no Gambit changes, builds or compiler-correctness claim. |
+
+The composition qualification passes 193 Lean build jobs with only the standard
+=propext=, =Classical.choice= and =Quot.sound= axioms in the new audited theorems.
+The existing Scheme test macros run 282 cases across 13 owners, including final
+physical queries, joint copies at capacities 1, 2, 3, 5 and 128, repeated growth,
+recursive shared-template growth, receipt mutations, nonpositive-capacity
+rejection, passive owner-control observations and the damaged-index control.
+The suite retains unchanged 90-second total and 5-second idle limits. Fresh
+source witnesses and 19 evidence controls pass. The joint-heap Quint model has
+eleven directed controls and 1,000 bounded
+histories of 60 transitions, including staging copies, publication of copied
+rows, non-power-of-two growth, partially switched owners, wrong owner order and
+premature publication, early counter and wrong return rejection. The existing
+complete lifecycle remains a separate bounded check. These finite checks
+support the universal Lean composition and do not replace it. No CPU improvement
+is claimed.
+The source FIFO model additionally passes sixteen directed checks and 1,000
+histories of 80 transitions, including wrong initial counter, missing seed,
+duplicate existing enqueue, missing fresh enqueue and missing reverse controls.
+Its dequeue and processed-counter actions are separate, including the legal
+transient state before accounting catches up with the removed queue head.
+Dedicated controls reject entering target selection without accounting and
+incrementing the processed counter twice for one dequeued state.
+Growth preparation and template-value production are separate as well; a
+premature-production control rejects a missing growth prefix. Native controls
+also cover reconverging nullable branches with repeated target reuse at initial
+capacities 1, 3 and 128.
+
+Direct-runner qualification retained the earlier pre-owner idle timeouts. An
+outer official-import observer now shows that interface expansion occurs before
+the importing source file executes its first progress form. The direct entry
+installs the existing observer before loading the separate suite runtime; no
+caller preload expression is required. The same 13 owners and 282 cases pass
+with the unchanged 90-second total and 5-second idle limits. This repairs the
+parser-owned silent-admission interval, not the external host loader. It does
+not establish why a particular historical import took longer or a CPU benefit.
+
+These conditions are acceptance boundaries, not obligations silently discharged
+by finite tests. =current_admitted= admits the current source; =prepared= admits
+every successfully extracted recipe. Capacity no longer needs a separate 128
+guard. =schema_recipe= proves extraction for every positive capacity of the
+supported complete schema; =schema_constructs= produces a complete certified
+result whose executed layout has exactly that extracted capacity. The external
+conditions still include primitive arithmetic, storage,
+allocation, fresh/disjoint ownership, hashing, queue operations and ordinary
+sorted-permutation behavior. Arbitrary Scheme execution, compiler lowering,
+GC and continuation/exception behavior inside host primitives remain external.
+No engine optimization is justified by this composition alone.
+
+** Maintained obligation map
+
+| Obligation | Producer and consumer evidence | Boundary |
+|------------+--------------------------------+----------|
+| Paper prediction, closure and goto | =PredictionMaterialization=, =PublishedClosure=, =ConstructionProtocol.paper_target= | Arbitrary constructed grammar; physical production identity retained |
+| Ordered direct/field callbacks | =TraversalCapabilities.callbacks= consumed by =CachedConstruction.runGroup= | Integer primitives and positive SDK field width |
+| Sparse order and scratch lifecycle | =groups_exact=, =runGroup_memory= and =tick_scratch=; persistent native vector controls | Prior scan supplies firsts; touched masks reset before reuse |
+| Shared group index | =TemplateIndex.lookup= and =own_exact= consumed by =runGroup= | Logical table writes proved; primitive hash/row encoding external |
+| Aggregate-key cache lifetime | =construct_covered=, =cache_hit=; native object identity and factory counts | Per-builder grammar/layout; no cross-builder admission |
+| Physical plan/reference reads | =decode_install=, =decode_other= and =construct_aligned= | Logical references; primitive pointer encoding external |
+| Every reachable queued read | =ConstructionReadiness.visited=, =ready=, =construct_visit= and retained =source_readiness= | Induction over actual source-order start/tick, physical bounds and canonical decode; no caller plan or final-only certificate |
+| Joint physical vectors | =copy_fields=, =append_exact=, =publish_refines= and =ConstructionHeap.construct_owned= -> =joint_observations=, =joint_index=, =physical_complete= and =physical_paper_target= | Every positive initial capacity; native row initializer decoded with an unpublished ghost tag; primitive vector operations external |
+| Source growth realization | =ConstructionControl.source_decoded= and forward-copy laws -> =ConstructionFIFO.construct_replay= -> =source_replay= | Full growth-declaration decoder, forward-loop safety and sequential owner stages; normal-return host contracts remain external |
+| Source append realization | =ConstructionAppend.intern_step= -> =ConstructionFIFO.intern_replay= -> same retained actions and =source_replay= | Complete append decoder; actual producer values; old ID, ordered registration and counter mutation; valid write bounds |
+| Initial and complete source execution | =ConstructionFIFO.build= -> LeanPoo retained factory -> =source_complete= | Special initial writes and index replay; source-generated actions; per-step safety; complete FIFO termination; same physical row/goto meaning |
+| Independent source installation | =TemplateCapabilities.produce= -> =ConstructionInstallation.append= and =ConstructionInitialization.initial= -> same FIFO factory | Certified value production preserves the heap; source frames generate physical writes and logical views; abstract initial/intern constructors are comparison targets only |
+| Interning, FIFO and final rows | =construct_exact= and returned =Product= | Hash equality and queue primitives |
+| Source authority | Named parameter extraction, =extracted_sources=, executable recipes and fresh reader witnesses | Restricted construction idioms, not a general Scheme execution theorem |
+| Compiler, GC and host memory | Explicit external premises | No Gambit modification or build; no native compiler correctness claim |
+
+This table is the integration checklist. Adding an isolated theorem does not
+close a row until the complete constructor consumes its evidence and a native
+control exercises the corresponding source boundary. The combined algorithm model covers cache population, shared index lookup,
+reference/plan decoding, the joint three-vector history at arbitrary positive
+initial capacity and the persistent scratch lifecycle under the admission
+conditions above. Concrete pointer encoding and primitive host realization remain
+explicit premises. No runtime performance claim follows from this map.
+
+* Native CFG input admission
+
+[[file:../../../formal/ParserEngine/ConstructionGrammar.lean][ConstructionGrammar]] accepts the ordered native IR records rather than an
+independent CFG. Each record retains its physical ID and the existing
+=ProducerAdmission.Production= representation. The existing terminal catalogue
+derives terminal codes; RHS base-symbol erasure projects marked operands without
+turning their AST/layout/precedence metadata into grammar symbols.
+
+=prepare= checks dense physical IDs, the singleton augmented root, absence of
+the augmented owner in ordinary rows, reference coverage against ordinary
+rows, terminal-code availability, root identity and complete origin-recipe
+admission. The augmented row cannot satisfy an otherwise unresolved reference.
+The recipe checker consumes both complete lists, so unmatched rows or recipes
+cannot disappear through zip truncation. =nonempty= derives the CFG domain from
+the checked head; =project_index= and =id_index= preserve every physical row
+position, including duplicate CFG rows. =operand_exact= proves that no admitted
+terminal uses the default code and every nonterminal has a body owner.
+
+The context is built from this projection and its derived nonempty proof.
+=consumer_success= identifies the actual source-admitted LeanPoo invocation;
+=complete= transports its exact actions, all-prefix physical readiness and
+returned trajectory membership. =origins= and =source_derivation= compose the
+same projected ordinary rows with the existing arbitrary-word lowering theorem.
+This is source-language soundness, not a new completeness proof for every
+source DSL publication or an AST/precedence semantics theorem.
+
+The existing real =lower-rules= witness writer now publishes 18 full-record
+inputs alongside the original recipes. Their checked expectations come from
+=validate-production-semantics=: 14 admit and four reject. Three failures have
+unresolved ordinary/root references; another has a malformed layout terminal
+whose raw payload is not a valid string. Failed base decoding remains a
+forbidden EOF RHS marker, so it cannot be silently assigned a valid text code.
+The 17 decodable fixtures also check the complete projected CFG against the
+previous native grammar data; the malformed raw input has no such projection
+claim. The standard Scheme macro suite regenerates and compares the whole
+artifact, independently of Lean's generic input proofs.
+
+The preceding native-input qualification ran 301 cases across 14 existing macro-based
+Suite owners in one runtime with four workers. The direct entry passes without
+an external preload expression under the unchanged 90-second total and
+5-second idle limits. The additional owner covers native reduction/operand
+validation; no runtime performance claim follows from its elapsed time.
+
+The bounded =ConstructionGrammar.qnt= protocol supplies nine directed controls
+and 1,000 histories of 20 transitions. It covers ID corruption, unresolved
+references, failed terminal decoding, missing recipes, augmentation errors and
+duplicate-row identity. Recipe cardinality there is a protocol check; arbitrary
+recipe semantics are proved by Lean's existing =Names= checker.
+
+Canonical semantic metadata validation and whole-request language/AST
+correspondence remain separate obligations. The raw encoding contract below
+closes the reader-content-to-normalized-record step; host reader and primitive
+implementation correctness do not follow from generated fixtures.
+
+* Reader names and text encoding
+
+[[file:../../../formal/ParserEngine/ConstructionEncoding.lean][ConstructionEncoding]] extends the same construction contract to ordered
+reader names, physical production records and raw tagged operands. It does not
+accept an arbitrary encoding function. Nonterminal codes come from checked
+lookup in the producer's ordered name directory; terminal codes come from the
+first-occurrence tagged terminal catalogue of those operands. Duplicate seed
+positions are retained, and lookup selects the first matching identity.
+
+The raw terminal constructors distinguish token names, literal text and both
+layout kinds even when their contents agree. Symbol payloads cannot masquerade
+as literal/layout strings. Empty literal/layout text and unsupported shapes
+reject normalization. A single marked wrapper projects its base operand;
+annotation meaning remains the existing separate semantic admission obligation.
+Strings are compared exactly: no case folding or Unicode normalization occurs.
+
+| Producer obligation | Universal law | Same construction consumer |
+|---------------------+---------------+----------------------------|
+| Checked directory lookup | =lookup_sound= and =lookup_injective= recover the original key from a successful code | Nonterminal and root/augmentation identity |
+| Tagged terminal and symbol encoding | =terminal_roundtrip=, =symbol_roundtrip= and their injectivity laws recover exact original contents and tags | Existing terminal catalogue and normalized record checks |
+| Partial operand/row conversion | =mapM_trace= and =row_roundtrip= preserve length, each position and each admitted base operand | No failed element or duplicate row can disappear |
+| Entire raw table publication | =table_positions= and =factory_positions= relate each original row to the returned CFG at the same physical index | The retained LeanPoo factory, without a second independent CFG |
+| Complete construction | =complete= transports source FIFO execution, all-prefix readiness and final trajectory membership | The same source-admitted construction result |
+
+The raw producer uses the existing =parser-source-data= declaration macro and
+shared renderer, emitting data rather than handwritten Lean proof declarations.
+[[file:../../../formal/ParserEngine/RawGrammarData.lean][RawGrammarData]] contains all 18 real lowering traces.
+[[file:../../../formal/ParserEngine/ConstructionEncodingWitness.lean][ConstructionEncodingWitness]] checks corpus cardinality before pairing entries:
+17 structurally decode to exactly the existing native record fields, and the
+malformed layout payload rejects raw decoding. Three structurally decoded inputs
+still reject reference/root admission at the next boundary. The Unicode trace
+includes non-ASCII owners and tokens, distinct composed/decomposed accents,
+supplementary scalars, quotes, backslashes, line/tab controls, NUL and DEL.
+
+The shared renderer emits Lean string escapes, including two-digit hexadecimal
+control escapes; Scheme's string printer is not a Lean codec. It rejects
+uninterned symbols before publishing any bytes, because equal printed contents
+do not establish Scheme identity for such symbols. The existing declarative
+=scenario= test checks both rejection and an empty owned output port. The
+existing =defparser-check= certificate control regenerates and compares the
+complete raw data artifact. Neither control introduces console output assertions.
+
+The boundary assumes the host reader's scalar strings and interned-symbol
+roundtrip. The proofs concern arbitrary admitted contents, lists and successful
+partial conversions; the 18 source traces separately qualify extraction against
+actual parser code. They do not prove the Scheme reader, compiler, GC, arbitrary
+Scheme execution, AST metadata or source DSL completeness. Gambit is neither
+modified nor built, and no runtime optimization is included.
+
+Encoding qualification builds 196 Lean jobs with standard axioms only. The
+bounded =ConstructionEncoding.qnt= protocol has seven directed controls and
+1,000 histories of 20 transitions; it checks tagged identity, Unicode content,
+duplicate positions and failed lookup/shape admission. Nineteen evidence/layout
+controls pass. These are distinct from the generic correspondence proofs.
+
+The final direct Scheme invocation passes 302 macro-owned cases across 14 owners
+with four workers and natural exit zero in 35.359 seconds, using the unchanged
+90-second total and 5-second idle limits. No external preload expression is
+needed. An earlier local run exposed an outdated compiled reader fixture;
+recompiling that project fixture restored value-declaration extraction and the
+unchanged source-freshness check. The failed run is not counted as acceptance.
+
+* Declarative grammar witness publication
+
+The former Scheme serializers for completion and lowering origins have been
+removed completely, including the optional raw-output branch and all generated
+Lean proof text. Both public data writers use =parser-source-data= and the shared
+=write-parser-source-data= renderer. The command entry only publishes their data;
+it no longer prints its own progress receipt.
+
+[[file:../../../formal/ParserEngine/NativeGrammarData.lean][NativeGrammarData]] contains completion certificates and full lowering origin
+records. [[file:../../../formal/ParserEngine/GrammarWitnessDecoder.lean][GrammarWitnessDecoder]] decodes them with strict tagged schemas and a
+structurally computed input budget. Missing fields, unknown tags, truncated
+recipes and a malformed entry after a valid prefix reject whole-list decoding.
+Its =array_positions= theorem reuses =ConstructionEncoding.mapM_trace=, preserving
+all positions and duplicates without a second traversal proof.
+
+[[file:../../../formal/ParserEngine/NativeFacts.lean][NativeFacts]] is now maintained proof code. It checks successful whole-corpus
+decoding and cardinality before deriving generic nullable/FIRST exactness,
+lowering origin soundness, arbitrary-word source-language soundness and native
+construction admission/projection expectations. The raw encoding witness
+consumes that decoded origin list directly; no parallel numbered input list or
+compatibility serializer remains.
+
+Kernel equality controls against the preserved pre-migration module compare all
+four completion inputs, all 18 source-rule lists, native grammars, recursive
+recipes, physical records, augmentation IDs, helper bindings and expected
+admission/projection results. The separate raw-data module is byte-identical.
+These are migration controls, not a new parser execution theorem.
+
+Qualification builds 198 Lean jobs, passes 302 Scheme cases across 14 owners,
+and passes the focused 68-case source-contract/corpus run including the new
+declarative regression gate. Nineteen evidence/layout controls pass. The gate
+audits both Scheme producer and command source through the existing AST test
+contract, granting neither console nor owned-port serialization capabilities.
+The unchanged 90-second total and 5-second idle watchdogs apply. Host behavior
+remains external; Gambit is neither modified nor built.
+
+* External premises and remaining source boundary
+
+[[file:construction-vocabulary.org][The unified vocabulary audit]] connects raw terminal positions to the same
+retained physical edge semantics and records remaining producer/metadata duties.
+
+The audit separates input-domain obligations from derived parser facts and
+external implementation contracts. A standard-axiom report alone cannot close
+an input obligation; a native fixture alone cannot discharge a universal law.
+
+| Premise class | Status and owner | Required boundary |
+|---------------+------------------+-------------------|
+| Reader contents and native records to CFG | =ConstructionEncoding= proves directory/tag roundtrip; =ConstructionVocabulary= transports catalogue order and ordinals to physical paper targets; =ConstructionGrammar.prepare= derives the nonempty CFG and feeds the same LeanPoo factory | Host reader, scalar extraction, interning and semantic metadata validation remain explicit; no independent caller CFG/nonempty proof. |
+| Supported source schemas and positive capacity | Derived from =prepare= and =extracted_sources= | Unsupported declarations reject admission; arbitrary Scheme is outside the protocol. |
+| Queue validity, plan availability, vector bounds and shared template identity | Derived at every reachable source-order prefix by =ConstructionReadiness=; consumed by LeanPoo | These are parser obligations, not host premises or caller certificates. |
+| Sort behavior, arithmetic, vectors, hash and queue primitives | Explicit ordinary host contracts, including sortedness and permutation | No correctness proof of the host implementation is claimed. |
+| Allocation identity, compiler, GC and nonlocal control effects | External representation and normal-return boundary | No Gambit modification/build or unrestricted Scheme simulation. |
+
+These are universal algorithm-level lifecycle proofs. Ascending callback order
+is now derived from the direct/field recurrence and supplied through LeanPoo's
+selected capability to the complete queue. It is no longer an unproved parser
+enumeration premise. Primitive arithmetic/storage semantics and their
+host/compiler implementation remain external. The following parser-owned
+source obligations are now closed within the supported normal-return effect
+protocol, with their implementation boundary kept explicit:
+
+| Parser-owned obligation | Current evidence | Boundary |
+|--------------------------+------------------+---------------------------------|
+| Initial state | Dedicated decoder, independently generated logical views and heap/index effects, =initial_exact= and =start_exact=; positive capacities are source-derived. | No preconstructed initial registry is read. Normal-form first append is a proved equivalence, not a claim that native initialization calls append or grows. |
+| Complete FIFO action emission | Decoded queue/target instructions, independent fresh installation, =construct_exact=, =construct_replay= and =construct_safe=; LeanPoo retains the generating factory and exact actions. | Abstract intern is a comparison theorem only. Value helpers use their retained algorithm contracts; compiler and primitive host implementation remain external. |
+| Template and closure calls | =intern_step= uses the actual retained producer's computed closure and shared reference; independent producer laws prove their algorithmic meaning. | Actual host call/return evaluation and nonlocal continuation/exception effects are outside the normal-return parser effect protocol. |
+
+These are parser correspondence proofs, not compiler or GC proofs. They close
+the listed initialization/FIFO obligations and do not establish unrestricted
+Scheme execution or every possible parser source program.
+
+The restricted schemas
+identify complete supported Scheme declarations; forwarding native observers
+execute those declarations. They are not a universal Scheme interpreter.
+Concrete heap/vector/hash/queue primitive implementations and compiler lowering
+remain external; the host sorting premise is explicitly sortedness plus
+permutation. Source equality and finite native agreement do not establish
+arbitrary native execution. The construction contract is the integration
+boundary for subsequent work; remaining representation-to-host simulation must
+not be presented as an algorithm theorem. Gambit is neither modified nor built.
+No runtime performance optimization or CPU claim is included.
+
+* Lifecycle qualification
+
+The shared-index, vector-growth and source-extraction integration passes the
+complete Lean build (182 jobs), with standard Lean axioms only and no native
+decision axiom. Thirteen Scheme owners pass 271 macro-owned cases with natural
+exit 0 in 24.317 seconds under the unchanged 90-second total / 5-second idle
+bounds. Literal boundary cases exercise state counts 128, 129, 256, 257, 512 and
+513, checking physical capacities, every expansion's copy count and retained
+references. Native template controls compare all indexed symbol keys with an
+independent full-closure group reference and verify ordered-row/index identity.
+The full Quint command passes; the construction lifecycle has thirteen directed
+controls and 1,000 bounded 40-step histories, including a lost growth prefix and
+a missing shared-index row. Nineteen evidence/layout controls pass. Cold reader
+freshness succeeds; extracted witnesses with a wrong plan-copy source or shared
+lookup key are rejected with exit 70. The universal decoder laws separately
+reject any changed growth or template declaration. No performance improvement
+or general Scheme/compiler correctness claim is inferred from these results.
+
+
+The preceding physical-plan and persistent-scratch integration passed the complete Lean
+build (179 jobs), with standard Lean axioms only. Thirteen Scheme owners pass
+270 macro-owned cases with natural exit 0 in 25.266 seconds under the unchanged
+90-second total / 5-second idle limits. The native observer checks 128 plan
+copies when the 130-state control expands its initial vector, preserving every
+shared template reference. It exercises both actual preceding firsts and poisoned
+stale firsts with the same mask/first vectors. The construction QNT has eleven
+directed controls and 1,000 bounded 40-step histories, including invalid plan
+references and overwritten template objects. Cold reader source freshness passes;
+temporary extracted witnesses with a wrong plan projection or mask cleanup value
+are each rejected with exit 70. These qualify the representation boundary; they
+are neither compiler-correctness nor CPU-performance evidence.
+
+
+The preceding retained-template integration passed the complete Lean build (178 jobs),
+including explicit axiom reports for cache installation, retained entries,
+plan/template agreement, coverage and complete-machine equality. Only the
+standard Lean axioms occur; source-schema equality requires no axioms.
+The 13-owner Scheme qualification passes 269 macro-owned cases with natural exit
+0 in 53.866 seconds under the unchanged 90-second total / 5-second idle bounds.
+A focused repeat of the changed owner also verifies one zero-prediction template
+across 130 installed states and physical vector growth. Nineteen evidence/layout
+controls pass. The full Quint command passes; the construction lifecycle has nine
+directed controls and 1,000 bounded 40-step histories, including missing-template
+and wrong-cache-key rejection. A cold source-reader freshness check succeeds;
+a temporary extracted witness replacing the aggregate lookup key with the kernel
+key is rejected with exit 70. These are correctness receipts, not CPU evidence.
+
+
+[[file:../../../t/fixtures/construction-lifecycle.ss][The forwarding observer]] evaluates the unchanged complete builder. It
+records actual enqueue/dequeue and publication IDs, compares sparse groups
+against an independent full-closure traversal, poisons first slots before reuse,
+checks masks after return and checks immutable shared templates. It now also
+observes actual plan writes and expansion copies, compares pair kernels and
+template object identity at dequeue, checks that scratch vectors are distinct
+from template vectors, and verifies their identity across calls. A second route
+retains actual firsts between calls instead of poisoning them. It also counts
+actual materializer calls and closure requests, reconstructs each request's
+aggregate key from the prediction catalog, and checks template object identity.
+The recursive control creates four states using two templates and four closure
+requests. Repeating it with another vocabulary starts a fresh builder/cache. The existing
+parser-test macro owns these assertions in the construction test owner. Cases
+include cycles, empty predictions, missing symbols, duplicate production IDs and
+whole-builder execution across the initial 128-slot vector boundary.
+
+[[file:../../../formal/quint/ConstructionLifecycle.qnt][ConstructionLifecycle]] checks dequeue, grouping, cleanup and publication
+as one bounded protocol. Negative controls reject missing cleanup, duplicate
+queue entries and reversed groups. Lean supplies arbitrary-grammar proofs;
+Quint does not certify unbounded execution or native speed.
+
+The integrated package builds 148 Lean jobs with the new declarations in the
+axiom audit. Thirteen Scheme owners complete 264 cases in 23.7 seconds with
+natural exit zero under unchanged 90-second total and five-second idle budgets.
+All 19 evidence/layout controls pass. The complete Quint command passes;
+ConstructionLifecycle contributes seven directed controls and 1,000 forty-step
+histories. Source freshness succeeds in an overlay without compiled fixture
+products, and a changed extracted declaration is rejected with exit 70.
+Current parent =9a7cd0d= has all enabled CI checks successful, including both
+platforms' semantics lanes; this is distinct from CI for the next pushed commit.
+
+[[file:../../../t/fixtures/bit-traversal.ss][The traversal observer]] executes the complete source procedure with
+forwarding arithmetic primitives. Classification/count inputs force fixnum,
+direct and field routes; the native route retains actual host classification.
+The existing macro-based construction owner compares all callback indices to
+an independent linear bit scan at widths 1, 2, 5 and the actual SDK width.
+It checks callback-before-clear order, empty masks, aligned and unaligned starts,
+empty fields, partial tails, large gaps, nesting and callback failure.
+[[file:../../../formal/quint/BitTraversal.qnt][The bounded traversal model]] checks the same callback/clear/field schedule and
+rejects missing-clear and missing-offset mutations. These controls are separate
+from the universal Lean proofs and establish no CPU speedup.
+
+* Ordered-traversal qualification
+
+The complete package builds 176 Lean jobs. The existing thirteen Scheme owners
+complete 268 cases in 20.9 seconds with natural exit zero under the unchanged
+90-second total and five-second idle limits. The source-value reader and SDK
+width cases are part of that final run. All 19 evidence/layout controls pass.
+The complete Quint command passes; BitTraversal adds five directed controls
+and 1,000 forty-step histories. The source freshness check also passes in an
+overlay without compiled reader/recorder products. Offset and width-expression
+mutations in temporary extracted witnesses are each rejected with exit 70.
+These are model/source/conformance receipts, not parser CPU measurements.
+
+* Prior qualification at 9a7cd0d
+
+The complete Lean package builds 142 jobs with the new declarations included
+in the axiom audit. Thirteen Scheme owners complete 262 cases with natural
+exit zero in 19.5 seconds under the unchanged 90-second total and five-second
+idle budgets. The additional macro-based control crosses 128 physical cores
+and retains duplicate empty productions. All 19 evidence/layout controls pass.
+The source witness freshness check succeeds; changing the sparse-group
+procedure name in a temporary extracted witness is rejected with exit 70.
+These controls qualify the source connection separately from the universal
+mathematical statements and establish no CPU performance result.
+
+The preceding CI run =39018836652= failed both source-freshness steps
+because the reader fixture imports =prediction-witness= by package identity
+without a prepared loadable product. The reader now imports the adjacent source
+explicitly. A separate load-path overlay excluding both fixture products passes
+the unchanged generator check; the old package import in that same overlay fails
+with the original missing-module error and exit 70. This fixes the direct-source
+dependency, rather than changing timeouts, retries or SDK behavior. Remote
+acceptance of the new commit is a separate result.

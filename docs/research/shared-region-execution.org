@@ -1,0 +1,446 @@
+#+title: Region execution and sequence ownership
+#+startup: overview
+
+Part of [[file:shared-scanner-staging-and-fusion.org][the shared scanner study]].
+Historical revisions, failed experiments and receipt limits retain their original scope.
+
+* Shared region opener indexing and Gerbil source review
+
+** Fixed SDK implementation evidence
+
+This review used the source shipped with Gerbil 0.19, revision =2591dcd=,
+patch =f5cedd8168cb=. Paths below are relative to that SDK's source tree:
+
+| Source | Mechanism | Consequence for this engine |
+|--------+-----------+----------------------------|
+| =std/text/parser/ll1.ss=, =ll1-case= | Prepares peek predicates outside the reader lambda | Prepare declaration indexes once; keep input inspection request-local |
+| =std/list/list-builder.ss=, =with-list-builder= | Expands collector calls directly into owned list mutation | Use the existing macro when producing lists; do not add a second collector framework |
+| =std/text/parser/ebnf/deflexer.ss= and =defparser.ss= | Validate syntax and generate bindings with source information | Keep grammar admission and generated execution separate; preserve hygienic identifiers and error locations |
+| =gerbil/compiler/optimize-call.ss= | Specializes calls using known procedure types and checked primitive information | Do not replace proven call specialization with blanket unsafe declarations |
+| =gerbil/runtime/util.ss=, =foldl1= | Implements a generic callback-driven tail loop | The engine's repeated callback construction and full declaration walk are the problem, not the generic fold itself |
+| =gerbil/runtime/hash.ss= | Provides specialized tables and checked method boundaries | Reuse an eqv table for Unicode codepoints rather than invent another hash implementation |
+
+The LL1 implementation is a source-quality reference, not a replacement for
+contextual or LR grammar semantics. Its list peeker still prepares nested
+predicates during probing; using a standard library abstraction alone does not
+prove allocation or latency improvements. The list builder's mutable chain
+belongs to one execution; moving it into shared language state would violate
+request ownership.
+
+The binding-time argument in [[https://www.cl.cam.ac.uk/~jdy22/papers/a-typed-algebraic-approach-to-parsing.pdf][A Typed, Algebraic Approach to Parsing]]
+(PLDI 2019, Section 6.1) distinguishes static grammar facts from a dynamic
+stream. That supports the preparation boundary here. Its benchmark computes
+counts instead of constructing AST nodes, so its speed ratios cannot be
+transferred to this engine's complete lossless artifact contract.
+
+** Implemented representation and preserved semantics
+
+The shared =RegionPlan= now prepares opener buckets by first codepoint: a
+128-entry vector for ASCII and an eqv hash table for other codepoints. Buckets
+refer to the same owned declaration rows used by scoped caches, and preserve
+declaration order. The public specification view remains a deep copy. Every
+probe retains scope filtering and longest-prefix selection. No language
+declaration, loader schema, C ABI or compiler selection changes.
+
+Previously, each input position built a capturing callback and walked all P
+opener declarations. The generated Scheme for the frozen reference contains
+that lambda passed to =foldl__0=. The new named loop walks only its selected
+bucket. For T inactive input positions, candidate lookup no longer grows with
+P. This is not a trie: a bucket with P colliding first codepoints still requires
+a P-row prefix walk, plus the existing allowed-prefix membership checks.
+
+** Native control on base f471694
+
+An initial decomposition of the large fixture found 2,550 words and 6,950 raw
+tokens. Word-result construction allocated 15,266,128 bytes at CPU P50
+7.809 ms (10 allocation samples of 11); source-frame preparation allocated
+532,912 bytes at 0.205 ms (11 of 11). These isolated subproducts are not
+additive full-request costs. They directed attention toward word recognition
+rather than a source-frame ownership redesign.
+
+The region control kept the input fixed at 512 inactive characters and varied
+opener declarations. Preparation and endpoint checks were outside timing.
+Each row reports 11 CPU samples and 11 no-GC allocation samples:
+
+| Openers | Reference CPU P50 ms, A / B | Indexed CPU P50 ms, A / B | Reference allocation bytes | Indexed allocation bytes |
+|---------+----------------------------+--------------------------+----------------------------+--------------------------|
+| 1 | 0.041 / 0.040 | 0.032 / 0.032 | 41168 | 208 |
+| 8 | 0.074 / 0.171 | 0.031 / 0.032 | 41168 | 208 |
+| 64 | 0.315 / 0.316 | 0.032 / 0.032 | 41168 | 208 |
+| 256 | 1.992 / 1.157 | 0.031 / 0.032 | 41168 | 208 |
+
+The complete recognition control used the same current prepared scanner on
+both sides and frozen versus indexed region/word producers. Source-bound
+artifact validation was inside both measured requests. Consequently this
+control isolates recognition lowering; a scanner-side benefit common to both
+variants is not attributed to the change in this table.
+
+| ABBA variant | Complete CPU P50 ms | Allocation P50 bytes | Allocation samples / CPU samples |
+|--------------+---------------------+----------------------+---------------------------------|
+| Reference A | 26.147 | 36814992 | 8 / 11 |
+| Indexed A | 23.315 | 35939792 | 9 / 11 |
+| Indexed B | 24.941 | 35939792 | 9 / 11 |
+| Reference B | 40.933 | 36814992 | 9 / 11 |
+
+The stable allocation reduction is 875,200 bytes, approximately 2.38%.
+Reference CPU varies substantially across blocks; this does not establish a
+stable complete-entry speedup or close the Tree-sitter performance gap.
+Short, here-document, compound, large, malformed, Unicode and empty inputs
+passed complete-product equality. The native control exited 0 in 27.548 s
+with =REGION-PREFIX-CONTROL-OK=. Seven focused modules passed 92 cases in
+14.080 s. New cases cover overlapping opener order, restricted and empty
+scopes, Unicode indexes, ownership and invalid offsets; existing cases cover
+deep nesting and separate quote/pair cache identities.
+
+** Rejected experiments and limits
+
+An ASCII class-table experiment passed semantic tests but did not reduce
+complete allocation; CPU controls were mixed. It was reverted. Its controller
+also failed the idle guard after returning from main, so that run is excluded
+from successful native qualification. The retained region controller exits
+explicitly only after completing its assertions.
+
+One exploratory GCC compile exceeded the idle guard during optimization
+diagnostics. The unchanged source and SDK compiled on a retry. This does not
+identify the precise optimizer stall or justify changing the compiler. All
+experiments retained the 120-second total and 5-second idle guards. Temporary
+frozen-reference modules and experiment controllers are not production code.
+
+Remaining algorithm work is active-bucket prefix discrimination and reducing
+word-result intermediate construction. Both require matched complete-product
+controls, including negative results; the inactive-input scaling result does
+not by itself justify either transformation.
+
+** Qualification after integrating the latest PR changes
+
+The final integration base was =f750b961e6db7fda910edbc2e2d191b82ce75e72=.
+The shared runtime build completed in 22.930 s, and the updated stage
+diagnostic compiled in 10.586 s, both with exit 0. Eight focused modules
+passed 157 cases in 11.801 s with =TEST-SUITE-OK modules=8=, =OK= and exit 0.
+This includes the newly integrated EventFold and P95 contracts; it is a local
+qualification receipt, not a remote CI result or a new performance table.
+
+An earlier compile attempted the fold runtime before rebuilding the newly
+exported =fold-source-lines= interface and failed with an unbound identifier.
+An earlier integration test loaded the old stage diagnostic and failed at
+=cdr= of the missing =cpu-p95-ms= association. Rebuilding the changed modules
+in dependency order resolved both stale-artifact failures. Those failed
+rounds are excluded; neither production contracts nor watchdogs were relaxed.
+
+* Rejected dense region-prefix lowering
+
+** Algorithm and source review
+
+This experiment used base =9c4b7635238eeb9f1fc8c8236a345b055589ddea=, the
+fixed Gerbil/GCC SDK and unchanged 120-second total / 5-second idle guards.
+It investigated the remaining linear walk within a first-codepoint bucket.
+The engine's =make-bounded-literal-end-scanner= already follows a character
+trie. The experiment adapted that representation to terminals containing the
+original owned region rows, preserving cache identity and scope filtering.
+
+The first candidate used a trie for every nonempty bucket. A later candidate
+kept buckets of at most eight declarations as lists and compiled larger ones
+into tries. The final candidate additionally sorted short buckets by descending
+opener length, allowing the first admitted match to commit immediately.
+A unique-prefix admission rule ensures that two different terminals of the
+same width cannot both match the same source position. A rejected terminal
+cannot stop traversal: a longer descendant might still be admitted.
+
+Trie preparation uses memory proportional to its distinct prefix nodes.
+Lookup follows the source prefix with expected constant-time hash edge access;
+scope membership remains a list search at terminals. This improves dense
+first-codepoint collision scaling, but adds representation discrimination and
+edge lookups to small catalogs. It does not remove word captures, intermediate
+recognition nodes or final token publication.
+
+This distinction agrees with the materialized-token cost discussed in
+[[https://arxiv.org/html/2304.05276][flap: A Deterministic Parser with Fused Lexing]], Sections 2.2 and 2.8.
+This experiment is static prefix lookup specialization, not lexer/parser
+fusion, and does not establish the paper's deterministic grammar assumptions
+for this engine.
+
+** Matched native control
+
+The control froze the original region/part/word producers and shared the same
+current scanner and result plan on both sides. It tested full artifact equality
+against the public parser and performed source-bound artifact admission inside
+each timed complete request. Preparation and post-measurement equality were
+outside timing. Natural GC was retained; allocation deltas were admitted only
+for intervals with no GC. No overlapping local build or test was running.
+
+The collision workload used 512 =a= characters and declarations of the form
+=a<number>{=. Each sample performed twenty complete region-end scans. Every
+lookup shares the first codepoint but fails its continuation. The final
+width-ordered bounded-list/trie candidate produced the following 11-sample
+ABBA medians (all eleven allocation samples were admitted):
+
+| Declarations | Reference CPU P50 ms, A / B | Candidate CPU P50 ms, A / B | Allocation P50 bytes, both |
+|--------------+----------------------------+---------------------------+---------------------------|
+| 1 | 0.690 / 0.717 | 0.720 / 0.722 | 272 |
+| 8 | 1.342 / 1.501 | 1.351 / 1.352 | 272 |
+| 64 | 7.625 / 6.331 | 1.087 / 1.073 | 272 |
+| 256 | 23.190 / 23.048 | 1.074 / 1.077 | 272 |
+
+These are repeated region lookup costs, not public parser speed ratios.
+The constant allocation includes the measurement call boundary.
+
+The final complete-request control used 31 CPU samples per block to resolve
+variance in earlier eleven-sample controls:
+
+| Variant | CPU P50 ms | Allocation P50 bytes | Allocation samples / CPU samples |
+|---------+------------+----------------------+---------------------------------|
+| Reference A | 22.027 | 35939856 | 23 / 31 |
+| Candidate A | 21.971 | 35940496 | 23 / 31 |
+| Candidate B | 25.720 | 35940496 | 24 / 31 |
+| Reference B | 21.842 | 35940496 | 23 / 31 |
+
+Allocation did not decrease. Candidate B was approximately 17.8% slower than
+Reference B; Candidate A was approximately level with Reference A. This
+cannot prove a universal regression, but it fails to establish a reliable
+complete-request benefit without a regression. The production implementation
+was therefore restored to the prepared first-codepoint buckets. Neither the
+trie nor width ordering was promoted. The collision speed ratio is not used
+to claim progress on the complete Tree-sitter gap.
+
+The final native controller completed in 13.242 s with exit 0 and
+=REGION-TRIE-CONTROL-OK=. Short, here-document, compound, large, malformed,
+Unicode and empty inputs passed complete-product parity. The final candidate
+semantic run passed seven modules and 96 cases in 12.905 s, with
+=TEST-SUITE-OK modules=7=, =OK= and exit 0. Temporary frozen modules and the
+private experiment controller were removed after recording these results.
+
+** Retained contract tests and excluded attempts
+
+The added tests cover sparse and dense catalogs through the existing public
+API, shorter admitted terminals beneath longer forbidden ones, unrestricted
+queries after scoped cache publication, truncated openers, and Unicode edges
+under both ASCII and Unicode first codepoints. A direct query intentionally
+selects its unrestricted longest opener rather than reusing the scoped shorter
+row. An initial test expected the scoped endpoint for that direct query; it
+was corrected to the actual public contract, not by changing the engine.
+
+Early private controller builds used an incorrect import operand order, a
+keyword instead of an identifier prefix, a nonexistent optional library path
+and a malformed optional-argument definition. Gerbil's shipped
+=gerbil/core/module-sugar.ss= defines =prefix-in= as a module followed by an
+identifier prefix, and validates =rename-in= identifiers. Those failed builds
+are excluded. An initial native run printed its final assertion receipt but
+hit the idle guard during normal exit cleanup; it is not a successful
+qualification. Subsequent controllers used the existing disposable test-child
+exit interface only after every assertion and flushed receipt. Guards were
+not relaxed and assertion failures were not bypassed.
+
+The next substantial target remains word-result intermediate construction.
+The prior decomposition attributed approximately 15.3 MB to word products
+and only 0.53 MB to source-frame preparation on the large fixture. Prefix
+lookup is not sufficient to remove that representation cost. Future producer
+lowering must preserve the complete artifact, owned source boundaries and
+negative-input behavior and demonstrate admitted allocation improvement.
+
+After restoring the default engine, its native region module rebuilt in
+5.547 s. The retained tests passed seven modules and 96 cases in 12.244 s
+with =TEST-SUITE-OK modules=7=, =OK= and exit 0. This final receipt qualifies
+the restored implementation plus new contracts, not the rejected candidate.
+
+
+* Sequence continuation reuse rejected after latest-PR integration (2026-10-10)
+
+** Mechanism and source grounding
+
+The experiment targeted the shared =recognition-sequence-for-each= engine,
+not a Bash-specific scanner. Existing immutable right subtrees replaced
+per-branch =(vector right delta moved?)= frames. A private scope record saved
+parent relocation state only when a position view contained another branch or
+view. Leaf-only views visited their list directly. The pending-list tail
+identity delimited a scope; restoring it also restored the moved flag, even
+when nested deltas cancelled to zero. Shared subtrees remained immutable and
+visitor exceptions propagated immediately.
+
+[[https://www.brics.dk/RS/01/23/BRICS-RS-01-23.pdf][Danvy and Nielsen, Defunctionalization at Work]], Section 2.1, motivates
+using the original tree as the representation of deferred traversal work.
+This experiment applied that representation idea to offset-aware sequences;
+it does not establish a formal refinement theorem. The existing Gerbil
+=std/list/list-builder.ss= collector and standard =for-each= remained in use.
+Two explicit leaf-loop rewrites produced no additional admitted native
+allocation reduction. A local macro expanding the resume logic also produced
+no allocation reduction and higher CPU samples; all three were discarded.
+
+** Artifact admission and experimental controls
+
+The fixed Gerbil SDK revision was =2591dcd=, with GCC and a 3 GiB heap.
+The 120-second total and five-second idle guards were unchanged. SDK
+=gerbil/runtime/loader.ss=, =__find-library-module=, selects the last
+contiguous numbered object version before falling back to source. Merely
+replacing an older object does not select it when later versions remain.
+Two initial ambiguous runs therefore loaded the candidate on both sides and
+are excluded. Subsequent fresh processes asserted the actual loaded object
+basename. Only the owned runtime module artifacts changed between variants.
+
+The private Scheme controller measured 11 samples for each 10,000-child
+synthetic workload and 31 complete-request samples. Allocation admission
+excluded GC-crossing intervals through =admit-parser-allocation=. Complete
+request timing included public =parse-bash= and an additional
+=parse-artifact-valid-for-source?= check. Full serialized product equality
+was checked outside timing for four fixtures plus empty, malformed and
+Unicode inputs. No forced GC or simultaneous local builds were used during
+timed blocks. The controller and artifact snapshots are not repository
+interfaces and were removed from the change set.
+
+** Pre-integration ABBA results
+
+Reference A, candidate A, candidate B and reference B used the same clients
+and control source. Candidate A and B were separately compiled objects of
+the same retained plain scope algorithm. CPU values are medians in ms;
+allocation values are admitted medians in bytes.
+
+| Workload | Reference A CPU | Candidate A CPU | Candidate B CPU | Reference B CPU | Reference allocation | Candidate allocation |
+|----------+-----------------+-----------------+-----------------+-----------------+----------------------+----------------------|
+| Unmoved | 0.305 | 0.298 | 0.301 | 0.307 | 1600288 | 960352 |
+| Root view | 0.564 | 0.645 | 0.644 | 0.568 | 2880224 | 2240384 |
+| Leaf views | 0.625 | 0.618 | 0.650 | 0.628 | 2880224 | 2240288 |
+| Complete request | 32.586 | 27.642 | 24.563 | 23.794 | 40345864 | 39965064 |
+
+Complete-request admitted counts were 22, 23, 23 and 23 of 31. The root-view
+workload admitted 10 of 11 in every block; the other synthetic workloads
+admitted all 11. Allocation reductions were reproducible, but whole-request
+CPU drift prevents a speedup claim. Root-view CPU regressed in both candidate
+blocks. The macro alternative preserved these allocation values but measured
+0.832 ms unmoved, 1.312 ms root-view and 34.345 ms complete-request CPU in
+its single block, so it was not retained.
+
+** Latest-PR integration changes the decision
+
+The PR concurrently added bounded direct materialization in revision
+=bb445e33ad1e796140b0c9ef84eb616fd533f746=. The reference was rebuilt with
+that implementation, then the scope experiment was rebuilt on top of it.
+Both fresh processes asserted their loaded artifacts and passed the same
+complete-product proofs.
+
+| Workload | Latest reference CPU ms | Integrated candidate CPU ms | Latest reference bytes | Integrated candidate bytes |
+|----------+-------------------------+-----------------------------+------------------------+----------------------------|
+| Unmoved | 0.307 | 0.317 | 1593120 | 957280 |
+| Root view | 0.584 | 0.643 | 2880224 | 2240384 |
+| Leaf views | 0.642 | 0.649 | 2876128 | 2240288 |
+| Complete request | 23.673 | 24.125 | 39607464 | 39608104 |
+
+Complete-request allocation admitted 23 of 31 samples on each side. The
+synthetic admission counts remained 11, 10 and 11. Direct materialization
+already bypassed the branch frames on the significant complete-request path.
+The integrated experiment added 640 complete-request bytes, and its root-view
+CPU increased about 10 percent. Component allocation savings alone therefore
+do not qualify this implementation. The scope algorithm was removed; the
+latest PR's existing runtime implementation remains the production choice.
+These results neither establish a portable CPU regression nor a Tree-sitter
+performance comparison.
+
+** Retained contracts and next cost boundary
+
+Three public semantic cases remain: independent sibling offsets and zero-net
+nested relocation, an independent recursive oracle for shared nested views,
+and immediate propagation of a visitor's condition before later branches.
+They complement existing deep traversal and alias-preservation coverage.
+The candidate passed eight modules and 129 cases before integration; final
+qualification below applies to the restored latest-PR implementation.
+
+The next producer experiment must reduce word-result intermediates that
+survive direct materialization, rather than repeat an optimization of bypassed
+branch frames. Existing complete-product equality, owned source boundaries,
+negative inputs and admitted allocation remain the acceptance boundary.
+
+Final restored qualification completed in 12.807 seconds with eight modules,
+130 cases, =TEST-SUITE-OK modules=8=, =OK= and exit 0. The restored native
+runtime rebuilt in 11.264 seconds. Final integration also includes revision
+=b9e1e506221d198f1202af7567373de8aab336a5=; this change adds no runtime
+optimization on top of that revision.
+
+
+* Request-owned region counters instead of replacement frames
+
+The pinned Gerbil SDK revision =2591dcd=, =src/std/struct/queue.ss=, updates
+queue links and length under an imperative ownership contract. Its
+=queue->list= explicitly copies the externally returned spine. The transferable
+mechanism is ownership-directed mutation, not blanket unchecked access. The
+current parser design documents likewise require explicit source and execution
+ownership. This change uses ordinary checked vector operations.
+
+The region matcher previously rebuilt a pair-frame vector and its top stack
+cell whenever a bare delimiter increased or decreased the active pair depth.
+These are counter transitions within one region, not new independently
+addressable region entries. The matcher now changes only the depth slot in the
+active frame. Named nested openers and quote entries still allocate their own
+frames. Prepared declaration rows remain immutable.
+
+All callers create initial frames for one invocation. Frames never escape the
+match, and completed boundary caches retain numeric endpoints, not frames.
+A failed match abandons its local frames. Independent scans sharing a plan
+therefore share no mutable depth. This does not grant concurrent-write authority
+to one shared source cache. Regression tests exercise deep counter nesting with
+other pair kinds and quotes, repeat calls, independent source caches, four
+concurrent scans of the same plan, failure followed by reuse, and existing
+5,000-frame cache endpoint checks.
+
+** Matched native control
+
+The independent grammar declares =@{ ... }=, with ordinary braces contributing
+to its counter. The control has three workloads: 4,096 bare nested braces with
+a Unicode payload, a flat region, and 512 explicitly named nested regions.
+Plan and source construction occur outside timing. Each of eleven samples
+runs ten native matches and checks the summed endpoint. The same interpreted
+orchestrator invokes native kernels in every block.
+
+The GCC-backed SDK, 3 GiB heap, 120-second total guard and five-second silence
+guard remain fixed. Processes verify actual loaded artifacts: reference
+=region-scanner~0.o6= and candidate =region-scanner~0.o7=. Complete owned
+artifact snapshots retain contiguous loader suffixes; other clients remain
+unchanged. The sequence is reference A, candidate A, candidate B, reference B.
+
+| Workload | Reference A CPU ms | Candidate A | Candidate B | Reference B |
+|----------+--------------------+-------------+-------------+-------------|
+| Counter depth, ten calls | 3.106 | 2.624 | 2.606 | 2.996 |
+| Flat, ten calls | 0.005 | 0.005 | 0.003 | 0.003 |
+| Distinct frames, ten calls | 0.533 | 0.471 | 0.464 | 0.462 |
+
+Counter-depth median allocation decreases from 11,799,296 to 2,816 bytes
+per ten-call sample; admission counts are 10/11 for each reference and 11/11
+for each candidate. This includes identical orchestration overhead. Flat
+allocation remains 2,816 bytes and distinct-frame allocation remains 738,656
+bytes, with 11/11 admitted samples in every block. All four controls return
+=REGION-CONTROL-OK= and exit 0.
+
+An exploratory 100-call control admitted only one of eleven reference
+allocation samples because most crossed GC. Its candidate admitted all eleven.
+The ten-call protocol improves admission for both versions; the sparse
+exploratory allocation receipt is excluded from the table. Guards and allocation
+admission rules were not changed, and no forced collection was added.
+
+The repeatable result is elimination of depth-transition allocation in the
+shared matcher. Counter-depth CPU improves modestly in these micro controls.
+The flat and distinct-frame timings are controls, not claimed improvements.
+There is no complete-request or Tree-sitter comparison in this experiment.
+
+The repository-owned =t/benchmarks/region-depth/benchmark.ss= reproduces these
+three workloads with configurable positive exact sample/iteration counts,
+endpoint validation, per-call CPU/allocation output, and existing GC-aware
+allocation admission. It is a Scheme benchmark, not a frozen alternate engine.
+
+** Integration and cache provenance
+
+The candidate scanner build passed in 14.400 seconds. Integration rebased onto
+=c1237c5=, including staged LR action vectors and semantic leaf classification.
+Changed native dependencies were rebuilt before qualification. Two existing
+local interfaces were stale: the IR interface omitted =event-fold-ir= and the
+program interface omitted =snapshot-fold-data=. The first failing invocation's
+error-prefix watchdog truncated its diagnostic; a caught compiler invocation
+rendered the complete syntax exception as one structured record. Rebuilding
+the producer interfaces before the Scheme generator consumer repaired the
+local artifact graph. Neither source compatibility nor guard relaxation was
+introduced. Failed builds are excluded from successful receipts.
+
+Six source modules passed 75 cases, and the repository benchmark executed two
+samples of two calls per workload, in 18.550 seconds total. The process returned
+=TEST-SUITE-OK modules=6=, =OK=, =REGION-DEPTH-OK= and exit 0. Owners were region
+scanning (15), parts profiles (16), LR stack reductions (3), EventFold source
+generation (4), recognition sequences (8) and Bash parsing (29). Benchmark
+smoke output establishes executability, not a second performance estimate.
+The ABBA micro table remains a control against the earlier =3ba88c7= clients.
+

@@ -1,0 +1,405 @@
+#+title: LR semantic kernel staging
+
+* Cost boundary and implementation owner
+
+This study continues [[file:prepared-lr-action-plans.org][prepared action admission]] and
+[[file:lr-request-cost-boundaries.org][complete request cost attribution]]. The latter identifies recognition as the
+largest measured CPU stage. Compiled language publication is a separate cold
+path. This change targets the shared LR engine, without language declarations,
+request caches or additional author configuration.
+
+[[file:../../src/runtime/reduction-plan.ss][Reduction preparation]] lowers admitted canonical operand actions to private
+procedures. Its finite backend/action generic selects the recognition and
+event kernel factories once when the private backend catalog initializes.
+Grammar preparation reads that closed catalog. Names are lexical constants;
+semantic values, offsets and fragment constructors remain invocation inputs.
+The LR driver owns admission, stack bounds, layout transitions, precedence and
+branch selection. Zero-width reductions return the backend's empty value;
+unary reductions apply their prepared step directly, without an operand loop
+or an identity join. Generated reducers share the engine's expression emitter;
+canonical projection retains an independent interpreter. Canonical IR remains
+inspectable and serializable data.
+
+Deterministic recognition traverses the borrowed stack backwards and prepends
+completed operands. GLR traverses source-order values forwards with its own
+request-local fragment interner. Event preparation occurs when the eligible
+event runtime is selected; its forward append association is preserved.
+Installing generated steps invalidates future selection without changing
+retained checkpoints or their prepared kernels.
+
+* Research transfer and official Scheme patterns
+
+Jones, Gomard and Sestoft's [[https://studwww.itu.dk/people/sestoft/pebook/][Partial Evaluation and Automatic Program Generation]]
+(1993) separates known inputs from later inputs and constructs a residual
+program. Here the known inputs are the admitted backend, action kind and name;
+the later inputs are request values and positions. This is a small explicit
+specialization of the semantic interpreter, rather than a general partial
+evaluator or a parser-generation theorem. Preparation cost and residual calls
+must be measured; specialization alone does not establish a speedup.
+
+The installed Gerbil compiler's =compiler/method.ss= separates =compile-e=
+method selection from the hygienic =with-context= rule. The SDK's
+=std/vector/vector.ss= owns =vector-map/index=. We use the same responsibility
+separation: a finite preparation generic, bounded vector construction, named
+execution algorithms and one hygienic rule for the two forward traversals.
+Higher-order composition binds an admitted action chain once, preserving its
+declaration order; the hot traversal does not use generic dispatch.
+
+* Scheme witness and the two design questions
+
+#+begin_src scheme
+;; Grammar authors declare meaning, not a backend traversal or callback.
+(field outer (alias Renamed (field inner (token word))))
+
+;; Illustration of the private preparation/execution boundary:
+(let ((field (car +recognition-action-factories+))
+      (alias (cdr +recognition-action-factories+)))
+  (let ((apply-inner (field 'inner))
+        (apply-name (alias 'Renamed))
+        (apply-outer (field 'outer)))
+    (lambda (value offset constructor)
+      (apply-outer (apply-name (apply-inner value offset constructor)
+                              offset constructor)
+                   offset constructor))))
+#+end_src
+
+** Question 1: Why is this better for the DSL and its engine?
+
+The declaration remains a structured semantic specification. Macro expansion
+and POO composition produce canonical data; engine admission then selects a
+closed executable operation. Lexical closures exploit Scheme's binding rules
+to stage fixed names without capturing a request. Hygienic syntax shares the
+ordered traversal while preserving its two distinct join operations. The
+benefit comes from these cooperating mechanisms beneath =grammar.ss=,
+=parser.ss= and =parser-test.ss=, rather than S-expression notation alone.
+
+** Question 2: What makes this scientifically testable?
+
+For every admitted chain, the prepared operation equals the canonical action
+interpreter applied in declaration order. The empty chain is identity. An
+induction on chain length preserves values and supplied offsets; a second
+induction on operand count preserves the executor's existing association and
+source order. Neither argument permits moving GLR interners into preparation
+or reversing event joins. This equivalence statement must also specify the
+origin supplied to an empty operand; agreement between two executors alone
+does not establish the source-origin contract.
+
+* Nullable origins across execution owners
+
+An independent expected tree exposed an error in both the original and staged
+LR reducers. An empty alias preceding a token received the enclosing
+production's end offset. The parent then inherited that incorrect start.
+The smallest witness is:
+
+#+begin_src scheme
+(source-file
+ (node SourceFile (seq (node Before (empty)) word (node After (empty)))))
+;; For word spanning [0, 1): Before is [0, 0), After is [1, 1),
+;; and SourceFile is [0, 1). Reusing a prepared runtime must not retain
+;; either boundary from an earlier request.
+#+end_src
+
+For raw operand values v_i and production lookahead L, define b_n = L and
+b_i = start(v_i, b_(i+1)). An empty marked operand i receives b_i; a
+nonempty action computes its own span from its children. This suffix
+recurrence preserves source order without introducing a second empty-value
+representation. The deterministic stack already traverses backwards. Forward
+GLR and event executors build a linear suffix index lazily, only when a
+marked empty input requires it. The independent canonical projection applies
+the same origin contract through its literal action interpreter.
+
+The generated Scheme owner uses static nullability to emit shared suffix
+bindings only for nullable aliased operands. Each needed bound is computed
+once, and nonnullable productions emit no new boundary work. Arithmetic's
+generator calls this engine-owned expression emitter instead of maintaining
+another action interpreter. Rust native reduction traverses operands backwards
+to establish boundaries, then restores source-order groups before flattening.
+
+[[file:../../t/fused-reduction-test.ss][Generated recognition and event controls]] compare a fresh grammar's complete
+artifacts with a manually constructed tree. [[file:../../rust/gerbil-parser-runtime/tests/unit/nullable_boundary.rs][The Rust unit control]] supplies
+the same empty/token/empty production at offsets 0, 17 and 3. These controls
+test source semantics independently of the original implementation; the
+original's incorrect result is a falsifier, not a compatibility requirement.
+
+[[file:../../t/lr-stack-reduction-test.ss][Stack controls]] construct the expected semantic tree independently of both
+LR executors at widths 0, 1, 2, 8 and 32, including nested field/alias chains.
+The GLR, deterministic recognition and event products must equal that oracle.
+Preparation admission, retained backend selection, fragment transfer, layout,
+contextual parsing and language ABI suites cover the surrounding contracts.
+
+[[file:../../t/benchmarks/lr-request-stack/benchmark.ss][The native benchmark]] accepts original runtime procedures as explicit
+experiment inputs. It verifies every complete artifact against the public
+parser, measures preparation plus one complete request separately, and compares
+prepared execution plus publication in alternating CPU pairs. Its language
+matrix is GQL RETURN, FHIRPath addition and Arithmetic addition at 64 and 512
+units. Natural collection and the existing CPU resolution/allocation admission
+rules apply. Prepared-artifact CPU is not whole-source parser CPU, retained
+heap, or a claim about generated Arithmetic execution.
+
+* Qualification boundary
+
+The initial candidate passed 82 cases in ten modules with final =OK= and actual
+exit zero. The LR module's bounded native build exits
+zero in 71.353 seconds; the benchmark module build exits zero in 50.556 seconds.
+These are local observations, separate from exact-revision platform CI.
+
+Earlier compiler attempts failed the existing five-second idle or 120-second
+total gate. The original interpreter control also failed during native macro
+compilation. A static C object was rejected as a dynamic macro module; the
+control must be a loadable SDK module before comparison. Actual compiler GC
+and register-allocation diagnostics expose work; no heartbeat, optimization
+reduction or timeout extension is admitted. Generated diagnostics remain
+unarchived local execution, outside Git documentation.
+
+The first implementation selected a generic method for every operand action.
+Its GQL preparation-plus-request CPU P50 increased from 241.676 to 421.816 ms
+at 64 units. It is rejected. The corrected owner selects two factories once,
+then traverses admitted actions with closed construction procedures. The
+later catalog correction below moves these fixed choices out of grammar
+preparation entirely. This negative result explains why a preparation boundary alone is insufficient:
+the frequency and lifetime of selection also matter.
+
+The first combined six-case process exceeded its fixed total budget. Cases
+can be qualified separately through =compare-lr-staged-case=; its default
+200-call alternating batches retain natural GC and complete product admission.
+The whole matrix remains available through =compare-lr-staged-actions=.
+
+The corrected implementation passes 93 source-owned Scheme cases in eleven
+modules with actual exit zero, including independent nullable-origin controls,
+both generated semantic backends, layout restoration and language ABI alignment.
+The optimized Rust unit executable passes 146 cases with actual exit zero.
+Fresh platform builds remain a separate CI gate. A private generated-HCL native
+build failed its idle gate; incomplete products were isolated before testing.
+The new grammar's generated procedures are evaluated directly by the source
+suite, so this receipt does not assert fresh native compilation of every
+generated language module.
+
+The 64-unit comparisons use twenty samples and twenty alternating pairs of
+100 complete requests. GQL cold CPU P50 is 262.936 ms for the original and
+266.985 ms for the corrected owner; the former 75% regression is absent in
+this observation. Paired request CPU P50 ratios are 0.932 for GQL, 1.031 for
+FHIRPath and 0.988 for Arithmetic. Their P10/P90 intervals span both sides of
+one. FHIRPath cold P50 is 4.033 versus 5.009 ms, an unfavorable observation.
+These mixed results do not admit a stable latency improvement or a
+language-wide performance claim. Allocation medians and non-GC batches cannot
+replace complete-request CPU evidence.
+
+All six language/scale controls subsequently pass complete artifact equality
+and their unchanged process budgets, with 25 requests per batch at 512 units.
+The 100-call GQL 512 process exceeded its total budget; that failed observation
+is retained and is not admitted as a complete comparison. Clippy with warnings
+denied and the two owned Rust files' format check also pass.
+
+Across the six controls, preparation adds about 700 KB even for Arithmetic's
+small grammar. Its 64-unit cold CPU P50 is 0.606 versus 1.150 ms. This rejects
+the per-preparation factory selection as the final lifetime: the four generic
+choices belong to the closed backend catalog's module initialization.
+Grammar preparation subsequently binds only admitted names. Initialization
+cost still exists and is distinct from repeated preparation and request cost;
+this is not a global grammar or request cache. The catalog is private and
+closed, so it has no caller-visible method-registration invalidation contract.
+
+The catalog revision compiles natively with the SDK's existing optimization
+settings and passes the same 93 Scheme cases. Its 64-unit cold preparation
+plus request observations are:
+
+| Family | Original CPU P50 ms | Catalog CPU P50 ms | Original allocation bytes | Catalog allocation bytes |
+|--------+---------------------+--------------------+---------------------------+--------------------------|
+| GQL RETURN | 247.499 | 239.119 | 107079088 | 107107328 |
+| FHIRPath addition | 4.373 | 4.186 | 3135536 | 3140000 |
+| Arithmetic addition | 0.633 | 0.474 | 1047504 | 1048656 |
+
+The grammar-independent 700 KB preparation penalty is absent; remaining
+increments depend on the admitted action plans. This establishes the corrected
+lifetime boundary, not a retained-heap or initialization-cost reduction.
+Twenty pairs of 25 requests produce CPU P50 ratios 0.941, 0.920 and 1.064,
+respectively; all P10/P90 intervals still cross one. Stable request CPU benefit
+remains unproved. The combined six-case process stops at its unchanged total
+gate after these three cases; it is not a passed whole-matrix receipt.
+Large cases use the per-case entry, and CI separately validates the complete
+public request matrix against a freshly built integrated graph.
+
+* Integrated CI control calibration
+
+At revision =842767b=, the fresh Ubuntu build passes the 48-clause complete
+public parser CPU gate: production P50/P90 ratios are 0.7784/0.9265. The
+12-clause, 384-call gate is rejected: production P50/P90 is 0.8606/0.8813,
+but the identical before-control P90 is 1.10996, outside the unchanged 1.10
+stability limit. Its after-control P90 is 1.02133. The production benefit
+alone cannot admit the failed control or the whole CI job.
+
+The rejected control group's paired totals are 251.356/278.994 ms, with
+70.630/95.819 ms GC CPU and three/four collections. The extra collection
+accounts for most of the paired CPU difference. The integrated calibration
+therefore uses 768 calls per short-request batch and 256 per long-request
+batch, keeping twenty eight-leg groups, every measured sample,
+natural GC, identical before/after controls, the 0.90--1.10 stability limits,
+production P90 below 0.95, and the existing 120-second/five-second gates.
+This doubles measured work to reduce the relative size of a collection;
+it does not change parser output, remove failed observations or admit the
+new CI run in advance. The original long-request receipt above remains
+attributed to its 128-call batch.
+
+* Native test procedure ownership
+
+The macOS job at =842767b= stops while compiling the resolved-grammar test
+object: actual compiler output becomes quiet for more than five seconds.
+This is a native compilation failure, separate from parser execution and the
+Ubuntu CPU-control rejection. Additional register-allocation and optimization
+diagnostics also fail the local silence gate and are rejected; diagnostic
+volume does not resolve compilation cost.
+
+The SDK's =std/test/unit.ss= expands each =test-case= into an anonymous
+procedure nested in the suite procedure. Gambit's native host grouping can
+therefore collect a large suite into one compilation unit even with multiple
+hosts enabled. The resolved-grammar suite now owns named top-level case
+procedures and registers them through the SDK's =TestCase= and
+=test-case-add!= operations. Assertions remain in Scheme, and suite discovery
+and its exported identity remain unchanged. No additional test framework,
+compiler optimization exception or process wrapper is introduced.
+
+An independent reader compares all 37 original titles and complete assertion
+bodies with the registered named procedures: every body is structurally
+equal. The source-owned resolved-grammar and test-style suites pass all 43
+cases with actual exit zero. Fresh static Scheme generation also exits zero.
+Fresh static native object compilation completes in 69.64 seconds with actual
+exit zero and no silence-gate violation, retaining the SDK's optimizer and
+existing multiple-host policy. Full platform CI remains a separate admission
+requirement; this single local object cannot qualify the complete build.
+
+* Shared diagnostic module publication
+
+At =ba81c0e=, Ubuntu passes the calibrated CPU gates but the GQL component
+report terminates with signal 139. Its first loader warning identifies the
+undefined =measure-parser-component__0= entry referenced by the previously
+compiled =matched-stages= consumer. This is a generated-interface mismatch,
+not a parser timeout or a failed artifact-equality assertion.
+
+The conformance build already owns the complete shared stage sampler and its
+GQL consumers. A later CI support command unnecessarily recompiles the sampler
+with the bare =gxc= CLI. The SDK's =gxc-main.ss= defaults to =gerbil/base= and
+sets that language before compilation. This differs from the compiler context
+that generated the consumers: the former wraps optional arguments in a local
+procedure, while the latter publishes the fixed-arity =__0= and =__1= entries.
+Overwriting the native producer cannot preserve those earlier references.
+
+Fresh Scheme generation reproduces both shapes. The conformance-context
+sampler defines =__%=, =__0=, =__1= and the public wrapper; the exact bare-CLI
+command defines only the public wrapper with a local optional-argument
+procedure. Both generation processes exit zero, confirming that successful
+compilation alone cannot establish producer/consumer interface agreement.
+
+CI now retains the sampler published by its conformance owner. The additional
+LR benchmark and actor consumers compile against that retained interface.
+There is no ABI adapter or legacy entry. The closed executable, native module
+loads and complete GQL reporting remain distinct exact-head CI requirements.
+
+* Disposable matrix process completion
+
+At =ebb254f=, the complete Ubuntu and Rust CI jobs pass. macOS passes native
+conformance compilation, Scheme tests and both GQL reports. Its shared LR
+matrix emits all six family/scale results and =LR-REQUEST-STACK-OK=, then
+remains alive after the benchmark returns. The supervisor stops it with
+exit 143, =idle-timeout= and no missing marker. This is rejected: a completed
+receipt cannot substitute for successful process completion.
+
+The matrix invocation now uses the same checked =test-child-process-exit!=
+fixture as the existing prepared GQL and native ABI children. It flushes
+receipts and exits only after the matrix returns normally. Assertions and
+exceptions still precede that call, and the parent still requires actual
+exit zero and the complete marker under the original 90-second/five-second
+gates. This belongs to the disposable test invocation; the reusable benchmark
+procedure and parser runtime do not terminate their caller. Independent C and
+Rust lifecycle tests continue to qualify production ownership separately.
+
+A local full repeat using the available staged products exceeds the original
+90-second budget after 233 of 240 measurement rows; it is rejected, and does
+not qualify the fresh integrated graph. A terminal-protocol smoke control
+uses one sample and one request for each of the twelve matrix stages: all six
+complete-artifact controls return, the marker is flushed, and actual exit is
+zero in 57.89 seconds. This admits that process-completion path only. Fresh CI
+retains twenty samples and twenty requests, and must admit the full matrix.
+
+* Complementary CPU observations
+
+At =7f93f63=, Ubuntu rejects the 48-clause control despite production P50/P90
+0.84905/0.88740. Before-control P10 is 0.89421; after-control P10 is 0.89166.
+In before group 14, identical left/right code consumes 394.131/352.436 ms,
+including 142.419/101.369 ms GC CPU and eight/six collections. In after group
+9, the corresponding totals are 437.726/376.318 ms, including
+170.288/103.445 ms GC CPU and eight/six collections. The completed run is
+rejected; preceding admitted revisions cannot qualify this one.
+
+Increasing the nominal batch further would approach the original 120-second
+budget on the slower recorded runner. The shared sampler instead subdivides
+each nominal quantum and places both complementary eight-leg blocks inside
+each observation. Each variant still executes exactly four nominal quanta;
+odd call counts split into floor and remainder, and an indivisible one-call
+quantum retains eight legs. Twenty observations remain disjoint: no
+overlapping windows, repeated admission attempts or sample removal are used.
+
+The pure request planner is tested through work conservation, positive exact
+sub-batches and equal weighted leg-position moments through degree two,
+including odd call counts and both observation orientations. Each timed
+sub-batch still validates its complete expected result and resolves at least
+one millisecond. Receipts record actual sub-batch calls, leg count and requests
+per variant. All GC CPU remains charged; no collection is forced between
+variant switches. Thresholds and total/idle budgets remain unchanged.
+
+This balances temporal exposure and changes natural-collection phase sampling
+without increasing total parser work. It does not prove immunity to arbitrary
+GC or host noise; the complete fresh CI controls must still qualify it.
+
+The final sampler builds with the conformance compiler policy in 36.27 seconds
+and exits zero without a silence violation. Nine source-owned benchmark and
+style cases pass in 36.78 seconds. The execution test performs real complete
+arithmetic requests and independently counts 20,481 calls per variant: one
+warmup plus the declared twenty groups. These receipts establish the planner
+and its consumer's work budget; fresh public TLA+ CPU admission remains separate.
+
+At =e1acd02=, fresh Ubuntu admits both complete public parser cases. Their
+production P50/P90 ratios are 0.83850/0.84736 for 48 clauses and
+0.85803/0.88438 for 12 clauses; both identical before/after controls pass.
+Keyword and identifier lexical controls also pass. The smaller literal-prefix
+control rejects: before P10/P90 is 0.87358/1.14591 and after is
+0.81683/1.14505, despite production P90 0.68653. The whole job is rejected.
+
+Before group 9 executes one million requests per variant. Its CPU totals are
+130.901/104.157 ms; GC CPU is 36.914/10.479 ms with seven/two collections.
+The non-GC totals are nearly equal. This subcase needs more work relative to
+that collection-count imbalance. Its nominal quantum becomes 750,000 calls,
+three times the prior value; keyword and identifier retain 250,000. The
+observed preceding elapsed times, 14.30 and 30.28 seconds, leave headroom
+under the unchanged 120-second limit for this bounded calibration. Twenty
+groups, the complete outputs, every GC interval and both 0.90--1.10 controls
+remain required. The admitted public-parser observations above remain tied
+to their revision and unchanged work budgets.
+
+At =b793f0f=, the 48-clause control passes again, with production P50/P90
+0.85467/0.86281. The 12-clause control rejects: before P10 is 0.89505 and
+after P10/P90 is 0.89117/1.12283; production P90 is 0.93351. Before group
+10 compares 301.930/270.241 ms including 110.742/79.472 ms GC CPU and
+seven/five collections. Its non-GC totals are 191.188/190.769 ms.
+The roughly 32 ms collection-count difference dominates the failed ratio.
+
+The short public case's fixed nominal quantum therefore becomes 1,536 calls.
+The preceding complementary-plan elapsed times are 35.35 and 50.26 seconds;
+doubling work fits the original 120-second budget on those recorded runners.
+This improves the collection-count resolution while retaining twenty groups,
+every natural collection, full artifact validation and the original percentile
+limits. The 48-clause case retains 256 calls, and the literal-prefix calibration
+above remains independently required. No rejected run becomes admitted.
+
+At =6733f32=, the 1,536-call short case exceeds the unchanged 120-second
+budget after both twenty-group before/production series and eight after-control
+groups. All completed identical-control observations remain within 0.90--1.10,
+but the incomplete series cannot qualify either performance or completion.
+The same runner's long case takes 81.35 seconds, compared with the preceding
+41.26-second receipt: elapsed capacity must be checked on the actual runner.
+
+The short case's fixed nominal quantum becomes 1,024 calls, between the
+768-call control-resolution failure and the 1,536-call budget failure.
+Scaling the completed work leaves headroom for all sixty groups under the
+original budget. Fresh CI must independently admit this intermediate quantum;
+neither the partial controls nor the elapsed projection constitute admission.
+No group count, CPU resolution, percentile limit or timeout changes.

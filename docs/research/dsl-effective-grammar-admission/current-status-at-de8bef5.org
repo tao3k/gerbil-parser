@@ -1,0 +1,832 @@
+#+title: Current status at de8bef5
+
+[[file:../dsl-effective-grammar-admission.org][Model and evidence index]]
+
+* Current status at de8bef5
+
+The historical design below motivated work that is partly implemented. Use
+[[file:../dsl-engine-contracts.org::*Current implementation map][the current implementation map]] and the owning implementation sections before
+turning an old proposal into a new task.
+
+- Selected repetition occurrences and finite nullable reference origins are
+  implemented; see [[file:../dsl-source-execution.org::*Implementation: origins and Source continuation closure][origin and continuation closure]].
+- Source/Command suspension and iterative result destruction are implemented in
+  =command_source/execution.rs= and =result_projection.rs=. Their live-frame
+  budget is not a complete byte/work budget.
+- Scheme scanner session reuse and LR fragment transfer have separate admission
+  controls; see [[file:../dsl-lr-transfer.org][the LR transfer contract]]. General Rust Source subtree reuse
+  and full mapped artifact publication remain separate work.
+- [[*Dependency-driven nullable closure (2026-10-09)][Dependency-driven nullable closure]] is implemented in the existing LR owner.
+  Productivity, general target choice proofs and helper/conflict origin
+  serialization remain design obligations.
+
+* Historical study: admission, suspension and reuse
+
+** Historical revision and existing mechanisms
+
+This study inspected =2577253f96b2b5993706c939dbe5088ae0d56a3a=.
+The following observations and proposals describe that revision. Several have
+since been implemented, as recorded above; this section is retained as the
+design rationale rather than the current task list.
+
+| Existing mechanism | Exact owner | Design consequence |
+|--------------------+-------------+--------------------|
+| Effective row owner, composition operation and contribution history | =src/compiler/normalize.ss=, =effective-grammar-row= | Extend expression origins from these selected rows; retain override history without admitting removed declarations |
+| Immutable source state with owner, source, character/byte offsets and context | =src/runtime/source-scanner.ss= | Reuse requires edit mapping and semantic context comparison; a checkpoint API already exists |
+| Command program counter, node frames and repeat/balance tasks | =rust/gerbil-parser-runtime/src/engine/command_program.rs= | Extend the existing VM suspension boundary; do not introduce an independent command interpreter |
+| Synchronous Command/List host calls and depth guard | =rust/gerbil-parser-runtime/src/engine/command_source.rs= | Explicit Command tasks alone do not remove Source recursion |
+| Explicit event traversal, private recursively owned recognition children | =command_source.rs=, =result_projection.rs= | Deep-input qualification must include destruction and error cleanup, not only recognition |
+
+The last observation is a potential lifecycle risk inferred from the recursive
+ownership shape. No stack-overflow reproduction or failure depth is established
+here. =PreparedResultProfile:check_node= checks only the immediate child's
+owner/source/span, so it is not a demonstrated recursive validation bottleneck.
+
+** One effective grammar, several target obligations
+
+The typed algebraic parsing paper's Section 3 defines separate conditions for
+alternative apartness and sequence separability. Its concatenation facts require
+those preconditions; they cannot be copied as universally valid CFG equations.
+Our design inference is to keep common facts separate from a predictive backend's
+proof obligations. A legal LR grammar may fail the predictive proof.
+
+The existing nullable/FIRST analysis remains the common authority. A proposed
+analysis result also records productivity, reference components, declaration
+origins and conservative scanner effects. These are private records computed by
+named engine functions. An unknown effect is explicit, not an empty effect set.
+
+#+begin_example
+Effective declarations + selected origin rows
+  -> common resolved facts
+  -> LR admission: supported constructs, conflicts and policy
+  -> predictive admission: supported constructs + determinism proof
+  -> scanner/Command admission: progress, state and result obligations
+  -> Scheme / Rust emission from the admitted target plan
+#+end_example
+
+A failed predictive proof rejects that requested target with an author-local
+reason; it does not change choice semantics, silently select another backend or
+reject an otherwise valid LR target. Conflict witnesses and proof failures must
+identify the target and relevant expression occurrence.
+
+Productivity is distinct from nullability: =A -> A= has no finite terminal
+word, whereas =A -> A a | b= is productive left recursion. Productivity may be
+computed monotonically with terminals/epsilon productive, choice as any child,
+and sequence as all children, with repeat/optional admitting epsilon. Admission
+must separately reject repeat of a nullable operand. This is a proposed analysis,
+not an additional implemented fixed point. Unreachable rule policy must remain
+explicit; it is not a reason to label every reference cycle invalid.
+
+POO override invalidation follows semantic dependencies. Editing only release
+metadata must not reconstruct LR states; replacing a rule or scanner policy
+invalidates its dependent analysis and target admission. Cached facts must bind
+the effective grammar and policy identity. A semantic digest must include all
+recognition-affecting declarations; a hash alone does not replace equality or
+resolve ownership. No new public schema version follows from this proposal.
+
+** Preserve expression occurrences through transformations
+
+Current implementation: [[file:../lr-conflict-source-origins.org][rejected LR conflict source origins]] implements helper
+occurrence paths and selected POO source evidence without changing canonical
+productions. The following proposal retains its historical transformation scope.
+
+Langcc's Section 2.3 explains delayed intermediate reductions in terms of the
+surrounding continuation. Section 2.4 bounds XLR execution by simultaneous
+branches; unbounded branching loses its stated bound. We infer that helper
+transforms need both origin records and measured conflict witnesses here; adopting
+a numeric branch cap does not prove that our admitted grammar belongs to XLR.
+
+Start from =effective-grammar-row= and assign each expression occurrence an
+internal identity: selected rule, child path, selected contribution and available
+reader coordinates. Equal expressions at two paths remain distinct occurrences.
+Generated repetition helpers point back to that identity and their lowering
+operation. This avoids exposing generated helper names in DSL diagnostics.
+
+The proposed next origin test extends the current owner/operand diagnostic:
+base role -> nullable override -> inherited repeated reference. Require the
+selected override and reference path in the diagnostic; restoring a consuming
+override must produce a fresh admitted plan. Source coordinates unavailable in
+current syntax data remain unknown rather than fabricated.
+
+** Resume Source through the existing Command VM
+
+=execute_initial= currently holds local frames/tasks while =step= calls
+=host.command()= or =host.list()= synchronously. Both Source host methods increment
+=Cursor.depth= and re-enter Source parsing. The architectural change is to retain
+the VM state across these calls and return a typed request to the outer engine.
+
+Proposed private request/result vocabulary:
+
+#+begin_example
+Command execution -> Completed(node) | NeedCompound(field) | NeedList(field, until, allow_empty)
+Outer engine      -> push Source continuation + suspended Command execution
+Source completion -> resume Command execution with exactly one owned result
+Failure           -> unwind all suspended state and pending result ownership
+#+end_example
+
+The actual names and representation remain open. Store program counters, repeat
+progress checkpoints, ordered node frames and the target field in private typed
+records. Command call/node/repeat/balance already have task semantics and should
+retain them. Word/Region need suspension only if their actual call graph also
+re-enters Source; do not turn every leaf operation into a scheduler request.
+
+Source continuations own pipeline/and-or/list assembly and the stop trigger.
+A single request-local cursor owns token position, byte position, pending heredoc
+FIFO and links. Preserve today's deferred-body behavior before considering
+scoped queues. Parent result publication happens once after child completion;
+trivia and significant ranges retain source order. No state is shared mutably
+between independent parses.
+
+The scheduler must account for the entire live request: pending tasks, retained
+frames/captures, deferred markers, consumed input and produced output. Removing
+=256= alone is insufficient. Check actual storage/work limits with structured
+failure; do not add a new user-written host callback or scheduler slot.
+
+Private result storage may require an arena or iterative destruction. Decide
+using a deep lifecycle test before changing the representation. A deep parse that
+succeeds but overflows during artifact release is not a successful migration.
+
+** Incremental reuse needs boundary validation
+
+Wagner and Graham's Sections 4–5 reuse shiftable subtrees while validating their
+right edge against lookahead. A parser-state equality check is sufficient but
+can be overly restrictive. Their sequence bounds also exclude unbounded context
+effects. The design inference is to separate scanner restart checkpoints from
+parser subtree admission, and to test context-sensitive sequences explicitly.
+
+Tree-sitter's scanner contract stores the complete lexical state so edits and
+ambiguities can restore it. The corresponding engine proposal must include
+pending deferred markers and parser-induced context changes, not only the
+scanner's mode. Existing immutable Scheme checkpoints are the starting point.
+
+An edit must map both byte and character offsets and preserve UTF-8 boundaries.
+A candidate retains old source ownership until an explicit mapped result is
+constructed for the new source. Reusing an old =ProjectedNode= directly violates
+its current source-identity contract. Reuse diagnostics should distinguish
+changed content, scanner context mismatch, parser boundary failure and unsupported
+effects. Do not expose those internal states as required language author data.
+
+** Historical implementation gates derived from this study
+
+| Order | Work | Semantic gate |
+|-------+------+---------------|
+| 1 | Extend selected row origins to expression occurrences | Nullable override diagnostic names selected contribution/path; removed declaration cannot own the error |
+| 2 | Suspend existing VM at Command/List requests | Existing Source corpus and exact diagnostics unchanged; mixed nesting exceeds former 256 boundary |
+| 3 | Qualify the whole deep-input lifecycle | Recognition, events, artifact publication/release and failure cleanup all complete without host recursion failure |
+| 4 | Account for request resources | Limit failure releases frames and markers; independent parse still succeeds; semantic gates keep their existing deadlines |
+| 5 | Prototype scanner restart + subtree boundary admission | Full reparse parity for delimiter, quote, heredoc, multibyte and context-changing edits |
+
+Ordinary correctness cases assert deterministic semantic properties and ownership.
+ASP performance cases measure complete calls, allocations, peak live storage and
+work; include both nesting and wide lists. No speedup follows from this design
+alone. Language packs continue using their existing grammar/parser/test interfaces
+and POO value extension points; scheduler and analysis implementation stay inside
+the engine.
+
+
+
+* Paper transfer: syntax contracts and resolved grammar contracts
+
+Reviewed primary sources on 2026-10-09:
+
+- [[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][Culpepper and Felleisen, Fortifying Macros (ICFP 2010)]], sections 3--4:
+  named syntax classes combine patterns, attributes and side conditions with
+  contextual diagnostics. Transfer the separation between declaration structure
+  and semantic obligations. Gerbil =defrules=/=defsyntax= remain our substrate;
+  this is not a claim that Racket syntax classes are implemented in Gerbil.
+- [[https://www.cl.cam.ac.uk/~nk480/parsing.pdf][Krishnaswami and Yallop, A Typed, Algebraic Approach to Parsing (PLDI 2019)]],
+  sections 3 and 6: grammar facts justify a restricted predictive parser, and
+  staging specializes static grammar information. Transfer analysis before
+  execution and separation of static grammar from dynamic input. Their LL(1)
+  restrictions and linear-time theorem do not cover every grammar or backend here.
+
+The repository connection is one contract chain:
+
+| Layer | Existing owner | Evidence or remaining obligation |
+|-------+----------------+----------------------------------|
+| Hygienic vocabulary | =src/language/grammar.ss=, =defgrammar-syntax= | Generated local vocabulary is a =defrules= expansion; no new operation keywords |
+| Declaration admission | =src/language/grammar.ss=, =src/compiler/language-expander.ss= | Check syntax/rules and retain declaration-local diagnostics |
+| Effective composition | =src/compiler/normalize.ss= | Analyze selected rule values and origins after composition |
+| Resolved grammar | =src/compiler/lr.ss= | Existing nullable fixed point and original repetition obligations |
+| Target admission | =src/compiler/recursive-source.ss= and LR compiler | Restricted HCL admission remains explicit; general choice-equivalence proof remains open |
+| Publication cost | =src/ffi/language-artifact-codec.ss= | Complete payload equality remains independent of recognition strategy |
+
+Macro validation cannot establish resolved nullability from declaration shape
+alone. A POO override can change a referenced rule from consuming to empty;
+=t/resolved-grammar-test.ss= tests that effective value and retains source-owner
+diagnostics. Conversely, target restrictions do not justify rejecting productive
+left recursion from an LR-capable grammar. These are distinct admission stages
+within one pipeline, rather than additional author configuration.
+
+Next executable closure is the same call/array package across vocabulary expansion,
+composition, source diagnostics and backend admission. Keep identical fields,
+ranges and rejection expectations. The published sources establish the design
+method; actual controls establish what this implementation supports.
+
+* Staging must preserve one semantic producer
+
+[[https://www.cl.cam.ac.uk/~nk480/parsing.pdf][Krishnaswami and Yallop, section 6]] separates static grammar/environment
+from the dynamic input and specializes an intermediate representation.
+[[https://www.s48.org/essence/][Sperber and Thiemann's Essence]] applies partial evaluation to a general
+LR parser; its author-maintained [[https://github.com/mikesperber/essence][Scheme implementation]] connects the generator
+to the TOPLAS 2000 paper. These sources justify studying specialization of one
+semantic producer, rather than maintaining unrelated parser implementations.
+Our engine has no corresponding general specialization-correctness proof.
+
+The present implementation boundary is concrete:
+
+| Static after descriptor admission | Dynamic for every parse |
+|-----------------------------------+-------------------------|
+| Effective syntax/rules and selected origins | Source bytes and admission outcome |
+| Grammar identity and result catalogs | Source digest, node IDs and byte spans |
+| Syntax-kind, terminal and field indexes | Ordered event traversal and result lifetime |
+| Target strategy and its admission restrictions | Scanner/recognition state and natural GC |
+
+The encoder consumes canonical events using already indexed descriptor symbols.
+Removing a temporary row-index list changes traversal storage, not declaration
+meaning or accepted language. It needs byte-level output controls and measured
+complete calls; it does not require an author-facing allocation option.
+
+#+begin_src scheme
+;; Question 1: Why is this preferable for the author DSL?
+;; Row numbering is private publication state; syntax/rules stay unchanged.
+(let loop ((remaining events) (row 0))
+  (unless (null? remaining)
+    (write-event! language payload row (car remaining))
+    (loop (cdr remaining) (+ row 1))))
+;; Question 2: What justifies this implementation change?
+;; The same ordered events and descriptor indexes must yield identical bytes.
+(check native-fresh-output => canonical-output)
+(check native-session-output => canonical-output)
+;; Allocation and wall/GC receipts qualify different performance claims.
+#+end_src
+
+These are internal-engine expressions and test expectations, not a fourth
+required language interface. Current measurement and FFI lifetime controls are
+owned by [[file:../source-edit-cost-contract.org][the complete Source edit cost contract]]. A Scheme heap object borrowed
+by C cannot be treated as a stable address through an allocating callback.
+This obligation belongs to the transport owner and remains independent of
+macro hygiene, grammar recognition and target admission.
+
+* Dependency-driven nullable closure (2026-10-09)
+
+The selected grammar still flows through the existing =compute-nullable= owner
+in =src/compiler/lr.ss=. This change replaces repeated complete production scans
+with occurrence obligations; it adds no author slots, schemas or backend-specific
+analysis. Resolved repetition diagnostics and their selected POO source map keep
+using this same completed nullable index.
+
+Krishnaswami and Yallop's [[https://www.cl.cam.ac.uk/~nk480/parsing.pdf][A Typed, Algebraic Approach to Parsing]], sections 3, 5.2
+and 6, motivates deriving static grammar facts before parser specialization.
+Their restricted predictive grammar result does not establish a complexity bound
+for our LR parser. The worklist below is our implementation of the existing
+nullable equations, rather than a claimed reproduction of their parser.
+
+** Invariants and work bound
+
+Each terminal-free production owns a private =nullable-clause= containing its
+lhs and unresolved occurrence count. Register one reverse edge for each rhs
+nonterminal occurrence, including duplicates. An empty production publishes its
+lhs immediately. A terminal anywhere in a production blocks that entire clause;
+it cannot become nullable through its prefix. Marked operands are unwrapped by
+the existing =base-symbol= operation.
+
+After all clauses are registered, drain newly published names. Each name is
+published at most once. Each reverse edge decrements its clause once; reaching
+zero publishes its lhs. Multiple alternatives can publish the same name only
+once. Pure cycles and references without a definition remain false. A cycle
+with an empty alternative propagates normally.
+
+Soundness follows by induction on publication: an empty clause is nullable, and
+a discharged clause has only nullable rhs operands. Completeness follows at
+worklist exhaustion: every clause whose rhs operands are nullable has reached
+zero, so no additional nullable lhs can be derived. With expected constant-time
+table operations, graph construction and propagation cost O(P + R), for P
+productions and R rhs occurrences, with O(P + R) auxiliary storage. In contrast,
+a reverse-ordered chain required repeated full production scans.
+
+The public list still follows first lhs occurrence in production order; the
+lookup table contains exactly those names. These are nullable facts, not
+productivity facts. Nonempty-language analysis and FIRST remain separate
+obligations, and the author grammar/tree is not rewritten by this change.
+
+** Executable evidence
+
+[[file:../../../t/resolved-grammar-test.ss][Resolved grammar controls]] compare the new result against an independent
+repeated-scan oracle for 512 combinations of three-rule cyclic grammars. Other
+cases cover marked operands, duplicate occurrences, alternative productions,
+terminal blockers, undefined references, first-occurrence ordering and a reverse
+chain of 4096 names.
+Existing selected-override/source-origin diagnostics remain checked. Together
+with the canonical LR reference Suite, 38 Cases passed on the pinned Scheme SDK
+after explicit GCC module compilation.
+
+The real TLA+ layout grammar retains exact complete LRSpec equality against the
+pre-change snapshot: 40 rules, 280 lowered productions and 390 states. Ten
+complete construction samples in each local run had CPU medians 15.068 ms before
+and 14.868 ms after, with no in-call GC. This narrow difference establishes no
+end-to-end speedup. The retained improvement is dependency-bounded analysis,
+with semantic equality controls; it does not imply faster Rust AOT execution,
+FFI transport or whole-language parsing.
+
+* Productivity: finite derivation and LR entry admission
+
+[[file:../dsl-productive-entry.org][Productive LR entry admission]] owns the implementation, fixed-point argument,
+author policy, selected-source diagnostics, semantic controls and reported
+complete-construction qualification. The requested entry must have a finite
+derivation; productive recursion and unused dead rules retain their independent
+target obligations.
+
+* FIRST propagation: contract and implementation
+
+The current =compute-first= owner remains in =src/compiler/lr.ss=. Its consumer
+is LR lookahead/state construction and target analysis. A dependency candidate
+must register rhs nonterminals only through the nullable prefix, include the
+first terminal/nonnullable operand and stop afterward. Cyclic prefixes require
+least-fixed-point propagation. Nullable membership must be complete before these
+edges are constructed; no incremental partial index may escape admission.
+
+FIRST's result contract includes canonical terminal order from the production
+terminal catalog, not the order in which worklist facts arrive. Duplicate edges,
+marked symbols, nullable cycles, nonnullable blockers and dead tails need matched
+controls. Multiple terminal facts can update the same nonterminal, so nullable's
+one-publication bound does not automatically apply to FIRST. Measure dependency
+construction, mask propagation and result materialization together, then compare
+complete LRSpec and real full-construction cost at the same compilation tier.
+The implementation below applies this contract to the existing owner. It changes
+analysis evaluation and storage; it introduces no public DSL vocabulary or
+choice/admission policy. Productivity still requires its separate semantic
+consumer and policy decision before it can change target admission.
+
+** Implementation and fixed-point argument (2026-10-09)
+
+The baseline is =2feaa26727dddc379a066c6b991cd1a48c9f5504=. The implementation
+assigns dense indices in first-lhs order and stores FIRST/pending masks and
+reverse targets in private vectors. A source/target edge is registered once,
+even when several productions or rhs occurrences induce it. References without
+a defining lhs retain the existing empty FIRST lookup behavior; their admission
+belongs to the existing reference validator.
+
+Build every nullable-prefix dependency before draining work. Direct terminals
+seed lhs masks. A newly admitted bit enters that nonterminal's pending mask; an
+empty-to-nonempty pending transition queues the index once. Popping an index
+clears its pending mask and propagates only that delta to its reverse targets.
+Facts arriving while queued are coalesced. A self cycle has no seed of its own.
+
+Each seed is justified by a terminal with a nullable preceding prefix. Each edge
+is justified by a nonterminal at such a prefix. Propagation is therefore sound
+for the existing FIRST equations. At queue exhaustion, every admitted terminal
+has reached every dependent lhs, establishing the same least fixed point as
+repeated scans. Termination follows from finite monotone terminal membership;
+this is not a proof that every grammar derives a completed terminal word.
+
+Materialize public rows only afterward using the existing terminal catalog and
+first-lhs name order. Queue order and delta arrival order cannot change canonical
+rows. Every lookup row is derived from that same completed mask. Epsilon remains
+a nullable fact rather than a FIRST terminal.
+
+For N nonterminals, T terminal identities and E unique prefix dependencies,
+each index can publish at most T nonempty batches and each edge transmits a
+particular terminal bit at most once. Graph discovery and deduplication visit the
+prefix occurrences; propagation work is bounded by those fact/edge updates.
+Account separately for arbitrary-width mask operations and ordered result
+materialization: neither nullable's one-publication bound nor a constant-time
+bignum assumption applies. Dependency storage is O(N + E), alongside masks,
+catalogs and the required public output rows.
+
+** Controls and matched cost evidence
+
+[[file:../../../t/resolved-grammar-test.ss][The existing resolved grammar Suite]] compares an independent list/set scanning
+oracle with the new completed FIRST rows and table. It includes 512 cyclic
+combinations, eight actual LR fixture families, nullable and nonnullable prefix
+blockers, duplicate edges, marked terminals/nonterminals, undefined references,
+canonical ordering, a 128-terminal cycle and a 4096-name reverse chain. Its dead
+tail control keeps FIRST separate from productivity. The canonical LR reference
+Suite checks the existing construction and recognition routes.
+
+Local native A/B compiled the baseline scanning function and candidate with the
+same pinned Scheme SDK, GCC and optimization settings. Both returned complete
+FIRST rows and lookup membership; every measured call was compared for equality.
+Five samples per workload alternated execution order in one process, with explicit
+GC before each call excluded from CPU timing. These measurements include graph
+construction, propagation and output materialization; they exclude imports and
+nullable analysis, which is held identical for the pair.
+
+| Workload | Baseline scan CPU median (ms) | Delta CPU median (ms) |
+|----------+-------------------------------+----------------------|
+| Reverse chain 256 | 3.953 | 0.154 |
+| Reverse chain 512 | 16.729 | 0.307 |
+| Reverse chain 1024 | 61.224 | 0.565 |
+| Reverse chain 2048 | 234.479 | 1.159 |
+| Real TLA+ layout FIRST | 0.379 | 0.328 |
+
+These are analysis-call results on one local host, not Rust/FFI/parser throughput
+or an end-to-end latency promise. Complete TLA+ LRSpec exactly matches the saved
+baseline. Twenty complete default LALR construction samples gave CPU medians
+14.989 ms before and 14.789 ms after with no in-call GC. An initial table-based
+candidate instead measured 15.306 ms; it was replaced by the dense-vector variant.
+Retain this negative measurement: the narrow real full-call difference supports
+no stable end-to-end speedup claim.
+
+Final local qualification after rebasing onto =344826a=: 44 source-mode resolved
+grammar/canonical LR Cases and 361 compiled semantic Cases across 23 groups, plus
+five independent research entries, completed with status zero and final receipts.
+The first compiled preparation exposed a missing static =lr1-construction= fixture
+dependency. It is now declared once in the existing conformance module catalog;
+final Scheme-owned preparation completed in 75.76 seconds with the same total
+and idle deadlines. No timeout or compiler backend was changed. Delivered-head
+Ubuntu/Rust CI remains a separate receipt.
+
+* LR suffix facts: compositional reverse evaluation
+
+The source baseline is =0255378568984f3f87e1f17fbf8425e30b0c2891=.
+=make-core-lookahead-catalog= in =src/compiler/lr-lookahead.ss= previously
+scanned =sequence-first= and =sequence-nullable?= separately for the suffix
+following every nonterminal occurrence. An n-item nullable rhs therefore repeated
+quadratic operand traversal, even though the catalog itself was built only once.
+Both LALR propagation and canonical LR(1) closure consume this catalog.
+
+** Paper transfer and semantic boundary
+
+[[https://www.cl.cam.ac.uk/~nk480/parsing.pdf][Krishnaswami and Yallop, Figure 2 and section 3]] give compositional Null/First
+transfer for concatenation. We apply the familiar nullable-prefix recurrence to
+our existing syntactic CFG FIRST facts. The paper's complete type algebra,
+FLast/separability obligations and predictive-parser theorem do not certify our
+LR construction. In particular, our FIRST facts are not a productivity proof:
+a terminal followed by a dead nonterminal can retain that leading terminal.
+We preserve this behavior and the separate completion admission contract.
+
+Let F[i] and N[i] summarize the rhs suffix beginning at position i. For the
+empty suffix F[n] = 0 and N[n] = true. With completed per-symbol facts H[i]
+and Q[i], the recurrence is:
+
+#+begin_example
+F[i] = H[i] union (if Q[i] then F[i+1] else 0)
+N[i] = Q[i] and N[i+1]
+#+end_example
+
+A terminal has a singleton H and false Q; a missing reference has empty H and
+false Q. Before incorporating position i, the builder publishes F[i+1] and
+N[i+1] at its core-item slot only if that item is a nonterminal. Completed,
+terminal and padding slots retain the previous zero/false values. The existing
+core-symbol catalog has already unwrapped operand marks, so aliases/fields do
+not change this analysis. An empty production makes no publications.
+
+Induction backwards from n shows that each published suffix agrees with the
+independent forward scans. Every rhs position is visited once; nonterminal FIRST
+lists are converted to masks once per distinct referenced name. This removes
+quadratic suffix traversal. It does not remove the existing padded vector
+allocation, whose size is production-count times layout-width. Big-integer mask
+operations also depend on terminal count; no constant-time bitset assumption or
+whole-parser linear bound is claimed. The analysis adds no language-author slot,
+loader schema, public grammar rewrite or admission restriction.
+
+The [[file:../dense-lr-item-space.org][dense dotted-position implementation]] now addresses that retained padding
+obligation across all construction and diagnostic consumers. Its bijection,
+independent controls and compiler-cost evidence are separate from this suffix
+analysis and from complete-request latency admission.
+
+** Semantic and matched native controls
+
+The resolved grammar suite compares both entire catalog vectors against
+forward =sequence-first=/=sequence-nullable?= scans. Controls include five real
+LR fixture families, marked terminals/nonterminals, empty productions, nullable
+and nonnullable heads, empty FIRST, undefined references, duplicate operands and
+a 256-item marked nullable rhs. Full canonical/partition/parse controls remain.
+The focused source gate passed 54 Cases (37 resolved grammar and 17 canonical
+reference), final =TEST-SUITE-OK= and =OK=, exit 0, in 18.537 seconds after the Case moved into this compiled-entry-owned
+suite. The earlier 24.554-second source receipt overlapped baseline compilation;
+neither duration is a semantic-test speed claim.
+
+Temporary baseline and candidate modules were compiled with the same fixed
+Gerbil/GCC SDK, optimize/static settings, and already-completed input facts.
+One Scheme process alternated invocation order, forced GC before each call and
+compared both result vectors after every pair. CPU timing includes allocation,
+mask conversion, traversal and publication; it excludes imports, explicit GC,
+input preparation and equality checks. Seven pairs per synthetic length and
+21 pairs per real TLA+ workload produced these medians:
+
+| Workload | Baseline CPU ms | Reverse fold CPU ms |
+|----------+-----------------+---------------------|
+| 512 nullable rhs operands | 7.557 | 0.042 |
+| 1024 nullable rhs operands | 31.219 | 0.055 |
+| 2048 nullable rhs operands | 119.182 | 0.088 |
+| Real TLA+ complete suffix catalog | 0.246 | 0.209 |
+| Real TLA+ complete LALR construction | 14.954 | 14.669 |
+
+Five fixture families were also built through both LALR and canonical LR(1)
+using baseline/candidate compiler modules, with exact complete LRSpec equality.
+All 21 paired TLA+ complete constructions retained exact LRSpec equality.
+The supervised measurement exited 0 in 13.700 seconds, emitted
+=SUFFIX-NATIVE-AB-OK= and passed the unchanged 90-second total/5-second idle
+limits. No allocation count, parser throughput or FFI gain was measured. The
+small real complete-construction difference is not promoted to a stable
+end-to-end improvement. Baseline sources and raw receipts are local temporary
+qualification inputs; no JSON snapshots or runtime binding replacement were
+introduced.
+
+** Compiled consumer and remaining remote gate
+
+The suffix Case belongs to =t/resolved-grammar-test.ss=, which is admitted by the
+compiled conformance entry. It is not duplicated in the canonical reference
+suite. After the move, native preparation exited 0 in 74.165 seconds under the
+unchanged 240-second total/5-second idle limits. The compiled semantic entry
+passed 371 Cases across 23 groups, including the new suffix Case. The semantic
+process and five independent research processes all exited 0 and emitted the
+final =DSL-RESEARCH-CLOSURE-OK= and =OK= markers.
+
+These are local Darwin/GCC receipts. The baseline's Ubuntu run
+[[https://github.com/tao3k/gerbil-parser/actions/runs/37891042027][37891042027]] failed with semantic child status 139 (=signal-exit=); its last
+Case output was =all parser tests avoid display assertions=. The negative
+conformance controls behaved as expected. There is no backtrace establishing
+the signal's cause, and local compilation/execution did not reproduce it.
+Local passing receipts do not repair or supersede that Ubuntu failure; the
+new delivery needs its own exact-head Ubuntu result before remote closure.
+
+* Unified suffix facts across LR consumers
+
+This follow-up starts from =47fd87003f4bd3298fe9d472c076f25ab6e02815=.
+The previous lookahead-specific directory had a useful reverse fold, but FOLLOW
+propagation, initial backward partitioning and follow-core metadata still scanned
+suffix lists independently. They need facts at different positions, not different
+FIRST/nullable meanings. The engine now owns =make-core-suffix-catalog= in
+=src/compiler/lr-lookahead.ss= and removes =make-core-lookahead-catalog= directly.
+There is no compatibility mode or new language-author declaration.
+
+** Position contract and compositional argument
+
+The producer receives the completed FIRST and nullable tables, one terminal
+index and the existing core-symbol/layout catalog. Slot i stores facts for the
+suffix beginning at dotted position i. Every valid position is published,
+including terminal positions and the completed core: the empty suffix is
+FIRST=0 and nullable=true. Padding remains zero/false. The backwards recurrence
+in the preceding section is unchanged; induction now covers all valid slots.
+Marked operands still use the unwrapped core symbol. Undefined references
+retain empty FIRST and false nullable; FIRST does not establish productivity.
+
+| Consumer | Fact position |
+|----------+---------------|
+| LALR closure propagation | core + 1, after the predicted nonterminal |
+| Canonical LR(1) closure | core + 1 |
+| Forward reachable FOLLOW edges | core + 1 |
+| Initial backward compatibility partition | core, including completed cores |
+| Follow-core NFA metadata | core + 1 |
+
+All five consumers read the same fact meanings. Static masks are read once per
+occurrence rather than re-converted for every child alternative in the FOLLOW
+edge construction. Existing follow/state/terminal order and conflict policies
+remain unchanged. Each catalog invocation still allocates its own padded
+vectors; this change introduces neither global memoization nor whole-build
+catalog identity/reuse. Its allocation bound remains production-count times
+layout-width, and large-mask arithmetic depends on terminal count.
+
+The source-test oracle independently scans each complete suffix, including empty
+productions, terminal heads and completed positions, and compares both entire
+vectors. The 54 focused Cases passed with final =TEST-SUITE-OK= and =OK=, actual
+exit 0, in 20.581 seconds. Existing independent forward-follow, initial-partition,
+canonical/partitioned/follow construction and accepted/rejected parse controls
+remain in the canonical reference suite. There is one suffix Case, owned by the
+resolved grammar suite and shared by source and compiled conformance.
+
+** Complete outputs and matched cost
+
+Five baseline compiler modules were compiled from the exact starting revision
+under a separate temporary package, using the same Gerbil/GCC SDK, optimize and
+static settings as the candidate. They bind all five LR construction routes to
+the baseline implementations. One Scheme process alternated baseline/candidate
+order, forced GC before each invocation and checked exact output afterward.
+The admitted run had no overlapping compilation or diagnostic process.
+
+Five grammar families matched complete LRSpec through all five construction
+modes (25 pairs), and matched all initial backward partition/candidate/terminal
+outputs (5 pairs). In addition, 21 paired real TLA+ LALR constructions and 21
+paired mixed-context follow-partition constructions matched full LRSpec. The
+FOLLOW measurements include terminal catalog, core catalog, suffix facts, edge
+construction, propagation and result publication, with completed input
+FIRST/nullable preparation outside timing. Complete-construction measurements
+include all compiler analyses and publication. CPU medians are:
+
+| Workload | Pairs | Baseline ms | Shared suffix ms |
+|----------+-------+-------------+------------------|
+| FOLLOW: 512 nullable operands | 7 | 15.099 | 0.077 |
+| FOLLOW: 1024 nullable operands | 7 | 60.110 | 0.116 |
+| FOLLOW: 2048 nullable operands | 7 | 238.279 | 0.202 |
+| Real TLA+ complete FOLLOW analysis | 21 | 1.596 | 0.800 |
+| Real TLA+ complete LALR construction | 21 | 14.882 | 14.993 |
+| Mixed-context complete follow-partition construction | 21 | 1.475 | 1.469 |
+
+The complete LALR median increased slightly in this local run; no whole-parser,
+whole-construction, FFI or Rust throughput improvement follows from the analysis
+speedup. Allocation and GC counts were not measured. The admitted process
+emitted =UNIFIED-SUFFIX-NATIVE-AB-OK= and exited 0 in 15.216 seconds under the
+unchanged 90-second total/5-second idle limits. Imports, explicit GC and equality
+checks are outside the timed intervals.
+
+** Retained failures and remaining algorithmic/remote work
+
+Earlier A/B attempts hit the five-second idle limit before main or at the full
+TLA+ follow-partition construction. None of their costs is admitted. Tracing
+all real interface imports resolved the preparation observability gap without
+changing the deadline. A direct, owned baseline diagnostic was sampled and
+interrupted; it is not a successful qualification. Its sample showed numerical
+operations, GC and the baseline follow-automaton module executing, rather than
+waiting for a process. A separate temporary diagnostic baseline, never used in
+the admitted A/B, then recorded metadata/seed completion (2240 cores) and
+backward refinement completion (16 rounds). It hit the unchanged idle limit in
+the following determinization phase, exit 70/CLI 124 in 9.230 seconds. This
+locates a separate existing full-TLA follow-determinization cost; it does not
+prove the cause of state growth or repair it. The candidate's correctness and
+cost claims above do not cover completion of that workload.
+
+The previous revision's Ubuntu run
+[[https://github.com/tao3k/gerbil-parser/actions/runs/37892498572][37892498572]] again exited semantic status 139 at the last output
+=all parser tests avoid display assertions=. The earlier =8c3364a= Ubuntu
+semantic step passed before cancellation; later test-object compiler option
+changes are a concrete comparison boundary, not an established crash cause.
+The workflow now requests a bounded GDB replay and all-thread backtrace only
+when the Ubuntu semantic gate has failed. The original gate remains failed and
+the replay retains 90-second total/5-second idle limits. Local configuration
+checks confirm its condition and options; execution/backtrace evidence still
+requires the delivered Ubuntu run. No compiler switch, widened deadline or
+success substitution is introduced.
+
+** Local compiled consumer receipt
+
+After all three engine consumers and the shared suffix Case were migrated,
+conformance preparation exited 0 in 108.297 seconds under the unchanged
+240-second total/5-second idle limits. The compiled semantic entry passed 371
+Cases across 23 groups, including the full-position suffix Case. It and all five
+independent research entries exited 0, with =DSL-RESEARCH-CLOSURE-OK= and =OK=.
+This local Darwin/GCC result does not resolve the repeated Ubuntu signal or the
+full TLA+ FOLLOW determinization workload. The delivered head needs its own
+Ubuntu result; the failure-only GDB step is prepared, not locally executed.
+
+* SCC epsilon-closure experiment: rejected for complete construction
+
+** Paper transfer and invariant
+
+[[https://www.cs.cmu.edu/~cdm/resources/Tarjan1972-sccs.pdf][Tarjan, Depth-First Search and Linear Graph Algorithms (1972), section 4]]
+provides the DFS numbering, active stack and lowlink SCC algorithm. The proposed
+engine transfer was an explicit DFS stack, followed by completed reachability
+masks in sink-first component order. For a component C, its closure is its member
+mask union the closures of all outgoing components. For a seed set S, closure(S)
+is the union of its component closures. A seed already contained in the result
+can be skipped, since its own closure is contained there too.
+
+This is an engine implementation experiment, not a new grammar declaration or
+POO slot. Tarjan's linear graph traversal bound does not make all reachability
+masks linear: bigint operations, component closure materialization and retained
+mask size remain additional costs. It also does not remove subset-construction
+state growth. No parser runtime, FFI or Rust throughput follows from this study.
+
+** Semantic and complete-cost controls
+
+Baseline was exact revision =07a1f9c=, compiled under a separate temporary package
+with the same Gerbil/GCC SDK, optimization and static settings. An independent
+BFS oracle matched all 512 directed three-node graphs and all eight initial sets
+(4096 comparisons), plus empty graph, 4096-node chain and 4096-node cycle controls.
+The initial candidate passed 55 focused Cases, final =TEST-SUITE-OK= and =OK=,
+exit 0 in 19.811 seconds. Both subsequent complete-output runs matched five
+grammar families through all five LR modes: 25 complete LRSpec pairs each.
+
+The final experiment completed sink leaves without DFS frames, used direct
+single-seed queries and skipped seeds already reached. One exclusive Scheme
+process alternated old/new order, forced GC before each call and checked exact
+results outside timed intervals. Closure timings include preparation and queries
+for every singleton seed, not just a warm lookup. Complete LR timings include
+all compiler analyses and publication. No concurrent build or test was running.
+
+| Workload | Pairs | Baseline CPU ms | SCC CPU ms |
+|----------+-------+-----------------+------------|
+| 128-node chain, all seeds | 7 | 1.419 | 0.094 |
+| 128-node cycle, all seeds | 7 | 2.416 | 0.076 |
+| 512-node chain, all seeds | 7 | 42.379 | 0.330 |
+| 512-node cycle, all seeds | 7 | 78.736 | 0.279 |
+| 1024-node chain, all seeds | 7 | 243.973 | 0.744 |
+| 1024-node cycle, all seeds | 7 | 446.493 | 0.635 |
+| Mixed-context complete FOLLOW, 8 regions | 21 | 1.444 | 1.502 |
+| Mixed-context complete FOLLOW, 24 regions | 21 | 4.097 | 4.214 |
+| Mixed-context complete FOLLOW, 48 regions | 21 | 9.935 | 10.171 |
+| Distinct-exit recursive grammar, 8 rules | 7 | 0.149 | 0.133 |
+| Distinct-exit recursive grammar, 16 rules | 7 | 0.230 | 0.233 |
+| Distinct-exit recursive grammar, 32 rules | 7 | 0.433 | 0.422 |
+
+These are local CPU medians, without allocation or GC-count measurements. Final
+process emitted =SCC-NATIVE-AB-OK= and exited 0 in 12.353 seconds under unchanged
+120-second total/5-second idle limits. Earlier candidates also increased all
+three mixed-context complete medians. The final small recursive-grammar results
+are mixed and too small to justify a general complete-construction speedup.
+
+A separate actual TLA+ FOLLOW construction still hit the five-second idle limit,
+exit 70/CLI 124 in 9.427 seconds, with its required completion marker absent.
+That probe is a failure, not an admitted cost. Its last real trace was completed
+LR(0) lookahead propagation; it does not localize the candidate's later stall.
+The earlier baseline phase diagnostic located determinization after 16 backward
+refinement rounds. Neither observation proves repeated epsilon BFS is the
+principal cost of that workload.
+
+** Decision and next experiment
+
+The SCC implementation and its temporary semantic Case were removed before
+publication. Complete mixed-context construction regressed approximately 2–4%
+even after the structural fast paths. Synthetic closure gains cannot substitute
+for improvement in the consumer. The delivered engine retains the previous
+closure algorithm and test ownership; no unused SCC API or compatibility mode
+is added.
+
+The next experiment needs actual graph/block counts after forward refinement,
+SCC distribution, determinized state/transition counts and complete phase costs
+on the failing TLA+ workload. Instrumentation must report completed work and
+retain the five-second no-progress gate. It must distinguish refinement cost,
+closure work and subset state growth before selecting another algorithm. A
+future demand-driven component cache requires exact complete-output controls,
+preparation-inclusive cost and memory accounting; no size threshold is justified
+by this rejected experiment.
+
+* Ubuntu compiled AST contract: explicit traversal frames
+
+The failure-only GDB replay of =07a1f9c= in
+[[https://github.com/tao3k/gerbil-parser/actions/runs/37894856785/job/113703791578][Ubuntu job 113703791578]]
+caught SIGSEGV at =___H___kernel= followed by hundreds of identical frames in
+=___H_gerbil_2d_parser____t____test_2d_style_2d_contract_2d_test=, immediately after
+=all parser tests avoid display assertions=. This identifies the failing process
+and repeated module stack; it does not establish a Gerbil toolchain defect or
+source line. The replay exited 255 and the original semantic gate remained failed.
+
+The retained code change replaces recursive AST conjunctions with an explicit
+pending-frame list. Each frame carries the form and its lexical owned-port set.
+Quoted data remains inert, captured fixture writes retain their owned port,
+forbidden calls still reject, and shadowing lambdas remove inherited authority.
+Capture arguments and handler expressions are queued individually, so a bare
+=quote= argument/body cannot suppress checking a later forbidden expression.
+There is no compiler change, deadline extension or skipped source inspection.
+
+One additional Case checks 20000 nested wrappers around a forbidden call,
+20000 sibling assertions, deeply nested legal fixture writes and shadowed-port
+rejection. Existing contract Cases retain quoted negative fixtures and Rust text
+assembly restrictions. The same Case is owned by the source Suite and compiled
+semantic entry. Ubuntu confirmation belongs to the new delivered head; a local
+Darwin pass cannot by itself close the observed Linux crash.
+
+** C host tail-call contract and object-cache identity
+
+The Ubuntu compiler log identifies GCC 13.3, =-D___TRUST_C_TCO= and a final =-O0=
+for the AST contract object. In the pinned SDK's =gambit.h=, trusted host exits
+use mandatory =musttail= only when the C compiler advertises it. Otherwise they
+use an ordinary return-call, while =___USE_PROPER_TAIL_CALL_EXCLUSIVELY_TO_EXIT_HOST=
+removes stack-trip recovery. [[https://gcc.gnu.org/gcc-15/changes.html][GCC's release notes]] record mandatory statement
+tail calls as a GCC 15 addition. A local GCC 13 =-O0 -foptimize-sibling-calls=
+control still generated a call and return, rather than a tail branch. This
+explains why merely moving the explicit flag after =-O0= would not prove safety.
+
+The retained test-object policy preserves the SDK optimizer and trusted tail-host
+contract, and selects =-U___SINGLE_HOST -D___MULTIPLE_HOSTS=. The pinned header
+supports this module-local selection explicitly. Each Scheme procedure has its
+own C host, so GCC no longer optimizes one giant expanded test-module function.
+Production objects keep their SDK single-host mode. This changes compilation
+granularity without changing the compiler, heap limit, public DSL or test suite
+ownership. Complete semantic execution and build progress are required controls;
+header-size equality alone is insufficient.
+
+Two rejected host-policy experiments are retained here. Removing
+=___TRUST_C_TCO= selected stack-trip recovery and required
+=___unwind_c_stack_to_trampoline=, absent from this immutable SDK. Native linking
+failed (qualification exit 70 in 141.017 seconds). A per-test centralized
+trampoline instead preserved local state sizes but the complete executable had
+no semantic progress and hit the unchanged five-second idle gate. That binary
+is rejected. The GCC 13 header control had matched global-state size 4064,
+processor-state size 960, OS offset 648 and memory offset 688 on Darwin ARM64;
+this layout receipt did not prove compatibility with the SDK's execution
+strategy. Neither rejected option is part of the retained code.
+
+Test objects now retain an adjacent Scheme =.options.sexp= identity containing the
+GSC path and effective per-object C options. Missing or changed identity forces
+recompilation even if source timestamps are unchanged. The identity is published
+only after successful compilation. Source timestamp checks remain; preparation
+continues to own immutable SDK/input identity. This prevents the new tail-host
+policy from silently reusing previously compiled unsafe test objects.
+
+The first centralized preparation linked successfully but rejected its final
+snapshot: new option records had been classified as dependency inputs. That
+attempt exited 70 in 80.054 seconds and is not an admitted preparation. The final
+classification excludes only generated C/object/option products beneath the
+library's =static/= directory. Independent cache controls publish a new option
+record during preparation, prove the next call reuses the result, then change
+the dependency interface and require rebuilding. Negative controls keep SCM,
+SSI, records outside =static/= and =static-extra/= siblings in the input domain.
+Failed object builds invalidate the previous option record before compilation,
+so a partially overwritten object cannot retain its earlier success identity.
+
+** Retained implementation receipt
+
+After the per-procedure host policy and option-record classification stabilized,
+complete preparation exited 0 in 128.332 seconds under unchanged 240-second
+total/5-second idle limits. The compiled semantic entry passed 372 Cases across
+23 groups, including the 20000-depth AST controls. It and all five independent
+research entries exited 0, with =DSL-RESEARCH-CLOSURE-OK= and =OK=. This is local
+Darwin/GCC execution evidence; Linux closure requires the delivered Ubuntu run.
+The rejected SCC experiment supplies no claimed compiler/runtime speedup.
+The following identical full preparation emitted =CONFORMANCE-CACHE-HIT= and
+exited 0 in 16.838 seconds, without recompilation. Its content inventory and
+hashing are included in that wall time; this is cache correctness evidence,
+not a parser throughput measurement.

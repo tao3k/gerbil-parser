@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 
 (import :std/test
@@ -13,20 +14,21 @@
            (recovery-frontier-scenario))
     (error "LR failure-frontier recovery scenario failed")))
 
-(def recovery-frontier-benchmark-tests
-  (test-suite "LR failure-frontier recovery complexity scenario"
-    (test-case "one hundred operands reuse the accepted LR prefix"
-      (check (benchmark-contract-valid? benchmark-path) => #t)
-      (let (algorithm-receipt (recovery-frontier-scenario))
-        (write algorithm-receipt)
-        (newline)
-        (check (recovery-frontier-scenario-pass? algorithm-receipt) => #t))
-      (run-scenario)
-      (##gc)
-      (let (benchmark-receipt
-            (benchmark-contract-run benchmark-path run-scenario))
-        (write benchmark-receipt)
-        (newline)
-        (check (benchmark-contract-receipt-pass? benchmark-receipt) => #t)))))
+(deflanguage-parser-tests recovery-frontier-benchmark-tests "LR failure-frontier recovery complexity scenario"
+  (engine (exclusive #t))
+    (scenario "one hundred operands reuse the accepted LR prefix"
+      (equal (benchmark-contract-valid? benchmark-path)  #t)
+      (scope ((algorithm-receipt (recovery-frontier-scenario)))
+        (receipt algorithm-receipt)
+        (equal (recovery-frontier-scenario-pass? algorithm-receipt)  #t))
+      (act (run-scenario))
+      (act (##gc))
+      (scope ((benchmark-receipt
+            (benchmark-contract-run benchmark-path run-scenario)))
+        (receipt benchmark-receipt)
+        (equal (benchmark-contract-receipt-pass? benchmark-receipt)  #t))))
 
-(export recovery-frontier-benchmark-tests)
+(def recovery-frontier-benchmark-test recovery-frontier-benchmark-tests)
+(export  recovery-frontier-benchmark-test)
+
+;; Resource admission owns its measurement interval in the shared runtime.

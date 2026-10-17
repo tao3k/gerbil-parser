@@ -1,0 +1,118 @@
+#+title: History commit: model, lifecycle and implementation
+
+* Concrete question
+
+Can an older Source parse completion replace a newer committed scanner history?
+Same-thread execution alone does not exclude this: the Scheme publication callback
+can call =language-handle-parse= recursively before returning to its outer caller.
+
+The existing ABI keeps history per handle and commits after publication succeeds.
+Before this change, that success check did not recheck request identity or handle
+liveness. An inner parse could commit its current history, then the outer callback
+would overwrite it with the older request's history.
+
+* Three responsibilities, one obligation
+
+| Layer | Executable owner | Obligation |
+|-------+------------------+------------|
+| Lean | [[file:../../formal/ParserEngine/Reuse.lean][Reuse.commitHistory]] | Preserve the current history when generation differs, publication fails or ownership is released; a current successful commit selects its pending value |
+| Quint | [[file:../../formal/quint/HistoryCommit.qnt][HistoryCommit]] | Explore nested callbacks, inner/outer failure and release; reject the mutation that overwrites a newer history |
+| Scheme | [[file:../../src/ffi/language-handles.ss][language-handle-parse/publish]] and [[file:../../scripts/tests/history-commit-test.ss][real callback controls]] | Bind request generations and handle liveness around the actual parser and callback; verify fresh payload parity and retained history |
+
+These are complementary obligations. Lean proves a value-selection function for
+arbitrary history values and generations. Quint checks abstract lifecycle
+histories; it does not parse Bash or prove OS scheduling. Scheme executes the
+actual Source engine, incremental scanner, payload publication and history store.
+There is no verified compiler extraction or universal Scheme refinement theorem.
+
+* Actual admission
+
+The private handle entry now contains an exact-integer generation. An admitted
+parse advances it before recognition; malformed UTF-8 or a rejected publication
+therefore still supersedes an older admitted attempt. Invalid arguments rejected
+before this admission boundary do not advance it.
+
+After its callback returns successfully, the outer call commits only when:
+
+1. The callback accepted publication.
+2. The captured generation still equals the handle entry's current generation.
+3. The handle table still contains that exact entry.
+
+Generation increments are exact Scheme integer arithmetic, without wrapping.
+Handle identifiers are already non-reused and bounded by the ABI's integer range.
+A released entry cannot become current again through a replacement registration.
+All parsing remains confined to the existing runtime owner; this is re-entry
+admission, not a concurrent Scheme VM or a new cache.
+
+A superseded request may still return its complete payload to its own caller.
+The fix protects reusable history; it does not retract an already copied C result
+or impose an asynchronous latest-result policy on the synchronous ABI. Descriptor
+queries do not advance generation. Existing failed allocation/copy behavior
+continues to retain the currently committed history.
+
+* Directed implementation controls
+
+The real controls exercise:
+
+- Inner successful commit followed by successful outer completion.
+- Inner successful commit followed by an outer callback exception.
+- A newer malformed UTF-8 attempt, followed by successful outer completion.
+- A newer rejected publication, followed by successful outer completion.
+- Handle release from the publication callback.
+- Metadata queries and parsing on another handle do not supersede this request.
+- Native payload equality against fresh handles, and no leaked handles.
+
+The independent script owns one runtime thread and uses the repository's existing
+disposable native-child exit contract after its assertions. The complete evidence
+collector executes it in a separate child before Suite admission, preserving the
+Suite workers' own runtime affinity. It refuses to continue when these controls
+fail, and binds the later semantics observation to their receipt.
+
+The new Quint finite preservation check evaluates 1,944 candidate states over its
+explicit domain, with seven directed tests and a separate 1,000-history sampled
+run. Its =latest= field is a specification observation of the newest committed
+snapshot, not an additional implementation cache. The generation-omission mutation
+is detected after an inner commit. This does not establish temporal fairness.
+
+* Reproduction
+
+#+begin_src sh
+just formal
+just formal-protocol
+just test-history-commit
+#+end_src
+
+Use the normal native package build before the Scheme command. CI runs the real
+history controls in both Scheme semantic platform lanes. Model observation input
+sets bind both the implementation owner and witness source, alongside Lean/Quint
+sources and pinned tools; changing the witness invalidates a stored observation.
+
+* Observations and performance boundary
+
+Before the implementation fix, the first real callback control failed with
+=outer completion overwrote newer history=. The supervised process reported
+=error-output= and no final receipt; this is a retained negative control.
+
+After the fix, Lean built successfully with the new nested-commit and failed
+publication theorems depending only on =propext=. The first actual implementation
+control run exited zero in 7.759 seconds with =HISTORY-COMMIT-CONTROLS-OK=.
+
+This is a correctness repair found by comparing model and implementation duties.
+A generation increment and a commit guard add runtime work. No CPU improvement is
+claimed. Existing complete-request benchmarks retain responsibility for admission
+of future performance changes; abstract cost equations do not turn this fix into
+a speedup.
+
+The expanded same-owner controls, including rejected nested publication, exited
+zero in 5.352 seconds. The existing 17-case language ABI Suite also passed with
+successful process exit in 8.287 seconds, preserving UTF-8, per-handle isolation,
+failed publication and ordinary history reuse behavior. The complete formal
+package passed 61 directed Quint tests across eight modules, seven sampled
+invariant runs and the locked Lean build. Source-binding and native-product
+invalidation host controls passed. These observations do not claim that the
+entire native ASCENT evidence review or every CI job has completed.
+
+The final controls additionally verified that metadata queries and another
+handle's parse do not supersede the current request. All six control markers
+and final =HISTORY-COMMIT-CONTROLS-OK= were admitted with process exit zero in
+5.463 seconds. Total and silence limits remained 90 and 5 seconds.

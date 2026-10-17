@@ -1,0 +1,242 @@
+#+title: Paper, model, engine and Benchmark: recognition capture
+
+* Required optimization chain
+
+An optimization has four distinct owners:
+
+| Layer | Required output | Capture case |
+|-------+-----------------+--------------|
+| Research paper | Algorithmic argument, assumptions and applicability | Static LR structure and incremental node/context capture |
+| Model | Semantic equivalence, lifecycle constraints and a cost hypothesis | Prefix order/tail/count preservation; capture publication guard; fewer list visits |
+| Engine implementation | A reusable generic operation | Fused capture plus nullable/unary specialization in the LR engine |
+| Scheme Benchmark | Actual complete-workload comparison, including controls | Two native images, persistent Scheme owners and complete 64-record captured requests |
+
+Lean and Quint remain separate within the model layer. A theorem without a
+measurable hypothesis, a lifecycle test without a runtime owner, or a faster
+helper without complete-request evidence does not close this chain.
+
+* Papers and the concrete hypothesis
+
+Sperber and Thiemann's
+[[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]] specializes grammar-static LR decisions and uses
+binding-time improvements and list-loop unrolling. Applied here, reduction width
+is grammar data: empty and unary captures need not execute a general split/fold.
+This is an application of that staging principle, not the paper's parser generator
+or a reproduction of its speed measurements.
+
+Wagner and Graham's
+[[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Efficient and Flexible Incremental Parsing]] requires retained structure and
+context for incremental operation and discusses compact syntax and node reuse.
+Our capture retains the current engine's metadata contract. Optimizing its list
+walks does not establish the paper's incremental complexity bound, maximal node
+reuse, or balancing theorem.
+
+Source inspection found =take=, =reverse=, =drop= and =last=, followed by separate
+token-count and terminal-yield folds over the same reduction prefix. The initial
+hypothesis was to fuse the prefix split and count accumulation while preserving
+exact yield association. Full-request measurements then identified unary captures
+as the dominant case: 193 of 322 reductions on the 64-record workload.
+
+* Model-derived work reduction
+
+[[file:../../formal/ParserEngine/Capture.lean][Lean Capture]] proves that the fused prefix equals =reverse(take width stack)=
+and retains =drop width stack=. It proves nullable/unary identities and that
+reversing the input does not change additive token counts. Terminal-yield
+construction retains the original source-order left fold, rather than assuming
+that arbitrary yield representations have equivalent association.
+
+The explicit partial operation model counts prefix/list inspections:
+
+#+begin_example
+Former: 5 * width + (width - 1)
+Fused:  width == 1 ? 1 : 2 * width
+#+end_example
+
+States traversal, nested metadata getters, constructor fields, type checks,
+branch selection, publication, hashing and GC are outside that count. They remain
+charged by the complete-request Benchmark. Therefore fewer modeled visits alone
+do not establish a CPU improvement.
+
+Actual capture widths are =((0 . 1) (1 . 193) (2 . 64) (4 . 64))=. Applying this
+model yields 3,141 former versus 961 candidate list inspections. That 69.40%
+modeled decrease is neither an instruction count nor an end-to-end speed claim.
+
+[[file:../../formal/quint/CapturePlan.qnt][Quint CapturePlan]] owns extent/lifecycle safety: prefix work completes
+before yield publication; nullable/unary extents have their own admitted costs;
+invalidation withdraws output. Its directed incomplete-publication mutation is
+rejected. Lean owns list semantics; Quint does not duplicate the LR algorithm.
+
+* Generic engine implementation and semantic controls
+
+[[file:../../src/runtime/lr-parser/recognition.ss][capture-reduction]] is shared LR execution infrastructure. No language
+pack, scanner DSL or public Loader schema changes. Empty captures bind their
+nullable anchor directly. Unary captures read the single child and its yield.
+Wider captures construct source-order children and sum token counts in one prefix
+pass, share the suffix, then perform the existing yield fold.
+
+[[file:../../t/benchmarks/capture-prefix/controls.ss][Direct Scheme controls]] compare all capture fields against a
+[[file:../../t/benchmarks/lr-request-stack/capture-reference.ss][frozen former implementation]] for all 11 record-grammar productions, including
+nullable/unary widths, Unicode leaves and relocated values. They check exact
+terminal-yield shape, source order and physical suffix identity. The complete
+request also checks a projected artifact from the captured tree before timing.
+
+This control is a comparison, not runtime binding replacement. The production
+module contains one implementation and no compatibility path.
+
+* Complete-request CPU protocol
+
+[[file:../../t/benchmarks/capture-prefix/benchmark.ss][The Scheme Benchmark]] starts exactly two persistent
+[[file:../../t/benchmarks/capture-prefix/worker.ss][workers]]. Each admits one real native capture image. Both reuse the same
+SDK and native state/checkpoint/parser/session/grammar images, verified by loaded
+file hashes. Each capture image must be native, loaded from its selected root,
+and different from the other's image. Artifact identity and capture-width
+inventory must match. Startup and image hashing are outside request timing.
+
+Every timed call creates a fresh captured session for 64 ASCII assignments,
+=a=1\n= repeated 64 times: scanning, LR execution, recognition capture and
+ParseArtifact publication. Exact expected artifact equality and full source
+validation are also charged. Process user plus system CPU, including natural GC,
+is read inside the worker. No source parser, child process or Scheme runtime is
+started per request. IPC and orchestration CPU are excluded: this qualifies the
+Scheme engine request, not Tokio/FFI or whole-system dispatch.
+
+Warm both images with 256 requests. Before and after controls compare the frozen
+worker with itself. Production compares the candidate with that frozen worker.
+Each phase has five groups of 32 alternating ABBA/BAAB legs, 256 complete calls
+per leg. All 122,880 timed requests contribute. With five groups, P10 and P90 are
+the minimum and maximum: every control group must stay within =0.90..1.10=, and
+every production group must be below =0.95=. No outlier is dropped.
+
+Darwin workers use the same checked =QOS_CLASS_USER_INTERACTIVE= setting from the
+[[file:../../t/support/qualification/benchmark-qos.ss][test-only scheduling owner]]. Linux CI inherits the existing processor-affinity
+policy. Production scheduling is unchanged. Total timeout is 90 seconds and
+silence timeout is 5 seconds; only actual completed batches report progress.
+
+* Reproduction
+
+Build the current production package and native test support through their normal
+owners. The frozen reference is Git source, compiled with the normal SDK compiler;
+its package pins must equal the current package pins.
+
+#+begin_src sh
+just prepare-capture-reference 76d6cc6c946cb8ca7692d8911e43801b951e340f
+just benchmark-capture-prefix
+just formal
+just formal-protocol
+#+end_src
+
+CI preparation compiles direct controls once; both platform semantics lanes run
+them. A separate manual Ubuntu CPU lane prepares the frozen image and runs the
+complete Benchmark. Source-bound model observations include the actual engine,
+control and benchmark owners. The full native evidence-chain review remains a
+separate gate; these observations do not imply it has completed.
+
+* Retained negative observations
+
+| Experiment | Before P10/P90 | Production P90 | After P10/P90 | Admission |
+|------------+----------------+----------------+---------------+-----------|
+| Generic fusion, 20 small groups | 0.852836 / 1.006797 | 0.963061 | 0.990926 / 1.169986 | Rejected |
+| Generic fusion, five larger groups | 0.895597 / 1.028437 | 0.961984 | 0.971090 / 1.040409 | Rejected |
+| Specialized, native-image hashes checked | 1.001281 / 1.070468 | 0.985365 | 0.961232 / 1.041222 | Rejected: CPU |
+| Specialized, repeat before QoS normalization | 0.966944 / 1.065490 | 0.953879 | 0.959947 / 1.044087 | Rejected: CPU |
+
+The specialized run before image-hash enforcement passed with production
+P10/P50/P90 =0.923492/0.925716/0.943256= and controls
+=0.956106/1.040820= before, =0.964671/1.047191= after. Its 5.67% P90 CPU reduction
+is a local observation. The later rejected repeats above prevent treating it as
+a stable host-independent guarantee. Final qualification must use the image and
+host-admission controls, rather than promote that earlier result.
+
+The initial production build also caught an unrelated integration error from the
+previous commit: an interpreted history-control script was discovered as a library
+module. It is now explicitly assigned to the test owner in =build.ss=. The normal
+SDK/GCC package build then completed successfully in 84.268 seconds.
+
+* Final admitted complete-request observation (2026-10-14)
+
+With native image hashes and both Darwin QoS admissions verified, the final run
+completed in 49.788 seconds with process exit zero and the exact anchored
+=CAPTURE-COMPLETE-CPU-PROOF-OK= marker. All 122,880 timed full requests contribute.
+
+| Phase | P10 | P50 | P90 |
+|-------+-----+-----+-----|
+| Before frozen/frozen | 0.956280 | 1.018125 | 1.051384 |
+| Candidate/frozen | 0.914970 | 0.938014 | 0.945449 |
+| After frozen/frozen | 0.952151 | 0.958334 | 1.045281 |
+
+The worst production group used 5.45% less worker CPU than the frozen native
+engine. This qualifies complete fresh captured Scheme requests for the 64-record
+ASCII grammar on this host under the declared conditions. It does not qualify
+ordinary capture-disabled parsing, Unicode, other grammars, incremental edit
+speed, Tokio/FFI, or whole-system CPU including the Benchmark transport.
+Those are separate follow-up workloads, not implied benefits.
+
+The test-only QoS integration initially failed to compile because its foreign
+binding was not declared to the Scheme expander. The protocol then rejected
+initialization before any timed work; no CPU result was admitted. Declaring that
+binding and requiring successful compilation before execution resolved it.
+
+* Next optimization questions from this model
+
+1. Retain lookahead metadata once per input extent rather than per reduction.
+   Require a model of input identity/immutability and measure the added guard cost.
+2. Investigate balancing terminal-yield concatenation for deep lists. Preserve
+   source order, span relocation and transfer admission; do not infer the paper's
+   optimal incremental bound from list fusion alone.
+3. Move static capture shapes into prepared execution plans if this removes
+   further runtime dispatch. Charge preparation and binding validation using the
+   existing amortization theorem, then test full requests with and without capture.
+
+Each candidate must state its paper argument, new model obligation, shared engine
+owner and complete Benchmark workload before implementation is promoted. Negative
+CPU results can reject a candidate even when its logical work count decreases.
+
+* Final correctness qualification
+
+The normal package build, final 42-job Lean build and all nine Quint modules
+passed. Quint totals 66 directed tests and eight sampled invariant runs. Direct
+capture controls exercised all 11 productions with exact frozen parity. Existing
+LR fragment-transfer and recognition-snapshot Suites passed 29 cases with final
+=OK= and process exit zero in 48.722 seconds. These cover transfer, relocation,
+nullable anchors and snapshot projection beyond the one measured grammar.
+
+The engine operation assumes an admitted nonnegative width that fits the semantic
+and recognition stacks; validating arbitrary malformed LR tables is an upstream
+contract. Lean's list equation is more general than the Scheme operation's error
+behavior on an invalid stack, so no total error-equivalence claim is made.
+
+* Historical organization gate
+
+The Linux semantic lane at =857e6e6= rejected the changed capture body because
+the runtime organization gate still required every form to equal the pre-split
+source. That historical source remains pinned. The gate now permits exactly
+one =capture-reduction= definition, verifies the frozen semantic control equals
+the historical body after renaming, and compares all other forms unchanged.
+The independent capture controls compare the evolved body against that frozen
+control across every production, relocation, empty and Unicode lookahead,
+exact children, terminal-yield association, and physical suffix sharing.
+This bounds the admitted algorithm delta without replacing historical receipts.
+
+Local repair qualification passed all three organization cases in 2.955 seconds
+and all 44 capture combinations (11 productions times four input variants).
+No new CPU gain is claimed by these gate repairs; the preceding complete-request
+CPU result retains its original measurement scope.
+
+* Cold admission qualification repair
+
+At =70844f3=, macOS capture controls exceeded the 5-second silence budget
+before producing any receipt. The CI process result was =elapsed 5.514 seconds,
+exit 137, reason idle-timeout= with the success marker missing. This differs
+from a failed assertion or a verified-complete child stalled during shutdown.
+
+The controls now export =verify-capture-prefix!=, and CI explicitly invokes it
+after the existing official-module preloader admits the compiled closure.
+Dependency starts/completions report real work; there is no periodic heartbeat.
+All 44 comparisons still run before the anchored success receipt. Only after
+that call returns does the existing disposable-child exit interface run.
+Exceptions stop this sequence and remain nonzero qualification failures.
+The 90-second total and 5-second silence budgets are unchanged.
+
+Local execution of the exact CI command passed in 5.826 seconds with exit zero.
+The original direct script entry still invokes the same verification procedure.
+This repairs test admission and completion, with no new parser CPU claim.

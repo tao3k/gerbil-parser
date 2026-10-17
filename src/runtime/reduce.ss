@@ -4,59 +4,73 @@
 (import (only-in ./recognition
                  make-recognition-child make-recognition-fragment
                  make-recognition-node recognition-child-field
-                 recognition-child-value
-                 recognition-value-end recognition-value-start))
+                 recognition-child-value with-recognition-value-bounds))
+(import (only-in ./funcs recognition-sequence-arity recognition-sequence-start
+                 recognition-sequence-end recognition-sequence->list
+                 recognition-sequence-for-action))
 (export recognition-children-field
-        recognition-children-alias)
+        recognition-children-alias recognition-action-field recognition-action-alias
+        make-recognition-field-kernel make-recognition-alias-kernel)
 
-;; children-start
-;; : (-> List Fixnum Fixnum)
-(def (children-start children default-offset)
-  (or (alet (child (and (pair? children) (car children)))
-        (recognition-value-start (recognition-child-value child)))
-      default-offset))
+;;; Stage one input-shape decision and one singleton-value classification into
+;;; both constructor families. Empty aliases retain their invocation boundary.
+(defrule (with-recognition-children-bounds children-expr offset-expr (start end) body ...)
+  (let ((children children-expr) (offset offset-expr))
+    (cond
+     ((null? children) (let ((start offset) (end offset)) body ...))
+     ((and (pair? children) (null? (cdr children)))
+      (with-recognition-value-bounds (recognition-child-value (car children))
+        (start end) body ...))
+     (else
+      (let ((start (recognition-sequence-start children offset))
+            (end (recognition-sequence-end children offset))) body ...)))))
 
-;; children-end
-;; : (-> List Fixnum Fixnum)
-(def (children-end children default-offset)
-  (if (null? children)
-    default-offset
-    (recognition-value-end (recognition-child-value (last children)))))
+(defrule (construct-recognition-bounded (constructor prefix ...) children offset prepare)
+  (with-recognition-children-bounds children offset (start end)
+    (constructor prefix ... start end (prepare children))))
 
-;; recognition-children-field
-;; : (-> Symbol List Fixnum [(-> Fixnum Fixnum List RecognitionFragment)] List)
-(def (recognition-children-field name children default-offset
-                                 (fragment-constructor make-recognition-fragment))
-  (match children
-    ([] '())
-    ([child]
-     (if (recognition-child-field child)
-       (list
-        (make-recognition-child
-         name
-         (fragment-constructor
-          (children-start children default-offset)
-          (children-end children default-offset)
-          children)))
-       (list (make-recognition-child
-              name (recognition-child-value child)))))
-    (_
-     (list
-      (make-recognition-child
-       name
-       (fragment-constructor
-        (children-start children default-offset)
-        (children-end children default-offset)
-        children))))))
+(defrule (construct-recognition-field name children default-offset fragment-constructor prepare)
+    (case (recognition-sequence-arity children)
+      ((0) '())
+      ((1)
+       (let (child (car (recognition-sequence->list children)))
+         (if (recognition-child-field child)
+           (list (make-recognition-child name
+                   (construct-recognition-bounded (fragment-constructor)
+                     children default-offset prepare)))
+           (list (make-recognition-child name (recognition-child-value child))))))
+      (else
+       (list (make-recognition-child name
+               (construct-recognition-bounded (fragment-constructor)
+                 children default-offset prepare))))))
 
-;; recognition-children-alias
-;; : (-> Symbol List Fixnum List)
-(def (recognition-children-alias kind children default-offset)
-  (list
-   (make-recognition-child
-    #f
-    (make-recognition-node
-     kind
-     (children-start children default-offset)
-     (children-end children default-offset)
-     children))))
+(defrule (construct-recognition-alias kind children default-offset prepare)
+  (list (make-recognition-child #f
+          (construct-recognition-bounded (make-recognition-node kind)
+            children default-offset prepare))))
+
+(defrule (define-recognition-field reducer prepare)
+  (def (reducer name children default-offset
+                (fragment-constructor make-recognition-fragment))
+    (construct-recognition-field name children default-offset fragment-constructor prepare)))
+(defrule (define-recognition-alias reducer prepare)
+  (def (reducer kind children default-offset)
+    (construct-recognition-alias kind children default-offset prepare)))
+
+;;; Bind grammar-static names outside the request. The canonical constructor
+;;; body expands into the kernel, removing its extra semantic wrapper call.
+(def (make-recognition-field-kernel name)
+  (lambda (children offset constructor)
+    (construct-recognition-field name children offset constructor recognition-sequence-for-action)))
+(def (make-recognition-alias-kernel kind)
+  (lambda (children offset _constructor)
+    (construct-recognition-alias kind children offset recognition-sequence-for-action)))
+
+;;; Stage normalization into action constructors. Reading the endpoints from
+;;; the shared sequence before flattening avoids a second linear list-tail
+;;; scan. Ordinary reducers retain their borrowed child representation.
+(defrule (borrow-recognition-children children) children)
+(define-recognition-field recognition-children-field borrow-recognition-children)
+(define-recognition-alias recognition-children-alias borrow-recognition-children)
+(define-recognition-field recognition-action-field recognition-sequence-for-action)
+(define-recognition-alias recognition-action-alias recognition-sequence-for-action)

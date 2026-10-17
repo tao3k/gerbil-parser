@@ -1,0 +1,26 @@
+;;; Change only the three named initial allocations of the supported source
+;;; protocol. Every other instruction and initializer is the current reader AST.
+(export construction-layout)
+
+(def (construction-layout initial)
+  (unless (and (integer? initial) (> initial 0))
+    (error "construction capacity must be positive" initial))
+  (lambda (declaration)
+    (let ((found '()) (capacities '()))
+      (def (rewrite form)
+        (cond
+          ((not (pair? form)) form)
+          ((eq? (car form) 'quote) form)
+          ((and (list? form) (= (length form) 2)
+                (memq (car form) '(states state-transitions kernel-plans))
+                (list? (cadr form)) (= (length (cadr form)) 3)
+                (eq? (caadr form) 'make-vector) (integer? (cadadr form)))
+           (set! found (cons (car form) found))
+           (set! capacities (cons (cadadr form) capacities))
+           (list (car form) (list 'make-vector initial (caddr (cadr form)))))
+          (else (map rewrite form))))
+      (let (result (rewrite declaration))
+        (unless (and (equal? found '(kernel-plans state-transitions states))
+                     (apply = capacities))
+          (error "construction requires three aligned initial bindings" found capacities))
+        result))))

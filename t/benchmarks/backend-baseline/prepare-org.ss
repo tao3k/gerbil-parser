@@ -1,0 +1,41 @@
+;;; Both products consume one frozen, complete Org declaration, not a line demo.
+(import (only-in :std/misc/ports read-all-as-string)
+        (only-in :gerbil-parser/src/compiler/event-fold-ir event-fold-ir-json)
+        (only-in :gerbil-parser/src/compiler/event-fold-scheme-modules event-fold-scheme-module-sources)
+        (only-in :gerbil-parser/src/compiler/event-fold-scheme-context
+                 current-fold-scheme-effect-only current-fold-scheme-idle-plan)
+        (only-in :gerbil-parser/src/language/descriptor language-grammar-machine)
+        (only-in :gerbil-parser/src/compiler/machine parser-machine-grammar-digest)
+        (only-in :orgize/languages/org/grammar org-mode-language-grammar))
+(export main)
+(def (main program-path output)
+  (let* ((program (call-with-input-file program-path read))
+         (root (car program)) (initial (cadr program))
+         (line (caddr program)) (finish (cadddr program))
+         (helpers (list-ref program 4))
+         (parameters '((configured_inlinetask_min_level inlinetask-min-level 15)
+                       (configured_inline_script_policy inline-script-policy 2)))
+         (wire (event-fold-ir-json 'parse_org_fold org-mode-language-grammar
+                                  root initial line finish helpers parameters))
+         (units (parameterize ((current-fold-scheme-effect-only 'pruned)
+                               (current-fold-scheme-idle-plan 'ordinary-run))
+                  (event-fold-scheme-module-sources
+                    'parse-org-compiled-events org-mode-language-grammar
+                    root initial line finish helpers parameters 64 'tape))))
+    (call-with-output-file (path-expand "org-fold-ir.json" output)
+      (lambda (port) (display wire port)))
+    (call-with-output-file (path-expand "grammar-digest" output)
+      (lambda (port) (display (parser-machine-grammar-digest
+                               (language-grammar-machine org-mode-language-grammar)) port)))
+    (for-each
+      (lambda (unit)
+        (call-with-output-file (path-expand (string-append (car unit) ".ss") output)
+          (lambda (port) (display (cdr unit) port)))) units)
+    (call-with-output-file (path-expand "gerbil.pkg" output)
+      (lambda (port) (write '(package: gerbil-parser/benchmarks/real-fold) port)))
+    (call-with-output-file (path-expand "build-fold.ss" output)
+      (lambda (port)
+        (write '(import :gerbil-parser/src/compiler/event-fold-scheme-build) port)
+        (newline port)
+        (write `(compile-event-fold-scheme-units ,output ',(map car units)) port)))
+    (displayln "ORG-BOTH-BACKEND-SOURCES-OK")))

@@ -1,0 +1,632 @@
+#+title: Scheme DSL research basis and design method
+#+date: 2026-10-06
+
+Scope: primary-paper readings, transfer boundaries and historical candidate
+vocabulary. The [[file:scheme-deflanguage-design-synthesis.org][overview]] records current decisions; [[file:scheme-dsl-author-interface.org][author examples]],
+[[file:scheme-dsl-engine-admission.org][engine admission]] and [[file:scheme-dsl-semantic-contracts.org][semantic contracts]] apply these readings to one package.
+Historical follow-ups below explain supporting studies; they do not add user interfaces.
+
+* Read the sources as one architecture argument
+
+The research program includes eight primary lines and an additional embedding
+paper currently known only from its publication record/abstract. All must feed
+one design argument. The GQL refactor is a concrete implementation witness for
+shared admission; it cannot stand in for the whole paper program.
+
+| Primary source | Recorded reading boundary | Question answered in the same architecture | Implementation or qualification obligation |
+|----------------+---------------------------+---------------------------------------------+--------------------------------------------|
+| Syntactic Abstraction in Scheme | Sections 3–4 of TR355 | How do patterns, templates and procedural expansion preserve context? | Retain syntax objects and real helper bindings; do not reduce everything to datum before diagnosis |
+| Binding as Sets of Scopes | Extended paper, especially section 3 | Which names are host bindings, domain labels and generated public identifiers? | Test module/import renaming and phases; do not treat grammar keys as Scheme variable bindings |
+| Keeping it Clean with Syntax Parameters | Sections 4, 4.1 and 6; supporting Gerbil study | How do cooperating macros carry scoped context without accidental capture? | Use scoped context only where needed; qualify nested declaration versus expression behavior |
+| Fortifying Macros | Sections 3–4 and parser case 7.2 | How are declarations specified and checked at the author's abstraction level? | Collect dependent declarations before checking references; preserve author blame and parameter roles |
+| Compiled, Extensible, Multi-language DSLs | Sections 3–5; pinned hosted-miniKanren source | How do extensions receive existing compiler analyses and products? | Elaborate to one admitted core; reuse compiler owners and validate host/domain boundaries |
+| Parsing Expression Grammars | Sections 3.5–3.7 | Which algebra and side conditions make a transformation valid? | State CFG/LR semantics separately; test tree/field/span preservation beyond recognition |
+| Abstract Interpretation | Scanned paper sections 5.1–5.3, 6–7 and 8.1–8.3; appendix proofs not reproduced | What facts can safely be derived, and what do approximations mean? | Reuse nullable/FIRST owners; specify domains and soundness obligations for any additional fact |
+| Extensibility for the Masses | Sections 2–3 and modular-combination discussion in supporting study | How are construct extension and operation extension separated? | Reuse POO/IR consumers; require a concrete task before selecting another algebra or public protocol |
+
+[[https://www.mathematik.uni-marburg.de/~rendel/hofer08polymorphic.pdf][Polymorphic Embedding of DSLs]] is additional background, now read in sections
+3.1–3.6 and 4.4–4.7 of the author paper. Listings were inspected; no Scala artifact
+was reproduced. Its phase and recursive-analysis limits are recorded below.
+Ousterhout's author lecture notes in [[file:scheme-dsl-complexity-ownership.org][complexity ownership]] supply evaluation
+criteria; they are not additional peer-reviewed evidence of this DSL's superiority.
+Reading sections, inspecting code, reproducing an artifact and proving a property
+are separate activities; none of the table's boundaries implies completion of all.
+
+The implemented [[file:scheme-dsl-complexity-ownership.org::*Implemented internal owners: one author surface, explicit engine stages][engine ownership refactor]] applies these readings jointly: the public
+macro passes hygienic bindings to a compile-time elaborator, that elaborator
+retains declaration checks and submits an internal record directly to the shared
+canonical compiler, and focused
+lexical owners generate execution mechanisms without new author configuration.
+Its [[file:scheme-dsl-complexity-ownership.org::*Qualification of the implemented boundaries][qualification record]] distinguishes semantic/product preservation from open
+native consumer gates. Default normalization keeps original author context, and
+runtime emission shares the admitted canonical grammar. Named admission,
+publication and emission phases now expose a direct normalized-POO/context
+publication edge, checked in the existing provenance control. They do not
+infer override/remove source ownership or establish composed Loader closure.
+This is our application of the papers, not a result
+proved by their implementations or an established performance improvement.
+
+** Joint constraints on the design
+
+These sources constrain each other. Contextual syntax makes reusable vocabulary
+possible, while binding/phase distinctions restrict how that vocabulary can be
+combined. Declaration contracts determine when invalid forms must be rejected.
+Core admission gives the compiler one value to analyze. Parsing semantics limits
+valid rewrites; abstract-interpretation reasoning limits claims based on derived
+facts. POO extensibility concerns then determine whether another observation can
+reuse that core. A gain in one dimension does not waive any of the other contracts.
+
+Apply these constraints to the same three interfaces:
+
+1. grammar.ss states language intent and reusable Scheme vocabulary. Study a real
+   edit and diagnosis task before adding any public form. Keep original syntax
+   available until binding and diagnostic decisions have been made.
+2. The engine elaborates, resolves/checks domain data, derives existing facts and
+   publishes a canonical input consistently. Syntax parameters are an optional
+   internal context mechanism, not obligatory author configuration.
+3. parser.ss publishes the checked entry and declared services/products. Multiple
+   observations of one IR must keep explicit contracts; a new interpreter or
+   callback cannot silently become a portable backend.
+4. parser-test.ss specifies independent recognition/tree/source expectations and
+   benchmarks. Each paper-informed change must be checked against those same
+   observations and the compiler-product gate.
+
+#+begin_src scheme
+;; Existing grammar.ss vocabulary and existing parser-test.ss expectation.
+(defgrammar-syntax (required-items label item separator)
+  (seq (field label item)
+       (repeat (seq separator (field label item)))))
+
+;; Inside the existing test declaration for that package:
+(accepted "three call arguments" "f(a,b,c)"
+  (counts (Call 1) (Name 3))
+  (field-counts Call argument (3)))
+
+;; Question 1: Why is this DSL design better?
+;; A grammar idiom reuses contextual Scheme syntax; the engine owns validation,
+;; analyses and publication, while independent expectations stay with the author.
+;; Evaluate the same complete edit/diagnosis task against the explicit declaration.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; The papers jointly identify abstraction, binding, validation, core and semantic
+;; obligations. Exact expansion, independent parse observations and consistent
+;; compiled products are distinct evidence for those obligations in this engine.
+;; Falsifiers: captured helpers, wrong blame, invalid accepted grammar, changed tree
+;; policy, unsound analysis facts, inconsistent products or worse author effort.
+;; Limit: current controls support selected contracts; neither a paper inventory nor
+;; the GQL witness proves universal superiority or closes the full research program.
+#+end_src
+
+** Complete the readings in dependency order
+
+The next reading output is an integrated design contract, not a fixture per paper.
+First combine syntactic abstraction, scope and syntax-parameter readings into a
+binding/context/phase specification. Combine that with declaration checking and
+hosted-DSL implementation to specify admission and diagnosis. Then connect the
+parsing algebra and existing analysis code to transformation/fact obligations.
+Finally review POO and polymorphic embedding against concrete IR consumers and
+three-interface author tasks. The selected full-text readings below replace the
+earlier abstract-only boundaries. Appendix proof reproduction, implementation
+artifact reproduction and our own transfer/lowering proofs remain separate open
+obligations before claiming a new algorithm or implementation protocol qualified.
+
+The small call/array controls and real GQL package answer different parts of this
+same contract: semantic preservation and actual author/product integration. The
+GQL compiler-product mismatch remains a qualification gate in [[file:scheme-dsl-author-interface.org][author interfaces]];
+it must not redirect the entire research program into build troubleshooting.
+
+* Study each paper through an explicit design question
+
+* Syntactic abstraction in Scheme: how should authors define vocabulary?
+
+Dybvig, Hieb and Bruggeman, 1993; study text:
+[[https://scholarworks.iu.edu/dspace/bitstreams/3f729d08-c698-4430-9d04-6a782c5b9300/download][Indiana University TR355, revised July 1992]]. Section 3 explains syntax
+objects, pattern matching, template construction and procedural transformations;
+section 4 includes source annotation handling. This reading extends the earlier
+abstract-only annotation in our initial research document.
+
+Design conclusion: support a progression from a small template to a richer
+compile-time transformation. Simple grammar idioms can use =defgrammar-syntax=;
+parameter validation or operator-table elaboration can use Gerbil's procedural
+macro facilities. Callers should see the meaning of arguments, node labels and
+fields in either form. Keep expansion explanations traceable to author syntax.
+
+Study task: express the same binary production as explicit constructors, a
+parameterized template and an operator-table elaboration. Compare semantic
+clarity, expansion size and effort to change an operator tier. More powerful
+macros should improve the author task, not require a new Scheme compiler.
+
+* Compiled, Extensible, Multi-language DSLs: paper and implementation
+
+Ballantyne, Gamburg and Hemann, ICFP 2024,
+[[https://www2.ccs.neu.edu/racket/pubs/icfp24-bgh.pdf][author paper]], sections 3–5 and Figures 5, 9–11. The design elaborates extensions
+into a compiler-oriented core with specified host boundaries. Compiler analyses
+can then serve both primitive forms and extensions. This motivates a common
+admitted Grammar IR here; it does not justify transferring miniKanren algorithms
+or performance results to CFG/LR parsing.
+
+** Pinned implementation reading
+
+The authors' [[https://github.com/michaelballantyne/hosted-minikanren][Hosted miniKanren repository]] was inspected on 2026-10-06 at
+=867755c61acd064a07dfcfd0849b01a70f315bed=. The paper describes the architecture;
+this repository revision is a separate implementation snapshot, not a verified
+reproduction of the paper artifact. No Racket installation or benchmark was run.
+
+| Pinned source | Observed implementation responsibility | Gerbil parser design inference |
+|---------------+-----------------------------------------+--------------------------------|
+| [[https://github.com/michaelballantyne/hosted-minikanren/blob/867755c61acd064a07dfcfd0849b01a70f315bed/private/spec.rkt][private/spec.rkt]] | Binding classes, permitted term/goal extensions, scoped fresh variables and host-expression positions | Distinguish syntax extension from grammar-domain identity and explicit host positions |
+| [[https://github.com/michaelballantyne/hosted-minikanren/blob/867755c61acd064a07dfcfd0849b01a70f315bed/private/interface-macros.rkt][private/interface-macros.rkt]] | Definition/expression entries call compiler functions; expanded and compiled relation code is recorded | Keep DSL declarations thin over engine owners; make stages inspectable without author-maintained metadata |
+| [[https://github.com/michaelballantyne/hosted-minikanren/blob/867755c61acd064a07dfcfd0849b01a70f315bed/private/compile.rkt][private/compile.rkt]] | compile-goal organizes optimization and generation; reference compilers handle term-variable access; named passes record intermediate code | Reuse parser analyses under one compiler entry; separate inspection from a second execution path |
+
+The code's identifier fallback and host conversions serve miniKanren semantics.
+Our grammar retains explicit token/reference disambiguation and backend capability
+contracts. Racket binding classes, syntax-spec and reference compilers are not
+assumed to exist in Gerbil. Existing Gerbil syntax objects, defrules/defsyntax,
+syntax parameters and checked POO provide the concrete mechanisms to evaluate.
+
+** Integrated review: reuse mechanisms, justify any new boundary
+
+The pinned implementation distinguishes ordinary templates from declared extension
+classes: =define-goal-macro= and =define-term-macro= call =define-dsl-syntax= with
+the corresponding class, while =spec.rkt= permits each class at particular grammar
+positions. Those wrappers enforce an extension boundary; they are not evidence
+that every reusable template needs a new public macro declaration.
+
+For the language-author interface, no task requiring a comparable contribution
+binding class or registration contract has been established. The recommendation is therefore ordinary
+Gerbil =defrules= for a simple declaration template, =defsyntax= when parameter
+validation requires computation, and validation of elaborated grammar at the existing declaration boundary.
+The contribution/owner/compose candidate is withdrawn from the author design. Consider a dedicated form only after a complete author task establishes a
+limitation of ordinary Scheme abstraction. This conclusion compares actual responsibilities;
+it does not transfer Racket's binding-class implementation to Gerbil.
+
+Gerbil's [[https://gerbil.scheme.org/reference/gerbil/prelude/macros.html][prelude macros]] supply those author mechanisms. Its
+[[https://gerbil.scheme.org/reference/gerbil/expander/][expander reference]] distinguishes syntax-time API access from explicit runtime
+imports, and the [[https://gerbil.scheme.org/reference/gerbil/prelude/core-expander-syntax.html][core syntax reference]] specifies differential-phase imports.
+These support distinguishing host macro availability from domain validation. The current parser's
+=expand-surface-syntax= already calls =core-expand1= on vocabulary invocations;
+that source establishes an existing expansion mechanism, not implementation of
+multi-section contribution admission.
+
+| Decision in the same package | Source basis | Concrete implementation obligation |
+|------------------------------+--------------+------------------------------------|
+| Template definition | Gerbil defrules/defsyntax; pinned extension wrappers | Reuse standard macros; validate contribution output instead of inventing a wrapper without a contract |
+| Collection before dependent checking | Fortifying Macros section 7.2 | Collect domain declarations, select effective rows, then check references/catalog obligations |
+| One compiler input | Compiled extensible DSL architecture; existing parser compiler | Finalize canonical data once and reuse binding, analysis and publication |
+| Identity after finalization | Current normalizer and artifact cache source | Seal receipt/body after derived catalogs; keep runtime inputs consistent with that value |
+| Effective ownership | Current ordered row operations | Associate sources with the same selection, including an explicit equal-row merge convention |
+
+The final two obligations are deductions from our implementation, not claims made
+by the papers. They explain why a syntax proposal cannot be approved independently
+of its engine route. The concrete declaration is in [[file:scheme-dsl-author-interface.org][author interfaces]] and the
+selection/finalization seam is in [[file:scheme-dsl-engine-admission.org][engine admission]]. No new algorithm, empirical
+complexity reduction or complete composed runtime is established by this review.
+
+** Transfer into the three-interface implementation plan
+
+Use =grammar.ss= for declared syntax and supported vocabulary, =parser.ss= for
+checked entry/services, and =parser-test.ss= for independent expectations. Engine
+elaboration should converge on the canonical publication owner already studied.
+The source-reading comparison supports extracting/reusing engine responsibilities;
+it does not select a new public component clause or persistent metadata schema.
+
+Stage inspection could expose authored/elaborated syntax, effective contributions,
+canonical/Bound/Parser IR and selected existing analysis receipts. Such inspection
+must preserve their meanings and absent origins. It should not require authors to
+invoke passes, rewrite ASTs or maintain compiler snapshots. This remains a design
+obligation, not an implemented inspection API or automatic expansion-history log.
+
+#+begin_src scheme
+;; Existing Scheme extension mechanism in grammar.ss:
+(defgrammar-syntax (required-items label item separator)
+  (seq (field label item)
+       (repeat (seq separator (field label item)))))
+
+;; Question 1: Why is this DSL design better?
+;; Vocabulary elaborates into the same core as explicit rules; engine owners handle
+;; binding, analysis, publication and runtime while users keep three DSL interfaces.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Paper architecture and pinned code identify concrete boundaries and compiler consumers.
+;; Our native expression/Loader/test and publication controls qualify separate Gerbil paths.
+;; Falsifiers: unsupported host execution enters portable Grammar IR, extensions bypass
+;; admission, or diagnostics require authors to understand internal pass scheduling.
+;; Limit: source inspection is not a port, performance result or complete POO DSL bridge.
+#+end_src
+
+The next code-facing decision is where to factor existing concise elaboration and
+canonical publication so both explicit and composed declarations use them. Validate
+that seam against the same tree/origin/product contracts in
+[[file:scheme-dsl-engine-admission.org][engine admission]] and [[file:scheme-dsl-semantic-contracts.org][semantic contracts]]. Do not reproduce miniKanren's
+optimizer as a new parser analysis layer.
+
+* Fortifying Macros: how should a declaration explain itself?
+
+Culpepper and Felleisen, ICFP 2010,
+[[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][author paper]], sections 3–4 and parser-generator case study 7.2. Syntax
+classes describe structured inputs and expose attributes. The parser case uses
+two stages to resolve dependencies between declarations and productions.
+
+Design conclusion: write down the language of declarations as a specification.
+First collect sections, names and policies; then elaborate rules against that
+context. Associate each constructor with argument roles, cardinality, output
+shape and constraints. The same specification can guide documentation, checking
+and expansion explanations. Use Gerbil facilities to implement the useful ideas;
+Racket's syntax-parse API is not a required dependency.
+
+Study task: document =prec=, =field=, =choice= and a list abstraction with the same
+rubric. Evaluate how easily an author understands valid combinations and locates
+an incorrect argument. Diagnostic quality is part of a mature author interface.
+
+* Parsing Expression Grammars: which algebra are authors actually using?
+
+Ford, POPL 2004,
+[[https://pdos.csail.mit.edu/papers/parsing:popl04.pdf][author paper]], sections 3.5–3.7. Abstract simulation supports conservative
+structural reasoning; well-formedness and transformation identities depend on
+PEG recognition semantics, including prioritized choice.
+
+Design conclusion: make the semantics of our CFG/LR constructors explicit before
+building higher abstractions. Borrow the practice of stating an algebra and its
+conditions. Our arithmetic grammar deliberately uses left recursion, so PEG's
+left-recursion restriction cannot be copied as our grammar rule. An equivalence
+useful for recognition also needs a separate check for nodes, fields, precedence
+and offsets when used as a compiler rewrite.
+
+Study task: give =seq=, =choice=, =optional= and =repeat= semantic contracts, then
+specify exactly which transformations preserve recognition and which additionally
+preserve the observable tree. Keep grammar choice and lexical priority distinct.
+
+* Binding as Sets of Scopes: how can independently written fragments compose?
+
+Flatt, POPL 2016,
+[[https://www-old.cs.utah.edu/plt/scope-sets/][author extended paper]], especially section 3 on procedural macros, aliases,
+modules and phases. The model makes scope and name roles explicit.
+
+Design conclusion: a grammar vocabulary can live in ordinary Scheme modules.
+Its interface should identify caller-supplied grammar references, public labels
+and implementation helpers. Begin with fragments whose dependencies are explicit
+parameters. Larger fragments with private rules and exported entries require a
+separate design justification. Avoid conflating symbolic Grammar IR identities
+with Scheme variable bindings.
+
+Study task: compose two independently authored fragments, rename imports and
+change local spellings. Assess whether authors can explain the resulting grammar
+without knowing the fragments' implementation. Existing host binding experiments
+provide controls for that study, rather than a defect investigation.
+
+* Syntax parameters: what context should cooperating macros share?
+
+Barzilay, Culpepper and Flatt,
+[[https://www.barzilay.org/misc/stxparam.pdf][Keeping it Clean with Syntax Parameters]], sections 4, 4.1 and 6.
+The paper studies adjustable syntactic bindings that compose with hygiene;
+section 6 distinguishes context captured by an ordinary function from a macro
+that expands under a later parameterization. This is a constraint on contextual
+elaboration, not a universal solution for every generated identifier.
+
+Our [[file:scheme-syntax-parameter-context.org][Gerbil study]] records the installed mechanism and selected nested-scope
+controls. Its design role is engine-side declaration context and precise blame.
+Do not infer full expansion history, public syntax-parameter configuration or
+semantic runtime behavior from those construction/diagnostic controls. Read this
+paper together with syntactic abstraction and scopes when defining the one phase
+and diagnostic contract.
+
+* Object algebras: which extension task actually needs another protocol?
+
+Oliveira and Cook, ECOOP 2012,
+[[https://www.cs.utexas.edu/~wcook/Drafts/2012/ecoop2012.pdf][Extensibility for the Masses: Practical Extensibility with Object Algebras]].
+The [[file:scheme-poo-language-components.org][supporting POO study]] reads construct/operation extension in sections 2–3 and
+modular combination in section 7. Java factories and generics are its concrete
+mechanism. Our POO grammar roles are not thereby object algebras with the paper's
+static guarantees.
+
+Use the distinction to ask whether adding a grammar construct and adding an
+analysis/product require coordinated author edits. Prefer the existing canonical
+IR and receiver/compiler owners. A contribution interface is not warranted simply
+because a paper describes extensibility. The rejected author candidate remains
+withdrawn; any extra protocol requires a complete author task and a demonstrated
+limitation of the existing Scheme/POO mechanisms.
+
+* Abstract interpretation: what can declarations teach the compiler?
+
+Cousot and Cousot, POPL 1977,
+[[https://www.di.ens.fr/~cousot/COUSOTpapers/publications.www/CousotCousot-POPL-77-ACM-p238--252-1977.pdf][author scanned paper]], sections 5.1–5.3, 6–7 and 8.1–8.3 (printed pages
+241–244). Section 6 requires a correspondence between concrete and abstract
+interpretations and local consistency of transfer operations. Section 8 separates
+fixed-point correctness, termination and efficiency. Reading these sections does
+not reproduce the appendix proofs or prove our compiler correct.
+
+Our application of this framework is specified in
+[[file:scheme-dsl-semantic-contracts.org::*Derived facts after expansion: nullable, FIRST and completion][the derived-fact contract]]. The current =compute-nullable=, =compute-first= and =compute-productive=
+compute finite-domain fixed points in the existing LR owner. Nullable
+now uses [[file:dsl-effective-grammar-admission.org::*Dependency-driven nullable closure (2026-10-09)][occurrence dependency propagation]]; FIRST uses
+[[file:dsl-effective-grammar-admission.org::*FIRST propagation: contract and implementation][nullable-prefix dependencies and coalesced terminal deltas]].
+This changes evaluation order and work, not the meaning of the nullable fact.
+The design obligation is
+to state what each result observes after lowering, rather than create a second
+analyzer. Finite monotone growth establishes termination; semantic correspondence
+and transfer correctness are additional obligations. Nonempty FIRST does not
+establish a completed derivation, as the existing dead-tail control demonstrates.
+
+[[file:dsl-effective-grammar-admission.org::*Productivity: finite derivation and LR entry admission][Productivity now has a finite-word contract and LR entry-admission consumer]].
+[[file:dsl-productive-entry.org::*Joint completion solver: one graph, two meanings][The joint completion solver]] now shares occurrence registration and scheduling
+with nullable while preserving the separate terminal policies.
+Field multiplicity and child-category analysis still require their own consumer,
+concrete meaning and transfer contract. Any grammar rewrite must
+also preserve the tree, field and source contracts; recognition facts alone do
+not justify changing an author's declared grammar.
+
+The existing LR lookahead consumer now also uses
+[[file:dsl-effective-grammar-admission.org::*Unified suffix facts across LR consumers][shared compositional suffix facts for LR closure and FOLLOW/partition consumers]],
+avoiding their repeated forward suffix scans. This is an evaluation improvement with independent
+forward-scan and complete LRSpec controls, not adoption of a predictive-parser
+type theorem for arbitrary CFGs.
+
+* Polymorphic embedding: which interpretations share the admitted grammar?
+
+Hofer, Ostermann, Rendel and Moors, GPCE 2008,
+[[https://www.mathematik.uni-marburg.de/~rendel/hofer08polymorphic.pdf][Polymorphic Embedding of DSLs]], selected full-text reading: sections 3.1–3.6
+and 4.4–4.7. The paper separates language operations from semantic domains and
+illustrates evaluation, printing and a semantic transformer with Regions.
+Its section 3.6 places optimization during denotation construction, before repeated
+execution; this is not necessarily host-language compilation. Section 4.4 leaves
+side-effect discipline to the programmer. Section 4.7 uses transfer functions as
+a domain to accommodate dataflow analysis, rather than eliminating fixed points.
+These are paper arguments and inspected listings, not reproduced parser results.
+
+Combined with object algebras, this suggests asking which new observation can
+consume our existing admitted IR. Combined with abstract interpretation, it
+requires recursive grammar facts to retain their global analysis contract.
+Combined with hosted DSL compilation, it requires a named phase and a checked
+boundary before an observation becomes a published product. This is our design
+inference; the papers do not prove Gerbil POO roles equivalent to Scala type
+families or Java object algebras.
+
+The concrete direction is one checked grammar feeding existing parser, catalog
+and diagnostic consumers. =grammar.ss= should not configure an interpretation
+framework; =parser.ss= declares supported products; =parser-test.ss= supplies
+independent observations. Additional consumers must demonstrate a complete task
+and preserve admitted grammar identity. No new public algebra protocol follows
+from the paper alone. The GQL compiler-product gate remains independent of these
+conceptual conclusions.
+
+The [[file:scheme-dsl-engine-admission.org::*Connect analysis evidence to author syntax before publication][integrated diagnostic route]] now applies these readings to the actual
+expansion, declaration-source, Bound IR and LR lowering seams. It separates
+author promises, fact witnesses and source precision; it remains a proposed
+integration with existing owners, not a new author protocol.
+
+The implementation comparison also preserves an important observable boundary:
+section 5.2 of the hosted-DSL paper retains otherwise trivial =fresh= nodes because
+they affect search interleaving and answer order. Our corresponding obligation is
+to state the parser's recognition/tree/field/span observations before simplifying
+a macro expansion. The [[file:scheme-dsl-engine-admission.org::*Native Gerbil mechanisms and the minimum engine seam][native Gerbil source audit]] and
+[[file:scheme-dsl-semantic-contracts.org::*Finite explanations belong to the existing fact owner][finite explanation design]] connect syntax preservation and recursive fact
+justification to the existing owners. Neither transfer establishes a parser
+optimization or a new portable metadata format.
+
+Section 5.3 of the hosted-DSL paper makes the host interaction boundary part of
+optimization correctness: opaque host code limits transformations while checked
+boundary operations retain useful invariants. The pinned =compile.rkt= separates
+core optimization from generation, and its =save-optimized-step= retains pass
+snapshots in an =optimized-relation-code= symbol table. This is inspected tooling
+state, not a cost-free mechanism or our parser's cache model. Polymorphic
+embedding section 4.4 also makes side-effect discipline an implementer obligation.
+Our joint inference is to avoid re-executing arbitrary Scheme macros to recreate
+an explanation. Reuse current admitted input and specify evidence lifetime,
+cache-hit behavior and cost in [[file:scheme-dsl-engine-admission.org::*Evidence lifecycle across cache hits and misses][the integrated lifecycle contract]].
+
+The hosted-DSL paper's sections 5.4.1–5.4.2 also constrain how we evaluate a
+transfer. Its benchmark families exercise different workloads, and Table 1's
+columns cumulatively add optimizations. Those ratios are not isolated causal
+measurements of each pass. The results discussion includes code-size-related
+slowdowns from specialization; an optimization architecture is not a universal
+performance guarantee. This selected reading does not reproduce the artifact or
+transfer miniKanren speedups to parsing. Our corresponding method is matched
+semantic controls and separate phase/cache/request benchmarks, preserving negative
+results. The [[file:scheme-deflanguage-design-synthesis.org::*Integrated implementation decision review][integrated implementation review]] uses existing source-diagnostic failures
+as the first task; recursive evidence and optimization remain separate hypotheses.
+
+The first implementation now applies Fortifying Macros section 4.2's author-level
+error principle at the existing Gerbil validation owner. It keeps current messages
+and selects retained syntax instead of importing syntax-parse or adding a matcher.
+The [[file:scheme-dsl-engine-admission.org::*Implemented first slice: concise author blame][implemented slice]] checks actual reader text, direct/macro controls, import
+renaming, generated invalid constructors and absent-source behavior. Its five
+focused cases are evidence for these boundaries, not the paper's complete error
+selection semantics. The next research/implementation step must respond to a
+remaining author task rather than expand diagnostic mechanisms without a consumer.
+
+The next implementation applies Fortifying Macros section 7.2's dependency-staging
+principle to field derivation: check/normalize the declarations before consuming
+referenced helper bodies. The paper's two-pass parser resolves clause dependencies;
+our Gerbil change keeps existing validation and inference, using normalized rules
+as their shared semantic representation. This is a design transfer, not adoption
+of Racket syntax classes. The [[file:scheme-dsl-semantic-contracts.org::*Field derivation uses the validated grammar][field contract]] ties the forward-reference
+counterexample, postorder catalog preservation and native product comparison to
+one complete author task. The implementation evidence supports that task and
+leaves global inference proofs and performance effects open.
+
+The same section 4.2 criterion now covers existing root and node/token-kind
+obligations. Retained syntax connects a cross-expression constraint to an authored
+body or kind parameter; generated terms use invocation blame. The
+[[file:scheme-dsl-semantic-contracts.org::*Declaration obligations explain the authored term][declaration contract]] records negative controls and native product parity.
+This remains a targeted Gerbil implementation, not the paper's full contextual
+failure selection algorithm or an empirical usability result.
+
+The integrated implementation now covers the full constructor-header contract
+at both existing declaration entries. The [[file:scheme-dsl-semantic-contracts.org::*One constructor contract across declaration entries][constructor contract]] separates
+shared canonical constraints, source-aware syntax traversal and resolved LR policy.
+Fortifying Macros sections 3–4 and 7.2 inform that separation; its syntax classes
+are not copied into a second validator. Native controls exposed a proper-list
+boundary absent from interpreted controls, reinforcing that implementation evidence
+must include the actual compilation phase before admitting a diagnostic claim.
+
+The composed implementation applies the same paper argument across the engine.
+[[https://www2.ccs.neu.edu/racket/pubs/icfp24-bgh.pdf][Compiled, Extensible, Multi-language DSLs]], section 1 and Figure 1, separates an
+extensible surface from a compiler core. Our local application is direct canonical
+POO admission and shared machine emission, rather than whole-declaration replay.
+[[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][Fortifying Macros]], section 7.2, motivates collecting declarations before checking
+dependent references. Our application selects effective rows and sources before
+Bound IR binding. The particular merge/override/remove source policy is our
+explicit engine contract, not a policy extracted from either paper. Matched
+composition, provenance and checked-entry controls qualify these implementations;
+the papers do not establish our engine's performance or author-effort advantage.
+
+* Proposed vocabulary structure
+
+| Layer | Author intent | Current foundation | Design work |
+|-------+---------------+--------------------+-------------|
+| Grammar primitives | Sequence, alternatives, repetition and references | =seq/choice/optional/repeat/token/reference= | Uniform semantic contracts |
+| Tree construction | Public nodes, fields and spans | =node/alias/field= | Explain output shape, including fragments |
+| Parsing policy | Associativity, precedence, conflicts, layout and recovery | =prec= and existing declaration sections | Keep policy visible in higher forms |
+| Grammar idioms | Infix tier, separated list, delimiter and optional clause | =defgrammar-syntax= | Small parameterized vocabulary with inspectable expansion |
+| Package products | Catalog, loader, tooling, tests and target builds | Existing compiler and POO interfaces | Derive repeated facts; retain intentional choices |
+
+These are explanatory layers, not five new public DSLs. Authors should be able
+to use an idiom and inspect its expansion into familiar primitives. Advanced
+users retain direct access to those primitives.
+
+* Candidate infix abstraction
+
+This template uses the existing public macro mechanism. Its name and parameter
+list are study vocabulary, not a newly published standard library function:
+
+#+begin_src scheme
+(import (only-in :gerbil-parser/language-support defgrammar-syntax))
+
+(defgrammar-syntax (infix-node associativity level kind lhs operators rhs)
+  (prec associativity level
+    (node kind
+      (seq (field left lhs)
+           (field operator operators)
+           (field right rhs)))))
+
+;; Production alternatives in an arithmetic study:
+(infix-node left 10 Expression expression (choice "+" "-") expression)
+(infix-node left 20 Expression expression (choice "*" "/") expression)
+#+end_src
+
+This abstracts repeated tree structure while keeping associativity, level,
+operator set and recursive operands visible. It does not decide that every
+language's binary expression should have the same fields or tree shape.
+A later operator-table form could generate these alternatives, provided its
+expansion retains their individual policy and source origins.
+
+* Candidate list abstraction
+
+#+begin_src scheme
+(defgrammar-syntax (nonempty-field-list label item separator)
+  (seq (field label item)
+       (repeat (seq separator (field label item)))))
+
+;; A study body for a call's existing argument fields:
+(optional (nonempty-field-list argument expression ","))
+#+end_src
+
+This makes empty/nonempty intent explicit and retains repeated field instances.
+Trailing separators require a deliberate additional policy. Applying one outer
+=field= to the whole list would produce a different structure; the library should
+explain both choices rather than hide their distinction behind one convenience
+name. A delimiter abstraction can compose around this body without automatically
+introducing another public node.
+
+* Give each constructor a scientific contract
+
+Use one rubric for primitives and derived vocabulary:
+
+1. Argument roles: expression, declared reference, public label, host expression
+   or parsing policy; state the allowed multiplicity of each argument.
+2. Recognition meaning: language of accepted tokens and interactions with choice,
+   precedence, layout and recovery.
+3. Tree meaning: emitted nodes, field instances, fragments and spans.
+4. Expansion: the existing primitives/core forms produced, with an explanation
+   connecting parameters to the result.
+5. Static facts: derivable properties, conservative unknown cases and consumer.
+6. Cost: authoring burden, expansion growth, compiler analysis and runtime work
+   measured separately.
+
+For example, =optional= may make a field absent, but the exact tree depends on
+where the field wrapper sits. An operator tier's precedence number is a semantic
+choice, while its derived catalog entries should be compiler-owned.
+
+* Engine improvements enabled by this design
+
+| Design information | Potential engine use | Qualification required |
+|--------------------+----------------------+------------------------|
+| Explicit constructor contracts | Consistent elaboration and explanatory diagnostics | Same grammar admission and source meaning |
+| Shared elaborated core | Apply existing compilation to user vocabulary | Core/product equivalence on matched cases |
+| Productivity/nullability | Useful declaration feedback and analysis scheduling | Match current CFG/LR semantics and reuse existing facts |
+| Field/shape summaries | Richer tooling and generated schema | Correspondence with actual CST/field events |
+| Operator/list intent | Candidate specialization and expansion explanation | Preserve conflicts, associativity, trees and spans |
+| Qualified target capabilities | Share declared semantics across generated products | Existing native backend and artifact qualification |
+
+Structured declarations can make optimization possible; they do not establish
+that an optimization is necessary or beneficial. Keep host/compiler improvements
+and parser-domain analysis in their existing owners. Macro vocabulary itself can
+be valuable through comprehension and maintenance even when runtime is unchanged.
+
+* Concrete next research deliverables
+
+1. A constructor reference using the six-part rubric for the current primitives.
+2. An arithmetic/HCL/FHIRPath comparison using infix, list and optional-clause
+   idioms, with explicit expansions and preserved semantic choices.
+3. A declaration-to-analysis map identifying facts already computed by the engine
+   and facts that genuinely need new analysis.
+4. A Scheme prototype of the most useful vocabulary, admitted through the current
+   compiler and tested against the explicit original rules.
+5. Author-task and compile/runtime measurements that answer separate questions.
+
+The previous count-model checks and host macro controls remain supporting studies.
+The main research sequence now follows these authoring and engine deliverables.
+
+* Required Scheme rationale for every design conclusion
+
+Every accepted recommendation must answer both questions in a Scheme block,
+with an author form, an explicit semantic contract, evidence and a remaining
+boundary. A paper supplies principles; it does not automatically establish the
+superiority of our particular DSL. “Better” must name its comparator and task.
+
+The local list vocabulary provides a concrete example (within the current
+=defgrammar-syntax= extension context):
+
+#+begin_src scheme
+(defgrammar-syntax (nonempty-field-list label item separator)
+  (seq (field label item)
+       (repeat (seq separator (field label item)))))
+
+;; In grammar syntax: the container chooses optionality, the component per-item fields.
+(optional (nonempty-field-list argument expression ","))
+
+;; Question 1: Why is this DSL design better?
+;; Compared with explicit seq/repeat/field, item and label each require one author occurrence.
+;; Macros share intent and tree contracts, while core expansion and language policy stay inspectable.
+;; Scheme supplies syntax abstraction and module boundaries; multi-rule versions use checked POO roles.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Recognition is item (separator item)*; optional admits zero items; fields occur per item.
+;; Compare acceptance, rejection, full tree events, fields and source spans against explicit rules.
+;; The multi-rule role has 62+2 checks; these do not replace this surface macro's integration checks.
+;; Falsifier: admitted trailing separators, altered field shape or disagreement with explicit rules.
+;; Limit: no author-task experiment; shorter declarations imply neither speed nor universal optimality.
+#+end_src
+
+For each paper-derived conclusion, record the chain:
+=paper principle -> Scheme mechanism -> explicit contract -> executable control
+-> bounded conclusion=. The focused studies now include their own two-question
+blocks for named tiers, rule context, list roles, origins and composition history.
+Author-task studies should compare editing errors and completion time with the
+explicit form; compiler/runtime benchmarks must measure their own phases. Those
+future measurements remain open rather than being inferred from semantic tests.
+
+* Supporting implementation studies
+
+These studies qualify distinct parts of the common design. Consult their full
+receipts and limits; their successful counts are not one package pass total.
+
+| Responsibility | Evidence owner |
+|----------------+----------------|
+| Checked expression/multi-rule contributions | [[file:scheme-poo-language-components.org][POO component study]] |
+| Reader invocation and template origins | [[file:scheme-source-origin-contract.org][Source-origin study]] |
+| Typed local errors and source-free inputs | [[file:scheme-declaration-diagnostics.org][Diagnostic study]] |
+| Wrapper forwarding and shared transformer-phase contracts | [[file:scheme-nested-declaration-context.org][Nested context study]] |
+| Official scoped syntax parameters, nearest/retained context and scope isolation | [[file:scheme-syntax-parameter-context.org][Syntax-parameter study]] |
+| Required items, resolved nullable/FIRST facts and separator repetition | [[file:scheme-list-role-composition.org][List contract study]] |
+
+Keep local syntax checks separate from resolved grammar obligations. Reuse the
+existing engine analyses; consumption, completion and tree contracts are different
+questions. The [[file:scheme-deflanguage-design-synthesis.org][overview]] owns current decisions and the closure sequence.

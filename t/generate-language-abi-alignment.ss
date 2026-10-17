@@ -1,0 +1,60 @@
+;;; -*- Gerbil -*-
+;;; Native ABI fixture publication has a build owner separate from test assertions.
+(import (only-in :std/encoding/hex hex-encode)
+        (prefix-in (only-in :gerbil-parser/src/ffi/language-artifact-codec bind-language-abi abi-descriptor-payload abi-parse-binary-payload) codec-)
+        (only-in :gerbil-parser/language-support/entry language-metadata-ref)
+        (only-in :clan/poo/object .ref)
+        (only-in :gerbil-parser/t/fixtures/language-entries language-entry-pairs)
+        (only-in :gerbil-parser/language-support/development language-loader-fixtures)
+        (only-in :gerbil-parser/language-support/fixture syntax-fixture-source)
+        (only-in :gerbil-parser/src/runtime/artifact parse-artifact-success?))
+(export write-language-abi-alignment! report-language-abi-mismatch!)
+;;; Each native backend is checked from its configured public parser descriptor.
+(def (write-language-abi-alignment! output)
+  (def (emit-bytes port bytes)
+    (let (length (u8vector-length bytes))
+      (for-each (lambda (shift) (write-u8 (bitwise-and 255 (arithmetic-shift length (- shift))) port))
+                '(0 8 16 24)))
+    (write-u8vector bytes port))
+  (call-with-output-file output
+    (lambda (port)
+      (for-each
+        (lambda (row)
+          (let* ((entry (car row)) (development (cadr row))
+                 (metadata (.ref entry 'metadata))
+                 (name (language-metadata-ref metadata 'contract))
+                 (native (codec-bind-language-abi (.ref entry 'descriptor))))
+            (for-each
+              (lambda (status)
+                (let (fixtures (language-loader-fixtures development status))
+                  (when (null? fixtures) (error "missing native alignment control" name status))
+                  (let* ((source (syntax-fixture-source (car fixtures)))
+                         (artifact ((.ref entry '.parse) source)))
+                    (unless (eq? (parse-artifact-success? artifact) (eq? status 'accepted))
+                      (error "native alignment fixture status mismatch" name status))
+                    (emit-bytes port (string->utf8 name))
+                    (emit-bytes port (string->utf8 (codec-abi-descriptor-payload native)))
+                    (emit-bytes port (string->utf8 source))
+                    (emit-bytes port (codec-abi-parse-binary-payload native source))
+                    (write-u8 (if (eq? status 'accepted) 1 0) port)
+                    (displayln "NATIVE-ALIGNMENT-CASE " name " " status) (force-output))))
+              '(accepted rejected))))
+        language-entry-pairs)))
+  (displayln "LANGUAGE-ABI-ALIGNMENT-GENERATED") (force-output))
+
+;; Diagnostic output belongs to this fixture owner, not a -test.ss assertion.
+;; Keep exact-byte admission in the caller and report only a bounded window.
+(def (report-language-abi-mismatch! actual expected)
+  (let (extent (min (u8vector-length actual) (u8vector-length expected)))
+    (let find ((at 0))
+      (if (and (< at extent) (= (u8vector-ref actual at) (u8vector-ref expected at)))
+        (find (+ at 1))
+        (begin
+          (displayln "ABI-BYTE-MISMATCH offset=" at
+            " actual-bytes=" (u8vector-length actual)
+            " expected-bytes=" (u8vector-length expected))
+          (displayln "ABI-ACTUAL " (hex-encode actual (max 0 (- at 32))
+                                    (min (u8vector-length actual) (+ at 64))))
+          (displayln "ABI-EXPECTED " (hex-encode expected (max 0 (- at 32))
+                                      (min (u8vector-length expected) (+ at 64))))
+          (force-output))))))

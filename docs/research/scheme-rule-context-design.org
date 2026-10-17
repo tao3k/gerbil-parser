@@ -1,0 +1,203 @@
+#+title: Scheme rule context: declare identity once, elaborate explicit grammar
+#+date: 2026-10-06
+
+* Research question and status
+
+Can a rule declaration provide its own name to a reusable recursive template,
+so the author does not repeat that identity inside the rule? This study extends
+[[file:scheme-poo-language-components.org][the syntax and POO component study]], whose native numeric-free tier fixture
+already checks actual nesting and selected Arithmetic event parity.
+
+The current committed baseline is =783381f33fa1b309ac4cc4b0012696f24c852d93=.
+All additions described here are local research fixtures. Public =deflanguage=
+and the parser engine are unchanged. Names and declaration syntax remain under
+discussion; the study does not introduce a production author API.
+
+* Concrete reduction in author work
+
+Before:
+
+#+begin_src scheme
+(sum
+ (left-binary-tier sum (reference product)
+   (choice (literal "+") (literal "-"))
+   (node Expression) (fields left operator right)))
+#+end_src
+
+The local declaration vocabulary instead accepts:
+
+#+begin_src scheme
+(sum
+ (left-tier (reference product)
+   (choice (literal "+") (literal "-"))
+   (node Expression) (fields left operator right)))
+#+end_src
+
+The enclosing declaration supplies =sum= to the template. Operand dependency,
+recognized operators and explicit tree customization stay visible. The rule
+identity is written once without numeric precedence or an implicit global self
+variable. The same mechanism supports right binary tiers and recursive right
+chains; those keep their distinct tree contracts.
+
+* Macro boundary and implementation
+
+[[file:../../t/fixtures/language-pack-research/context-vocabulary.ss][context-vocabulary.ss]] exports the local =deflanguage/tiers= macro. It:
+
+1. Matches the language's rules section at the declaration boundary.
+2. Uses =syntax-case= to recognize =left-tier=, =right-tier= and =right-chain=
+   only as the outer expression of a named rule.
+3. Reuses the matched rule identifier as the explicit template argument.
+4. Preserves ordinary rows and language sections for the existing =deflanguage=.
+5. Lets existing expression templates and the canonical compiler perform their
+   established validation, compilation and artifact construction.
+
+This is a small syntax-object transformation, not a replacement DSL parser. It
+has no table compiler, runtime merger or source evaluator. It does not traverse
+arbitrary nested syntax and replace every occurrence of a spelling like =self=.
+Custom forms outside its declared positions remain the existing expression
+expander's responsibility.
+
+The wrapper requires the existing order of the identity/root/lex/rules sections.
+It does not implement an unordered clause collector or a general third-party
+rule-declaration extension protocol. Those are separate author-interface choices.
+
+* Native checks and evidence boundary
+
+[[file:../../t/fixtures/language-pack-research/context-language.ss][context-language.ss]] imports the declaration macro with =rename-in= and
+assembles the same study language without the repeated self arguments. It also
+defines host values named =sum=, =product= and =power=.
+[[file:../../t/fixtures/language-pack-research/context-runtime.ss][context-runtime.ss]] verifies the result using the existing parser and artifacts:
+
+#+begin_src sh
+GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" GERBIL_PARSER_LR_TRACE=1 \
+  gtimeout 10 gxi t/fixtures/language-pack-research/context-runtime.ss
+#+end_src
+
+The final invocation exited 0 and reported =CONTEXT-RUNTIME-OK: 59 checks passed=:
+
+- Thirteen inputs: both parsers accept, the candidate roundtrips, and complete
+  public events equal the explicit-self tier language, including exponentiation.
+- Five invalid inputs reject.
+- The renamed declaration macro works while the three same-spelling host values
+  retain their expected values.
+- Three malformed rows return the wrapper's expected diagnostics: a missing
+  operand/operator pair, a nonidentifier rule name and multiple expressions in
+  one row. The assertion compares messages, not merely whether any error occurs.
+
+The first attempt exited 70 because the inert diagnostic assertion macro passed
+a complete form to =datum->syntax=, whose anchor must be an identifier in this
+Gerbil implementation. The assertion now uses its own macro identifier as the
+anchor. The declaration wrapper itself preserves matched syntax rather than
+rebuilding declarations through =syntax->datum=. The final receipt includes both
+the summary and exit 0; no timeout was increased.
+
+These are selected-input runtime controls. They do not prove grammar equivalence,
+general macro capture freedom, complete source-location retention or cross-role
+rule collision avoidance. The right-chain declaration case is implemented but
+has no new full-language runtime control in this study.
+
+* Host binding and grammar identity are distinct
+
+| Identity | Current owner | Consequence |
+|----------+---------------+-------------|
+| Imported declaration macro | Gerbil module/expander binding | Import renaming preserves the macro's expansion behavior in this fixture |
+| Host value such as =sum= | Gerbil runtime binding | It does not become the value of =(reference sum)= |
+| Rule name such as =sum= | Canonical grammar declarations and references | It still denotes a declared grammar identity |
+| Public node such as =Expression= | Grammar tree contract | It is not the helper rule's host or module identity |
+| Role contribution identity | Existing checked POO grammar composition | Merge/append/override/remove meanings still apply |
+
+The current concise authoring expander projects grammar identifiers to declared
+symbols. Hygienically importing a macro therefore does not automatically qualify
+its generated helper-rule symbols for POO composition. Two roles contributing a
+rule named =sum= still need the existing deliberate collision/override policy.
+This experiment reduces repeated author declarations; it does not solve that
+separate identity problem.
+
+A future private-helper naming policy must be deterministic and reference-aware.
+Fresh host identifiers are not automatically stable grammar identities. Blindly
+renaming every symbol would also rename fields, nodes or token references with
+different meanings. A component-qualified rule identity needs an explicit owner,
+export map and rewriting boundary before implementation.
+
+* What the official API and paper contribute
+
+[[https://gerbil.scheme.org/reference/gerbil/expander/utilities.html][Gerbil's expander utilities]] documents syntax-object operations and =stx-source=.
+The prototype uses matched identifiers, syntax templates and =stx-map= to retain
+syntax structure while assembling the lowered declaration. Diagnostic errors are
+raised with the author row as context. Exact diagnostic source positions have
+not been asserted, so the study claims specific messages only.
+
+[[https://www-old.cs.utah.edu/plt/scope-sets/general-macros.html][Flatt, Binding as Sets of Scopes, sections 3.5–3.6]] distinguishes binding aliases,
+module scopes and phases. Our design inference is to preserve syntax through the
+declaration transformation and explicitly describe its phase. The paper's model
+is about Racket; it does not prove that Gerbil implements the same internals or
+that grammar-domain symbols inherit its scope semantics.
+
+The useful Scheme advantage is the cooperation of declaration context, pattern
+expansion and modules. POO then operates on checked grammar contributions at its
+specified phase. This prototype compiles through the existing =deflanguage=
+expansion path and does not consume a runtime GrammarRole from that phase.
+
+* Remaining design questions exposed by the witness
+
+** Declaration provenance
+
+The current =deflanguage= records expression macro heads in =macro-lineage=.
+The outer =deflanguage/tiers= wrapper is consumed before that expression walk,
+so the wrapper itself is not added by that mechanism. The language compiler can
+record the lowered expression template while missing the author's declaration
+vocabulary. This is a source-inspected design boundary, not a checked provenance
+receipt in the current fixture.
+
+A future contract should relate author declaration, lowered rule, component owner
+and core expression. That information can explain generated helper rules and
+parser conflicts without affecting recognition or exposing implementation details
+in ordinary application flows. Prefer an origin mapping alongside existing
+compilation data; its schema and lifetime remain undecided.
+
+** Reusable declaration protocols
+
+A general extension boundary must state whether a component contributes one
+expression, one named rule, multiple helper rules or an entire role. Each needs
+different contextual information and ownership checks. The present wrapper only
+studies one named rule at a time; it is insufficient reason to publish a broad
+component protocol.
+
+Working recommendation: keep expression templates small, provide rule context
+at the declaration boundary, and study provenance plus helper ownership before
+merging this vocabulary into public =deflanguage=. Next compare a component that
+really introduces multiple helper rules and compose it through the existing POO
+admission path at a declared phase.
+
+* Follow-up: multi-rule components
+
+The [[file:scheme-list-role-composition.org][list-role composition study]] now supplies a concrete multi-rule provider,
+62 native composition/tree checks and two separate identity-collision checks.
+It also records the phase adapter's unclosed composition-identity and provenance
+contracts, before proposing a public role-import interface.
+
+* Scheme design rationale: two required questions
+
+This is a rule row accepted by the local =deflanguage/tiers= declaration
+wrapper, not a standalone Scheme expression or a published author API.
+
+#+begin_src scheme
+(sum
+ (left-tier (reference product)
+   (choice (literal "+") (literal "-"))
+   (node Expression) (fields left operator right)))
+
+;; Question 1: Why is this DSL design better?
+;; Declare sum once; syntax-case derives the recursive target from its declaration.
+;; Keep the product dependency, operators and tree fields explicit; renaming needs
+;; one fewer coordinated edit. Scheme contributes contextual syntax transformation.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Expansion must preserve the explicit left-binary-tier rule's meaning.
+;; The 59 native checks cover event parity for 13 inputs, host bindings and diagnostics.
+;; Falsifier: changed nodes, fields or spans, or incorrectly admitted declarations.
+;; Limit: no author-task timing, runtime speedup or ambiguity-elimination claim.
+#+end_src
+
+Syntactic abstraction motivates preserving syntax context; the local controls
+establish this wrapper's bounded behavior. The paper does not prove this exact
+DSL optimal. See the paper discussion above and the executable fixture links.

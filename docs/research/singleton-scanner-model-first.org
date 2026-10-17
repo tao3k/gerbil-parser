@@ -1,0 +1,240 @@
+#+title: Rejected scanner experiments, capture costs and bounded test supervision
+
+* Starting point and evidence order
+
+This follow-up starts at =147716d62367d2b79c4f212ccbcd1d31ffc084f2=.
+That commit already includes the selector-input, captured-owned-stack and goto
+column improvements in [[file:selector-input-model-first.org][the preceding study]]. Any new CPU claim must compare
+with this baseline, including its previous improvements.
+
+The order is paper and current-code review, explicit model obligations,
+implementation, independent semantic controls, then complete-request CPU.
+The workload and CPU admission policy are unchanged: 64 ASCII =a=1= records,
+fresh capture-enabled sessions, full scanner/LR execution, publication,
+artifact equality and source validation inside the request clock. Recognition
+projection is independently checked before timing. Five groups of 32 alternating
+legs, 256 requests each, cover 122,880 timed requests. Both reference/reference
+control phases must stay in =0.90..1.10= and candidate P90 must be below =0.95=.
+The CPU fence remains 90 seconds total and five seconds idle. Natural GC is
+included; startup, driver IPC and setup remain outside this prepared-request clock.
+
+* Papers, retained functions and the actual producer
+
+[[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]] discusses binding-time improvements, duplicating
+procedures for distinct contexts and eliminating unnecessary list computation.
+[[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Efficient and Flexible Incremental Parsing]] motivates preserving sufficient
+context for reuse rather than treating all retained work as free. These motivate
+examining actual dataflow; neither paper proves a CPU result for this engine.
+
+The existing POO preparation protocol resolves backend factories before requests.
+The pinned LeanPoo Function/Requirements and representation-bridge work informs
+that separation: grammar choices belong to preparation, while invocation inputs
+and publication obligations remain request-local. The existing library pin and
+Lean toolchain are retained; no model version or public language DSL is changed.
+
+The current =make-ranked-regular-scanner= already prepares mode-specific rule
+winners. Its nonnumeric states are monotone subsets. When the active subset
+contains one bit, every accepted next character keeps that same bit. Repeated
+state-mask intersection and winner selection are therefore unnecessary for that
+extent. Numeric pending/rollback states do not satisfy this premise.
+
+* Four layers and obligations
+
+| Layer | Obligation | Limit |
+|-------+------------+-------|
+| Paper and code | Identify the paid transitions and actual enabled paths | A plausible local improvement is not complete-request benefit |
+| [[file:../../formal/ParserEngine/Preparation.lean][Lean preparation]] | Singleton state elimination, exact prepared membership and start-query transport | Immutable classifier/topology premises must hold; live priorities remain query inputs |
+| [[file:../../formal/ParserEngine/Recognition.lean][Lean representation]] and [[file:../../formal/ParserEngine/Reduction.lean][ordered kernels]] | Retain the contracts of rejected experiments | These are not shipped runtime optimizations |
+| [[file:../../formal/quint/OwnedTerminal.qnt][Quint publication]] | Reject reconstructing a published wrapper after an observer changes it | A bounded protocol model, not native heap refinement |
+| Scheme controls and Benchmark | Exact ranking, source offsets, Unicode, fresh results and whole requests | Native correctness and CPU require executable evidence |
+
+=singleton_state_elimination= proves that a permanently active singleton state's
+accepted prefix equals the prepared predicate's prefix. =prepared_class_membership=
+requires exact membership equality; a first-character approximation is insufficient.
+The rejected prototype admitted only masks =1,2,4,8,16=. An ASCII initial mask with
+multiple bits retains the original loop, and numeric states retain rollback.
+
+* Scanner hypotheses and withdrawal
+
+The singleton prototype prepared shared ASCII continuation classes and bounded
+mode-specific start directories in the engine. Numeric rollback, Unicode and
+mixed subsets retained checked paths. The product prototype added prepared
+literal/regular starts and skipped an impossible literal probe when the first
+trie edge was absent. Candidate identities remained prepared metadata; mutable
+ranks and winner payloads remained live query inputs.
+
+=prepared_start_query_exact= preserves an arbitrary live consumer of prepared
+metadata. =absent_literal_probe= states the missing-match premise explicitly.
+Neither theorem proves native closure layout, actual producer admission or CPU
+benefit. Two retained Scheme controls constrain live winner payloads, fresh result
+cells and live literal/regular priority comparison; the original scanner also
+passes these contracts.
+
+Both implementations were withdrawn after the complete-request gate failed.
+The production scanner, strict source organization guard, language DSL, schema,
+C ABI and Rust representation remain at the starting implementation. The models
+record hypotheses and their necessary premises, not deployed optimizations.
+
+* Rejected experiments and enabled-path audit
+
+All six experiments used the same starting commit and complete-request
+policy. All six runtime implementations were withdrawn. Candidate P90 exceeded
+=0.95= in every row; favorable medians are not accepted. The first four also
+failed the after-control upper limit. The singleton-only run failed control lower
+limits. The final product-start run had stable controls but still failed the
+candidate gate; its small median improvement is not admitted.
+
+| Experiment | Candidate P50 | Candidate P90 | After-control P90 |
+|------------+---------------+---------------+-------------------|
+| Unary metadata classification | 0.994910 | 1.034958 | 1.128814 |
+| Certified losing-fallback pruning | 0.973123 | 1.019841 | 1.119237 |
+| Prepared fixed-arity semantic kernels | 0.997544 | 1.044800 | 1.136836 |
+| Deferred shifted-terminal wrappers | 1.009932 | 1.043904 | 1.103209 |
+| Singleton regular scanner alone | 0.999836 | 1.049317 | 1.035311 |
+| Literal/regular prepared product starts | 0.980010 | 1.006539 | 1.084313 |
+
+The classification direction already had a historical negative receipt; the new
+starting representation did not establish a different outcome. Fallback pruning
+had an admitted-witness proof and direct probe-elimination controls, but directed
+64-record modes already exclude most fallback rules. Source-index construction
+is disabled by default and cannot explain this request's CPU. Fixed-arity
+unrolling alone did not establish savings. Deferred wrappers passed mixed-slot
+and snapshot-observer controls but did not establish complete-request savings.
+Captured grammar fragments retain semantic values; avoiding an intermediate
+operation does not necessarily remove its retained publication work.
+
+The rejected wrapper study exposed a necessary publication constraint: once a
+wrapper is visible through a checkpoint, its observer changes must survive later
+reductions. The retained Quint counterexample rejects a fresh unfielded rebox.
+The runtime currently keeps its existing canonical semantic representation.
+
+* macOS CI root cause and supervision repair
+
+At this starting commit, run =38718426346= passed Ubuntu semantics, corpus, FFI
+and generation. macOS semantics failed at the canonical LR(1) reference owner:
+the unchanged 90-second owner budget expired in its first exhaustive Case.
+The last successful assertions belonged to a three-node partition comparison.
+
+The supervisor spawned a new Scheme reader thread for every test output line.
+The exhaustive oracle also performed four separately logged checks per graph.
+The repair uses one reader and one supervisor per owner. The reader drains the
+existing pipe directly; the supervisor joins it under the remaining idle and
+total deadlines, consulting timestamps written only after actual output reads.
+There are no per-line thread creations or mailbox acknowledgement round trips. The five-second idle fence, 90-second owner budget,
+worker concurrency, assertion content and failure propagation are retained.
+A graph comparison now carries all four facts in one tuple: partition vector,
+group count, unchanged input and examined-work bound. This removes redundant
+reporting transactions without removing a graph or semantic assertion.
+
+Only after all workers join successfully does the existing native child-exit
+helper terminate the harness. Earlier successful assertions followed by finalizer
+idle timeouts remain rejected receipts. The canonical owner completed all 21
+Cases locally in 39.435633 seconds, exit zero, with no timeout or missing marker.
+This is a local repair receipt. The repair was pushed as
+=75c5742c11815ac133022f899f55bde22104a086=; exact-head CI is a separate gate.
+All seven worker lifecycle controls also passed, covering shared runtime,
+affinity, failure propagation, silence, duplicate ownership and both reexports
+and suite-object ownership.
+
+* Recorded-query cost diagnosis
+
+[[file:../../t/benchmarks/capture-prefix/phase-cost.ss][The Scheme diagnostic]] records actual lexical query modes and both character
+and byte positions from the complete request. It checks each token and exclusive
+character boundary before timing, then replays the exact lexical query trace and
+LR input sequence. Captured and uncaptured LR results must agree. Independent
+recognition projection and the complete published artifact must agree as well.
+
+The actual trace has 256 tokens, all significant, and 322 reductions. The earlier
+study's prose incorrectly assumed only 192 significant shifts; that count is
+corrected explicitly there. The actual workload, artifact, frontier fingerprints
+and previous CPU measurements are unchanged.
+
+Five samples per scope use 256 calls, after 256 warmups per scope, alternating
+scope order. The existing ASP-backed Scheme Benchmark CPU/GC sampling primitive
+is reused directly. No forced GC, changed CPU gate, source substitution or
+instrumentation in production is introduced.
+
+| Scope | Median CPU ms per request |
+|-------+---------------------------|
+| Complete captured request | 0.221035 |
+| Recorded lexical queries | 0.042395 |
+| Captured LR replay | 0.137559 |
+| Uncaptured LR replay | 0.024125 |
+| Publication | 0.007949 |
+| Source validation | 0.019055 |
+
+This receipt completed in 10.213509 seconds, exit zero. The replays have different
+prepared inputs and retained heaps. These numbers are neither additive exclusive
+costs nor matched speedup evidence. In particular, replayed lexical queries omit
+frontend bookkeeping, and LR replays reuse already allocated input tokens.
+
+One captured-LR batch spent 25.928 ms of its 35.981 ms CPU in GC; another spent
+25.616 ms of 35.215 ms. No-GC captured batches took 11.833 and 9.532 ms. No-GC
+allocation observations were about 257 KB per captured request and 87 KB per
+uncaptured replay. The latest whole-VM live-byte snapshot was about 121 MB; this
+includes loaded compiler interfaces and is not parser-owned live memory.
+Negative allocation deltas across GC are not admitted as allocated bytes.
+
+The final topology-checked diagnostic also passed in 10.659116 seconds, exit zero.
+It found 322 fragments, 256 terminal leaves and eight sparse snapshots, each
+with six states and five semantic values. Thus this trace does not support an
+explanation based on large snapshot stack depths. Its complete-request and
+captured-LR CPU medians were 0.229488 and 0.135379 ms respectively; this is a
+second cost observation, not a candidate/reference comparison.
+
+The next model obligation is allocation and retention ownership across captured
+fragments, semantic sequences and published snapshots. CPU cost must include
+natural GC and the retained live set. Merely specializing small scanner kernels
+has not addressed that cost. The optimized Scheme lowering already uses direct
+=##structure= fragment allocation, so replacing a generic constructor call is
+not an available explanation for savings here. A runtime-only benchmark loader
+could alter the live heap, but that would be a separate harness comparison,
+not evidence of a parser algorithm improvement.
+
+* Reproduction
+
+#+begin_src sh
+just formal
+just formal-protocol
+just diagnose-capture-cost
+just prepare-capture-reference 147716d62367d2b79c4f212ccbcd1d31ffc084f2 .data/capture-study/reference selector-input
+just benchmark-capture-prefix .data/capture-study/reference/lib selector-input
+#+end_src
+
+The unchanged reference builder freezes the eight selected LR request owners.
+Scanner owners and other dependencies are shared in this restored production
+state; comparing a future scanner change requires explicitly extending and
+verifying the frozen owner closure first. Native-image checks and full
+artifact/frontier fingerprints precede timing. At the restored starting runtime,
+reference versus current is a control comparison, not a new candidate proof.
+
+* Local native-image controls
+
+The local multi-owner parser batch initially crashed on both a candidate and the
+restored baseline. A Darwin crash frame identified the old native
+=ranked-publication~0.o2= test helper. A production clean build covered 241 modules
+but excluded test helpers. Rebuilding the ranked/action-selection helpers and
+record fixture with the current SDK produced a successful same-concurrency batch:
+30 Cases in 14.912334 seconds, exit zero. This is evidence for the tested native
+closure, not a claim about a Scheme compiler or GC defect. Earlier crashes,
+startup timeouts, a malformed new control and finalizer timeouts remain rejected.
+
+The product-start extension then passed 31 Cases across the same six owners,
+including every regular-rule subset, independent literal matching, full TLA+
+requests, lexical modes, Unicode and the strict source organization guard.
+That local batch completed in 21.988767 seconds with exit zero and no missing
+marker. Test compilation and semantic controls do not establish new CPU benefit.
+
+The restored scanner then passed its eight Cases, including both new live-payload
+controls, in 10.269232 seconds, exit zero. The final Lean build completed all 56
+jobs, the Quint suite passed 114 directed histories and 12 seeded invariant runs,
+and the source-binding unit control passed. These qualify their respective
+layers; none is a substitute for the rejected complete-request CPU gate.
+
+* Current conclusion
+
+The CI repair is published. Lean and Quint obligations, live-payload controls and
+the recorded-query diagnostic are executable research progress. No new engine
+CPU improvement passed the unchanged 64-record complete-request gate in this
+study. The six rejected implementations must not be described as delivered
+optimizations or substituted for the earlier baseline's separate CPU receipt.

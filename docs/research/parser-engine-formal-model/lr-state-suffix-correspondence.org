@@ -1,0 +1,164 @@
+#+title: LR state and suffix producer correspondence
+
+[[file:../parser-engine-formal-model.org][Model and evidence index]]
+
+* Paper semantics and the implementation boundary
+
+[[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing, section 2.2]] defines prediction from an item
+=A -> alpha . B beta (rho)= to =B -> . delta (sigma)= using
+=sigma in FIRST(beta rho)=. Closure includes transitive predictions. Goto
+advances the dot over the selected symbol while retaining its lookahead.
+FIRST describes a reachable terminal prefix; the remaining suffix need not
+have a complete terminal derivation.
+
+These are three different responsibilities: LR0 core provenance, suffix
+lookahead meaning, and the physical representation of published item rows.
+Production equality in this relation is semantic equality; native production IDs
+remain a separate correspondence obligation. An LR0 core appearing in a closure does not by itself establish any LR1
+lookahead, and merged LALR states are not claimed identical to canonical LR1
+states. The proofs below preserve these distinctions.
+
+* Completed facts to every suffix
+
+[[file:../../../formal/ParserEngine/SuffixSemantics.lean][SuffixSemantics]] uses name-level FIRST and nullable facts. Its
+=from_completed_exact= consumes the existing nullable and FIRST solver
+histories and their empty pending queues. Name-level semantic equivalence is
+derived from =Solver.preparation_pipeline_exact=, not provided as a final
+per-suffix certificate.
+
+=scan_exact= proves both directions for an arbitrary RHS. A terminal resets
+FIRST to its singleton and nullability to false. A nonterminal contributes
+its name-level FIRST, unions the tail only when nullable, and conjoins the
+two nullable flags. The completed suffix has mask zero and nullable true.
+An empty FIRST mask alone does not imply nullability.
+
+=execute_exact= and =reverse_execution= follow the backward accumulator loop:
+starting with the completed suffix, consume one preceding symbol and publish
+one row per step. They derive the complete catalogue from this execution.
+=catalogue_at= relates any valid dot to the corresponding dropped RHS;
+=packed_at= adds all preceding production widths plus their completed slots.
+Thus zero-width productions still occupy one valid slot and cannot alias the
+next production's first slot.
+
+* Core closure and ordered publication
+
+[[file:../../../formal/ParserEngine/LRStateSemantics.lean][LRStateSemantics]] defines production prediction by the actual
+leftmost-symbol ancestry: seed a rule owned by the requested nonterminal,
+then follow only the first RHS symbol of an already predicted production.
+=closure_exact= derives the kernel-or-transitive-template decomposition for
+arbitrary grammars, including cyclic prediction ancestry.
+
+The source =lr0-closure= consumes increasing kernel and prediction item rows
+while accumulating the processed prefix in reverse. Gerbil's
+=(foldl cons tail found)= uses =tail= as its initial accumulator. The
+=foldl_cons_tail= and =merge_accumulator= proofs establish that this restores
+the processed prefix before the retained suffix, preserving output order.
+=union_member= and =merge_member= establish exact membership, and
+=closure_merge_sorted= derives strict output ordering from strict input rows.
+Overlap between kernel and predictions does not introduce a duplicate.
+
+=decoded_closure= composes this physical merge with core decoding and the
+prediction template relation. Its =templateExact= premise remains explicit:
+this theorem does not claim that the native mutable prediction-mask solver
+has already been refined to the transitive production relation.
+
+* Prediction and goto composition
+
+=compiled_prediction= replaces the former per-suffix FIRST/nullable
+soundness premises with =SuffixSemantics.scan_exact=.
+=completed_prediction= composes this result with completed solver histories.
+The remaining lookahead decoding premises distinguish inherited EOF from
+ordinary terminal keys; no theorem asserts that every set bit denotes an
+ordinary terminal.
+
+=physical_goto= uses the actual production row and after-dot symbol read to
+compose the dense =core + 1= operation with =Grammar.Advances=. The read
+excludes completed slots and preserves the selected lookahead, including EOF.
+
+* Complete propagation ancestry
+
+[[file:../../../formal/ParserEngine/PropagationSemantics.lean][PropagationSemantics]] composes every finite lookahead propagation ancestry
+with state-indexed paper prediction and goto histories. =reach_supported=
+handles shift, inherited nullable evidence and first activation. No semantic
+lookahead certificate is supplied for each final bit. =replay_supported=
+uses successful FIFO replay and queue exhaustion from the existing operational
+solver proof to derive the same provenance for every published known bit.
+
+The =Coordinates= adapter keeps parser-owned premises visible: physical node
+to state/core/suffix mapping, terminal-key decoding, closure target shape and
+actual transition edges. Its FIRST/nullable meaning comes from the new suffix
+proofs. This is a universal composition theorem under producer correspondence,
+not a claim that all native LR0 construction or coordinate extraction is proved.
+
+=compiled_suffix= connects the actual generated graph read at =core + 1=
+through =SuffixSemantics.after_dot_read= to paper FIRST/nullable meaning at
+=RHS.drop(dot + 1)=. It excludes completed parent items using the after-dot
+bound. =extracted_supported= composes the complete source-shaped graph builder
+and FIFO witness checker with the state-indexed paper provenance theorem.
+
+* Source admission and native controls
+
+[[file:../../../formal/ParserEngine/CompilerSemanticsSource.lean][CompilerSemanticsSource]] independently declares the complete reader trees
+for =terminal-list->mask=, =make-core-suffix-catalog= and =lr0-closure=.
+[[file:../../../t/fixtures/event-walk-source.ss][The source reader]] extracts the complete current declarations into
+=SourceData.lean=. =CompilerSemanticsWitness.source_checked= checks equality
+without an axiom. =checked_suffix_semantic= and =checked_closure_sorted=
+require successful schema admission before returning the corresponding
+restricted model execution.
+
+Reader equality identifies an admitted source idiom. It is not a verified
+Scheme compiler or an interpreter for arbitrary Scheme. Table lookup,
+integer operations, vector bounds/storage, object decoding and host execution
+retain their stated primitive and representation premises. Gambit and its
+compiler are neither modified nor built by this qualification.
+
+[[file:../../../t/lr-state-semantics-test.ss][The parser test owner]] uses the existing =deflanguage-parser-tests= macro.
+Its [[file:../../../t/fixtures/lr-state-semantics.ss][semantic fixture]] executes the complete unchanged private declarations,
+injecting their imported dependencies. Controls cover empty and overlapping
+rows, exhausted merge sides, core IDs beyond a fixnum field, cyclic nullable
+rules, unproductive tails, all completed suffix slots, and a cached zero FIRST
+mask. Native controls remain finite implementation evidence.
+
+[[file:../../../formal/quint/SuffixPrediction.qnt][SuffixPrediction]] compares backward publication with an independent
+forward scan over a bounded set of input words and admitted name-level facts.
+It checks after-dot indexing, nullable EOF transport, unproductive tails,
+non-nullable empty FIRST and activation guards. Its finite exploration is not
+an arbitrary-grammar proof or a native execution certificate.
+
+* Remaining parser obligations
+
+- The [[file:prediction-interning-coordinates.org][prediction queue correspondence]] now proves indexed prediction meaning
+  from extracted grammar rows and checked FIFO replay. Derive its raw metadata
+  and replay witness from whole-producer execution, then remove
+  =decoded_closure.templateExact= through template materialization.
+- Connect kernel interning and symbol-group construction to the proved closure
+  and goto relations throughout =build-lr0-automaton=.
+- Compose native name/key decoding and actual FIRST/nullable mutable solver
+  execution with the completed worklist histories consumed here.
+- Discharge the remaining =Coordinates= premises from native node records,
+  LR0 transitions and physical closure targets, then connect final table
+  publication to that fully extracted producer.
+
+These are parser responsibilities. Host/compiler behavior remains an external
+premise, and no local runtime optimization or CPU improvement is claimed.
+
+* Qualification
+
+The complete Lean package passes 117 build jobs. Independent source equality
+for the three complete producer declarations is checked without axioms. Fresh
+source verification succeeds; changing the extracted suffix binding is rejected
+with exit 70. The complete Quint command passes, including seven new directed
+controls and 1,000 seeded suffix histories of eight steps.
+
+Eleven actual Scheme test owners complete 255 cases with exit zero under the
+unchanged 90-second total and five-second idle limits. The source-specific
+fixture covers all 15 suffix slots and checks that an empty FIRST result is
+computed once and then reused as a valid zero mask. The complete 19 Python
+controls pass, including automatic model/fixture discovery and the 1,000-line
+module budget. These are distinct model, source and implementation results;
+they do not establish the outstanding native producer correspondence.
+
+CI run =39013029319= on parent =61bc39a= completes both Ubuntu and macOS
+semantics successfully. On macOS, =Run Scheme tests= and =Verify native command=
+both pass. This qualifies the preceding contextual-request timeout correction;
+it is not remote CI evidence for the new proof commit, which needs its own run.

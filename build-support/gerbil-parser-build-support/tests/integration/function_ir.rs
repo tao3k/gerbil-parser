@@ -10,7 +10,7 @@ fn scheme_ir_compiles_to_owned_rest_function() {
 }
 
 #[test]
-fn scheme_event_fold_compiles_to_stateful_rowan_events() {
+fn scheme_event_fold_compiles_to_stateful_runtime_events() {
     let ir = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../t/fixtures/event_fold.ir.json"
@@ -23,7 +23,7 @@ fn scheme_event_fold_compiles_to_stateful_rowan_events() {
     let digest = &rust[digest_start..digest_start + 71];
     let generated = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../rust/gerbil-parser-rowan/tests/unit/event_fold_generated.rs"
+        "/../../rust/gerbil-parser-runtime/tests/unit/event_fold_generated.rs"
     ));
     assert!(generated.contains(digest), "generated Rust is stale");
 }
@@ -40,7 +40,7 @@ fn scheme_outline_fold_compiles_one_marker_scan_per_line() {
     let digest = &rust[digest_start..digest_start + 71];
     let generated = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../rust/gerbil-parser-rowan/tests/unit/outline_fold_generated.rs"
+        "/../../rust/gerbil-parser-runtime/tests/unit/outline_fold_generated.rs"
     ));
     assert!(
         generated.contains(digest),

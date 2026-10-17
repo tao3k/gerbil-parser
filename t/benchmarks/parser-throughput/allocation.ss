@@ -1,0 +1,35 @@
+;;; Diagnostic only: request-local CPU, GC and admissible allocation deltas.
+;;; Semantic comparison and aggregation are outside the observed parser call.
+(import :gerbil-parser/src/runtime/parse-cost
+        :gerbil-parser/benchmarks/real-fold/parse-org-compiled-events)
+(export main)
+(def (main corpus-path)
+  (let* ((corpus (call-with-input-file corpus-path read))
+         (inputs (caddr corpus)) (expected (cadddr corpus))
+         (rows (vector (vector 0 0 0 0 0) (vector 0 0 0 0 0) (vector 0 0 0 0 0)))
+         (index 0))
+    (unless (and (eq? (car corpus) 'real-fold-preflight.v1)
+                 (= (vector-length inputs) 1000) (= (vector-length expected) 1000))
+      (error "invalid allocation diagnostic corpus"))
+    (parameterize ((current-parser-cost-observer
+                    (lambda (stage metrics)
+                      (let* ((row (vector-ref rows (modulo index 3)))
+                             (bytes (cdr (assq 'allocated-bytes metrics))))
+                        (unless (cdr (assq 'completed metrics)) (error "incomplete parser call"))
+                        (vector-set! row 0 (+ 1 (vector-ref row 0)))
+                        (vector-set! row 1 (+ (cdr (assq 'cpu-ms metrics)) (vector-ref row 1)))
+                        (vector-set! row 2 (+ (cdr (assq 'gc-count metrics)) (vector-ref row 2)))
+                        (when bytes
+                          (vector-set! row 3 (+ 1 (vector-ref row 3)))
+                          (vector-set! row 4 (+ bytes (vector-ref row 4))))))))
+      (let loop ()
+        (when (< index 1000)
+          (let (actual (with-parser-cost-stage 'complete-real-fold
+                        (parse-org-compiled-events (vector-ref inputs index))))
+            (unless (equal? actual (vector-ref expected index))
+              (error "allocation diagnostic complete tape mismatch" index)))
+          (set! index (+ index 1)) (loop))))
+    (displayln "DIAGNOSTIC-ONLY request CPU includes instrumentation; allocation includes observation overhead")
+    (displayln "FIELDS fixture-residue requests cpu-ms gc-count no-gc-requests no-gc-allocation-sum-bytes")
+    (for-each (lambda (residue) (write (cons residue (vector->list (vector-ref rows residue)))) (newline)) '(0 1 2))
+    (displayln "ALLOCATION-DIAGNOSTIC-OK complete tapes; NOT PERFORMANCE ACCEPTANCE")))

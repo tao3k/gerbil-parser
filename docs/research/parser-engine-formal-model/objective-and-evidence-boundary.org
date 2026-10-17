@@ -1,0 +1,877 @@
+#+title: Objective and evidence boundary
+
+[[file:../parser-engine-formal-model.org][Model and evidence index]]
+
+* Objective and evidence boundary
+
+This model connects one complete deterministic reduction path: canonical
+field/alias actions, retained factories, reverse LR operands, logical AST
+children and sequence materialization. Production remains Scheme. Lean checks
+universal properties of the reference algorithms; Scheme controls check the
+implementation; matched benchmarks measure CPU and allocation. These are
+three separate obligations, not interchangeable receipts.
+
+The executable package is [[file:../../../formal/ParserEngine.lean][formal/ParserEngine.lean]]. The checked toolchain and LeanPoo revision are recorded in
+[[file:../../../formal/lean-toolchain][lean-toolchain]], [[file:../../../formal/lakefile.toml][lakefile.toml]] and its locked manifest. LeanPoo is a verification dependency only.
+Its =Functional.Requirements.Factories= and =Selected= retain typed factories;
+=prepare_ok_iff= establishes that successful preparation selected exactly
+those factories. Our executor threads transformed children through that tuple:
+LeanPoo's independent-result =build= is deliberately not used for sequential
+actions. No new Scheme dispatch facility or author interface is introduced.
+
+* Architecture alignment audit and qualification order
+
+The architecture model is *incomplete*. A successful Lean build establishes the
+listed theorems; successful Quint runs check their stated finite histories.
+Neither establishes coverage of all paper mechanisms, all engine routes or a
+refinement of Scheme. Hash-binding a source file only identifies that file.
+It does not connect a source transition to a theorem.
+
+The local reduction objective above is historical scope, not a complete engine
+specification. This section is the shared coverage ledger. Extend this ledger
+and its connected models before another runtime optimization. Do not use a new
+local object-count identity as evidence that an architecture gap has closed.
+
+** Unified construction correspondence audit
+
+[[file:construction-vocabulary.org][The vocabulary correspondence audit]] follows reader data, native records,
+catalogue indices, the retained LeanPoo factory and physical edges as one chain.
+The new transport proof closes the gap between injective raw encoding and the
+final producer-owned ordinal. Symbol discovery and the paper target are derived
+from the same raw operand occurrence and retained construction product.
+
+Its responsibility table records remaining native producer, lookahead/selector/
+policy and AST metadata obligations. Input admission and a finite native corpus
+do not establish arbitrary producer execution. Host behavior remains external.
+This closes vocabulary composition within the supported construction protocol,
+not the complete engine model; local runtime optimization remains gated.
+
+[[file:lowering-publication.org][The lowering publication contract]] now connects the source constructor,
+initial bindings, common emitter and finalizer to the retained construction.
+It derives dense IDs, paired values/recipes and failure-before-commit for
+arbitrary finite emission trajectories. [[file:lowering-traversal.org][Recursive lowering generation]] now derives
+the ordered emission/recipe list for arbitrary syntax depth, n-ary width and
+authored declaration counts, then feeds the same retained LeanPoo factory.
+Its complete physical realization yields grammar-language soundness. Native
+mutable helper allocation and complete recursive source-control extraction must
+still generate that realization universally; source admission of the common
+spine and 23 native trace controls do not certify arbitrary Scheme execution.
+
+** Parser ownership, prepared requests and the macOS timeout
+
+Host implementation is outside this parser change. Gambit sources, compiler,
+collector, synchronization macros and SDK binaries must not be modified or
+rebuilt here. Their behavior is an explicit external premise of the parser's
+physical execution. Recording a premise does not establish it: the ordinary
+plain-poll visibility counterexample below remains unqualified and cannot be
+silently admitted as a successful acquire. No host repair or SDK deployment
+is claimed by this parser qualification.
+
+The [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][Essence of LR Parsing, sections 2--4]] distinguishes grammar-dependent
+parser structure from input-dependent execution. The present test correction
+uses the parser's existing preparation boundary. It does not implement the
+paper's partial evaluator or claim its performance results.
+
+| Obligation | Current parser code | Existing model / implementation evidence | Remaining premise |
+|------------+---------------------+-------------------------------------------+-------------------|
+| Preparation has a distinct owner | [[file:../../../src/runtime/lr-parser/entry.ss][entry.ss]] defines =lr-parse= as =lr-prepare= followed by =lr-parse/prepared=; [[file:../../../src/runtime/lr-parser/prepare.ss][prepare.ss]] validates tables and derives indices, lexical modes and reduction plans | The three test sweeps retain one preparation per fixed spec and compare the same canonical/direct products | Grammar/spec content, lexical policy and selected semantic capabilities must remain fixed during that sweep; this is not a global cache or a reuse rule for changed specifications |
+| Each request starts independently | [[file:../../../src/runtime/lr-parser/checkpoint-base.ss][checkpoint-base.ss]] allocates a new checkpoint with states =(0)=, empty values, current tokens/rest, fresh counters and input end | =RawRequest.initial_valid= universally establishes the reference initial invariant; =independentPreparedRequestsTest= restarts after acceptance and rejection; a retained-frame mutation violates =RawSafety= | Native field-to-model decoding and the selected backend's fresh-state behavior are separate correspondence obligations |
+| Reductions retain pending raw input and ordered yields | [[file:../../../src/runtime/lr-parser/checkpoint.ss][checkpoint.ss]] and recognition/reduction owners | =RawRequest.reduce_valid= and =Request.trace_valid= preserve admitted frame and token-flow invariants | Native production IDs, table support, selector meaning and physical storage still require their explicit admission |
+| Complete acceptance implies a derivation | Native EOF/start acceptance and canonical/direct test products | =RawRequest.complete_request= derives grammar membership for any admitted engine trace; the native sweeps compare full products, including typed rejection and empty input | =RawRequest.Engine= explicitly requires constructed graph, supported table, selected-action and matched-terminal certificates; a native table passing schema validation does not discharge these |
+| Reusing prepared metadata does not carry request state | [[file:../../../t/canonical-lr1-reference-test.ss][prepared-result-parser and canonical controls]] create a fresh checkpoint on every invocation | The added native case runs success, rejection, more successes/empty input/rejection and rechecks an earlier returned product, against the cold entry on both canonical and direct routes | These are finite controls; they do not prove arbitrary mutable spec reuse, native compiler refinement or host memory safety |
+
+Runtime objects contain lazily derived caches; the entire runtime record is
+not claimed immutable. The test boundary fixes the grammar and preparation
+policy and reuses derived metadata. Tokens, stacks, counters, remainders and
+returned products remain request responsibilities. No previous request's
+checkpoint is reused by this change.
+
+*** Selected checkpoint constructor correspondence
+
+The parser-side adapter is =RawRequest.Entry= in
+[[file:../../../formal/ParserEngine/RawRequest.lean][RawRequest.lean]]. It follows the actual selected constructor in
+=checkpoint-base.ss=: runtime identity, the original token list, maximum
+end offset, state zero, empty semantic values, the original remainder, zero
+action/shift counts and an optional empty recognition stack. The observer flag
+and non-layout guard are separate inputs; a false flag is not an empty list.
+The native =lr-parse/prepared= layout branch uses the batch owner instead and
+is outside this constructor theorem.
+
+=scanEnd_le_iff= proves the accumulator bound for every token list and initial
+offset, and =token_end_bounded= derives that every decoded token end is covered.
+The decoder admits nonnegative ends; arbitrary Scheme values are not admitted.
+A final-token shortcut would be wrong for the constructor's input contract:
+ends 23, 4, 17 must produce 23. This is a field-construction control, not a claim
+that such a list is a lexically ordered complete source.
+
+=config_exact= makes the native zero entry explicit through the graph-decoder
+premise =engine.graph.entry = 0=. =constructed_valid= then establishes the
+reference initial invariant, and =complete_from_constructed= composes it with
+the existing universal accepted-derivation theorem for any admitted request
+trace. This closes the reference constructor-to-request composition; it does
+not infer table/selector certificates or a whole Scheme operational refinement.
+The empty native semantic-value list must decode to empty model frames;
+nonempty semantic-value decoding is outside this initial adapter.
+
+The [[file:../../../t/lr-input-protocol-test.ss][real Scheme input-protocol owner]] checks both observer states, empty input,
+all initial fields, selected runtime/token identities, distinct checkpoint
+objects and the nonmonotone-end control. Quint adds the same end-maximum/empty
+input control alongside the independent-request and retained-stack histories.
+These bounded implementation checks identify the constructor that must retain
+the universal adapter's premises when the actual parser changes. Host execution
+remains an external premise, and no Gambit source/build work is involved.
+
+Constructor qualification: the locked Lean package passes all 72 build jobs,
+with six new explicit axiom listings and no admitted host axiom. RawRequest
+passes ten directed Quint controls. The real input-protocol/style modules pass
+6+6=12 cases with two workers, natural exit zero in 6.3415 seconds under the
+existing 90/5-second owner budgets; the evidence-input binding control passes.
+At inspection, revision =841f9fa= has three successful Rust jobs, while macOS
+is building parser/language packs in preparation and has not yet entered
+semantics. This is not a remote confirmation of the timeout correction.
+
+*** Backend selection composes with request acceptance
+
+=RawRequest.Backend= follows the branch order of
+[[file:../../../src/runtime/lr-parser/prepare.ss][lr-runtime-for-current-semantic-backend]], before the selected checkpoint
+constructor. This is the next boundary between the paper's grammar-dependent
+structure and input-dependent execution, rather than a runtime optimization.
+
+| Native branch, in order | Model result | Required correspondence |
+|-------------------------+--------------+-------------------------|
+| Preference disabled or runtime already event-backed | Original runtime | Identity |
+| An event runtime is cached | Cached runtime, even before eligibility is checked | Its decoded engine must equal the owner's engine; cache presence alone proves nothing |
+| No eligible event reducer and no cache | Original runtime | Identity |
+| Eligible reducer and no cache | Newly built event runtime | The constructor must preserve the decoded recognition engine |
+
+=kernel_preserved= proves this result for arbitrary runtime and kernel types,
+with explicit cache-producer and constructor premises. =cached_before_eligibility=
+records the actual ordering: an eligibility check is not a validation of an
+already cached value. =complete_request= instantiates the kernel with the
+certified raw-token engine, composes selection with the zero-state constructor,
+and obtains the accepted derivation and ordered raw-token relation for any
+admitted trace. No cache validity, native decoder or host axiom is introduced.
+
+The [[file:../../../t/lr-semantic-preparation-test.ss][Scheme semantic-preparation controls]] check shared identities for productions,
+production tables, reduction widths, action rows and indices, goto rows and
+indices/columns, case policy, lexical modes/catalog and the action selector.
+They cover first event construction, cached selection, selection of an already
+event-backed runtime, and generated-step cache invalidation while retaining an
+older runtime. Dynamic/layout flags are false on admitted event runtimes.
+Backend-specific reducers, reduction plans and AST allocation are excluded from
+the recognition-kernel identity claim. Existing fallback controls separately
+retain recognition execution for dynamic, branching and layout grammars.
+
+Quint checks branch precedence and includes a foreign-cache counterexample:
+returning a cached runtime with a different decoded kernel violates the
+preservation premise. It is an admission counterexample, not evidence that the
+native parser currently constructs such a cache.
+
+Qualification: Lean passes 72 build jobs; the preservation theorem needs no
+axioms, and the composed acceptance theorem retains only the existing standard
+logical axioms. RawRequest passes 12 directed Quint controls. The real semantic
+preparation, input-protocol and style owners pass 3+6+6=15 cases with two workers,
+natural exit zero in 15.5547 seconds under unchanged owner budgets. Evidence-input
+binding passes. These checks do not discharge arbitrary native engine decoding,
+AST semantics, cache publication concurrency or physical host execution. Model
+closure and a complete-request CPU improvement are not claimed. An additional
+CI-tracing integration run passes canonical LR (31), semantic preparation (3)
+and empty-production/backend semantics (5): 39 cases, natural exit zero in
+22.7829 seconds under the same owner budgets.
+
+*** Runtime tables, certified selectors and nonempty semantic values
+
+The next composition layer follows the same deterministic request boundary.
+[[file:../../../formal/ParserEngine/TableBridge.lean][TableBridge.lean]] decodes the runtime's numeric reduce IDs through a production
+vector view and retains original published cell keys. The LR paper's derivation
+and remainder obligation belongs to the certified engine; field labels, AST
+wrappers and physical child storage are additional implementation obligations,
+not semantics supplied by the paper itself.
+
+| Actual owner | General correspondence | Admission still required |
+|--------------+------------------------+--------------------------|
+| [[file:../../../src/compiler/lr.ss][production-table]] and [[file:../../../src/runtime/lr-parser/checkpoint.ss][checkpoint production-ID reads]] | =reduction_id_exact= connects every successfully decoded ID to its exact production row | Native names, vector contents and action tags must decode faithfully; invalid IDs must be rejected by preparation |
+| [[file:../../../src/compiler/lr-table.ss][validate-lr-tables]] and compiler publication | =decoded_table_supported= derives table support from every selectable cell's LR-item origin | =origins_from_publication= derives =CellOrigins= from admitted physical publishing events and the production-vector view; dimensions, vocabulary, reachability and ranges alone are insufficient |
+| [[file:../../../src/runtime/lr-action-index.ss][row indices]] and [[file:../../../src/runtime/lr-parser/prepare.ss][make-lr-action-selector]] | =selected_meaning= connects prioritized raw-token selection, the original published key, decoded action and terminal realization; =engine= assembles the certified request engine | =IndexedMeaning= binds each indexed branch to its original first cell and raw-token predicate. Native terminal encoding, literal trie/hash extraction, case folding and state bounds remain producer obligations |
+| First duplicate before action decoding | =lookup_origin= proves original-row provenance; =invalid_first_cell_blocks_fallback= prevents decoding failure from selecting a later duplicate | Native table validation rejects malformed published rows. Low-level index tests deliberately admit duplicates to check precedence; they are not valid complete LR specifications |
+
+=physical_action_decodes= connects each decoded physical item event to the
+runtime opcode, retaining its production ID before semantic projection.
+=origins_from_publication= then reuses =Construction.admitted_physical_event_supported=
+to derive every runtime cell's semantic support. It requires the producer's
+actual event and publication admission, rather than postulating table support.
+Native event extraction and the augmented-production vector view are still
+explicit producer obligations.
+
+The table adapter's =items= member is compiler-origin evidence, not a new
+native runtime field. Constructed graph, item coverage and goto correspondence
+remain explicit inputs to =engine=. This constructs the consumer certificate
+from named premises; it does not establish all native producers or claim a
+whole Scheme operational refinement. Unsupported GLR/layout/recovery action
+forms are outside this deterministic action decoder.
+
+[[file:../../../formal/ParserEngine/SemanticValues.lean][SemanticValues.lean]] connects nonempty storage to the existing logical AST.
+=field_decodes= covers empty children, a bare unlabelled singleton, an already
+labelled singleton requiring a fragment, and wider child lists. =alias_decodes=
+retains the complete ordered child data and first/last bounds. These theorems
+quantify over arbitrary admitted nested Tree values, not a fixed test grammar.
+
+=materialization_decodes= preserves every labelled child and arbitrary output
+suffix. =actions_decode= composes every declared field/alias chain in order.
+=operand_decodes= and =reduction_decodes= connect sequence materialization and
+top-first LR values to source-order AST interpretation. Finally,
+=prepared_operand_decodes= and =prepared_reduction_decodes= compose that result
+with the existing LeanPoo preparation provenance theorem. An arbitrary installed
+callback is not granted this preparation certificate.
+
+=Rule= binds each grammar production to its ordered operand action chains and
+width certificate. =same_id_views= proves that grammar-action decoding and
+semantic-action projection read the same physical production ID. Equal grammar
+bodies do not imply equal alias/field semantics. A real two-row control retains
+distinct IDs and produces distinct =Left= and =Right= AST nodes for the same
+token input. Native generation must preserve this joint indexing when emitting
+production vectors and semantic plan vectors.
+
+The storage classifier represents native unfielded/labelled recognition children;
+inner token/node/fragment records must already decode to the corresponding
+logical Tree. It is not a physical heap representation proof. Operand anchors
+remain inputs supplied by nullable/lookahead offset construction. Event-program
+decoding, position-view relocation, full source spans, recursive native record
+extraction, AST-to-lossless-artifact publication and arbitrary request-step
+simulation remain separate obligations. Thus this closes the stated table and
+semantic-value adapter compositions, not the complete parser model.
+
+The [[file:../../../t/lr-model-correspondence-test.ss][Scheme correspondence owner]] follows these same boundaries: canonical/direct
+production-ID vectors; original indexed entry identity; literal/folded/kind/EOF
+priority; state zero and state-sensitive terminal keys; list/table index
+thresholds; malformed published ID admission; and labelled/nested/multi-child
+ASTs. It checks materializing and fused action policies and compares interpreted,
+prepared, source-list, reverse-stack and guarded-vector reductions. Earlier
+values and unowned vector slots are rechecked after execution. Quint adds the
+zero-ID/range and invalid-first-cell counterexample to the shared request model.
+
+Qualification: the locked Lean package passes 74 build jobs. All new theorem
+axioms are printed and are limited to the existing standard logical axioms;
+there is no admitted host or runtime-refinement axiom. RawRequest passes 13
+directed Quint controls. With CI LR tracing enabled, the correspondence (5),
+index (12), stack-reduction (19) and style (6) owners pass 42 cases with two
+workers, natural exit zero in 7.7008 seconds and unchanged 90/5-second owner
+budgets. The evidence-input control binds both new proof modules and the Scheme
+correspondence owner. These observations do not establish a CPU improvement.
+
+*** Complete requests, typed extraction and canonical event products
+
+The paper's accepted-derivation obligation and the implementation's AST/event
+obligation now share one ID-bearing request trace. [[file:../../../formal/ParserEngine/RequestAST.lean][RequestAST.lean]] retains
+the original runtime opcode selection, exact production-vector lookup, reduction
+width and source boundary. A reduction's offset must be the pending raw token's
+start or the request's EOF boundary; arbitrary caller offsets are not admitted.
+Nullable operand anchors follow the next nonempty semantic value before falling
+back to that invocation boundary. Pending starts come from the decoded leaf
+span; the complete product contract also binds EOF to the selected constructor's
+maximum input-token end.
+
+=step_erases= and =trace_erases= connect this trace to the existing certified
+raw-token LR engine. =step_executes= and =trace_executes= execute its semantic
+instructions using the same production IDs and ordered operand actions.
+=complete_request= obtains the grammar derivation and complete AST replay from
+that one trace. The final single unfielded root is an explicit native admission,
+not inferred from grammar recognition alone. Table/selector decoding and native
+step extraction must establish the trace; a successful artifact flag cannot do so.
+
+[[file:../../../formal/ParserEngine/Publication.lean][Publication.lean]] adds a finite typed extraction of native token/node/fragment
+records and ordered child lists/branches. Tokens retain their kind, lexeme and
+coordinates. =decodeValue= projects the logical AST while =valueOps= retains
+the full token payload for publication. =rootOps= rejects token/fragment roots
+and widens a root node to the complete source byte range, matching
+[[file:../../../src/runtime/artifact.ss][with-recognition-event-walk]].
+
+| Publication obligation | General correspondence | Native boundary |
+|------------------------+------------------------+-----------------|
+| Five canonical event vector forms retain every slot | =event_extraction_roundtrip= and =event_extraction_exact= prove both decoder directions | Primitive vector access, symbol/name conversion, exact natural and string classification must be faithful; the Scheme extractor rejects wrong widths, tags, negative/inexact IDs and non-string lexemes |
+| Significant tokens bind the current source queue | =Step.claim= consumes the matching head; =Flush= consumes only admitted trivia before the requested boundary | Untranslated native publication also checks object identity; metadata equality does not prove native identity or mutation stability |
+| Token order, lexemes and consecutive IDs survive publication | =trace_conserves= retains the complete numbered source suffix; =numbered_values= restores the full token payload list | Source extraction must refer to this request, not another equal-shaped parse |
+| Node IDs are allocated once and retained on close | Opening pushes the allocated ID/kind and advances the counter; closing requires that same top frame; =trace_node_counter= counts all allocations | Native iterator frame extraction and effectful sink execution remain producer obligations |
+| AST, source filtering and reconstructed text refer to one request | =complete_product= composes request replay, extracted root operations, closed publication, significant-token filtering, source coverage and UTF-8 root length | Scanner coverage, faithful primitive/coordinate extraction and native simulations are explicit premises |
+
+The complete product theorem returns the accepted grammar derivation, semantic
+replay using the source-token projection, the root operation sequence, empty
+publication frames, all numbered source tokens, the matching significant input,
+reconstructed original text and the exact node allocation count. It does not
+assume the result from =parse-artifact-valid?=. Lexer coverage and the primitive
+UTF-8 byte-length correspondence are named inputs, not proved by re-encoding an
+already accepted result.
+
+The reusable [[file:../../../t/fixtures/lr-request-product.ss][Scheme extraction/reference owner]] reads actual runtime record getters,
+production IDs, RHS action metadata, capture offsets and canonical event vectors.
+Its complete postorder request replay does not read cached semantic values or
+call native reducers. Each shifted leaf must be the original next significant
+token; every reduce checks its pending/EOF boundary, ID and width. A separate
+AST visitor consumes actual source tokens and emits the model's canonical event
+shapes. Neither reference interpreter calls the production artifact walker.
+
+[[file:../../../t/lr-request-product-test.ss][Real request controls]] compare this replay, independent recognition projection,
+native AST extraction, public parse output, canonical publication and event-backend
+publication; the event-program root predicate is asserted so a recognition
+fallback cannot satisfy that comparison. They include empty/trivia-only input, Unicode, 64 records and arithmetic
+precedence. Exact event streams, artifact validation and source round trips are
+checked separately. Negative controls reject malformed extraction, wrong source
+payloads, unclaimed significant tokens and invalid roots. The shared Quint
+publication model adds directed source-payload, zero-ID, mismatched-close and
+leftover-source histories; those controls are separate from its revision invariant.
+
+Qualification: Lean passes 76 build jobs with the new theorem axiom lists printed
+and no admitted native/host axiom. Publication passes 11 directed Quint controls.
+The request-product (4), table/semantic correspondence (5), stack-reduction (19)
+and style (6) owners pass 34 cases with two workers and CI LR tracing enabled,
+natural exit zero in 26.7361 seconds under unchanged 90/5-second owner budgets.
+The first adapter run exposed a Children-versus-stack assertion mismatch; that
+failed receipt is retained. A later combined run had an empty child log and a
+startup idle timeout during concurrent local compilation. After the Lean run
+completed, the same-budget serial qualification passed. These are correctness
+receipts, not CPU measurements.
+
+Remaining closure boundaries are explicit: native primitive/record extraction
+and compiler-produced trace simulation; native relocation/position-view extraction
+and physical event rope/chunk iterator simulation (the general extracted
+iterator is addressed below); complete source-position partition
+and artifact digest/schema/diagnostic admission; GLR/layout/recovery and arbitrary
+installed callbacks. Host execution remains an external premise. No Gambit
+source or SDK build is part of this work, and no performance optimization is admitted.
+
+*** Position views, rope continuations and complete products
+
+The [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][LR paper, sections 2--4]] supplies the accepted-derivation obligation and
+compares direct and continuation-based control. It does not specify our AST
+coordinates, token identity or event rope. Those additional obligations come
+from [[file:../../../src/runtime/funcs.ss][canonical child sequences]], [[file:../../../src/runtime/event-program.ss][event programs]] and [[file:../../../src/runtime/artifact.ss][publication]]. They must be connected
+to the accepted request rather than attributed to the paper.
+
+[[file:../../../formal/ParserEngine/EventIterator.lean][EventIterator.lean]] models finite extracted ropes with empty, atom, branch
+and signed position-view constructors. Atoms are consumer instructions; a
+semantic frame expands to its header, body and footer. Chunks embed their
+vector elements in index order. An append envelope embeds its prefix, blocks
+in reverse storage order, and tail. This extraction is a mathematical adapter,
+not an assertion that private Scheme records automatically implement it.
+
+| Actual execution obligation | General theorem | Admission boundary |
+|-----------------------------+-----------------+--------------------|
+| Child and event views accumulate signed shifts | =view_composition= | Exact signed arithmetic and stable native reads |
+| Opposing shifts retain moved provenance | =cancelled_view= | A zero total shift still selects translated token validation |
+| Arbitrary signed claims compose and negative translated starts are rejected | =translated_claim_composition=, =negative_start_rejected= | Current source coordinates must be admitted naturals |
+| Translated zero-shift claims compare all token metadata; unchanged claims require identity | =cancelled_token_claim=, =unchanged_token_requires_identity= | Stable object identity is an external premise; coordinates are compared as signed integers |
+| Chunk and append iteration preserve source order | =chunk_order=, =blocks_order=, =append_order= | Vector bounds, stored block order and immutable finite extraction |
+| Deferred siblings restore their own context | =step_conserves=, =trace_conserves= | Extracted continuations carry delta and moved independently |
+| Explicit iteration finishes with the recursive meaning | =frame_completion=, =iterator_total=, =complete_iterator= | All finite extracted ropes are covered; cycles or concurrent mutation are not admitted |
+| Iterator output feeds the same canonical publisher | =publication_refinement= | Consumer resolution must admit signed coordinates and preserve token claims; no saturating integer-to-natural conversion is implicit |
+| One complete request yields the AST and event product | =complete_request_product= | The same root must decode from LR values and denote the rope operations; source queue exhaustion and closed frames remain required |
+
+The composed theorem derives grammar membership, complete semantic replay,
+root-operation correspondence, exact numbered source payloads and node-open
+count from the request, iterator and publication traces together. The stronger
+source-text and scanner-binding contract in =Publication.complete_product=
+uses the same transported publication trace. Header/footer callback effects,
+including retention of an opening node ID until its close, still require a
+faithful native trace extraction; this is not inferred from an artifact flag.
+
+[[file:../../../t/event-iterator-test.ss][The independent Scheme recipe interpreter]] checks chunk/carry widths
+0, 1, 15, 16, 17, 31, 32, 33, 65 and 129, independent sibling translations,
+cancelled views, canonical child identity, field/fragment order and retained
+closing IDs across recursive and explicit fallback paths. Depth controls
+include 63, 64, 65 and 129. The oracle does not inspect private rope slots or
+call the native traversal to construct its expected sequence.
+
+[[file:../../../t/lr-request-product-test.ss][Complete request controls]] now publish both canonical and event backends
+through opposing root relocations against freshly allocated source tokens.
+They also shift each full request by one source byte and compare its published
+product against a fresh canonical parse of the prefixed source. This covers
+nonzero shifts of complete 64-record and arithmetic requests as well as cancelled
+views. They compare every event with independent production replay and publication,
+validate the artifact and reconstruct source text for empty, trivia, Unicode,
+64-record and arithmetic requests. Untranslated roots must reject replacement
+significant token objects; cancelled views must accept matching current source
+payloads. Public root relocation uses the recognition relocation constructor;
+an internal event sequence view is not itself an admitted root. The initial
+control used that wrong root constructor and failed with =invalid recognition
+value=; the failed receipt is retained and the root adapter was corrected.
+
+The request-product (4), iterator (3), stack-reduction (19) and style (6)
+owners pass 32 cases with two workers, CI LR tracing, natural exit zero in
+21.9847 seconds after adding nonzero full-request shifts, with unchanged
+90/5-second owner budgets. These are correctness
+receipts, not CPU measurements.
+
+Lean passes 77 build jobs with standard logical axioms only. Publication Quint
+passes 14 directed tests, including moved-bit cancellation, deferred sibling
+context and newest-first block scheduling. These finite controls complement
+the universal Lean statements; they are not a native simulation proof.
+
+Remaining closure boundaries include native extraction and trace simulation,
+semantic-frame header/footer extraction, physical chunk/index and pending-frame
+encoding, signed-coordinate/source admission, the complete source-position
+partition, artifact digest/schema/diagnostic admission and non-deterministic,
+layout/recovery or arbitrary installed callbacks. Host behavior remains external.
+No Gambit source or build is involved and no performance optimization is admitted.
+
+*** Actual record extraction, physical frames and callback histories
+
+The LR paper establishes the recognition/derivation obligation. Native record
+layout, event callbacks and artifact publication are additional implementation
+obligations. This extension keeps their connection to the same complete-request
+trace explicit; it does not attribute these representations to the paper.
+
+[[file:../../../src/runtime/event-program.ss][event-program-inspect]] projects one layer of the actual private instruction
+record. It does not call either walker. Tokens retain kind, lexeme and signed
+coordinates; branches retain both child references and all cached fields;
+views retain their child and signed delta; append envelopes retain prefix,
+newest-first blocks, tail, bounds and height; chunks retain ordered items and
+bounds; value and field records retain name, bounds and body. The false root
+projects to the empty tag. The projection copies chunk slots and the append
+block list so callers cannot mutate private instruction storage through a packet.
+The parsing path does not invoke this verification projection.
+
+[[file:../../../formal/ParserEngine/IteratorEncoding.lean][IteratorEncoding.lean]] defines exactly these typed packets. =record_roundtrip=
+and =record_exact= prove both directions of the record decoder for arbitrary
+payloads and references, including fields not used by walking. =Extract= requires
+a successful record read and a finite recursive witness for every referenced
+child. The =node_callbacks=, =field_callbacks=, =fragment_callbacks=, =chunk_callbacks=
+and =append_callbacks= theorems establish callback order for arbitrary bodies,
+signed positions and references. =lowerRecord= handles all record branches, including field headers and
+footers, node headers and footers, fragment boundaries, chunk order and append
+block order. There is no axiom that converts an arbitrary heap into an extraction
+witness. Name conversion, object/reference identity and primitive slot reads
+must satisfy their stated external contracts.
+
+| Physical representation | General correspondence | Required admission |
+|-------------------------+------------------------+--------------------|
+| Four-slot sibling and chunk frames | =frame_roundtrip=, =frame_exact= | Exact packet width, reference, Boolean and integer classification |
+| Five-slot node/field/fragment finish frames | =opening_return_retained=, =saved_zero_is_not_missing= | False context differs from an integer result, including zero |
+| Whole encoded pending stack | =stack_roundtrip= | Every packet decodes; malformed packets cannot be skipped |
+| Tail-first, newest-first append pushes | =physical_append_stack= | The stored block list is stable throughout traversal |
+| Chunk slot-one mutation | =physical_chunk_write=, =advanced_chunk_suffix= | The signed index is admitted as a natural and is within vector bounds |
+| Initial chunk index one | =extracted_chunk_has_successor=, =block_join_has_successor= | A physical chunk has at least two items; native singleton leaves are not chunks |
+
+The index-one condition is consequential: a one-item chunk would leave an
+invalid resume frame after its first item. The current producer joins two
+nonempty blocks, and the extraction contract requires the resulting successor.
+This is a producer invariant, not permission to extend a timeout or silently
+accept a malformed chunk. Cached heights and bounds remain bound in record
+extraction even though the event decoder does not use them to select callbacks.
+
+[[file:../../../formal/ParserEngine/Callback.lean][Callback.lean]] models normal-return publication callbacks with actual trivia
+flushes and canonical emissions. Its history retains each call and returned ID.
+=step_erases= and =trace_erases= derive the corresponding publication trace.
+=open_returns_original_counter= proves that trivia does not change the opening
+ID. =retained_opening_return= connects that ID to the decoded five-slot physical
+frame, independently of later nested calls. =iterator_callback_publication=
+connects this history to the generic rope iterator; =complete_request_product=
+then composes grammar acceptance, complete AST replay, root operations, exact
+numbered source payloads, node counts and closed frames.
+
+The callback model's frame stack is a ghost bracketing invariant. The native
+close callback checks that its retained ID is an integer; it does not maintain
+or check a second nesting stack. Consequently the proof requires well-bracketed
+traversal and cannot infer correct nesting from that integer test alone. Signed
+position admission, root-coordinate clamping, source identity and stable reads
+must also be supplied at their respective boundary. Emitter exceptions,
+continuation reentry and arbitrary installed callback effects are outside this
+normal-return relation.
+
+[[file:../../../t/fixtures/event-iterator-extraction.ss][The Scheme extractor]] assigns references by actual object identity, reads the
+new projection, checks primitive slots and admits finite acyclic graphs. Its
+independent physical replay decodes four/five-slot frames before consumption,
+advances chunk cursors, restores sibling contexts and uses the saved opening
+return for the footer. It does not call the native traversal. A separate actual
+inline traversal produces the comparison history, returning 0, 7, 14 and so on
+to exercise retained consumer results independently of the default node counter.
+
+[[file:../../../t/event-iterator-test.ss][Iterator controls]] cover every record tag, copied-storage isolation, all prior
+chunk/carry and depth boundaries, zero/missing return distinction, malformed
+frame widths/tags/types, invalid references, cycles and undersized chunks.
+[[file:../../../t/lr-request-product-test.ss][Complete-request controls]] compare every extracted callback against the actual
+inline traversal on the real empty, trivia, Unicode, arithmetic and 64-record
+programs, in addition to their independent AST replay and canonical publication
+checks. The first extraction run encountered the old compiled module interface;
+only the changed parser module was rebuilt with the existing SDK. A later graph
+validator edit had an incomplete Scheme form; the negative receipt is retained.
+Both were corrected before the final unchanged-budget qualification.
+
+Local receipts: Lean passes 79 jobs with standard logical axioms only;
+Publication Quint passes 17 directed tests; the source-binding control passes;
+Scheme passes 34 cases across four owners with two workers, natural exit zero
+in 6.6306 seconds, CI LR tracing enabled, and unchanged 90/5-second owner budgets.
+The final integrated run also passes all 82 cases across these four owners
+plus canonical LR (31) and ABI (17), with two Workers, the ABI exclusive
+interval, every required real negative-stage marker and natural exit zero in
+14.4743 seconds. These are correctness receipts and do not establish a CPU gain.
+
+This closes the typed record/packet codecs, physical stack/cursor identities and
+normal-return callback-to-publication composition. It does not prove that the
+compiled Scheme machine generates every modeled transition: whole-machine
+simulation of recursive/depth-fallback dispatch, extraction-witness generation
+from producer execution, and native heap mutation/identity stability remain
+explicit obligations. The source-position partition, artifact admission and
+non-deterministic/layout/recovery routes remain outside this slice. Host behavior
+stays external; no Gambit source modification or build is involved. The complete
+architecture model remains incomplete, so runtime optimization is not admitted.
+
+*** Checked witness generation and whole iterator control flow
+
+The construction now connects actual record projection to a terminating
+physical iterator model before composing request publication. The connection
+is generic over finite heaps, references, names and signed coordinates; the
+Scheme cases exercise that connection without replacing its proof obligations.
+
+The direct/CPS distinction in section 4 of
+[[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]] motivates making pending control explicit. That
+paper's recognition and specialization arguments do not prove this parser's
+private event representation or host execution. The additions below therefore
+state their own extraction and control invariants, rather than interpreting
+CPS conversion as a CPU optimization.
+
+**** From finite certificates to extraction witnesses
+
+[[file:../../../formal/ParserEngine/Extraction.lean][Extraction.lean]] provides a terminating, fuel-bounded generator. A Boolean
+checker validates every record in a supplied finite domain: decoding and tag
+admission must succeed, references must remain in the domain, and every child
+rank must be strictly smaller. =verify_certificate= derives the certificate
+from a successful check. =checked_generate= then generates an =Extract= witness
+at rank plus one, without assuming either an extraction proof or a semantic
+child environment. =generate_sound= covers every successful generation;
+=generate_complete= establishes sufficient fuel for arbitrary certified heaps.
+A failed or cyclic graph cannot acquire a witness through these theorems.
+
+The generator collects every declared child before lowering a record.
+=collect_lookup= makes repeated references consistent. =extraction_unique=
+proves that all extraction witnesses for the same heap and address yield the
+same program. Consequently =environment_equation= derives all record-lowering
+equations from the generated environment; they are not independent premises.
+The finite domain may include shared subgraphs and unreachable records, but
+all admitted records must satisfy the same checks.
+
+[[file:../../../t/fixtures/event-iterator-extraction.ss][The Scheme verification helper]] independently computes ranks with a tri-color
+DFS, checks the result, and generates a simple rope witness using decreasing
+fuel. It retains references assigned from real object identities. This helper
+is verification code, not an added parse-path conversion. The Lean decoder
+uses typed cells; actual primitive type checks, identity preservation and
+stable record reads remain explicit source adapter obligations.
+
+**** Physical dispatch, progress and callback context
+
+[[file:../../../formal/ParserEngine/IteratorMachine.lean][IteratorMachine.lean]] models the current registers and decoded pending frames
+as one task sequence. Its fourteen grouped transitions cover empty/token,
+branch/view/append/chunk dispatch, last/middle chunk resume, value/fragment/field
+entry, and their three footer branches. A false current register followed by
+stack restoration is grouped into the next task dispatch. This is a model of
+the complete event iterator control flow, not an instruction-level proof of
+the whole compiler or parser.
+
+| Obligation | Derived result |
+|------------+----------------|
+| Every physical dispatch preserves meaning | =step_simulates=, =trace_simulates= |
+| Child references and resumed indices stay valid | =step_preserves_validity= |
+| Every nonempty valid task sequence can execute | =progress= |
+| Each physical transition strictly reduces structural work | =step_decreases=, =physical_steps_wellFounded= |
+| A valid initial state has a finite completed trace with exact events | =machine_completes=, =initial_completes= |
+| Footer context matches actual opening IDs and field names | =step_controls=, =trace_controls=, =complete_callbacks_bracketed= |
+| Fallback preserves active registers and encoded frames | =fallback_projection= |
+| A nested traversal returns to unchanged outer frames | =step_under_suffix=, =fallback_returns_to_caller= |
+| Physical traversal composes with accepted request, AST and publication | =complete_request_product= |
+
+The termination measure counts structural work; it is not elapsed time, CPU
+instructions, allocation or GC cost. Progress and preservation are proved
+separately, so a decreasing but stuck machine is insufficient for completion.
+The callback bracketing stack is a ghost invariant derived from actual pending
+footer frames. No extra runtime stack is assumed. The artifact model increments
+opening IDs by one; the native comparison also exercises arbitrary retained
+returns with stride seven. It does not claim that arbitrary callbacks obey
+the artifact publisher's counter protocol.
+
+The complete-request theorem consumes the physical machine trace and derives
+the corresponding abstract iterator trace. It no longer requires a separate
+abstract traversal trace as input. The request/AST adapter, signed position
+resolution, source payload identity and normal-return callback history retain
+their explicit admission premises. Callback exceptions, continuation reentry,
+host GC, compiler correctness and concurrent mutation remain outside this
+normal-return relation. Gambit was neither changed nor built.
+
+**** Source controls, CI diagnosis and qualification
+
+Real iterator and request owners compare three paths: native traversal,
+independent physical-frame replay, and the generated rope witness interpreter.
+Both stride-one and stride-seven returns are checked. Widths around chunk/carry
+boundaries and depths around fallback boundaries are retained; complete
+requests include empty, trivia, Unicode, arithmetic and 64-record inputs.
+Corrupted ranks, missing references, cycles and exhausted fuel are negative
+controls. These are executable source correspondences, not a proof that every
+possible host representation satisfies the primitive adapter premises.
+
+At commit =4e92c817d0f3ce1c480a9ca5aa4043ade4f78f6a=, GitHub run
+[[https://github.com/tao3k/gerbil-parser/actions/runs/38947502338][38947502338]] completed Ubuntu semantics successfully: all 123 modules passed,
+including all 17 ABI cases and invalid UTF-8/released-handle C controls. This
+confirms the earlier Ubuntu ABI timeout repair at that commit. The same run's
+macOS semantics failed in the build-product contract owner after an idle
+watchdog expired; it is not reported as a passing platform.
+
+The failed contract called the production build-spec wrapper, which repeated
+Darwin host discovery through =brew= and =pkg-config=. The test now derives the
+actual production POO package with deterministic host-profile and option
+resolver slots, then invokes its production =spec-projector=. It checks one
+OpenSSL preparation call, one resolver call, exact option propagation and the
+same executable/module closure. Actual host discovery remains exercised by the
+build jobs. A two-worker build-contract/canonical-LR control passes 33 cases in
+11.6 seconds with the original watchdogs; remote macOS confirmation still
+requires a run on the new commit.
+
+An expanded local run also exposed quadratic work in the test-style helper:
+=list?= scanned each ordinary list suffix before checking its head. Reordering
+those pure guards limits the shape check to the two special forms. The existing
+20,000-wide and deep controls remain intact. The failed idle-timeout receipt
+is retained; the original 90-second total and five-second idle budgets were
+not enlarged. This changes a test helper, not the parsing algorithm.
+
+Final integrated Scheme qualification passes 85 cases across seven owners,
+including exclusive ABI controls, in 21.4 seconds with two workers. Lean builds
+81 jobs with standard logical axioms only. Publication Quint passes 21 tests,
+including rank, cycle, equal-rank and missing-reference controls. The source
+binding regression includes both new Lean modules and the production build
+projector plus its contract owner. These results close this extraction and
+iterator slice under its stated premises; whole-parser model closure remains
+open at the explicit adapters above. No parser CPU improvement is claimed.
+
+
+*** Executable packet dispatch and generated execution witnesses
+
+The preceding slice proves traces of a relational machine. Its next obligation
+is to derive such traces from an executable decoder/dispatcher, rather than
+accepting each physical =Step= as an independent premise.
+[[file:../../../formal/ParserEngine/IteratorExecutor.lean][IteratorExecutor.lean]] supplies that layer for arbitrary certified record
+heaps and arbitrary valid pending work, including signed positions and saved
+zero callback IDs.
+
+=advance= implements every record-dispatch and frame-resume branch. It reads
+the actual typed record decoder, preserves append push order, checks a signed
+chunk index before conversion to a natural, advances the cursor only when a
+successor remains, and requires the appropriate node/field/fragment footer
+context. =step_executes= proves that every relational step is its executable
+result. =advance_refines= proves the converse for valid states using progress
+and executable result equality. =step_deterministic= follows from their shared
+function, rather than a separate assumption of deterministic dispatch.
+
+A =PacketState= stores four/five-slot continuation packets, observations and
+the opening counter. =tick= decodes every packet, performs the dispatch and
+encodes the successor. =stack_exact= and =encode_decoded= prove that successful
+decoding retains every packet and slot; extra cells cannot disappear.
+=chunk_slot_update= proves that the native slot-one update preserves code,
+translation and moved provenance. =decoded_tick= and =trace_refines= derive both semantic
+steps and validity witnesses from successful execution. Undecodable stacks and
+negative chunk cursors are rejected by universal theorems. =run= is explicitly
+fuel bounded; =run_complete= derives sufficient fuel from the structural work
+measure. =run_trace= derives a finite execution trace and empty final pending
+work from success, instead of requiring a caller to supply them.
+
+=checked_execution= composes Boolean graph verification, extraction generation
+and executable traversal in one theorem. A checked finite domain containing
+the root yields an =Extract= witness and a successful completed packet run,
+with exactly the generated program's events, well-nested footer contexts and
+matching opening IDs. =complete_request_product= consumes executable run
+success and recovers the relational walk internally, then reuses the existing
+request derivation, AST replay and canonical publication composition. Source
+identity, position resolution and normal-return publisher history remain
+explicit adapter premises; runtime slot reads and host execution have not been
+silently promoted to proven compiler or GC behavior.
+
+The executor groups active-register dispatch/restoration into one task step,
+as in the previous machine. It does not claim that the native recursive branch
+reifies its call frames into a physical vector stack. The source template uses
+native calls below depth 64 and an explicit iterator thereafter. The earlier
+suffix/fallback theorems preserve outer contexts; a compiler-checked refinement
+of the hybrid call mechanism itself remains a separate obligation. The LR
+paper's direct/CPS discussion explains why these control representations must
+be related; it does not discharge that implementation obligation.
+
+[[file:../../../t/fixtures/event-iterator-extraction.ss][packet-event-callbacks]] is a separate Scheme task interpreter for this
+executable packet protocol. It calls neither the register-based replay nor the
+production traversal. Every packet is decoded before use; the helper follows
+the same fourteen dispatch/resume cases and retains footer returns explicitly.
+[[file:../../../t/event-iterator-test.ss][Iterator controls]] and [[file:../../../t/lr-request-product-test.ss][complete-request controls]] compare its full callbacks
+against the actual hybrid walker, generated-witness interpreter and register
+replay at strides one and seven. Chunk/carry boundaries, depth fallback,
+trivia, Unicode and the 64-record request remain included. The integrated
+seven-owner run passes 85 cases in 20.2 seconds under the original 90-second
+owner and five-second idle watchdogs. This duration is a qualification receipt,
+not a matched CPU comparison or parser performance claim.
+
+Lean builds 82 jobs; the new executor theorems are included in the axiom audit
+and source-binding regression. No Gambit source or build is involved. Parent commit
+=f204fd70fb19d995d5ac40103a77303bdaf5c0cb='s
+[[https://github.com/tao3k/gerbil-parser/actions/runs/38986827916][CI run]] subsequently completed successfully. The macOS semantics job
+=117263734710= confirms =MODULE-BATCH-OK t/build-product-contract-test.ss cases=2=,
+all 17 ABI cases, and =TEST-SUITE-OK modules=123=, followed by successful native
+command verification. Its worker-timeout negative control remains intentional;
+it is not the earlier build-product owner failure. Both platforms' preparation,
+generation, FFI and semantics jobs passed; Ubuntu corpus and all three Rust
+jobs also passed. This confirms the prior macOS timeout repair at that exact
+parent commit. These remote results do not qualify the new executable layer
+until its own commit completes CI.
+
+
+*** Native recursion, sequential loops and iterative fallback
+
+[[file:../../../formal/ParserEngine/HybridIterator.lean][HybridIterator.lean]] closes the preceding source-control obligation at the
+normal-return Scheme semantics boundary. It follows =event-program-walk/inline=
+in [[file:../../../src/runtime/event-program.ss][event-program.ss]]: empty instructions return before the cutoff test,
+ordinary records recurse with depth plus one, and a nonempty instruction at
+the cutoff executes the packet iterator before its native caller resumes.
+The production threshold is 64; the proof quantifies over every natural
+threshold and initial depth, rather than qualifying only that constant.
+
+Section 4 of [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]] distinguishes native call control
+from continuation-based control. Here that distinction motivates an explicit
+relation between their representations. The paper does not prove the event
+iterator, its private records or the Scheme compiler, and no performance
+conclusion is inferred from changing control representation in this model.
+
+**** Source clauses and the execution relation
+
+The model retains three kinds of native activation: a call with its signed
+translation, moved provenance and depth; a sequential loop with its remaining
+children; and a footer with its saved opening return. These are ghost call
+activations, not physical vector frames. Their projection into pending work
+is used only for semantic comparison and callback bracketing. In particular,
+the source chunk loop may be represented by a sequence of remaining calls
+without claiming that it allocates a vector frame for each of them.
+
+| Real source control | General correspondence |
+|---------------------+------------------------|
+| False instruction returns before the depth guard | =advance_transition=, empty transition |
+| Value/field body call and saved footer local | =plan_simulates=, =plan_controls= |
+| Token callback and ordered branch calls | =plan_simulates= |
+| View accumulates signed shift and sets moved provenance | =plan_simulates= |
+| Chunk vector loop visits indices zero through length minus one | =sequence_index_refines=, =sequence_end_refines= |
+| Append visits prefix, reversed stored blocks, then tail | =plan_simulates= and the sequence projection |
+| Deep call runs the packet iterator with inherited counter and coordinates | =fallback_refines= |
+| Suspended native caller resumes with its own saved footer and remaining siblings | =transition_simulates=, =transition_controls= |
+| Every executable dispatch yields the corresponding source transition | =advance_transition= |
+
+The vector-loop correspondence uses a stable ordered list projection of the
+record's items. At index i, =items.drop i= is the remaining work; executing its
+head advances to =items.drop (i + 1)= with unchanged child-call depth. At the
+vector length the loop returns without emitting an event. Object identity,
+primitive vector reads and list projection stability retain their explicit
+adapter contracts.
+
+The fallback does not assume a relational machine walk. It consumes successful
+=IteratorExecutor.run= execution, derives that walk and its final empty pending
+work, then applies the existing suffix theorem to restore the suspended caller.
+The inherited counter is arbitrary at this seam, so a nested fallback cannot
+reset it to zero. Header IDs saved before the fallback remain available to the
+outer footer after all nested calls have returned.
+
+**** Totality, exact observations and complete request composition
+
+=transition_valid= preserves native activation admission. A structural measure
+accounts for calls, loops and footers, including administrative loop steps that
+preserve event meaning. =transition_decreases= and =progress= establish normal
+completion with sufficient verification fuel. =fallback_budget_valid= derives
+a finite uniform packet budget from the checked finite domain; no independent
+termination oracle is assumed. These bounds are verification resources, not
+parameters added to the parsing API or a prediction of CPU, stack or GC cost.
+
+=initial_completes= constructs a successful finite run for any cutoff and initial
+depth. =complete_events= proves both exact event meaning and well-bracketed
+retained callback contexts. =controlled_trace_unique= establishes that, for the
+artifact publisher's counter protocol, equal events and an admitted initial
+control state uniquely determine the entire observation history. Therefore
+=cutoff_independent= proves equality of all observations and final counters,
+not just equality after erasing footer IDs. =packet_equivalent= proves the same
+full-observation equality between hybrid and physical packet execution.
+
+=checked_execution= composes Boolean finite-graph admission, generated extraction
+witnesses, derived fallback budgets and completed hybrid execution. The hybrid
+=complete_request_product= theorem constructs a corresponding physical execution
+witness and transports the callback history before reusing the accepted LR
+request, AST replay and canonical publication theorem. A caller no longer
+supplies the recursive/iterative equivalence or a physical control-flow trace.
+
+This is a universal proof over the typed record projection and the source's
+normal-return control semantics. It is not a mechanically verified compilation
+of the Scheme syntax, nor a proof of the host ABI, collector, memory visibility,
+exceptions or continuation reentry. Primitive classification/reads, stable
+identity, source/position resolution and admitted publisher effects remain
+separate premises. Gambit was neither modified nor built. Whole-parser closure
+still requires those explicit parser adapters; their finite controls are not
+promoted to universal compiler or host correctness.
+
+**** Independent Scheme and protocol controls
+
+[[file:../../../t/fixtures/event-iterator-extraction.ss][hybrid-event-run]] is an independent native-call interpreter over actual
+projected records. Its fallback uses the separate packet interpreter seeded
+with the current translation, provenance and opening counter. It records the
+fallback depth and inherited context. It does not call the production walker
+or the register-based replay. Existing iterator and complete-request owners
+compare cutoffs zero and 64 at strides one and seven against the actual hybrid
+walker, generated witness and register replay. Empty, trivia, Unicode,
+arithmetic and 64-record requests retain their AST/publication controls.
+
+A dedicated nested node/field/fragment/view case also exercises cutoffs
+0, 1, 2, 63, 64, 65 and 200, checks every fallback entry occurs at the selected
+depth, and verifies the no-fallback case. It retains outer ID zero across nested
+fallbacks and subsequent sibling calls. Publication Quint adds directed controls
+for empty-before-cutoff priority, the 63/64/65 boundary, inherited counters and
+an incorrect counter-reset witness. All 25 Publication controls pass.
+
+The initial integrated Scheme run passed 86 cases across seven owners in
+18.3 seconds. The final strengthened run includes the qualification-output
+owner: all 91 cases across eight owners pass, with the monitored child
+finishing in 14.0 seconds. It uses two workers, exclusive ABI checks and the
+unchanged 90-second owner and five-second idle limits. Lean builds 83 jobs;
+new theorems are included in the axiom audit with standard logical axioms only.
+The evidence-input regression binds the new module together with the runtime
+source, Scheme controls and qualification implementation. These durations
+belong to different qualification workloads, not a matched CPU comparison.
+No parser runtime optimization is introduced by this extension.
+
+**** Qualification finalization and exact timeout reasons
+
+Verification exposed separate work after a completed test child: each required
+receipt split the same 12 MiB log again, and each line compiled its regexp again.
+The qualifier now splits once and compiles once per pattern. An 8 MiB missing
+receipt control still exceeded the existing idle limit: the official pregexp
+matcher tries subsequent line positions even after an anchored match fails.
+That failure is retained rather than changing its watchdog or dropping the
+missing-marker control.
+
+The fix recognizes a mandatory literal prefix only in the official compiled
+single-branch =:sub/:or/:seq= form. A leading =:bos= is permitted. The official
+core =string-contains= rejects lines missing that prefix; the original pregexp
+matcher remains the final decision. Alternatives, optional initial terms,
+groups, flags and unknown representations receive no prefix filter. Matching
+retains its original per-line semantics, duplicate missing-pattern order,
+compiled-pattern inputs and empty-log behavior. In particular, an empty log
+has no lines and must not force regexp compilation. An unsupported unscoped
+case flag in the first new matrix was corrected into an explicit rejection
+control, including this empty-log distinction. The erroneous empty-line
+expectation and the large-log idle failure remain negative receipts.
+
+[[file:../../../t/qualification-output-test.ss][The qualification-output owner]] compares the new scanner against the original
+matcher on anchors, alternatives, optional prefixes, character classes, scoped
+case folding, groups, word boundaries, Unicode and multiline inputs. All five
+cases pass, including unchanged error framing and the 8 MiB completed-log test
+with missing receipts included in its original bound. This is qualification
+orchestration work; the parser algorithm and request runtime are unchanged.
+
+A separate process-control run exposed another admission weakness: its generic
+rejection helper labelled a total-timeout case successful when the competing
+idle fence fired first. [[file:../../../scripts/tests/process-qualification-test.ss][The process controls]] now inspect the actual reason and
+nonzero status. The total case retains its original 0.15-second total budget
+and isolates that fence from idle; production deadlines are unchanged. The
+closed-output input records the observed phase explicitly, because a bootstrap
+rejection is not evidence that the child reached its close operation. Wrong
+exit status, missing markers and exact idle/total reasons remain rejected.
+
+At parent commit =46c4865b178c6ac34fb75eb764e00caa699cc858=,
+[[https://github.com/tao3k/gerbil-parser/actions/runs/38988513594][CI run 38988513594]] completed successfully. Ubuntu preparation, generation,
+semantics, FFI and corpus passed; macOS preparation, generation, semantics and
+FFI passed; all three Rust jobs passed. These remote results confirm the prior
+layer and do not substitute for exact-head CI on this new extension.

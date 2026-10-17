@@ -1,0 +1,162 @@
+#+title: Scheme declaration diagnostics: parameter blame and absent source
+#+date: 2026-10-06
+
+* Research question and local status
+
+How can a component macro report an invalid author parameter before expanding
+into generated helper rules, while remaining correct when syntax has no reader
+location? This extends the [[file:scheme-source-origin-contract.org][source-origin contract study]].
+
+The local fixture modifies =deflocated-list=, an experimental component macro;
+it does not migrate public =deflanguage= or publish a new diagnostic schema.
+The committed baseline remains =783381f33fa1b309ac4cc4b0012696f24c852d93=.
+Research documentation and Scheme comments are written in English.
+
+* Scheme rationale: the two required questions
+
+This is an excerpt from the existing local =syntax-case= branch in
+[[file:../../t/fixtures/language-pack-research/located-component.ss][located-component.ss]], not a standalone module. Each identifier parameter
+has an equivalent explicit check before the existing role construction.
+
+#+begin_src scheme
+;; Inside the matched component declaration:
+(unless (identifier? #'label)
+  (raise-syntax-error #f
+    "deflocated-list: field label must be an identifier"
+    #'label stx))
+
+;; Invalid author declaration:
+(deflocated-list component call-arguments arguments
+  (reference name) (literal ",") (field 45))
+
+;; Question 1: Why is this DSL design better?
+;; Compared with a generic failed pattern guard, the author learns which parameter
+;; is invalid and its required kind before generated helper construction begins.
+;; Scheme syntax objects retain the offending term and the whole author declaration.
+;; Concise component syntax can therefore retain precise explanations of misuse.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; The contract specifies exception type, message, blame term and reader coordinates.
+;; Evidence: 48 real-reader checks and 6 source-free checks, each with exit 0.
+;; Falsifier: an unrelated exception is accepted, the wrong term is blamed,
+;; a coordinate points to different text, or an absent location is invented.
+;; Limit: no editor-navigation or developer-task study; general grammar errors remain separate.
+#+end_src
+
+The four parameter kinds checked are the Scheme result binding, component owner,
+public rule entry and per-item field label. An identifier-shaped owner is a
+valid declaration parameter; its uniqueness remains a POO composition question.
+Similarly, a reference's existence is a whole-grammar binding question.
+These different checks must not be collapsed into the same parameter diagnostic.
+
+* Read the paper through concrete design obligations
+
+[[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][Culpepper and Felleisen, Fortifying Macros (ICFP 2010)]], section 2, distinguishes
+pattern guards from explanations of failed syntax constraints. The local change
+uses explicit checks because a failed boolean guard alone gives no reason.
+Section 7.2 studies a parser macro using two passes to resolve dependencies
+between declaration clauses. We take that as a design principle: local parameter
+shape and whole-grammar name resolution have different required information.
+The paper's Racket syntax classes are not assumed to exist in Gerbil, and its
+code-size results are not evidence about our implementation.
+
+| Obligation | Existing owner / local design | Evidence boundary |
+|------------+-------------------------------+-------------------|
+| Declaration shape | Component syntax-case and explicit checks | Four identifier parameter categories checked |
+| Local blame | Offending syntax first, declaration as supporting detail | Actual parameter token coordinates checked |
+| Grammar reference resolution | Existing Bound IR / compiler | Existing composition-history controls cover dangling references |
+| Contribution collision | Existing checked POO composition | Earlier list collision controls; no new collector here |
+| General diagnostic ordering | Define which failed contract to report first | Current order is binding, owner, entry, label; multi-error controls pending |
+
+This division allows author vocabulary to improve feedback while reusing the
+parser engine's existing semantic checks. It does not justify implementing a
+second independent grammar validator in the macro layer.
+
+* Reader input and transformer templates are different controls
+
+The first diagnostic driver placed invalid forms directly inside the collecting
+transformer with =#'= templates. Their blame locations were absent. The driver
+then incorrectly assumed a location existed and exited 70. A second attempt
+also found that the template's whole declaration had no source location. Neither
+result establishes that numeric literals read from a file lack locations.
+
+The corrected driver accepts actual invalid declarations as its own macro
+arguments. It traverses their preserved syntax using Gerbil's =stx-map= and
+invokes the component expander without evaluating generated definitions.
+Both numeric and compound invalid parameters retain real reader locations.
+A mistaken expectation that numeric reader parameters lacked locations was
+rejected by the control and corrected. An intermediate attempt used nonexistent
+=stx->list= and exited 70; the corrected fixture uses the existing Gerbil utility.
+
+For all eight declarations, the driver checks the actual SyntaxError type,
+exact message, blame datum, presence of a parameter location, source text at
+that coordinate, and preserved declaration context. The coordinate check reads
+the source file; it does not compare against a hand-authored line table.
+
+The expander's installed =raise-syntax-error= constructs SyntaxError with
+=stx= followed by detail arguments as its irritants. Installed runtime
+=SyntaxError= extends Exception rather than Error. The driver consequently reads
+its =irritants= slot, instead of assuming =error-irritants= admits this type.
+No claim about rendered UI highlighting follows from inspecting these slots.
+
+* Explicit source-free control
+
+[[file:../../t/fixtures/language-pack-research/source-free-diagnostics.ss][source-free-diagnostics.ss]] deliberately reconstructs syntax with retained
+lexical context and no source:
+
+#+begin_src scheme
+;; Inside the collecting transformer:
+(datum->syntax #'source-free-cases (syntax->datum form) #f #f)
+#+end_src
+
+For a valid reconstructed component, its inert expansion preserves owner and
+known template origin, while authorOrigin, path and location remain =#f=.
+For an invalid owner, the exact SyntaxError, message and blame value remain
+available while its source remains =#f=. These are expansion controls; they do
+not execute the role construction or claim source-free artifact integration.
+
+The working presentation contract is to use an offending parameter's location
+when present, otherwise the author declaration's location when available,
+otherwise an explicit unknown location. No runtime or editor renderer for this
+fallback protocol is implemented here. Independent origins must not be replaced
+by a template location and presented as an author invocation.
+
+* Native receipts and retained failures
+
+#+begin_src sh
+GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" \
+  gtimeout 10 gxi t/fixtures/language-pack-research/reader-diagnostics.ss
+
+GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" \
+  gtimeout 10 gxi t/fixtures/language-pack-research/source-free-diagnostics.ss
+#+end_src
+
+- [[file:../../t/fixtures/language-pack-research/reader-diagnostics.ss][reader-diagnostics.ss]] reported =READER-DIAGNOSTICS-OK: 48 checks passed=,
+  exit 0.
+- [[file:../../t/fixtures/language-pack-research/source-free-diagnostics.ss][source-free-diagnostics.ss]] reported =SOURCE-FREE-DIAGNOSTICS-OK: 6 checks passed=,
+  exit 0.
+- The retained [[file:../../t/fixtures/language-pack-research/declaration-diagnostics.ss][combined driver]] completed all 54 assertions and its summary but
+  exited 124. It remains a timeout. The passing receipts cover the two independently
+  run responsibilities; they do not change the combined invocation's status.
+
+No timeout was widened. Earlier actual-language source-loading timeouts also
+remain open. These controls establish bounded macro diagnostic behavior, not
+runtime speed, rendered diagnostic quality or general language-package usability.
+
+* Working recommendation and next research questions
+
+A component declaration should validate its own parameter contracts and attach
+blame to preserved author syntax before generating its role. POO composition and
+existing compiler binding should continue to validate grammar relationships.
+
+Before settling a public declaration protocol, study imported/renamed macro
+presentation, nested wrappers retaining original invocation context, multiple
+simultaneous errors, and operation-aware attribution after override/removal.
+A developer-task study should measure whether authors can locate and repair an
+invalid declaration from the diagnostic. Correct exception metadata alone does
+not establish that usability benefit.
+
+* Follow-up: nested vocabulary
+
+The [[file:scheme-nested-declaration-context.org][nested context study]] supplies passing forwarding and renamed-import
+controls. It retains the negative result that the inner diagnostic context does
+not automatically become the author's outer declaration.

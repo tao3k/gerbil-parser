@@ -1,0 +1,432 @@
+#+title: Scheme list components: helper identity, POO composition and phases
+#+date: 2026-10-06
+
+* Question and local status
+
+The [[file:scheme-rule-context-design.org][rule-context study]] removes repeated self names from single-rule templates.
+This study asks what changes when a component contributes multiple rules, and
+whether the existing checked POO grammar protocol can compose those contributions
+at an explicitly selected compilation phase.
+
+All code here is a local research fixture against committed baseline
+=783381f33fa1b309ac4cc4b0012696f24c852d93=. No public engine or language package
+has been migrated, and no general role-import API has been published.
+
+* Concrete component and tree contract
+
+[[file:../../t/fixtures/language-pack-research/list-roles.ss][list-roles.ss]] defines a checked POO role factory. The two uses are:
+
+#+begin_src scheme
+(make-nonempty-list-role 'call-arguments 'arguments
+  '(reference name) '(literal ",") 'argument)
+
+(make-nonempty-list-role 'array-elements 'elements
+  '(reference name) '(literal ",") 'element)
+#+end_src
+
+This is the underlying Scheme construction interface, not the final author
+syntax. It accepts canonical item/separator expressions and an explicit per-item
+field. It delegates role construction to the existing =make-grammar-role=.
+The first role contributes these canonical rule values:
+
+#+begin_src scheme
+(arguments
+ (sequence
+  (field argument (reference name))
+  (reference call-arguments/tail)))
+(call-arguments/tail
+ (repeat
+  (sequence (literal ",") (field argument (reference name)))))
+#+end_src
+
+The second produces =elements= and =array-elements/tail= with =element= fields.
+Both helper identities derive deterministically from the explicit component owner.
+They are grammar-domain symbols, not fresh host bindings or automatically private
+module identifiers. The caller still chooses the public entry rule name.
+
+The component contains one required item expression followed by repeated
+separator/item pairs. The containers explicitly wrap its entry reference in
+=optional= to permit an empty list. There is no list alias and no outer collective
+field: =argument= or =element= is attached separately to each item. A comma must
+have a following item in this study. Delimiters belong to the container role.
+
+"Nonempty" here means one required item expression, not a guarantee about
+consumed bytes for every possible parameter. This fixture supplies a nonnullable
+Name rule and a comma separator. General dependency/nullability constraints need
+whole-grammar analysis; the factory's shape check alone cannot establish them.
+The agreed default =item= vocabulary remains an author-interface candidate; these
+language-specific instances select their fields explicitly.
+
+* Actual POO composition and selected phase
+
+A base role supplies tokens, Name, Call, Array, SourceFile and the root rule.
+The component roles supply only their two rule contributions. The grammar uses
+existing =merge= for the base role and explicit =append= for each list role.
+
+[[file:../../t/fixtures/language-pack-research/list-stage.ss][list-stage.ss]] imports the provider with =for-syntax=. Its local adapter:
+
+1. Constructs real checked GrammarRole/Grammar values at expansion phase 1.
+2. Calls existing =compile-grammar/receipt= at that phase.
+3. Retains the normalized composition IR and receipt as inert inspection values.
+4. Reifies the admitted section rows into an existing =deflanguage-grammar=
+   declaration, whose compiler generates the parser products.
+
+Runtime parsing then uses the generated parser through existing =parse-source=.
+The runtime driver's normalization calls are verification controls, not parser
+request work. Nothing here requires POO object dispatch for each token.
+
+This demonstrates a concrete phase-qualified provider approach. It does not
+assume that a module-load phase-0 POO value is available inside a transformer,
+and it does not prove that arbitrary roles can be imported at any phase.
+
+** Important adapter limitation
+
+The composition receipt is retained separately. Reifying the sections into the
+verbose declaration does not propagate =compositionDigest= into the declaration's
+newly constructed Grammar IR. Likewise, generated row provenance is not yet a
+complete author/component origin map. Section equivalence is checked, but
+composition identity and source provenance are not admitted into the final
+language artifact by this adapter.
+
+A production bridge should specify how the already composed canonical IR,
+composition receipt and declaration origin are admitted together. Reconstructing
+sections alone is insufficient evidence for that contract. The current adapter
+is useful to test grammar behavior before choosing this integration design.
+
+* Native receipts
+
+[[file:../../t/fixtures/language-pack-research/list-language.ss][list-language.ss]] also defines an inline control language with the same public
+structure and no list helper rules.
+[[file:../../t/fixtures/language-pack-research/list-runtime.ss][list-runtime.ss]] checks composition and actual parser artifacts:
+
+#+begin_src sh
+GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" GERBIL_PARSER_LR_TRACE=1 \
+  gtimeout 10 gxi t/fixtures/language-pack-research/list-runtime.ss
+#+end_src
+
+The 62-check invocation exited 0 and printed =LIST-RUNTIME-OK: 62 checks passed=.
+It covers:
+
+- Composition operations =merge/append/append= and the three role owners.
+- Identical normalized composition when the provider is instantiated at phase 0
+  for inspection and phase 1 for generation.
+- Deterministic helper identities and equality of nine reified grammar sections.
+- Duplicate explicit append rejection with the existing diagnostic.
+- Eight accepted inputs: empty, single-item, multi-item and whitespace/newline
+  variants for calls and arrays. Both parsers accept, the candidate roundtrips,
+  full event streams equal, and per-item field counts match.
+- Eight invalid inputs: leading/trailing separators, adjacent items and missing
+  delimiters reject in each container family.
+
+Complete event equality covers node structure, field placement, tokens and
+spans. It confirms that the transparent helper rules add no public wrapper nodes
+on these inputs. It is finite sample evidence, not general language equivalence
+or a performance result.
+
+** Separate collision receipt and retained timeout
+
+[[file:../../t/fixtures/language-pack-research/list-collisions.ss][list-collisions.ss]] isolates two composition-only controls without loading parser
+runtime/generation modules:
+
+#+begin_src sh
+GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" \
+  gtimeout 10 gxi t/fixtures/language-pack-research/list-collisions.ss
+#+end_src
+
+It exited 0 and printed =LIST-COLLISIONS-OK: 2 checks passed=. Both diagnostic
+message and identity-bearing irritants are asserted:
+
+| Collision | Expected diagnostic identity |
+|-----------+------------------------------|
+| Different component owners export the same entry | =rules shared= |
+| Different entries use the same component owner/helper | =rules shared-owner/tail= |
+
+The larger combined attempt emitted all 64 successful checks but exited 124
+under the ten-second bound. It is retained as a timeout, not a passing receipt.
+The final drivers separate parser/tree controls from pure composition controls;
+the timeout was not widened. The passing evidence is the 62-check driver and
+the independent 2-check driver, each with exit 0.
+
+* Research interpretation
+
+[[https://www.cs.utexas.edu/~wcook/Drafts/2012/ecoop2012.pdf][Oliveira/Cook, Extensibility for the Masses]] motivates separating construction
+interfaces from observations over their products. Our application is to let
+Scheme factories construct checked contributions and let existing normalization
+and compilation observe their canonical result. A GrammarRole factory is not
+therefore the paper's Java object algebra, and its static typing guarantees do
+not transfer to this Scheme experiment.
+
+[[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][Culpepper/Felleisen, Fortifying Macros, section 7.2]] treats context-dependent
+grammar checks after collecting declarations. Our design inference is that
+component shape checks should precede whole-grammar reference/ownership checks,
+while errors should retain the author's component and rule vocabulary. The
+current collision tests verify existing row identities, not a richer origin map
+or Racket syntax-class support in Gerbil.
+
+This is where Scheme and POO cooperate concretely: macros choose declaration
+context and phase; ordinary Scheme builds parameterized grammar contributions;
+POO contracts admit and compose them; the canonical compiler generates parser
+products. S-expression notation alone does not provide those capabilities.
+
+* Working recommendation for the next design discussion
+
+Keep an expression template, a multi-rule component and a complete role as
+separate extension scopes. A multi-rule component needs explicit exported entry,
+owned helper identities, external rule dependencies, recognition policy and tree
+contract. The phase-qualified provider is now a viable study option because it
+has actual POO composition and runtime controls.
+
+Before proposing a public role-import clause, design preservation of composition
+identity and declaration origins. Then compare author-facing syntax against a
+concrete multi-rule example so the final API can omit mechanical sections without
+hiding exports, dependencies, empty/trailing policy or deliberate overrides.
+
+* Follow-up: existing origin inputs and composition admission
+
+The [[file:scheme-component-provenance.org][component provenance study]] reuses existing =source-ownership= and =lineage=
+inputs. The local adapter now carries rule owners and generated flags into actual
+Bound IR; seventeen identity/artifact checks and fourteen language checks pass.
+Composition identity is still lost by section reification, and the follow-up
+compares admission designs without modifying the public compiler.
+
+* Scheme design rationale: two required questions
+
+The following construction is executable through the local checked role factory.
+
+#+begin_src scheme
+(make-nonempty-list-role 'call-arguments 'arguments
+  '(reference name) '(literal ",") 'argument)
+
+;; Question 1: Why is this DSL design better?
+;; One declaration generates entry and tail rules, sharing the separator/item pattern.
+;; An explicit owner makes helper identity traceable; the component emits each field.
+;; Gerbil macros supply syntax; checked POO GrammarRole values supply composition.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Recognition is item (separator item)*; each item receives its own field.
+;; Expansion enters canonical Grammar IR and uses the existing parser engine.
+;; Evidence: 62 checks plus 2 collision checks, including selected event parity.
+;; Falsifier: admitted trailing separators, changed field shape or undetected collision.
+;; Limit: global consumption analysis is needed; the phase adapter loses compositionDigest.
+#+end_src
+
+The improvement is reduced duplicated component authoring under this tree
+contract. A smaller declaration alone establishes neither runtime speed nor
+better usability for every language author.
+
+* Follow-up: what does a required item guarantee?
+
+A list's structural cardinality and its token consumption are different contracts.
+The local factory always emits one required item expression followed by a tail.
+It cannot establish that a referenced item consumes tokens without knowing that
+item's rule. This is a parameter-contract distinction, not a defect in the engine.
+
+The new [[file:../../t/fixtures/language-pack-research/list-nullability-contract.ss][list-nullability-contract.ss]] obtains the actual checked role's rules
+through =grammar-role-ref= and invokes the existing engine functions
+=lower-rules=, =compute-nullable= and =compute-first= from
+[[file:../../src/compiler/lr.ss][lr.ss]]. The current LR compiler already calls those same analysis functions.
+No alternate nullable algorithm, optimizer or parser is introduced.
+
+** Scheme rationale: the two required questions
+
+The role construction below is executable through the existing local factory;
+the item row is a canonical rule to compose alongside it.
+
+#+begin_src scheme
+(make-nonempty-list-role 'call-arguments 'arguments
+  '(reference item) '(literal ",") 'argument)
+
+;; A possible supplied item rule:
+'(item (optional (token identifier)))
+
+;; Question 1: Why is this DSL design better?
+;; A shared list idiom removes repeated sequence/repetition structure while
+;; retaining explicit item, separator, field and ownership choices.
+;; Explaining required expression occurrences separately from token consumption
+;; makes its contract usable with reusable references without hidden assumptions.
+;; Scheme macros describe intent; POO composes contributions; existing LR analysis
+;; resolves whole-grammar properties rather than duplicating them in the macro.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; The lowered rule predicts nullable(list-entry) = nullable(item), since its tail
+;; is a repeat and therefore nullable. This is checked against the engine's fixed point.
+;; Evidence: 35 native checks with exit 0 across seven matched item grammars.
+;; Falsifier: disagreement with the item/list nullable relation or expected FIRST sets.
+;; Limit: nonnullable does not imply productive; nonempty FIRST does not prove
+;; successful completion. No scanner-byte, parse-event or conflict-admission claim follows.
+#+end_src
+
+For this list shape, field annotations preserve recognition nullability. The
+zero-or-more tail is nullable regardless of the separator. Consequently the
+entry's nullable fact equals the item's. With a comma separator, a nullable item
+also permits comma in the lowered entry's FIRST set. This is a CFG derivation
+fact, not a claim that the full language is admitted under a particular LR
+conflict policy or accepts that input at runtime.
+
+** Native receipt and counterexamples
+
+#+begin_src sh
+GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" \
+  gtimeout -k 2 10 gxi t/fixtures/language-pack-research/list-nullability-contract.ss
+#+end_src
+
+The complete driver reported =LIST-NULLABILITY-CONTRACT-OK: 35 checks passed=,
+exit 0. An earlier six-case version passed 30 checks with exit 0; the seventh
+case was added to test the limit of a nonempty FIRST set.
+
+| Item rule | Item/list entry nullable | Entry FIRST includes identifier | Entry FIRST includes comma |
+|-----------+--------------------------+---------------------------------+----------------------------|
+| Token identifier | No | Yes | No |
+| Optional token | Yes | Yes | Yes |
+| Empty expression | Yes | No | Yes |
+| Self-reference or token base | No | Yes | No |
+| Reference to optional peer | Yes | Yes | Yes |
+| Self-reference with no base | No | No | No |
+| Token followed by a peer that only references itself | No | Yes | No |
+
+Every case checks item nullability, tail nullability, entry nullability and both
+FIRST memberships. Recursive and indirect cases require the existing fixed-point
+analysis; inspecting the immediate surface constructor is insufficient.
+
+The last two closed grammars have no finite item derivation: one never reaches
+a terminal base, while the other has a token prefix but never finishes its tail.
+Their results distinguish three obligations: absence of epsilon derivations,
+possible starting terminals, and existence of a complete finite derivation.
+These facts are not interchangeable. The driver does not add or claim a general
+productivity analyzer; the two examples' nontermination of derivation follows
+from their explicit recursive rules.
+
+** Connection to abstract interpretation and author interface
+
+The [[https://www.di.ens.fr/~cousot/COUSOTpapers/POPL77.shtml][Cousots' author summary of Abstract Interpretation (POPL 1977)]] describes
+properties obtained through monotone equations and fixed points, with conclusions
+limited by the abstraction. We use that principle to state exactly what the
+existing nullable/FIRST facts tell the DSL. This is a code-level application of
+the summary, not a formal proof of the parser or a new analysis derived from the
+full paper.
+
+The working interface recommendation is to specify required grammar occurrences
+separately from consumption, productivity and output-field contracts. If a future
+constructor promises token-consuming items, record that as an obligation on the
+resolved item identity and consume the engine's existing analysis after grammar
+composition and reference validation. Do not infer it from a reference name or
+reimplement nullable analysis within each template.
+
+A nullable item can be intentional. This study does not propose rejecting all
+such components, renaming the public vocabulary immediately or migrating any
+language. The author policy and diagnostic behavior for stronger consumption
+contracts remain under discussion. AST field cardinality and byte consumption
+also need their own controls; token-level CFG facts alone do not settle them.
+
+* Follow-up: separator contracts and resolved repetition bodies
+
+The required item is not the only consumption parameter. One iteration is
+=separator followed by item=, with the per-item field wrapper preserving its
+recognition meaning. For this CFG shape:
+
+=nullable(iteration-body) = nullable(separator) AND nullable(item)=.
+
+A nullable separator does not imply a nullable iteration when the item is
+nonnullable. A nullable item with a consuming separator also yields a nonnullable
+iteration. These conclusions concern epsilon derivations over the lowered token
+grammar; they are not byte-consumption, productivity or runtime-termination proofs.
+
+** Scheme rationale: the two required questions
+
+The public constructor macro and the role's resolved dependencies are distinct
+inputs to this local study:
+
+#+begin_src scheme
+(grammar-expression
+  (repeat (seq (reference separator)
+               (field argument (reference item)))))
+
+;; Canonical dependency rows for a consuming iteration with a nullable separator:
+'(separator (empty))
+'(item (token identifier))
+
+;; Question 1: Why is this DSL design better?
+;; One reusable list idiom can support explicit separators and adjacency without
+;; repeating its sequence, field and repetition structure in each language package.
+;; Its contract states which combined body must consume instead of blanket-rejecting
+;; every nullable separator. That keeps author intent and language policy explicit.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Nullable analysis predicts the conjunction above and resolves item/separator references.
+;; Evidence: 29 native checks with exit 0 cover all four nullable combinations,
+;; local-versus-resolved summaries and the existing explicit-empty rejection.
+;; Falsifier: a resolved body disagrees with the conjunction or a local reference
+;; summary is incorrectly promoted to a whole-grammar consumption guarantee.
+;; Limit: no parser admission, runtime liveness, field-count or scanner-byte claim.
+#+end_src
+
+An adjacency use would still require an intentional tree and lexical contract.
+This witness does not recommend silently replacing commas with empty separators
+in an existing language. The role factory accepts grammar expressions; whether
+a particular separator belongs in a language remains the language author's choice.
+
+** Local constructor checks versus whole-grammar facts
+
+[[file:../../src/grammar/algebra.ss][grammar/algebra.ss]] already implements a structural
+=grammar-expression-nullable?= helper. The internal repeat constructors use it
+to reject visibly nullable bodies. The public =grammar-expression= macro routes
+through those constructors. The helper takes no reference environment, and its
+fallback for references is =#f=. Consequently that result cannot be read as a
+proof that every referenced rule is nonnullable.
+
+The study deliberately uses the same reference-bearing body in all four cases.
+Local construction accepts it in each case. Existing LR fixed-point analysis,
+after lowering the actual dependency rows, differentiates their resolved facts.
+The all-empty case has a nullable iteration although local inspection of its
+references returns =#f=. This is the scope boundary of the local structural
+helper, not evidence that reference values should be guessed during construction.
+
+A separate control uses explicit empty operands through the public macro:
+
+#+begin_src scheme
+(grammar-expression (repeat (seq (empty) (field argument (empty)))))
+;; Existing rejection: "grammar repeat operand must consume input"
+#+end_src
+
+No constructor, compiler analysis or rejection policy is changed in this study.
+The role factory currently constructs canonical values directly; shape admission,
+constructor validation and whole-grammar analysis are distinct stages. The
+proposed consumption obligation would need explicit placement after reference
+resolution, if adopted; this witness does not implement that production gate.
+
+** Native receipt
+
+#+begin_src sh
+GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" \
+  gtimeout -k 2 10 gxi t/fixtures/language-pack-research/list-repetition-contract.ss
+#+end_src
+
+[[file:../../t/fixtures/language-pack-research/list-repetition-contract.ss][list-repetition-contract.ss]] reported =LIST-REPETITION-CONTRACT-OK: 29 checks passed=,
+exit 0. Four cases each check item, separator, iteration-body, entry and tail
+nullability, the structural reference summary and public repeat construction.
+The final check verifies the explicit-empty rejection's message and irritant.
+An initial attempt called the unexported =grammar-repeat= helper directly and
+exited 70. The corrected driver uses the public =grammar-expression= macro;
+no private API was exported to accommodate the experiment.
+
+| Item | Separator | Resolved iteration body nullable | Entry nullable |
+|------+-----------+-----------------------------------+----------------|
+| Token | Comma | No | No |
+| Empty | Comma | No | Yes |
+| Token | Empty | No | No |
+| Empty | Empty | Yes | Yes |
+
+The tail is nullable in every case because repetition allows zero iterations.
+Its nullable status therefore cannot answer whether one iteration consumes.
+Nor does a nonnullable iteration prove that it can finish; the previous
+unproductive-rule controls remain relevant.
+
+** Design consequence and remaining gate
+
+Use local structural checks for immediately known constructor constraints, and
+existing resolved compiler facts for reference-dependent constraints. A future
+constructor contract should retain the repeated body's identity and author origin
+so a failed resolved obligation can explain the component declaration. That
+association and any resulting diagnostic remain design work.
+
+This follows the bounded-analysis principle discussed in the
+[[https://www.di.ens.fr/~cousot/COUSOTpapers/POPL77.shtml][Cousots' author summary]]: conclusions must match the facts their abstraction
+actually tracks. The research does not claim a new abstract interpretation proof
+or a need to replace the engine's existing implementation.

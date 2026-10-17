@@ -1,5 +1,7 @@
 ;;; Reader adapter only: preserve source syntax for the Lean admission kernel.
-(import (only-in "../../src/testing/source-witness.ss"
+(import (only-in :gerbil-parser/t/fixtures/prediction-witness
+                 prediction-observation prediction-dependencies prediction-fixtures)
+        (only-in "../../src/testing/source-witness.ss"
                  parser-source-data write-parser-source-data source-data-current?))
 (export read-event-walk-source read-event-walk-source-port read-event-iterative-source read-source-definition source-procedure read-source-subdefinition source-mutation-sites write-event-walk-source-data event-walk-data-current?)
 
@@ -95,6 +97,17 @@
 (def (source-bindings source)
   (parser-source-data
     (ParserEngine.WalkSourceWitness source source)
+    (ParserEngine.LRTransitionWitness builderSource
+      (read-source-definition "src/compiler/lr-automaton.ss" 'build-lr0-automaton))
+    (ParserEngine.LRTemplateWitness templateSource
+      (read-source-definition "src/compiler/lr-automaton.ss" 'make-prediction-template))
+    (ParserEngine.LRTemplateWitness cacheSource
+      (read-source-subdefinition "src/compiler/lr-automaton.ss" 'build-lr0-automaton 'template-for))
+    (ParserEngine.PredictionObservationWitness observations
+      (map (lambda (productions)
+             (prediction-observation
+               (source-procedure "src/compiler/lr-automaton.ss" 'make-core-prediction-catalog prediction-dependencies)
+               productions)) prediction-fixtures))
     (ParserEngine.LRConstructionWitness growSource
       (read-source-subdefinition "src/compiler/lr-automaton.ss" 'build-lr0-automaton 'grow!))
     (ParserEngine.LRConstructionWitness appendSource

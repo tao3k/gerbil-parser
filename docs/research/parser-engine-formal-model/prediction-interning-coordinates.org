@@ -83,6 +83,11 @@ checks independent closure, empty seeds, zero-ID reentry and interning controls.
 
 * Remaining composition obligations
 
+The [[file:template-materialization-publication.org][generated witness and publication composition]] now constructs queue
+witnesses, derives template meaning and publishes concrete closure rows. The
+following list records the broader physical-source obligations, not a claim
+that these completed model protocols remain unproved.
+
 - Derive name-index coverage, physical row extraction and actual dequeue witness
   generation from the whole native producer execution, rather than local inputs.
 - Connect materialized prediction templates to =decoded_closure.templateExact=.

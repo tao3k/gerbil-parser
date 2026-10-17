@@ -1,3 +1,6 @@
+import ParserEngine.PublishedClosure
+import ParserEngine.LRTransitionSource
+import ParserEngine.PredictionObservation
 import ParserEngine.ConstructionAdmission
 import ParserEngine.PropagationSemantics
 import ParserEngine.CompilerSemanticsSource

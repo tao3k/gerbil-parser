@@ -153,3 +153,29 @@ import ParserEngine.Components
 
 #print axioms ParserEngine.PredictionTermination.finite_rank
 #print axioms ParserEngine.PredictionTermination.finishes
+
+#print axioms ParserEngine.PredictionWitness.execute
+#print axioms ParserEngine.PredictionWitness.generated_exact
+#print axioms ParserEngine.PredictionObservation.checked_record
+#print axioms ParserEngine.PredictionObservationWitness.native_checked
+#print axioms ParserEngine.PredictionObservationWitness.changed_dequeue_rejected
+#print axioms ParserEngine.PredictionMaterialization.template_exact
+#print axioms ParserEngine.PredictionMaterialization.closure_exact
+#print axioms ParserEngine.TransitionPublication.valid
+#print axioms ParserEngine.TransitionPublication.row_exact
+#print axioms ParserEngine.TransitionPublication.drain_valid
+#print axioms ParserEngine.LRTemplateWitness.source_checked
+#print axioms ParserEngine.LRTemplateSource.checked_closure
+#print axioms ParserEngine.LRTransitionWitness.source_checked
+#print axioms ParserEngine.LRTransitionSource.published_rows
+
+#print axioms ParserEngine.PublishedClosure.core_membership
+#print axioms ParserEngine.PublishedClosure.factory_exact
+#print axioms ParserEngine.PublishedClosure.target_exact
+
+#print axioms ParserEngine.TemplateCache.fetched_from_history
+
+#print axioms ParserEngine.NameDiscovery.name_index
+#print axioms ParserEngine.NameDiscovery.coverage
+#print axioms ParserEngine.NameDiscovery.completed_slots_ignored
+#print axioms ParserEngine.PublishedClosure.discovered_factory_exact

@@ -17,6 +17,7 @@ Host and compiler behavior remain external premises; no host build is required.
 
 - [[file:parser-engine-formal-model/lr-state-suffix-correspondence.org][LR state and suffix producer correspondence]]
 - [[file:parser-engine-formal-model/prediction-interning-coordinates.org][Prediction queues, state interning and node coordinates]]
+- [[file:parser-engine-formal-model/template-materialization-publication.org][Generated prediction witnesses and published closure rows]]
 
 * Module ownership
 
@@ -60,8 +61,10 @@ The parser model remains incomplete. The [[file:parser-engine-formal-model/lr-st
 now proves reverse suffix execution, physical after-dot reads, ordered LR0
 closure publication and universal propagation-to-paper composition. The [[file:parser-engine-formal-model/prediction-interning-coordinates.org][construction protocol correspondence]] adds multi-seed prediction replay,
 grammar-row decoding, state-store preservation and two-pass coordinate
-extraction. Whole-producer witness generation, template materialization and
-transition publication still have to discharge the remaining premises.
+extraction. The [[file:parser-engine-formal-model/template-materialization-publication.org][generated witness and publication composition]] now derives name coverage,
+completed queue replay, materialized templates and published closure meaning.
+Physical source extraction, sparse group/goto refinement and kernel bounds
+still have to discharge the remaining producer premises.
 No parser performance or compiler/host correctness claim follows from it.
 
 * macOS contextual request qualification

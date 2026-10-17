@@ -319,6 +319,11 @@ jobs:
           path: ${{ runner.temp }}/scheme-products
       - name: Admit prepared Scheme products
         run: bash tools/ci/prepared-products.sh restore "$RUNNER_TEMP/scheme-products/scheme-products.tar.gz"
+      - name: Record macOS SDK mapping baseline
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p .data
+          bash tools/ci/sdk-load-diagnostics.sh baseline 2>&1 | tee .data/sdk-mapping-baseline.log
       - name: Verify header-derived delimiter Rust AOT regeneration
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \

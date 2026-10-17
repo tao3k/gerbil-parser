@@ -1,0 +1,121 @@
+#+title: Generated prediction witnesses and published closure rows
+
+* Paper, source and model responsibilities
+
+[[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]], Section 2.2, distinguishes prediction, closure
+and goto. The previous correspondence required a final =templateExact= premise.
+This topic replaces that premise by composing name discovery, completed FIFO
+execution, production-ID mask aggregation, dot-zero materialization and closure
+merge. Transition publication then assigns persistent IDs to those closure rows.
+No runtime performance optimization is part of this work.
+
+| Implementation owner | Universal model responsibility | Native qualification |
+|----------------------+--------------------------------+----------------------|
+| Name discovery loop | First-occurrence index and RHS coverage | Recorded item-node IDs, including zero |
+| Prediction propagation | Generated dequeue witness, exact exhaustion | Six unchanged native producer executions |
+| Template and cache | Physical dot-zero projection and cache history | Whole template/cache declarations, sparse/full group comparison |
+| State targets | Persistent target lookup and closure row meaning | Complete builder declaration, recursive and growing automata |
+
+* Constructed inputs and generated witnesses
+
+[[file:../../../formal/ParserEngine/NameDiscovery.lean][NameDiscovery]] interns the grammar's nonterminal symbol stream from an
+empty registry. It proves the name-index law and RHS coverage from that history.
+Completed physical slots contribute no name; filtering them preserves the exact
+discovery stream. These facts discharge the local name assumptions of the
+constructed grammar factory, rather than becoming final semantic certificates.
+
+[[file:../../../formal/ParserEngine/PredictionWitness.lean][PredictionWitness.execute]] records each actual FIFO front while executing
+the proved queue transition. Its termination measure is the catalogue-derived
+finite rank. Its result contains the dequeue sequence, successful replay and
+an exhausted final queue. =generated_exact= derives grammar prediction meaning
+without a caller-supplied dequeue sequence or final-mask correctness assertion.
+
+The same module checks raw observations separately: replay the recorded sequence,
+require exhaustion and compare the physical mask vector. [[file:../../../formal/ParserEngine/PredictionObservation.lean][PredictionObservation]]
+also compares the returned per-core catalogue with the recorded item-node map.
+A false item-node slot publishes zero; integer node zero is a valid lookup.
+Its soundness theorem applies to arbitrary decoded records.
+
+[[file:../../../t/fixtures/prediction-witness.ss][The native recorder]] executes the unchanged complete prediction producer.
+It forwards real queue/vector primitives, copies initialization values at the
+first dequeue and records the native returned catalogue. The existing source
+witness generator serializes those observations into fresh =SourceData=.
+Lean checks all six records and rejects a changed first dequeue. These finite
+receipts qualify the recorder; they do not prove arbitrary Scheme execution.
+
+* Materialization and cache ownership
+
+[[file:../../../formal/ParserEngine/PredictionMaterialization.lean][PredictionMaterialization]] aggregates the completed masks for every
+kernel core. Each selected physical production ID becomes that production's
+dot-zero dense offset. The universal template theorem derives exactly the
+paper's transitive prediction relation. Its closure theorem composes the
+materialized template with the existing ordered merge; =templateExact= is no
+longer an input to this composed entry point. Equal grammar productions at
+different IDs retain distinct physical offsets.
+
+[[file:../../../formal/ParserEngine/TemplateCache.lean][TemplateCache]] starts empty for one fixed factory and preserves its
+invariant after every lookup/publication. A history derives correctness of
+cache hits; it does not assume that the final cache already has correct values.
+The grammar/layout captured by that factory stays fixed for its lifetime.
+
+[[file:../../../formal/ParserEngine/LRTemplateSource.lean][LRTemplateSource]] independently admits the complete native template
+constructor and nested =template-for= declaration. Its source-checked closure
+entry composes these schemas with generated prediction execution.
+
+* Transition publication and concrete row factory
+
+[[file:../../../formal/ParserEngine/TransitionPublication.lean][TransitionPublication]] models each group's kernel interning and final
+row publication. Existing target IDs survive all subsequent appends. The final
+row has exactly the input symbol order; every recorded target ID is the final
+registry's ID for that group's kernel. Queue draining preserves storage,
+uniqueness and processed/pending accounting. The accumulator proof matches the
+source's single final reversal.
+
+[[file:../../../formal/ParserEngine/PublishedClosure.lean][PublishedClosure]] instantiates the pointwise factory with the completed
+prediction/materialization/merge chain. It derives grammar closure meaning for
+every published target row. Raw kernel masks must stay inside the physical
+layout domain; =KernelBound= makes this representation obligation explicit.
+The discovered-factory theorem also supplies name-index and coverage proofs.
+[[file:../../../formal/ParserEngine/LRTransitionSource.lean][LRTransitionSource]] independently checks the complete native builder,
+including initialization, cache capture, growth, target selection, queue updates
+and final transition-vector publication.
+
+* Remaining correspondence boundary
+
+The restricted source schemas identify supported idioms; they are not a general
+Scheme interpreter. Native physical name/symbol extraction still needs full
+composition with the constructed discovery stream. The sparse symbol-group
+scratch and earliest-item ordering still need a universal refinement to paper
+goto, generated kernels must discharge =KernelBound=, and physical enumeration
+ordering still needs composition with the sorted-state coordinate consumer. Final transition
+publication now has a universal model, but correct input group meaning is not
+inferred from source equality alone. Host/compiler behavior stays external.
+Gambit is neither modified nor built.
+
+* Qualification
+
+The complete Lean package builds 134 jobs. Thirteen Scheme test owners complete
+261 cases with natural exit zero in 20.2 seconds under the unchanged 90-second
+total and five-second idle budgets. All 19 evidence/layout controls and the
+complete Quint command pass. Source freshness succeeds; changing the extracted
+complete builder is rejected with exit 70. Native dequeue corruption is rejected
+by the Lean observation checker. These are separate qualification results. [[file:../../../t/prediction-products-test.ss][The new test owner]] compares
+sparse shared groups against an independent full-closure walk, verifies scratch
+reset and repeated calls, and checks completed-slot exclusion. Existing growing
+and recursive automaton controls exercise the complete native builder.
+[[file:../../../formal/quint/TemplatePublication.qnt][TemplatePublication]] checks five directed controls plus 1,000 bounded
+histories, including target ID zero, stable shared targets and duplicate rules.
+
+CI run =39016786820= at parent =a28a8cf= completes all enabled jobs successfully,
+including both macOS semantics and generation. The preceding SDK mapping failure
+has not reproduced, so its root cause is not declared repaired. Darwin defines
+=errno 84= as =EOVERFLOW= in [[https://github.com/apple-oss-distributions/xnu/blob/main/bsd/sys/errno.h][the errno header]]; [[https://github.com/apple-oss-distributions/dyld/blob/main/dyld/Loader.cpp][dyld's mapping diagnostics]]
+separately handle =EPERM= signing/sandbox failures. The errno alone is insufficient
+to establish a signing defect or identify which mapping argument failed.
+
+The macOS generation lane now records a read-only baseline: exact archive bytes,
+signature verification, Mach-O mapping dimensions, OS/page-size information and
+resource limits. Failure diagnostics retain those fields plus a bounded log query
+restricted to the actual SDK object path. There is no retry, changed timeout,
+re-signing or SDK rebuild. Local diagnostic validation uses a byte-identical
+single-object fixture archive; it is not a receipt from the historical failed VM.

@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 
 (import :std/test
@@ -17,114 +18,112 @@
   (alet (entry (assq name rules))
     (cadr entry)))
 
-(def iso-bnf-source-tests
-  (test-suite "ISO WG3 BNF grammar source"
-    (test-case "frozen source catalogs retain all production fields"
-      (let* ((data (iso-bnf-source->datum opencypher-bnf))
+(deflanguage-parser-tests iso-bnf-source-tests "ISO WG3 BNF grammar source"
+  (engine)
+    (scenario "frozen source catalogs retain all production fields"
+      (sequential ((data (iso-bnf-source->datum opencypher-bnf))
              (copy (iso-bnf-source-from-datum data)))
-        (check (iso-bnf-source->datum copy) => data)
-        (check (iso-bnf-source-production copy "program")
-               => (iso-bnf-source-production opencypher-bnf "program")))
-      (check-exception (iso-bnf-source-from-datum '(invalid)) true)
-      (check-exception
+        (equal (iso-bnf-source->datum copy)  data)
+        (equal (iso-bnf-source-production copy "program")
+                (iso-bnf-source-production opencypher-bnf "program")))
+      (raises (iso-bnf-source-from-datum '(invalid)) true)
+      (raises
        (iso-bnf-source-from-datum
         (list +iso-bnf-source-schema+ "test" "v1" "commit" "digest" '(bad-row))) true))
-    (test-case "the complete openCypher production catalog is immutable"
-      (check (iso-bnf-source-language opencypher-bnf)
-             => "opencypher")
-      (check (iso-bnf-source-version opencypher-bnf)
-             => +opencypher-version+)
-      (check (iso-bnf-source-commit opencypher-bnf)
-             => +opencypher-commit+)
-      (check (iso-bnf-source-digest opencypher-bnf)
-             => +opencypher-bnf-digest+)
-      (check (length (iso-bnf-source-productions opencypher-bnf))
-             => 352)
-      (check (iso-bnf-source-production opencypher-bnf "program")
-             ? iso-bnf-production?)
-      (check (iso-bnf-source-production opencypher-bnf
+    (scenario "the complete openCypher production catalog is immutable"
+      (equal (iso-bnf-source-language opencypher-bnf)
+              "opencypher")
+      (equal (iso-bnf-source-version opencypher-bnf)
+              +opencypher-version+)
+      (equal (iso-bnf-source-commit opencypher-bnf)
+              +opencypher-commit+)
+      (equal (iso-bnf-source-digest opencypher-bnf)
+              +opencypher-bnf-digest+)
+      (equal (length (iso-bnf-source-productions opencypher-bnf))
+              352)
+      (matches (iso-bnf-source-production opencypher-bnf "program")
+              iso-bnf-production?)
+      (matches (iso-bnf-source-production opencypher-bnf
                                         "value expression")
-             ? iso-bnf-production?)
-      (check (iso-bnf-source-production opencypher-bnf
+              iso-bnf-production?)
+      (matches (iso-bnf-source-production opencypher-bnf
                                         "binary digit")
-             ? iso-bnf-production?)
-      (let* ((program
+              iso-bnf-production?)
+      (sequential ((program
               (iso-bnf-source-production opencypher-bnf "program"))
              (ast (iso-bnf-production-ast program)))
-        (check (car ast) => 'choice)
-        (check (iso-bnf-production-references program)
-               => '("procedure specification" "standalone procedure call")))
+        (equal (car ast)  'choice)
+        (equal (iso-bnf-production-references program)
+                '("procedure specification" "standalone procedure call")))
       ;; ISO WG3 ellipsis is one-or-more. Compatibility corrections belong in
       ;; a separately receipted rule overlay, never in the notation parser.
-      (check (iso-bnf-production-ast
+      (equal (iso-bnf-production-ast
               (iso-bnf-source-production opencypher-bnf
                                          "linear statement"))
-             => '(sequence
+              '(sequence
                   (repeat1 (reference "primitive statement"))
                   (optional (reference "primitive result statement"))))
-      (check (grammar-rule-expression
+      (equal (grammar-rule-expression
               (iso-bnf-source-grammar-rules opencypher-bnf)
               'identifier)
-             => '(alias identifier
+              '(alias identifier
                   (choice (reference |regular identifier|)
                           (reference |delimited identifier|)
                           (reference |non-reserved word|))))
-      (check (grammar-rule-expression
+      (equal (grammar-rule-expression
               (iso-bnf-source-grammar-rules opencypher-bnf)
               '|delimited identifier|)
-             => '(alias |delimited identifier|
+              '(alias |delimited identifier|
                   (reference |accent quoted character sequence|)))
-      (check (grammar-rule-expression
+      (equal (grammar-rule-expression
               (iso-bnf-source-grammar-rules opencypher-bnf)
               '|accent quoted character sequence|)
-             => '(alias |accent quoted character sequence|
+              '(alias |accent quoted character sequence|
                   (token delimited-identifier)))
-      (check
+      (equal
        (grammar-rule-expression
         (iso-bnf-source-grammar-rules opencypher-bnf)
         '|create node pattern filler|)
-       => '(alias |create node pattern filler|
+        '(alias |create node pattern filler|
             (choice
              (sequence
               (reference |binding variable|)
               (optional
                (reference |create node label and property set specification|)))
              (reference |create node label and property set specification|))))
-      (check
+      (equal
        (grammar-rule-expression
         (iso-bnf-source-grammar-rules opencypher-bnf)
         '|create node label and property set specification|)
-       => '(alias |create node label and property set specification|
+        '(alias |create node label and property set specification|
             (choice
              (sequence
               (reference |create node label set specification|)
               (optional
                (reference |create element property specification|)))
              (reference |create element property specification|))))
-      (for-each
-       (lambda (production)
-         (check (pair? (iso-bnf-production-ast production)) => #t))
-       (iso-bnf-source-productions opencypher-bnf)))
-    (test-case "unresolved production references fail closed"
-      (check-exception
+      (each (production) ((iso-bnf-source-productions opencypher-bnf))
+         (equal (pair? (iso-bnf-production-ast production))  #t)))
+    (scenario "unresolved production references fail closed"
+      (raises
        (parse-iso-bnf-source
         "example" "v1" "commit"
         "<program> ::= <missing production>\n")
        true))
-    (test-case "duplicate production identities fail closed"
-      (check-exception
+    (scenario "duplicate production identities fail closed"
+      (raises
        (parse-iso-bnf-source
         "example" "v1" "commit"
         "<program> ::= OK\n<program> ::= ALSO_OK\n")
        true))
-    (test-case "declared source digest mismatch fails closed"
-      (check-exception
+    (scenario "declared source digest mismatch fails closed"
+      (raises
        (parse-iso-bnf-source/expected
         "example" "v1" "commit" "sha256:not-the-source"
        "<program> ::= OK\n")
        true))
-    (test-case "rule overlays bind the exact source expression and receipt"
-      (let* ((source (parse-iso-bnf-source
+    (scenario "rule overlays bind the exact source expression and receipt"
+      (sequential ((source (parse-iso-bnf-source
                       "example" "v1" "commit"
                       "<program> ::= ITEM...\n"))
              (expected '(alias program (repeat1 (literal "ITEM"))))
@@ -145,29 +144,28 @@
                source "example.bnf" overrides))
              (source-metadata
               (alist-value (alist-value source-map 'rule) 'program)))
-        (check (grammar-rule-expression rules 'program) => replacement)
-        (check (alist-value source-metadata 'compatibilityOverlay)
-               => metadata)
-        (check (string-prefix? "sha256:"
+        (equal (grammar-rule-expression rules 'program)  replacement)
+        (equal (alist-value source-metadata 'compatibilityOverlay)
+                metadata)
+        (equal (string-prefix? "sha256:"
                                (alist-value source-metadata
                                             'sourceExpressionDigest))
-               => #t)
-        (check (string-prefix? "sha256:"
+                #t)
+        (equal (string-prefix? "sha256:"
                                (alist-value source-metadata
                                             'replacementExpressionDigest))
-               => #t)
-        (check-exception
+                #t)
+        (raises
          (iso-bnf-source-grammar-rules/overrides
           source
           (list (list 'program metadata replacement expected)))
          true)
-        (check-exception
+        (raises
          (iso-bnf-source-grammar-rules/overrides
           source
           (list (list 'missing metadata expected replacement)))
-         true)))))
+         true))))
 
-(export iso-bnf-source-tests)
 
 ;; gxtest discovers only exported names ending in -test.
 (def iso-bnf-source-test iso-bnf-source-tests)

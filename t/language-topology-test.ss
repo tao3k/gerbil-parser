@@ -1,6 +1,7 @@
+(import :gerbil-parser/language-test-support)
 ;;; Repository authoring contract; no implementation or generated products in packs.
 (import :std/test)
-(export language-topology-test)
+
 (def (scheme-files root)
  (apply append
   (map (lambda (name)
@@ -62,54 +63,53 @@
              ((parser) '(deflanguage-parser-loader deflanguage-parser-receipt deflanguage-model-entry deflanguage-projection
                          defsyntax-javacc-source))
              ((tests) '(defsyntax-fixture defsyntax-corpus deflanguage-development-loader deflanguage-parser-tests))))))))
-(def language-topology-test
- (test-suite "three-interface language authoring contract"
-  (test-case "reject procedure definitions and unrestricted parser tests"
-   (check (and (authoring-form? '(def (scan source) source) 'grammar) #t) => #f)
-   (check (and (authoring-form? '(def scan (lambda (source) source)) 'grammar) #t) => #f)
-   (check (and (authoring-form? '(def test (test-suite "manual")) 'tests) #t) => #f)
-   (check (authoring-form? (quote (defsyntax-corpus corpus)) (quote grammar)) => #f)
-   (check (authoring-form? (quote (deflanguage-development-loader entry)) (quote parser)) => #f)
-   (check (authoring-form? (quote (import :gerbil-parser/language-support/development)) (quote parser)) => #f))
-  (test-case "parser declarations reject legacy metadata and descriptor aliases"
-   (check (and (authoring-form? '(deflanguage-parser-loader x (grammar old syntax) (parse parse-x) (metadata '())) 'parser) #t) => #f)
-   (check (and (authoring-form? '(deflanguage-parser-loader x (grammar syntax) (parse parse-x) (metadata '())) 'parser) #t) => #f)
-   (check (and (authoring-form? '(deflanguage-parser-loader x (grammar syntax) (parse parse-x) (slots metadata: '())) 'parser) #t) => #t))
-  (test-case "release identity belongs to the parser interface"
-   (check (and (authoring-form? '(def +version+ "1") 'grammar) #t) => #f)
-   (check (and (authoring-form? '(def +version+ "1") 'parser) #t) => #t)
-   (check (and (authoring-form? '(deflanguage example (identity "x" "1" "x.v1") (root source)) 'grammar) #t) => #f)
-   (check (and (authoring-form? '(deflanguage example
+(deflanguage-parser-tests language-topology-test "three-interface language authoring contract"
+  (engine)
+  (property "reject procedure definitions and unrestricted parser tests"
+      (bindings)
+      (equal (and (authoring-form? '(def (scan source) source) 'grammar) #t)  #f)
+      (equal (and (authoring-form? '(def scan (lambda (source) source)) 'grammar) #t)  #f)
+      (equal (and (authoring-form? '(def test (test-suite "manual")) 'tests) #t)  #f)
+      (equal (authoring-form? (quote (defsyntax-corpus corpus)) (quote grammar))  #f)
+      (equal (authoring-form? (quote (deflanguage-development-loader entry)) (quote parser))  #f)
+      (equal (authoring-form? (quote (import :gerbil-parser/language-support/development)) (quote parser))  #f))
+  (property "parser declarations reject legacy metadata and descriptor aliases"
+      (bindings)
+      (equal (and (authoring-form? '(deflanguage-parser-loader x (grammar old syntax) (parse parse-x) (metadata '())) 'parser) #t)  #f)
+      (equal (and (authoring-form? '(deflanguage-parser-loader x (grammar syntax) (parse parse-x) (metadata '())) 'parser) #t)  #f)
+      (equal (and (authoring-form? '(deflanguage-parser-loader x (grammar syntax) (parse parse-x) (slots metadata: '())) 'parser) #t)  #t))
+  (property "release identity belongs to the parser interface"
+      (bindings)
+      (equal (and (authoring-form? '(def +version+ "1") 'grammar) #t)  #f)
+      (equal (and (authoring-form? '(def +version+ "1") 'parser) #t)  #t)
+      (equal (and (authoring-form? '(deflanguage example (identity "x" "1" "x.v1") (root source)) 'grammar) #t)  #f)
+      (equal (and (authoring-form? '(deflanguage example
   (syntax
    (lexical
     (root source)
     (lex)))
-  (rules)) 'grammar) #t) => #t))
-  (test-case "author grammar excludes backend profile assembly"
-   (for-each (lambda (head)
-     (check (and (authoring-form? (list head 'backend) 'grammar) #t) => #f))
-     '(deflanguage-projection deflanguage-source defregion-plan defscanner-profile defresult-profile defpart-profile defcommand-profile defbinding-profile))
-   (check (and (authoring-form? '(defgrammar-syntax (loop kind) (node kind)) 'grammar) #t) => #t))
-  (test-case "every pack exposes three interfaces with declarative private syntax modules"
-   (for-each
-    (lambda (language)
-      (let* ((root (path-expand language "languages"))
+  (rules)) 'grammar) #t)  #t))
+  (scenario "author grammar excludes backend profile assembly"
+   (each (head) ('(deflanguage-projection deflanguage-source defregion-plan defscanner-profile defresult-profile defpart-profile defcommand-profile defbinding-profile))
+     (equal (and (authoring-form? (list head 'backend) 'grammar) #t)  #f))
+   (equal (and (authoring-form? '(defgrammar-syntax (loop kind) (node kind)) 'grammar) #t)  #t))
+  (scenario "every pack exposes three interfaces with declarative private syntax modules"
+   (each (language) ((filter (lambda (name) (eq? (file-info-type (file-info (path-expand name "languages"))) 'directory))
+            (directory-files "languages")))
+      (sequential ((root (path-expand language "languages"))
              (files (scheme-files root))
              (interfaces (map (lambda (name) (path-expand name root))
                           '("grammar.ss" "parser.ss" "parser-test.ss")))
              (private (filter (lambda (file) (not (member file interfaces))) files)))
-       (check (andmap (lambda (file) (string-prefix? (path-expand "syntax/" root) file)) private) => #t)
-       (for-each (lambda (file)
-         (check (andmap (lambda (form)
+       (equal (andmap (lambda (file) (string-prefix? (path-expand "syntax/" root) file)) private)  #t)
+       (each (file) (private)
+         (equal (andmap (lambda (form)
            (and (memq (car form) '(import export deflanguage defgrammar-syntax deftext-profile))
-                (authoring-form? form 'grammar) #t)) (forms file)) => #t)) private)
-       (for-each (lambda (row)
-         (check (andmap (lambda (form) (and (authoring-form? form (cdr row)) #t))
-                        (forms (path-expand (car row) root))) => #t))
-        '(("grammar.ss" . grammar) ("parser.ss" . parser) ("parser-test.ss" . tests)))
-       (check (andmap (lambda (name) (and (member (path-expand name root) files) #t))
-                      '("grammar.ss" "parser.ss" "parser-test.ss")) => #t)
-       (check (and (declaration? (path-expand "parser.ss" root) 'deflanguage-parser-loader) #t) => #t)
-       (check (and (declaration? (path-expand "parser-test.ss" root) 'deflanguage-parser-tests) #t) => #t)))
-    (filter (lambda (name) (eq? (file-info-type (file-info (path-expand name "languages"))) 'directory))
-            (directory-files "languages"))))))
+                (authoring-form? form 'grammar) #t)) (forms file))  #t))
+       (each (row) ('(("grammar.ss" . grammar) ("parser.ss" . parser) ("parser-test.ss" . tests)))
+         (equal (andmap (lambda (form) (and (authoring-form? form (cdr row)) #t))
+                        (forms (path-expand (car row) root)))  #t))
+       (equal (andmap (lambda (name) (and (member (path-expand name root) files) #t))
+                      '("grammar.ss" "parser.ss" "parser-test.ss"))  #t)
+       (equal (and (declaration? (path-expand "parser.ss" root) 'deflanguage-parser-loader) #t)  #t)
+       (equal (and (declaration? (path-expand "parser-test.ss" root) 'deflanguage-parser-tests) #t)  #t)))))

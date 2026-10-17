@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 ;;; Grammar IR qualification of the optional Scheme LR construction.
 
@@ -66,30 +67,28 @@
       (error "language parser left a token suffix" rest))
     root))
 
-(def (check-grammar-ir-equivalence rules sources)
-  (let* ((grammar (grammar-ir rules))
+(defparser-check (check-grammar-ir-equivalence rules sources)
+  (sequential ((grammar (grammar-ir rules))
          (canonical
           (parser-ir-ref (compile-parser grammar 'canonical-lr1) 'lr-spec))
          (direct
           (parser-ir-ref (compile-parser grammar 'follow-partition-lr1)
                          'lr-spec)))
-    (check (lr-spec-ref direct 'algorithm) => 'follow-partition-lr1-v1)
-    (check (> (lr-spec-ref direct 'state-count) 0) => #t)
-    (for-each
-     (lambda (source)
-       (check (equal? (parsed-root canonical source)
+    (equal (lr-spec-ref direct 'algorithm)  'follow-partition-lr1-v1)
+    (equal (> (lr-spec-ref direct 'state-count) 0)  #t)
+    (each (source) (sources)
+       (equal (equal? (parsed-root canonical source)
                       (parsed-root direct source))
-              => #t))
-     sources)))
+               #t))))
 
-(def follow-partition-language-test
-  (test-suite "follow partition through Grammar IR"
-    (poo-flow-test-case "default Grammar IR construction remains LALR"
-      (let (grammar (grammar-ir precedence-expression-rules))
-        (check (parser-ir-ref (compile-parser grammar) 'lr-spec)
-               => (parser-ir-ref (compile-parser grammar 'lalr) 'lr-spec))))
-    (test-case "explicit adaptive construction selects by conflict"
-      (let* ((ordinary (compile-parser
+(deflanguage-parser-tests follow-partition-language-test "follow partition through Grammar IR"
+  (engine)
+    (profiled "default Grammar IR construction remains LALR"
+      (scope ((grammar (grammar-ir precedence-expression-rules)))
+        (equal (parser-ir-ref (compile-parser grammar) 'lr-spec)
+                (parser-ir-ref (compile-parser grammar 'lalr) 'lr-spec))))
+    (scenario "explicit adaptive construction selects by conflict"
+      (sequential ((ordinary (compile-parser
                         (grammar-ir precedence-expression-rules)
                         'lalr-then-follow))
              (ordinary-spec (parser-ir-ref ordinary 'lr-spec))
@@ -101,39 +100,35 @@
                          (compile-parser (grammar-ir lr1-not-lalr-rules)
                                          'canonical-lr1)
                          'lr-spec)))
-        (check (lr-spec-ref ordinary-spec 'algorithm)
-               => 'lalr1-lr0-fixed-point-v1)
-        (check ordinary-spec
-               => (parser-ir-ref
+        (equal (lr-spec-ref ordinary-spec 'algorithm)
+                'lalr1-lr0-fixed-point-v1)
+        (equal ordinary-spec
+                (parser-ir-ref
                    (compile-parser (grammar-ir precedence-expression-rules)
                                    'lalr)
                    'lr-spec))
-        (check (lr-spec-ref split-spec 'algorithm)
-               => 'follow-partition-lr1-v1)
-        (for-each
-         (lambda (source)
-           (check (parsed-root split-spec source)
-                  => (parsed-root reference source)))
-         '("acd" "bce" "ace" "bcd"))))
-    (test-case "adaptive construction preserves genuine conflict rejection"
-      (check-exception
+        (equal (lr-spec-ref split-spec 'algorithm)
+                'follow-partition-lr1-v1)
+        (each (source) ('("acd" "bce" "ace" "bcd"))
+           (equal (parsed-root split-spec source)
+                   (parsed-root reference source)))))
+    (scenario "adaptive construction preserves genuine conflict rejection"
+      (raises
        (compile-lr-spec genuine-reduce-conflict-rules 'source-file
                         'reject #f 'lalr-then-follow)
        true))
-    (test-case "selective GLR policy keeps its LALR fork route"
-      (let (spec
+    (property "selective GLR policy keeps its LALR fork route"
+      (bindings (spec
             (compile-lr-spec genuine-reduce-conflict-rules 'source-file
-                             'selective-glr #f 'lalr-then-follow))
-        (check (lr-spec-ref spec 'algorithm)
-               => 'lalr1-lr0-fixed-point-v1)))
-    (poo-flow-test-case "LR(1)-only grammar keeps its parse products"
-      (check-grammar-ir-equivalence
-       lr1-not-lalr-rules '("acd" "bce" "ace" "bcd")))
-    (poo-flow-test-case "precedence grammar keeps its parse products"
-      (check-grammar-ir-equivalence
-       precedence-expression-rules '("a" "a+a" "a*a" "a+a*a" "a*a+a")))
-    (poo-flow-test-case "generated arithmetic language keeps parse products"
-      (let* ((canonical
+                             'selective-glr #f 'lalr-then-follow)))
+      (equal (lr-spec-ref spec 'algorithm)
+                'lalr1-lr0-fixed-point-v1))
+    (profiled "LR(1)-only grammar keeps its parse products"
+      (verify check-grammar-ir-equivalence lr1-not-lalr-rules '("acd" "bce" "ace" "bcd")))
+    (profiled "precedence grammar keeps its parse products"
+      (verify check-grammar-ir-equivalence precedence-expression-rules '("a" "a+a" "a*a" "a+a*a" "a*a+a")))
+    (profiled "generated arithmetic language keeps parse products"
+      (sequential ((canonical
               (parser-ir-ref
                (compile-parser arithmetic-grammar 'canonical-lr1)
                'lr-spec))
@@ -141,35 +136,29 @@
               (parser-ir-ref
                (compile-parser arithmetic-grammar 'follow-partition-lr1)
                'lr-spec)))
-        (for-each
-         (lambda (source)
-           (let (tokens
+        (each (source) ('("1 + 2 * (3 - 4)" "foo-7/2" "-x+3"))
+           (scope ((tokens
                  (parser-significant-tokens
                   arithmetic-parser
-                  (lex-source arithmetic-parser source)))
-             (check (equal? (parsed-language-root canonical tokens)
+                  (lex-source arithmetic-parser source))))
+             (equal (equal? (parsed-language-root canonical tokens)
                             (parsed-language-root direct tokens))
-                    => #t)))
-         '("1 + 2 * (3 - 4)" "foo-7/2" "-x+3"))))
-    (test-case "official HCL corpus keeps LALR and direct parse products"
-      (let ((lalr (parser-ir-ref hcl-parser-ir 'lr-spec))
+                     #t)))))
+    (scenario "official HCL corpus keeps LALR and direct parse products"
+      (scope ((lalr (parser-ir-ref hcl-parser-ir 'lr-spec))
             (direct
              (parser-ir-ref
               (compile-parser hcl-grammar 'follow-partition-lr1)
               'lr-spec)))
-        (check (lr-spec-ref direct 'algorithm) => 'follow-partition-lr1-v1)
-        (check (lr-spec-ref direct 'state-count)
-               => (lr-spec-ref lalr 'state-count))
-        (for-each
-         (lambda (fixture)
-           (let* ((source (syntax-fixture-source fixture))
+        (equal (lr-spec-ref direct 'algorithm)  'follow-partition-lr1-v1)
+        (equal (lr-spec-ref direct 'state-count)
+                (lr-spec-ref lalr 'state-count))
+        (each (fixture) ((language-loader-fixtures hcl-test-language 'accepted))
+           (sequential ((source (syntax-fixture-source fixture))
                   (tokens
                    (parser-significant-tokens
                     hcl-parser
                     (lex-source hcl-parser source))))
-             (check (equal? (parsed-language-root lalr tokens)
+             (equal (equal? (parsed-language-root lalr tokens)
                             (parsed-language-root direct tokens))
-                    => #t)))
-         (language-loader-fixtures hcl-test-language 'accepted))))))
-
-(export follow-partition-language-test)
+                     #t))))))

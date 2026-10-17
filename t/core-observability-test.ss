@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 ;;; Acceptance owner for parser Core memory and timing evidence.
 ;;; Runtime observation remains an opt-in POO policy carried by LanguageGrammar.
@@ -37,57 +38,50 @@
                (grammar-role? (car (grammar-roles grammar)))))
         grammars)))
 
-(def core-observability-tests
-  (test-suite "Core observability for parser grammar objects"
-    (test-case "runtime observation imports only the POO debug boundary"
-      (let (source
+(deflanguage-parser-tests core-observability-tests "Core observability for parser grammar objects"
+  (engine (exclusive #t))
+    (property "runtime observation imports only the POO debug boundary"
+      (bindings (source
             (call-with-input-file
-             "src/runtime/observability.ss" read-all-as-string))
-        (check
+             "src/runtime/observability.ss" read-all-as-string)))
+      (equal
          (and (string-contains
                source
                ":core/observability/debug")
               (not (string-contains
                     source
                     ":poo-flow/src/module-system/observability/interface")))
-         => #t)))
-    (test-case "checked object construction emits a bounded POO memory receipt"
-      (let (policy
+          #t))
+    (scenario "checked object construction emits a bounded POO memory receipt"
+      (scope ((policy
             (poo-flow-debug-memory-policy
              'gerbil-parser
              heap-limit-bytes: 4294967296
              live-growth-limit-bytes: 67108864
-             collect-before-sample?: #t))
-        (call-with-values
-          (lambda ()
-            (call-with-poo-flow-debug-memory-span
+             collect-before-sample?: #t)))
+        (scope-values (((grammars receipt) (call-with-poo-flow-debug-memory-span
              policy 'grammar-object-construction
-             make-observed-grammar-batch))
-          (lambda (grammars receipt)
-            (check (observed-grammar-batch-valid? grammars) => #t)
-            (check (.ref receipt 'accepted?) => #t)
-            (check (.ref receipt 'reason) => 'within-budget)
-            (check (car (poo-flow-debug-memory-receipt-sexp receipt))
-                   => 'debug-memory-observation)))))
-    (test-case "checked object construction satisfies the ASP benchmark gate"
-      (check (benchmark-contract-valid? benchmark-path) => #t)
-      (check (observed-grammar-batch-valid?
+             make-observed-grammar-batch)))
+            (equal (observed-grammar-batch-valid? grammars)  #t)
+            (equal (.ref receipt 'accepted?)  #t)
+            (equal (.ref receipt 'reason)  'within-budget)
+            (equal (car (poo-flow-debug-memory-receipt-sexp receipt))
+                    'debug-memory-observation))))
+    (scenario "checked object construction satisfies the ASP benchmark gate"
+      (equal (benchmark-contract-valid? benchmark-path)  #t)
+      (equal (observed-grammar-batch-valid?
               (make-observed-grammar-batch))
-             => #t)
-      (##gc)
-      (let (receipt
+              #t)
+      (act (##gc))
+      (scope ((receipt
             (benchmark-contract-run benchmark-path
-                                    make-observed-grammar-batch))
-        (write receipt)
-        (newline)
-        (check (benchmark-contract-receipt-pass? receipt) => #t)))))
+                                    make-observed-grammar-batch)))
+        (receipt receipt)
+        (equal (benchmark-contract-receipt-pass? receipt)  #t))))
 
-(export core-observability-tests)
 
 ;; gxtest discovers only exported names ending in -test.
 (def core-observability-test core-observability-tests)
 (export core-observability-test)
 
 ;; Resource admission owns its measurement interval in the shared runtime.
-(def test-worker-exclusive? #t)
-(export test-worker-exclusive?)

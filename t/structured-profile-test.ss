@@ -1,3 +1,4 @@
+(import :gerbil-parser/language-test-support)
 (import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; Independent language recipes exercise the same closed structured engine.
 (import :std/test
@@ -9,7 +10,7 @@
         (only-in :gerbil-parser/src/language/entry parse-language-source)
         (only-in :gerbil-parser/src/runtime/cst parse-artifact->cst)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-ref))
-(export structured-profile-test)
+
 (def unit-expression '(module-text "~~~" "UNIT" "!!!" "(*" "*)" "\\*" "_"))
 (def unit-plan (prepare-lexical-source-plan (list (list 'text unit-expression))))
 (def (unit-text source start)
@@ -49,18 +50,20 @@
       name-field: 'heading body-field: 'command close: #\] terminal-command: "END")))
 (def (rejects? thunk)
  (with-catch (lambda (_) #t) (lambda () (thunk) #f)))
-(def structured-profile-test
- (test-suite "inherited structured engine recipes"
-  (test-case "different proof spelling and module frames use the same scanners"
-   (check (square-start "[1]1. END" 0) => 5)
-   (check (square-reference "[1]label" 0) => 8)
-   (check (square-identifier "123" 0) => #f)
-   (check (square-identifier "1_name" 0) => 6)
-   (check (unit-text "preamble\n~~~ UNIT Demo ~~~" 0) => 9)
-   (check (square-start "<1>1. END" 0) => #f))
-  (test-case "renamed CST fields and terminal command reuse the proof stack"
-   (check (checklist-policy (parse-artifact->cst (parse-language-source checklist-language-grammar "[1]1. END"))) => #f)
-   (let (diagnostic (checklist-policy (parse-artifact->cst (parse-language-source checklist-language-grammar "[1]1. OPEN"))))
-    (check (cdr (assq 'failureKind diagnostic)) => 'proof-level-rejected)))
-  (test-case "malformed overrides are rejected before scanner binding"
-   (check (rejects? (lambda () (bind-structured-proof-policy (.cc StructuredProofPolicy. 'denied-kinds '("wrong"))))) => #t))))
+(deflanguage-parser-tests structured-profile-test "inherited structured engine recipes"
+  (engine)
+  (property "different proof spelling and module frames use the same scanners"
+      (bindings)
+      (equal (square-start "[1]1. END" 0)  5)
+      (equal (square-reference "[1]label" 0)  8)
+      (equal (square-identifier "123" 0)  #f)
+      (equal (square-identifier "1_name" 0)  6)
+      (equal (unit-text "preamble\n~~~ UNIT Demo ~~~" 0)  9)
+      (equal (square-start "<1>1. END" 0)  #f))
+  (scenario "renamed CST fields and terminal command reuse the proof stack"
+   (equal (checklist-policy (parse-artifact->cst (parse-language-source checklist-language-grammar "[1]1. END")))  #f)
+   (scope ((diagnostic (checklist-policy (parse-artifact->cst (parse-language-source checklist-language-grammar "[1]1. OPEN")))))
+    (equal (cdr (assq 'failureKind diagnostic))  'proof-level-rejected)))
+  (property "malformed overrides are rejected before scanner binding"
+      (bindings)
+      (equal (rejects? (lambda () (bind-structured-proof-policy (.cc StructuredProofPolicy. 'denied-kinds '("wrong")))))  #t)))

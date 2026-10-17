@@ -1,3 +1,4 @@
+(import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 ;;; POO source fragments execute and AOT-lower one event algorithm.
 
@@ -16,7 +17,7 @@
                  source-reference-scan-initial source-reference-scan-forms)
         (only-in :gerbil-parser/rust-runtime-event-support
                  run-event-fold event-fold-ir-json))
-(export source-fragment-test)
+
 
 (def fragment (make-source-delimited-fragment "::" 'Line 'source-item 'Line))
 (def helpers
@@ -46,67 +47,67 @@
               (source-reference-scan-forms reference-rule))))
 (def reference-forms '((call-source-helper source-references start end)))
 
-(def source-fragment-test
-  (test-suite "POO source fragment event AOT"
-    (test-case "admitted delimiter partitions source without copying text"
-      (check (source-delimited-fragment? fragment) => #t)
-      (check (run-event-fold "a::b::c" 'Document '() line-forms '() helpers)
-             => '((start Document)
+(deflanguage-parser-tests source-fragment-test "POO source fragment event AOT"
+  (engine)
+    (property "admitted delimiter partitions source without copying text"
+      (bindings)
+      (equal (source-delimited-fragment? fragment)  #t)
+      (equal (run-event-fold "a::b::c" 'Document '() line-forms '() helpers)
+              '((start Document)
                   (start Text) (token Line 0 1) (finish)
                   (token Line 1 3)
                   (start Text) (token Line 3 4) (finish)
                   (token Line 4 6)
                   (start Text) (token Line 6 7) (finish)
                   (finish))))
-    (test-case "the same policy lowers to typed AOT helper IR"
-      (let* ((wire (event-fold-ir-json
+    (property "the same policy lowers to typed AOT helper IR"
+      (bindings (wire (event-fold-ir-json
                     'parse_source_segments event-lines-language-grammar
-                    'Document '() line-forms '() helpers))
-             (ir (string->json wire
+                    'Document '() line-forms '() helpers)) (ir (string->json wire
                                (JSONReadOptions object-as-hash: #t
                                                 array-as-vector: #t))))
-        (check (hash-ref ir "schema")
-               => "gerbil-scheme-rust.event-function-ir.v1")
-        (check (vector-length (hash-ref ir "helpers")) => 2)))
-    (test-case "first split composes two source-bounded helpers"
-      (check (source-first-split? first-split) => #t)
-      (check (run-event-fold "a=b=c" 'Document '() split-forms '()
+      (equal (hash-ref ir "schema")
+                "gerbil-scheme-rust.event-function-ir.v1")
+      (equal (vector-length (hash-ref ir "helpers"))  2))
+    (scenario "first split composes two source-bounded helpers"
+      (equal (source-first-split? first-split)  #t)
+      (equal (run-event-fold "a=b=c" 'Document '() split-forms '()
                              split-helpers)
-             => '((start Document)
+              '((start Document)
                   (start Text) (token Line 0 1) (finish)
                   (token Line 1 2)
                   (start Heading) (token Line 2 5) (finish)
                   (finish)))
-      (let* ((wire (event-fold-ir-json
+      (sequential ((wire (event-fold-ir-json
                     'parse_first_split event-lines-language-grammar
                     'Document '() split-forms '() split-helpers))
              (ir (string->json wire
                                (JSONReadOptions object-as-hash: #t
                                                 array-as-vector: #t))))
-        (check (vector-length (hash-ref ir "helpers")) => 3)))
-    (test-case "marker and balanced-call references share one bounded policy"
-      (check (source-reference-scan? reference-rule) => #t)
-      (check (run-event-fold "$2 remote(x,$1) @3" 'Document '()
+        (equal (vector-length (hash-ref ir "helpers"))  3)))
+    (scenario "marker and balanced-call references share one bounded policy"
+      (equal (source-reference-scan? reference-rule)  #t)
+      (equal (run-event-fold "$2 remote(x,$1) @3" 'Document '()
                              reference-forms '() reference-helpers)
-             => '((start Document)
+              '((start Document)
                   (start Text) (token Line 0 2) (finish)
                   (token Line 2 3)
                   (start Text) (token Line 3 15) (finish)
                   (token Line 15 16)
                   (start Text) (token Line 16 18) (finish)
                   (finish)))
-      (let* ((wire (event-fold-ir-json
+      (sequential ((wire (event-fold-ir-json
                     'parse_source_references event-lines-language-grammar
                     'Document '() reference-forms '() reference-helpers))
              (ir (string->json wire
                                (JSONReadOptions object-as-hash: #t
                                                 array-as-vector: #t))))
-        (check (vector-length (hash-ref ir "helpers")) => 1)))
-    (test-case "POO admission rejects unsupported delimiters"
-      (check-exception (make-source-delimited-fragment
+        (equal (vector-length (hash-ref ir "helpers"))  1)))
+    (scenario "POO admission rejects unsupported delimiters"
+      (raises (make-source-delimited-fragment
                         ":::" 'Line 'source-item 'Line)
                        true)
-      (check-exception (make-source-reference-scan
+      (raises (make-source-reference-scan
                         '((#\$ . Line)) "abc" "remote"
                         'Line 'Text 'Line)
-                       true))))
+                       true)))

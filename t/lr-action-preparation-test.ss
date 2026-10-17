@@ -1,3 +1,4 @@
+(import :gerbil-parser/language-test-support)
 ;;; Prepared layout projections preserve the former pure action decision.
 (import :std/test
         (only-in :gerbil-parser/t/benchmarks/lr-request-stack/lookahead profile-lr-lookahead)
@@ -13,29 +14,29 @@
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in ./fixtures/lr-action-selection reference-lr-action-selector)
         (only-in :gerbil-parser/src/runtime/lr-parser/prepare make-lr-action-selector))
-(def lr-action-preparation-test
-  (test-suite "prepared layout action projections"
-    (test-case "lookahead diagnostics preserve complete products with scalar inputs and EOF"
-      (let* ((source "a=1\nb=2\n") (expected (parse-source records-parser source))
-             (receipt (profile-lr-lookahead records-parser source expected)))
-        (check (> (cdr (assq 'actionObservations receipt)) 0) => #t)
-        (check (> (cdr (assq 'eofObservations receipt)) 0) => #t)
-        (check (>= (cdr (assq 'actionObservations receipt))
-                   (cdr (assq 'lookaheads receipt))) => #t)))
-    (test-case "closed engine record access retains checked rejection"
-      (let* ((entry '((terminal eof) accept))
+(deflanguage-parser-tests lr-action-preparation-test "prepared layout action projections"
+  (engine)
+    (property "lookahead diagnostics preserve complete products with scalar inputs and EOF"
+      (bindings (source "a=1\nb=2\n") (expected (parse-source records-parser source)) (receipt (profile-lr-lookahead records-parser source expected)))
+      (equal (> (cdr (assq 'actionObservations receipt)) 0)  #t)
+      (equal (> (cdr (assq 'eofObservations receipt)) 0)  #t)
+      (equal (>= (cdr (assq 'actionObservations receipt))
+                   (cdr (assq 'lookaheads receipt)))  #t))
+    (scenario "closed engine record access retains checked rejection"
+      (sequential ((entry '((terminal eof) accept))
              (row (vector-ref (index-action-rows (vector (list entry)) #f) 0)))
-        (check (eq? (lr-action-row-eof row) entry) => #t)
-        (for-each
-         (lambda (invalid)
-           (check-exception (lr-action-row-eof invalid) true)
-           (check-exception (lr-action-row-tokens invalid) true)
-           (check-exception (event-program-value-kind invalid) true)
-           (check-exception (lr-checkpoint-state invalid) true))
-         (list #f 0 '() '#() (make-token 'word "a" 0 1)))))
-    (test-case "all action forms, frame states, token refinements and EOF agree"
-      (for-each (lambda (action)
-        (let* ((entries
+        (equal (eq? (lr-action-row-eof row) entry)  #t)
+        (each (invalid) ((list #f 0 '() '#() (make-token 'word "a" 0 1)))
+           (raises (lr-action-row-eof invalid) true)
+           (raises (lr-action-row-tokens invalid) true)
+           (raises (event-program-value-kind invalid) true)
+           (raises (lr-checkpoint-state invalid) true))))
+    (scenario "all action forms, frame states, token refinements and EOF agree"
+      (each (action) ('((shift 1) (reduce 2) (accept) (fork (shift 3) (reduce 4))
+          (layout-guard (shift 5) (reduce 15)) (layout-guard (reduce 6) (reduce 16))
+          (layout-guard (fork (shift 7) (reduce 8)) (reduce 17))
+          (fork (layout-guard (shift 9) (reduce 18)) (fork (shift 10) (reduce 11)))))
+        (sequential ((entries
                 (list (cons '(terminal literal "end") action)
                       (cons '(terminal literal "END") '(layout-guard (reduce 12) (reduce 14)))
                       (cons '(terminal literal "É") '(reduce 13))
@@ -44,75 +45,66 @@
                       (cons '(terminal layout-start "end") action)
                       (cons '(terminal eof) '(accept))))
                (rows (vector entries)))
-          (for-each (lambda (casefold?)
-            (let* ((index (index-action-rows rows casefold?))
+          (each (casefold?) ('(#f #t))
+            (sequential ((index (index-action-rows rows casefold?))
                    (reference (reference-lr-action-selector rows index casefold? #t))
                    (candidate (prepare-layout-action-selector rows index casefold?)))
-              (parameterize ((current-layout-columns (make-layout-columns "end é\nEND")))
-                (for-each (lambda (frames)
-                  (parameterize ((current-layout-frames frames))
-                    (for-each (lambda (tokens)
-                      (check (candidate 0 (and (pair? tokens) (car tokens))) => (reference 0 (and (pair? tokens) (car tokens)))))
-                      (list '() (list (make-token 'word "end" 0 3))
+              (parameters ((current-layout-columns (make-layout-columns "end é\nEND")))
+                (each (frames) ('(() ((2 . "end")) ((100 . "outer")) ((4 . "é"))
+                    ((2 . "end") (100 . "outer"))))
+                  (parameters ((current-layout-frames frames))
+                    (each (tokens) ((list '() (list (make-token 'word "end" 0 3))
                             (list (make-token 'word "é" 4 6))
                             (list (make-token 'word "END" 7 10))
-                            (list (make-token 'word "foo" 7 10))))))
-                  '(() ((2 . "end")) ((100 . "outer")) ((4 . "é"))
-                    ((2 . "end") (100 . "outer"))))))) '(#f #t))))
-        '((shift 1) (reduce 2) (accept) (fork (shift 3) (reduce 4))
-          (layout-guard (shift 5) (reduce 15)) (layout-guard (reduce 6) (reduce 16))
-          (layout-guard (fork (shift 7) (reduce 8)) (reduce 17))
-          (fork (layout-guard (shift 9) (reduce 18)) (fork (shift 10) (reduce 11))))))
-    (test-case "denied first literal never falls through to duplicates or token kinds"
-      (let* ((entries '(((terminal literal "end") shift 1)
+                            (list (make-token 'word "foo" 7 10))))
+                      (equal (candidate 0 (and (pair? tokens) (car tokens)))  (reference 0 (and (pair? tokens) (car tokens)))))))))))))
+    (scenario "denied first literal never falls through to duplicates or token kinds"
+      (sequential ((entries '(((terminal literal "end") shift 1)
                        ((terminal literal "end") reduce 2)
                        ((terminal literal "END") reduce 3)
                        ((terminal token word) reduce 4)))
              (rows (vector entries))
              (index (index-action-rows rows #t))
              (candidate (prepare-layout-action-selector rows index #t)))
-        (parameterize ((current-layout-columns (make-layout-columns "end"))
+        (parameters ((current-layout-columns (make-layout-columns "end"))
                        (current-layout-frames '((100 . "outer"))))
-          (check (candidate 0 (make-token 'word "end" 0 3)) => #f))))
-    (test-case "pure reductions skip column decisions only after marker precedence"
-      (let* ((entry '((terminal literal "end") reduce 1))
+          (equal (candidate 0 (make-token 'word "end" 0 3))  #f))))
+    (scenario "pure reductions skip column decisions only after marker precedence"
+      (sequential ((entry '((terminal literal "end") reduce 1))
              (rows (vector (list entry '((terminal layout-next "end") shift 2))))
              (index (index-action-rows rows #f))
              (candidate (prepare-layout-action-selector rows index #f))
              (reference (reference-lr-action-selector rows index #f #t))
              (tokens (list (make-token 'word "end" 0 3))))
-        (parameterize ((current-layout-columns (make-layout-columns "end")))
-          (for-each (lambda (frames)
-            (parameterize ((current-layout-frames frames))
-              (check (candidate 0 (and (pair? tokens) (car tokens))) => (reference 0 (and (pair? tokens) (car tokens))))))
-            '(() ((2 . "end")) ((100 . "outer")))))))
-    (test-case "missing source context retains original entry identity"
-      (let* ((entry '((terminal literal "end") layout-guard (reduce 1) (reduce 2)))
+        (parameters ((current-layout-columns (make-layout-columns "end")))
+          (each (frames) ('(() ((2 . "end")) ((100 . "outer"))))
+            (parameters ((current-layout-frames frames))
+              (equal (candidate 0 (and (pair? tokens) (car tokens)))  (reference 0 (and (pair? tokens) (car tokens)))))))))
+    (scenario "missing source context retains original entry identity"
+      (sequential ((entry '((terminal literal "end") layout-guard (reduce 1) (reduce 2)))
              (rows (vector (list entry))) (index (index-action-rows rows #f))
              (candidate (prepare-layout-action-selector rows index #f)))
-        (parameterize ((current-layout-columns #f)
+        (parameters ((current-layout-columns #f)
                        (current-layout-frames '((100 . "outer"))))
-          (check (eq? (candidate 0 (make-token 'word "end" 0 3)) entry) => #t))))))
-(export lr-action-preparation-test lr-ordinary-action-preparation-test)
+          (equal (eq? (candidate 0 (make-token 'word "end" 0 3)) entry)  #t)))))
+
 
 (import (only-in :gerbil-parser/src/runtime/lr-parser lr-prepare))
-(def lr-ordinary-action-preparation-test
-  (test-suite "prepared ordinary LR state selectors"
-    (test-case "wide string indexes retain first duplicates and independent source entry identity"
-      (let* ((names (append (map (lambda (i) (string-append "WORD" (number->string i))) (iota 24))
+(deflanguage-parser-tests lr-ordinary-action-preparation-test "prepared ordinary LR state selectors"
+  (engine)
+    (scenario "wide string indexes retain first duplicates and independent source entry identity"
+      (sequential ((names (append (map (lambda (i) (string-append "WORD" (number->string i))) (iota 24))
                             '("é" "É" "ß" "SS" "猫" "🦊")))
              (entries (append (map (lambda (name) (cons (list 'terminal 'literal name) '(shift 1))) names)
                               '(((terminal literal "WORD0") reduce 99))))
              (row (vector-ref (index-action-rows (vector entries) #f) 0)))
-        (for-each
-         (lambda (name)
+        (each (name) ((append names '("word0" "missing" "")))
            ;; Fresh equal strings must select the original first declaration,
            ;; independently of the index implementation and string identity.
-           (let (expected (find (lambda (entry) (equal? (caddar entry) name)) entries))
-             (check (eq? (lookup-literal-action-entry row (string-copy name)) expected) => #t)))
-         (append names '("word0" "missing" "")))))
-    (test-case "token-only, literal priority, casefold, duplicates, wide rows and EOF retain entries"
-      (let ((factory make-lr-action-selector)
+           (scope ((expected (find (lambda (entry) (equal? (caddar entry) name)) entries)))
+             (equal (eq? (lookup-literal-action-entry row (string-copy name)) expected)  #t)))))
+    (scenario "token-only, literal priority, casefold, duplicates, wide rows and EOF retain entries"
+      (scope ((factory make-lr-action-selector)
             (rows
              (vector
               (list (cons '(terminal token word) '(shift 1))
@@ -123,16 +115,15 @@
                     (cons '(terminal eof) '(reduce 6)))
               (map (lambda (n) (cons (list 'terminal 'token (string->symbol (number->string n)))
                                      (list 'shift n))) (iota 16)))))
-        (for-each (lambda (casefold?)
-          (let* ((index (index-action-rows rows casefold?))
+        (each (casefold?) ('(#f #t))
+          (sequential ((index (index-action-rows rows casefold?))
                  (reference (reference-lr-action-selector rows index casefold? #f))
                  (candidate (factory rows index casefold? #f)))
-            (for-each (lambda (state)
-              (for-each (lambda (input)
-                (check (eq? (candidate state (and (pair? input) (car input))) (reference state (and (pair? input) (car input)))) => #t))
-                (append (list '() (list (make-token 'word "if" 0 2))
+            (each (state) ('(0 1 2))
+              (each (input) ((append (list '() (list (make-token 'word "if" 0 2))
                               (list (make-token 'word "IF" 0 2))
                               (list (make-token 'word "猫" 0 3))
                               (list (make-token 'missing "?" 0 1)))
                         (map (lambda (n) (list (make-token (string->symbol (number->string n)) "x" 0 1)))
-                             (iota 16))))) '(0 1 2)))) '(#f #t))))))
+                             (iota 16))))
+                (equal (eq? (candidate state (and (pair? input) (car input))) (reference state (and (pair? input) (car input))))  #t))))))))

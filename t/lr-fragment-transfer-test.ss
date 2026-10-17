@@ -1,3 +1,4 @@
+(import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 ;;; Exact terminal admission at the authoritative LR transfer boundary.
 (import :std/test
@@ -17,7 +18,7 @@
 (import (only-in :gerbil-parser/src/runtime/lr-parser/state lr-capture-plan-runtime lr-capture-plan-production-id lr-capture-plan-width lr-capture-plan-contexts lr-runtime-reduction-widths lr-recognition-fragment-lookahead lr-recognition-fragment-lookahead-cache lr-capture-context-lookahead-kind lr-recognition-fragment-yield-cache lr-recognition-fragment-children-cache lr-capture-context-runtime lr-capture-context-executor
                  lr-capture-context-exit-state lr-runtime-actions-set! lr-runtime-capture-plans lr-runtime-goto-columns)
         (only-in :gerbil-parser/src/runtime/lr-parser/recognition lr-recognition-fragment-terminal-yield capture-context-from-plan prepare-capture-plans capture-reduction))
-(export lr-fragment-transfer-test)
+
 ;;; Frozen f21204f grammar-tree yield traversal: matched admission reference.
 (def (reference-transfer-yield fragment delta tokens)
   (let loop ((pending (list (cons fragment delta))) (rest tokens) (visited 0))
@@ -37,11 +38,11 @@
                (= (token-end (car rest)) (+ shift (token-end piece))))
           (loop (cdr pending) (cdr rest) visited))
          (else (values #f visited)))))))
-(def (capture-transfer-root runtime tokens)
-  (let (captured #f)
-    (parameterize ((current-lr-recognition-observer (lambda (root) (set! captured root))))
-      (let-values (((root rest) (lr-parse/prepared runtime tokens))) (check rest => '())))
-    captured))
+(defparser-check (capture-transfer-root runtime tokens)
+  (scope ((captured #f))
+    (parameters ((current-lr-recognition-observer (lambda (root) (set! captured root))))
+      (scope-values (((root rest) (lr-parse/prepared runtime tokens))) (equal rest  '())))
+    (result captured)))
 (def (shift-transfer-tokens tokens delta)
   (map (lambda (token)
          (make-token (token-kind token) (token-lexeme token)
@@ -59,21 +60,20 @@
                                   (loop (cdr rest)))))))))
     (make-success-parse-artifact "yield-test" source stream root (lambda (token) (eq? (token-kind token) 'space)))))
 
-(def lr-fragment-transfer-test
-  (test-suite "LR fragment transfer admission"
-    (test-case "prepared capture plans own exact immutable runtime production and width input"
-      (let* ((runtime (lr-prepare (compile-lr-spec '((source-file (sequence (token identifier) (token identifier)))) 'source-file)))
+(deflanguage-parser-tests lr-fragment-transfer-test "LR fragment transfer admission"
+  (engine)
+    (scenario "prepared capture plans own exact immutable runtime production and width input"
+      (sequential ((runtime (lr-prepare (compile-lr-spec '((source-file (sequence (token identifier) (token identifier)))) 'source-file)))
              (widths (lr-runtime-reduction-widths runtime)) (plans (prepare-capture-plans runtime)))
-        (check (vector-length plans) => (vector-length widths))
-        (for-each (lambda (production)
-                    (let (plan (vector-ref plans production))
-                      (check (eq? (lr-capture-plan-runtime plan) runtime) => #t)
-                      (check (lr-capture-plan-production-id plan) => production)
-                      (check (lr-capture-plan-width plan) => (vector-ref widths production))))
-                  (iota (vector-length plans)))
-        (check (eq? plans (prepare-capture-plans runtime)) => #t)))
-    (test-case "custom executors cannot pollute canonical prepared contexts"
-      (let* ((grammar '((source-file (alias SourceFile (token identifier)))))
+        (equal (vector-length plans)  (vector-length widths))
+        (each (production) ((iota (vector-length plans)))
+                    (scope ((plan (vector-ref plans production)))
+                      (equal (eq? (lr-capture-plan-runtime plan) runtime)  #t)
+                      (equal (lr-capture-plan-production-id plan)  production)
+                      (equal (lr-capture-plan-width plan)  (vector-ref widths production))))
+        (equal (eq? plans (prepare-capture-plans runtime))  #t)))
+    (scenario "custom executors cannot pollute canonical prepared contexts"
+      (sequential ((grammar '((source-file (alias SourceFile (token identifier)))))
              (runtime (lr-prepare (compile-lr-spec grammar 'source-file)))
              (other-runtime (lr-prepare (compile-lr-spec grammar 'source-file)))
              (columns (lr-runtime-goto-columns runtime))
@@ -87,44 +87,42 @@
              (first (capture-context-from-plan plan #f entry target 'identifier))
              (changed (capture-context-from-plan plan executor entry target 'identifier))
              (retargeted (capture-context-from-plan plan executor entry (+ target 1) 'identifier)))
-        (check-exception (capture-context-from-plan plan executor -1 target 'identifier) true)
-        (check-exception (capture-context-from-plan plan executor (vector-length column) target 'identifier) true)
-        (check-exception (capture-context-from-plan plan executor 1/2 target 'identifier) true)
-        (check (eq? first changed) => #f)
-        (check (lr-capture-context-executor first) => #f)
-        (check (eq? (lr-capture-context-executor changed) executor) => #t)
-        (check (lr-capture-context-exit-state changed) => target)
-        (check (lr-capture-context-exit-state retargeted) => (+ target 1))
-        (check (eq? retargeted (capture-context-from-plan plan executor entry (+ target 1) 'identifier)) => #t)
-        (check (eq? first (capture-context-from-plan plan #f entry target 'identifier)) => #t)
-        (check (eq? first (vector-ref (lr-capture-plan-contexts plan) entry)) => #t)
-        (check (eq? retargeted (capture-context-from-plan plan executor entry (+ target 1) 'identifier)) => #t)
-        (check (<= (* (vector-length (prepare-capture-plans runtime))
-                      (vector-length (lr-capture-plan-contexts plan))) 65536) => #t)
-        (check (eq? first (capture-context-from-plan (vector-ref (prepare-capture-plans other-runtime) production) #f entry target 'identifier)) => #f)
-        (check (eq? (lr-capture-context-runtime first) runtime) => #t)))
-    (test-case "oversized capture context directories retain exact uncached descriptors"
-      (let* ((runtime (lr-prepare (compile-lr-spec '((source-file (token identifier))) 'source-file))))
-        (lr-runtime-actions-set! runtime (make-vector 65537 #f))
-        (let* ((plan (vector-ref (prepare-capture-plans runtime) 0))
+        (raises (capture-context-from-plan plan executor -1 target 'identifier) true)
+        (raises (capture-context-from-plan plan executor (vector-length column) target 'identifier) true)
+        (raises (capture-context-from-plan plan executor 1/2 target 'identifier) true)
+        (equal (eq? first changed)  #f)
+        (equal (lr-capture-context-executor first)  #f)
+        (equal (eq? (lr-capture-context-executor changed) executor)  #t)
+        (equal (lr-capture-context-exit-state changed)  target)
+        (equal (lr-capture-context-exit-state retargeted)  (+ target 1))
+        (equal (eq? retargeted (capture-context-from-plan plan executor entry (+ target 1) 'identifier))  #t)
+        (equal (eq? first (capture-context-from-plan plan #f entry target 'identifier))  #t)
+        (equal (eq? first (vector-ref (lr-capture-plan-contexts plan) entry))  #t)
+        (equal (eq? retargeted (capture-context-from-plan plan executor entry (+ target 1) 'identifier))  #t)
+        (equal (<= (* (vector-length (prepare-capture-plans runtime))
+                      (vector-length (lr-capture-plan-contexts plan))) 65536)  #t)
+        (equal (eq? first (capture-context-from-plan (vector-ref (prepare-capture-plans other-runtime) production) #f entry target 'identifier))  #f)
+        (equal (eq? (lr-capture-context-runtime first) runtime)  #t)))
+    (scenario "oversized capture context directories retain exact uncached descriptors"
+      (sequential ((runtime (lr-prepare (compile-lr-spec '((source-file (token identifier))) 'source-file))))
+        (act (lr-runtime-actions-set! runtime (make-vector 65537 #f)))
+        (sequential ((plan (vector-ref (prepare-capture-plans runtime) 0))
                (first (capture-context-from-plan plan #f 0 1 'identifier))
               (second (capture-context-from-plan plan #f 0 1 'identifier)))
-          (check (lr-capture-plan-contexts (vector-ref (lr-runtime-capture-plans runtime) 0)) => #f)
-          (check (eq? first second) => #f)
-          (check (lr-capture-context-exit-state first) => 1)
-          (check (eq? (lr-capture-context-runtime second) runtime) => #t))))
-    (test-case "malformed live boundary values cannot masquerade as EOF or a ready pair"
-      (let* ((runtime (lr-prepare (compile-lr-spec '((source-file (token identifier))) 'source-file)))
+          (equal (lr-capture-plan-contexts (vector-ref (lr-runtime-capture-plans runtime) 0))  #f)
+          (equal (eq? first second)  #f)
+          (equal (lr-capture-context-exit-state first)  1)
+          (equal (eq? (lr-capture-context-runtime second) runtime)  #t))))
+    (scenario "malformed live boundary values cannot masquerade as EOF or a ready pair"
+      (sequential ((runtime (lr-prepare (compile-lr-spec '((source-file (token identifier))) 'source-file)))
              (plan (vector-ref (prepare-capture-plans runtime) 0))
              (stack (list (make-token 'identifier "a" 0 1))))
-        (for-each
-         (lambda (boundary)
-           (check-exception
+        (each (boundary) ((list (cons 'identifier #f) (cons 'identifier '(not a lexeme)) (cons 17 "text")))
+           (raises
             (capture-reduction plan #f 0 stack (vector (car boundary) (cdr boundary) 2 3) 2 'value 1) true))
-         (list (cons 'identifier #f) (cons 'identifier '(not a lexeme)) (cons 17 "text")))
-        (check (andmap not (vector->list (lr-capture-plan-contexts plan))) => #t)))
-    (test-case "boundary snapshots survive token mutation and materialize stable pairs"
-      (let* ((runtime (lr-prepare (compile-lr-spec '((source-file (token identifier))) 'source-file)))
+        (equal (andmap not (vector->list (lr-capture-plan-contexts plan)))  #t)))
+    (scenario "boundary snapshots survive token mutation and materialize stable pairs"
+      (sequential ((runtime (lr-prepare (compile-lr-spec '((source-file (token identifier))) 'source-file)))
              (plan (vector-ref (prepare-capture-plans runtime) 0))
              (executor (lambda _ #f))
              (kind 'identifier) (lexeme "next")
@@ -133,71 +131,67 @@
              (changed (capture-context-from-plan plan executor 0 1 'integer))
              (fragment (car (capture-reduction plan executor 0
                              (list (make-token 'identifier "a" 0 1)) input 2 'value 1))))
-        (check (eq? first changed) => #f)
-        (check (lr-capture-context-lookahead-kind first) => kind)
-        (check (lr-capture-context-lookahead-kind changed) => 'integer)
-        (check (eq? (lr-recognition-fragment-lookahead-cache fragment) lexeme) => #t)
-        (vector-set! input 0 'integer) (vector-set! input 1 "changed")
-        (let (signature (lr-recognition-fragment-lookahead fragment))
-          (check signature => (cons kind lexeme))
-          (check (eq? signature (lr-recognition-fragment-lookahead fragment)) => #t))))
-    (test-case "unary child lists materialize once without losing source order"
-      (let* ((runtime (lr-prepare (compile-lr-spec '((source-file (token identifier))) 'source-file)))
+        (equal (eq? first changed)  #f)
+        (equal (lr-capture-context-lookahead-kind first)  kind)
+        (equal (lr-capture-context-lookahead-kind changed)  'integer)
+        (equal (eq? (lr-recognition-fragment-lookahead-cache fragment) lexeme)  #t)
+        (act (vector-set! input 0 'integer)) (act (vector-set! input 1 "changed"))
+        (scope ((signature (lr-recognition-fragment-lookahead fragment)))
+          (equal signature  (cons kind lexeme))
+          (equal (eq? signature (lr-recognition-fragment-lookahead fragment))  #t))))
+    (scenario "unary child lists materialize once without losing source order"
+      (sequential ((runtime (lr-prepare (compile-lr-spec '((source-file (token identifier))) 'source-file)))
              (token (make-token 'identifier "a" 0 1))
-             (root (capture-transfer-root runtime (list token))))
-        (check (eq? (lr-recognition-fragment-children-cache root) token) => #t)
-        (let (first (lr-recognition-fragment-children root))
-          (check first => (list token))
-          (check (eq? first (lr-recognition-fragment-children root)) => #t)
-          (check (eq? (car first) token) => #t))))
-    (test-case "unary token mutation cannot change the private child storage variant"
-      (let (runtime (lr-prepare (compile-lr-spec '((source-file (token identifier))) 'source-file)))
-        (for-each
-          (lambda (kind)
-            (let* ((token (make-token 'identifier "a" 0 1))
-                   (root (capture-transfer-root runtime (list token))))
-              (vector-set! token 0 kind)
-              (vector-set! token 2 -1)
-              (let (children (lr-recognition-fragment-children root))
-                (check children => (list token))
-                (check (eq? (car children) token) => #t)
-                (check (eq? children (lr-recognition-fragment-children root)) => #t))))
-          (list #f 'changed 42 "kind" (vector 'nested)))))
-    (test-case "packed children retain ownership across requests and materialize once"
-      (let* ((runtime (lr-prepare (compile-lr-spec
+             (root (parser-check-result capture-transfer-root runtime (list token))))
+        (equal (eq? (lr-recognition-fragment-children-cache root) token)  #t)
+        (scope ((first (lr-recognition-fragment-children root)))
+          (equal first  (list token))
+          (equal (eq? first (lr-recognition-fragment-children root))  #t)
+          (equal (eq? (car first) token)  #t))))
+    (scenario "unary token mutation cannot change the private child storage variant"
+      (scope ((runtime (lr-prepare (compile-lr-spec '((source-file (token identifier))) 'source-file))))
+        (each (kind) ((list #f 'changed 42 "kind" (vector 'nested)))
+            (sequential ((token (make-token 'identifier "a" 0 1))
+                   (root (parser-check-result capture-transfer-root runtime (list token))))
+              (act (vector-set! token 0 kind))
+              (act (vector-set! token 2 -1))
+              (scope ((children (lr-recognition-fragment-children root)))
+                (equal children  (list token))
+                (equal (eq? (car children) token)  #t)
+                (equal (eq? children (lr-recognition-fragment-children root))  #t))))))
+    (scenario "packed children retain ownership across requests and materialize once"
+      (sequential ((runtime (lr-prepare (compile-lr-spec
                          '((source-file (alias SourceFile (sequence (token identifier) (token identifier)
                                                  (token identifier) (token identifier))))) 'source-file)))
              (tokens (map (lambda (i) (make-token 'identifier "a" i (+ i 1))) (iota 4)))
-             (captured (capture-transfer-root runtime tokens))
+             (captured (parser-check-result capture-transfer-root runtime tokens))
              (root (let loop ((piece captured))
                      (let (stored (lr-recognition-fragment-children-cache piece))
                        (cond ((and (vector? stored) (not (token? stored))) piece)
                              ((lr-recognition-fragment? stored) (loop stored))
                              (else (error "wide production was not retained as packed children")))))))
-        (check (vector? (lr-recognition-fragment-children-cache root)) => #t)
-        (check (void? (lr-recognition-fragment-yield-cache root)) => #t)
-        (check (token? (lr-recognition-fragment-children-cache root)) => #f)
-        (check (vector? (car tokens)) => #t)
-        (for-each (lambda (piece) (check (vector? piece) => #f))
-          (list root (lr-recognition-relocate (car tokens) 1)))
-        (let* ((widths (lr-runtime-reduction-widths runtime))
+        (equal (vector? (lr-recognition-fragment-children-cache root))  #t)
+        (equal (void? (lr-recognition-fragment-yield-cache root))  #t)
+        (equal (token? (lr-recognition-fragment-children-cache root))  #f)
+        (equal (vector? (car tokens))  #t)
+        (each (piece) ((list root (lr-recognition-relocate (car tokens) 1))) (equal (vector? piece)  #f))
+        (sequential ((widths (lr-runtime-reduction-widths runtime))
                (id (find (lambda (id) (= (vector-ref widths id) 4)) (iota (vector-length widths))))
                (suffix (list (make-token 'identifier "outside" 20 27)))
                (stack (append (reverse tokens) suffix))
                (captured (capture-reduction (vector-ref (prepare-capture-plans runtime) id)
                            (lambda _ #f) 0 stack #f 4 'value 1)))
-          (set-car! stack (make-token 'identifier "changed-stack" 0 13))
-          (set-car! suffix (make-token 'identifier "changed-suffix" 20 34))
-          (check (eq? (cdr captured) suffix) => #t)
-          (check (lr-recognition-fragment-children (car captured)) => tokens))
-        (capture-transfer-root runtime
-          (map (lambda (i) (make-token 'identifier "next" (* 4 i) (+ 4 (* 4 i)))) (iota 4)))
-        (let (children (lr-recognition-fragment-children root))
-          (check children => tokens)
-          (check (eq? children (lr-recognition-fragment-children root)) => #t)
-          (for-each (lambda (left right) (check (eq? left right) => #t)) children tokens))))
-    (test-case "ternary reductions preserve view geometry and untouched suffix"
-      (let* ((runtime (lr-prepare (compile-lr-spec
+          (act (set-car! stack (make-token 'identifier "changed-stack" 0 13)))
+          (act (set-car! suffix (make-token 'identifier "changed-suffix" 20 34)))
+          (equal (eq? (cdr captured) suffix)  #t)
+          (equal (lr-recognition-fragment-children (car captured))  tokens))
+        (verify capture-transfer-root runtime (map (lambda (i) (make-token 'identifier "next" (* 4 i) (+ 4 (* 4 i)))) (iota 4)))
+        (scope ((children (lr-recognition-fragment-children root)))
+          (equal children  tokens)
+          (equal (eq? children (lr-recognition-fragment-children root))  #t)
+          (each (left right) (children tokens) (equal (eq? left right)  #t)))))
+    (scenario "ternary reductions preserve view geometry and untouched suffix"
+      (sequential ((runtime (lr-prepare (compile-lr-spec
                          '((source-file (alias SourceFile (sequence (token identifier) (token identifier)
                                                                   (token identifier))))) 'source-file)))
              (widths (lr-runtime-reduction-widths runtime))
@@ -210,32 +204,32 @@
              (result (capture-reduction (vector-ref (prepare-capture-plans runtime) id)
                        (lambda _ #f) 0 (append (reverse pieces) suffix) #f 13 'value 1))
              (fragment (car result)))
-        (check (eq? (cdr result) suffix) => #t)
-        (check (lr-recognition-fragment-children fragment) => pieces)
-        (check (lr-recognition-fragment-start fragment) => 0)
-        (check (lr-recognition-fragment-end fragment) => 13)
-        (check (lr-recognition-fragment-token-count fragment) => 3)
-        (let-values (((matches visits)
+        (equal (eq? (cdr result) suffix)  #t)
+        (equal (lr-recognition-fragment-children fragment)  pieces)
+        (equal (lr-recognition-fragment-start fragment)  0)
+        (equal (lr-recognition-fragment-end fragment)  13)
+        (equal (lr-recognition-fragment-token-count fragment)  3)
+        (scope-values (((matches visits)
                       (reference-transfer-yield fragment 0
                         (list first (make-token 'identifier "b" 11 12) last))))
-          (check matches => #t))))
-    (test-case "fresh capture defers its derived terminal index and repeated transfer queries share it"
-      (let* ((grammar '((source-file (alias SourceFile (sequence (token identifier) (token identifier))))))
+          (equal matches  #t))))
+    (scenario "fresh capture defers its derived terminal index and repeated transfer queries share it"
+      (sequential ((grammar '((source-file (alias SourceFile (sequence (token identifier) (token identifier))))))
              (runtime (lr-prepare (compile-lr-spec grammar 'source-file)))
              (tokens (list (make-token 'identifier "α" 0 2) (make-token 'identifier "b" 3 4)))
-             (captured (capture-transfer-root runtime tokens)))
-        (check (void? (lr-recognition-fragment-yield-cache captured)) => #t)
-        (let-values (((matches visits) (reference-transfer-yield captured 0 tokens)))
-          (check matches => #t))
-        (let (first (lr-recognition-fragment-terminal-yield captured))
-          (check (void? first) => #f)
-          (check (eq? first (lr-recognition-fragment-terminal-yield captured)) => #t)
-          (check-exception
+             (captured (parser-check-result capture-transfer-root runtime tokens)))
+        (equal (void? (lr-recognition-fragment-yield-cache captured))  #t)
+        (scope-values (((matches visits) (reference-transfer-yield captured 0 tokens)))
+          (equal matches  #t))
+        (scope ((first (lr-recognition-fragment-terminal-yield captured)))
+          (equal (void? first)  #f)
+          (equal (eq? first (lr-recognition-fragment-terminal-yield captured))  #t)
+          (raises
             (lr-checkpoint-inject-fragment
               (lr-checkpoint-before-shift (lr-initial-checkpoint runtime '()) (car tokens))
               captured 0 (list (car tokens) (make-token 'identifier "x" 3 4))) true))))
-    (test-case "shared yields eliminate unary grammar traversal without relaxing terminal checks"
-      (let* ((names (map (lambda (n) (string->symbol (string-append "layer" (number->string n)))) (iota 64)))
+    (scenario "shared yields eliminate unary grammar traversal without relaxing terminal checks"
+      (sequential ((names (map (lambda (n) (string->symbol (string-append "layer" (number->string n)))) (iota 64)))
              (grammar
               (cons (list 'source-file (list 'alias 'SourceFile (list 'reference (car names))))
                     (map (lambda (index)
@@ -244,30 +238,30 @@
                                    (list 'reference (list-ref names (+ index 1)))))) (iota 64))))
              (runtime (lr-prepare (compile-lr-spec grammar 'source-file)))
              (old (list (make-token 'identifier "猫" 0 3) (make-token 'identifier "b" 4 5)))
-             (captured (capture-transfer-root runtime old))
+             (captured (parser-check-result capture-transfer-root runtime old))
              (tokens (shift-transfer-tokens old 7))
              (checkpoint (lr-checkpoint-before-shift (lr-initial-checkpoint runtime '()) (car tokens)))
              (visits #f))
-        (let-values (((matches baseline-visits) (reference-transfer-yield captured 7 tokens)))
-          (check matches => #t)
-          (check baseline-visits => 67)
-          (parameterize ((current-lr-transfer-yield-observer (lambda (count) (set! visits count))))
-            (let-values (((root rest)
+        (scope-values (((matches baseline-visits) (reference-transfer-yield captured 7 tokens)))
+          (equal matches  #t)
+          (equal baseline-visits  67)
+          (parameters ((current-lr-transfer-yield-observer (lambda (count) (set! visits count))))
+            (scope-values (((root rest)
                           (lr-checkpoint-resume (lr-checkpoint-inject-fragment checkpoint captured 7 tokens))))
-              (let-values (((fresh rest) (lr-parse/prepared runtime tokens)))
-                (check (publish-transfer root (token-start (car tokens)) tokens)
-                       => (publish-transfer fresh (token-start (car tokens)) tokens)))))
-          (check visits => 3))
-        (let (wrong (list (car tokens) (make-token 'identifier "c" 11 12)))
-          (let-values (((matches count) (reference-transfer-yield captured 7 wrong))) (check matches => #f))
-          (check-exception (lr-checkpoint-inject-fragment checkpoint captured 7 wrong) true))))
-    (test-case "terminal yields compose relocated subtrees with fresh sibling tokens"
-      (let* ((runtime (lr-prepare (compile-lr-spec
+              (scope-values (((fresh rest) (lr-parse/prepared runtime tokens)))
+                (equal (publish-transfer root (token-start (car tokens)) tokens)
+                        (publish-transfer fresh (token-start (car tokens)) tokens)))))
+          (equal visits  3))
+        (scope ((wrong (list (car tokens) (make-token 'identifier "c" 11 12))))
+          (scope-values (((matches count) (reference-transfer-yield captured 7 wrong))) (equal matches  #f))
+          (raises (lr-checkpoint-inject-fragment checkpoint captured 7 wrong) true))))
+    (scenario "terminal yields compose relocated subtrees with fresh sibling tokens"
+      (sequential ((runtime (lr-prepare (compile-lr-spec
                                   '((source-file (alias SourceFile (sequence (reference pair) (token identifier))))
                                     (pair (sequence (token identifier) (token identifier)))) 'source-file)))
              (old (list (make-token 'identifier "猫" 0 3) (make-token 'identifier "b" 4 5)
                         (make-token 'identifier "c" 6 7)))
-             (captured (capture-transfer-root runtime old))
+             (captured (parser-check-result capture-transfer-root runtime old))
              (pair-fragment
               (let walk ((pending (list captured)))
                 (and (pair? pending)
@@ -280,63 +274,63 @@
                            (lr-checkpoint-before-shift (lr-initial-checkpoint runtime '()) (car moved))))
              (with-pair (lr-checkpoint-inject-fragment checkpoint pair-fragment 7 (take moved 2)))
              (rebuilt #f))
-        (parameterize ((current-lr-recognition-observer (lambda (root) (set! rebuilt root))))
-          (let-values (((status next) (lr-checkpoint-feed with-pair (caddr moved))))
-            (check status => 'checkpoint)
-            (let-values (((root rest) (lr-checkpoint-resume next))) (check rest => '()))))
-        (let* ((later (shift-transfer-tokens moved 5))
+        (parameters ((current-lr-recognition-observer (lambda (root) (set! rebuilt root))))
+          (scope-values (((status next) (lr-checkpoint-feed with-pair (caddr moved))))
+            (equal status  'checkpoint)
+            (scope-values (((root rest) (lr-checkpoint-resume next))) (equal rest  '()))))
+        (sequential ((later (shift-transfer-tokens moved 5))
                (next (lr-checkpoint-before-shift (lr-initial-checkpoint runtime '()) (car later))))
-          (let-values (((matches count) (reference-transfer-yield rebuilt 5 later))) (check matches => #t))
-          (let-values (((root rest) (lr-checkpoint-resume (lr-checkpoint-inject-fragment next rebuilt 5 later))))
-            (let-values (((fresh rest) (lr-parse/prepared runtime later)))
-              (check (publish-transfer root 12 later) => (publish-transfer fresh 12 later)))
-            (check (publish-transfer root 12 later)
-                   => (publish-transfer
+          (scope-values (((matches count) (reference-transfer-yield rebuilt 5 later))) (equal matches  #t))
+          (scope-values (((root rest) (lr-checkpoint-resume (lr-checkpoint-inject-fragment next rebuilt 5 later))))
+            (scope-values (((fresh rest) (lr-parse/prepared runtime later)))
+              (equal (publish-transfer root 12 later)  (publish-transfer fresh 12 later)))
+            (equal (publish-transfer root 12 later)
+                    (publish-transfer
                        (recognition-child-value
                         (car (recognition-sequence->list
                               (lr-recognition-project (lr-recognition-relocate rebuilt 5) later)))) 12 later)))
-          (let (wrong (list (car later) (make-token 'identifier "b" 17 18) (caddr later)))
-            (check-exception (lr-checkpoint-inject-fragment next rebuilt 5 wrong) true)))))
-    (test-case "epsilon reductions disappear from the nonempty transfer yield"
-      (let* ((runtime (lr-prepare (compile-lr-spec
+          (scope ((wrong (list (car later) (make-token 'identifier "b" 17 18) (caddr later))))
+            (raises (lr-checkpoint-inject-fragment next rebuilt 5 wrong) true)))))
+    (scenario "epsilon reductions disappear from the nonempty transfer yield"
+      (sequential ((runtime (lr-prepare (compile-lr-spec
                                   '((source-file (alias SourceFile
                                                    (sequence (optional (token identifier)) (literal "!")))))
                                   'source-file)))
              (tokens (list (make-token 'symbol "!" 0 1)))
-             (captured (capture-transfer-root runtime tokens))
+             (captured (parser-check-result capture-transfer-root runtime tokens))
              (checkpoint (lr-initial-checkpoint runtime tokens))
              (visits #f))
-        (parameterize ((current-lr-transfer-yield-observer (lambda (count) (set! visits count))))
-          (let-values (((root rest) (lr-checkpoint-resume
+        (parameters ((current-lr-transfer-yield-observer (lambda (count) (set! visits count))))
+          (scope-values (((root rest) (lr-checkpoint-resume
                                     (lr-checkpoint-inject-fragment checkpoint captured 0 tokens))))
-            (let-values (((fresh rest) (lr-parse/prepared runtime tokens)))
-              (check (publish-transfer root 0 tokens) => (publish-transfer fresh 0 tokens)))))
-        (check visits => 1)))
-    (test-case "long left-recursive yields remain shared and reject a changed last terminal"
-      (let* ((runtime (lr-prepare (compile-lr-spec
+            (scope-values (((fresh rest) (lr-parse/prepared runtime tokens)))
+              (equal (publish-transfer root 0 tokens)  (publish-transfer fresh 0 tokens)))))
+        (equal visits  1)))
+    (scenario "long left-recursive yields remain shared and reject a changed last terminal"
+      (sequential ((runtime (lr-prepare (compile-lr-spec
                                   '((source-file (alias SourceFile (repeat1 (token identifier))))) 'source-file)))
              (old (map (lambda (n) (make-token 'identifier "α" (* n 3) (+ (* n 3) 2))) (iota 512)))
-             (captured (capture-transfer-root runtime old))
+             (captured (parser-check-result capture-transfer-root runtime old))
              (tokens (shift-transfer-tokens old 7))
              (checkpoint (lr-checkpoint-before-shift (lr-initial-checkpoint runtime '()) (car tokens)))
              (visits #f))
-        (parameterize ((current-lr-transfer-yield-observer (lambda (count) (set! visits count))))
-          (let-values (((root rest) (lr-checkpoint-resume
+        (parameters ((current-lr-transfer-yield-observer (lambda (count) (set! visits count))))
+          (scope-values (((root rest) (lr-checkpoint-resume
                                     (lr-checkpoint-inject-fragment checkpoint captured 7 tokens))))
-            (let-values (((fresh rest) (lr-parse/prepared runtime tokens)))
-              (check (publish-transfer root 7 tokens) => (publish-transfer fresh 7 tokens)))))
-        (check visits => 1023)
-        (let* ((final (last tokens))
+            (scope-values (((fresh rest) (lr-parse/prepared runtime tokens)))
+              (equal (publish-transfer root 7 tokens)  (publish-transfer fresh 7 tokens)))))
+        (equal visits  1023)
+        (sequential ((final (last tokens))
                (wrong (append (take tokens 511)
                               (list (make-token 'identifier "β" (token-start final) (token-end final))))))
-          (let-values (((matches count) (reference-transfer-yield captured 7 wrong))) (check matches => #f))
-          (check-exception (lr-checkpoint-inject-fragment checkpoint captured 7 wrong) true))
+          (scope-values (((matches count) (reference-transfer-yield captured 7 wrong))) (equal matches  #f))
+          (raises (lr-checkpoint-inject-fragment checkpoint captured 7 wrong) true))
         ;; Rejected transfer retains both checkpoint and shared yield.
-        (let-values (((root rest) (lr-checkpoint-resume
+        (scope-values (((root rest) (lr-checkpoint-resume
                                   (lr-checkpoint-inject-fragment checkpoint captured 7 tokens))))
-          (check rest => '()))))
-    (test-case "LR transfer validates terminal yield and the current input boundary"
-      (let* ((runtime (lr-prepare
+          (equal rest  '()))))
+    (scenario "LR transfer validates terminal yield and the current input boundary"
+      (sequential ((runtime (lr-prepare
                        (compile-lr-spec
                         '((source-file (alias SourceFile
                                         (sequence (token identifier) (token identifier)))))
@@ -344,46 +338,45 @@
              (old (list (make-token 'identifier "猫" 0 3)
                         (make-token 'identifier "b" 4 5)))
              (captured #f))
-        (parameterize ((current-lr-recognition-observer
+        (parameters ((current-lr-recognition-observer
                         (lambda (root) (set! captured root))))
-          (let-values (((root rest) (lr-parse/prepared runtime old)))
-            (check rest => '())))
-        (let* ((tokens (list (make-token 'identifier "猫" 7 10)
+          (scope-values (((root rest) (lr-parse/prepared runtime old)))
+            (equal rest  '())))
+        (sequential ((tokens (list (make-token 'identifier "猫" 7 10)
                             (make-token 'identifier "b" 11 12)))
                (checkpoint (lr-checkpoint-before-shift
                             (lr-initial-checkpoint runtime '()) (car tokens))))
-          (check (lr-checkpoint-fragment-compatible? checkpoint captured) => #t)
-          (let-values (((root rest)
+          (equal (lr-checkpoint-fragment-compatible? checkpoint captured)  #t)
+          (scope-values (((root rest)
                         (lr-checkpoint-resume
                          (lr-checkpoint-inject-fragment checkpoint captured 7 tokens))))
-            (check rest => '())
-            (let-values (((fresh fresh-rest) (lr-parse/prepared runtime tokens)))
-              (def (publish value)
+            (equal rest  '())
+            (scope-values (((fresh fresh-rest) (lr-parse/prepared runtime tokens)))
+(locals ((publish (lambda ( value)
                 (make-success-parse-artifact
                  "transfer-test" "       猫 b"
                  (list (make-token 'space "       " 0 7) (car tokens)
                        (make-token 'space " " 10 11) (cadr tokens))
-                 value (lambda (token) (eq? (token-kind token) 'space))))
-              (check (publish root) => (publish fresh))))
-          (for-each
-           (lambda (wrong)
-             (check-exception
-              (lr-checkpoint-inject-fragment checkpoint captured 7 wrong) true))
-           (list (list (car tokens) (make-token 'identifier "c" 11 12))
+                 value (lambda (token) (eq? (token-kind token) 'space))))))
+
+              (equal (publish root)  (publish fresh)))))
+          (each (wrong) ((list (list (car tokens) (make-token 'identifier "c" 11 12))
                  (list (car tokens) (make-token 'identifier "b" 12 13))
                  (list (car tokens) (make-token 'number "b" 11 12))
                  (list (car tokens))
                  (list (car tokens) (cadr tokens) (cadr tokens))))
-          (check-exception
+             (raises
+              (lr-checkpoint-inject-fragment checkpoint captured 7 wrong) true))
+          (raises
            (lr-checkpoint-inject-fragment checkpoint captured 0 old) true)
-          (check-exception
+          (raises
            (lr-checkpoint-inject-fragment
             (lr-checkpoint-before-shift (lr-initial-checkpoint runtime '())
                                        (make-token 'identifier "犬" 7 10))
             captured 7 tokens) true)
           ;; Rejection does not consume or mutate the certified continuation.
-          (let-values (((root rest)
+          (scope-values (((root rest)
                         (lr-checkpoint-resume
                          (lr-checkpoint-inject-fragment checkpoint captured 7 tokens))))
-            (check rest => '())))))
-))
+            (equal rest  '())))))
+)

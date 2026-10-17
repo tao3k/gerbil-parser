@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 ;;; LR(1)-but-not-LALR(1) grammar checks the state-splitting reference.
 
@@ -38,10 +39,8 @@
 (import (only-in :gerbil-parser/src/compiler/lr-partition refine-canonical-partition build-states-via-partitioned-lr1)
         (only-in :std/vector/extensible ExtensibleVector-fill-pointer ExtensibleVector-ref))
 
-(def (rooted-compiler-representation-case)
-  ;; The closure is the only retained owner of this strong, deliberately
-  ;; colliding table; every payload includes a cycle and a wide immutable mask.
-  (def (make-reader)
+(defparser-check (rooted-compiler-representation-case)
+(locals ((make-reader (lambda ()
     (let ((table (make-table test: equal? hash: (lambda (key) 0)))
           (width (integer-length (##greatest-fixnum))))
       (table-set! table '(sentinel) 0)
@@ -55,214 +54,207 @@
        (iota 17))
       (lambda (key (replacement #f))
         (when replacement (table-set! table key replacement))
-        (table-ref table key #f))))
-  (let ((read (make-reader)) (width (integer-length (##greatest-fixnum))))
-    (for-each
-     (lambda (row)
-       (##gc)
-       (check (read (list 'sentinel)) => 0)
-       (check (read (list 'missing row)) => #f)
-       (let ((payload (read (list 'state row))) (visited '()))
-         (check (vector-ref payload 0) => row)
-         (check (eq? (vector-ref payload 2) payload) => #t)
-         (compiler-index-set-for-each (vector-ref payload 1)
+        (table-ref table key #f))))))
+  ;; The closure is the only retained owner of this strong, deliberately
+  ;; colliding table; every payload includes a cycle and a wide immutable mask.
+
+  (scope ((read (make-reader)) (width (integer-length (##greatest-fixnum))))
+    (each (row) ('(0 8 16))
+       (act (##gc))
+       (equal (read (list 'sentinel))  0)
+       (equal (read (list 'missing row))  #f)
+       (scope ((payload (read (list 'state row))) (visited '()))
+         (equal (vector-ref payload 0)  row)
+         (equal (eq? (vector-ref payload 2) payload)  #t)
+         (act (compiler-index-set-for-each (vector-ref payload 1)
            (lambda (bit)
              (when (zero? bit) (##gc))
-             (set! visited (cons bit visited))))
-         (check (reverse visited) => (append (iota (+ width 5)) (list (+ 1024 row))))
-         (check (eq? (read (list 'state row)) payload) => #t)
+             (set! visited (cons bit visited)))))
+         (equal (reverse visited)  (append (iota (+ width 5)) (list (+ 1024 row))))
+         (equal (eq? (read (list 'state row)) payload)  #t)
          ;; Replace through a fresh equal key, force GC, then verify both the
          ;; replacement and a different colliding entry, including zero.
-         (let ((replacement (vector (+ row 17) (vector-ref payload 1) #f))
+         (scope ((replacement (vector (+ row 17) (vector-ref payload 1) #f))
                (neighbor 1))
-           (vector-set! replacement 2 replacement)
-           (read (list 'state row) replacement)
-           (read (list 'sentinel) 0)
-           (##gc)
-           (check (eq? (read (list 'state row)) replacement) => #t)
-           (check (vector-ref (read (list 'state neighbor)) 0) => neighbor)
-           (check (read (list 'sentinel)) => 0))))
-     '(0 8 16))))
+           (act (vector-set! replacement 2 replacement))
+           (act (read (list 'state row) replacement))
+           (act (read (list 'sentinel) 0))
+           (act (##gc))
+           (equal (eq? (read (list 'state row)) replacement)  #t)
+           (equal (vector-ref (read (list 'state neighbor)) 0)  neighbor)
+           (equal (read (list 'sentinel))  0)))))))
 
-(def (physical-table-probe-case)
-  (for-each
-   (lambda (generic?)
-     (let* ((table (if generic?
+(defparser-check (physical-table-probe-case)
+  (each (generic?) ('(#t #f))
+     (sequential ((table (if generic?
                     (make-table size: 3 test: equal? hash: (lambda (key) -17))
                     (make-table size: 3 test: eq?)))
             (keys (list->vector (map (lambda (index) (vector index)) (iota 192))))
             (zero (vector 'zero)))
-       (def (key index)
-         (if generic? (vector index) (vector-ref keys index)))
-       (table-set! table zero 0)
-       (for-each (lambda (index) (table-set! table (key index) index)) (iota 96))
+(locals ((key (lambda ( index)
+         (if generic? (vector index) (vector-ref keys index)))))
+
+       (act (table-set! table zero 0))
+       (each (index) ((iota 96)) (act (table-set! table (key index) index)))
        ;; DELETED must continue probing; growth/GC rehash must retain the other
        ;; equality classes, including a legitimate zero value.
-       (for-each (lambda (index) (table-set! table (key (* 2 index)))) (iota 48))
-       (##gc)
-       (for-each (lambda (index)
-         (check (table-ref table (key index) 'absent) => (if (even? index) 'absent index))) (iota 96))
-       (for-each (lambda (index) (table-set! table (key (+ 96 index)) (+ 96 index))) (iota 96))
-       (##gc)
-       (check (table-ref table zero) => 0)
-       (for-each (lambda (index)
-         (check (table-ref table (key (+ 96 index))) => (+ 96 index))) (iota 96))))
-   '(#t #f)))
+       (each (index) ((iota 48)) (act (table-set! table (key (* 2 index)))))
+       (act (##gc))
+       (each (index) ((iota 96))
+         (equal (table-ref table (key index) 'absent)  (if (even? index) 'absent index)))
+       (each (index) ((iota 96)) (act (table-set! table (key (+ 96 index)) (+ 96 index))))
+       (act (##gc))
+       (equal (table-ref table zero)  0)
+       (each (index) ((iota 96))
+         (equal (table-ref table (key (+ 96 index)))  (+ 96 index)))))))
 
-(def (canonical-interning-domain-case)
-  (for-each
-   (lambda (rules)
-     (let* ((productions (lower-rules rules 'source-file)) (table (production-table productions)))
-       (let-values (((_nullable nullable) (compute-nullable productions)))
-         (let-values (((_first first) (compute-first productions nullable)))
-           (let-values (((states count masks offsets edges terminals layout _symbols visits _items)
+(defparser-check (canonical-interning-domain-case)
+  (each (rules) ((list shared-lookahead-rules lr1-not-lalr-rules (lr1-context-family-rules 4)))
+     (sequential ((productions (lower-rules rules 'source-file)) (table (production-table productions)))
+       (scope-values (((_nullable nullable) (compute-nullable productions)))
+         (scope-values (((_first first) (compute-first productions nullable)))
+           (scope-values (((states count masks offsets edges terminals layout _symbols visits _items)
                          (build-states-via-canonical-lr1 productions table first nullable)))
-             (let ((keys (make-table test: equal?)) (edge-keys (make-table test: equal?)))
-               (check visits => count)
-               (for-each (lambda (state)
-                 (let ((dense (make-vector (core-item-count layout) 0)) (actual '())
+             (scope ((keys (make-table test: equal?)) (edge-keys (make-table test: equal?)))
+               (equal visits  count)
+               (each (state) ((iota count))
+                 (scope ((dense (make-vector (core-item-count layout) 0)) (actual '())
                        (position (vector-ref offsets state)))
-                   (for-each (lambda (core)
-                     (let (mask (vector-ref masks position))
-                       (check (> mask 0) => #t)
-                       (check (< mask (arithmetic-shift 1 (vector-length terminals))) => #t)
-                       (check (vector-ref dense core) => 0)
-                       (vector-set! dense core mask)
-                       (set! actual (cons (cons core mask) actual))
-                       (set! position (+ position 1)))) (vector-ref states state))
-                   (let (normalized (filter-map (lambda (core)
+                   (each (core) ((vector-ref states state))
+                     (scope ((mask (vector-ref masks position)))
+                       (equal (> mask 0)  #t)
+                       (equal (< mask (arithmetic-shift 1 (vector-length terminals)))  #t)
+                       (equal (vector-ref dense core)  0)
+                       (act (vector-set! dense core mask))
+                       (act (set! actual (cons (cons core mask) actual)))
+                       (act (set! position (+ position 1)))))
+                   (scope ((normalized (filter-map (lambda (core)
                                      (let (mask (vector-ref dense core))
                                        (and (> mask 0) (cons core mask))))
-                                   (iota (vector-length dense))))
-                     (check (reverse actual) => normalized)
-                     (check (table-ref keys normalized #f) => #f)
-                     (table-set! keys normalized state)
-                     (check (table-ref keys normalized #f) => state)))) (iota count))
-               (for-each (lambda (edge)
-                 (let (key (list (car edge) (cadr edge)))
-                   (check (table-ref edge-keys key #f) => #f)
-                   (table-set! edge-keys key #t)
-                   (check (< (car edge) count) => #t)
-                   (check (< (caddr edge) count) => #t))) edges)
-               (##gc)
-               (check (table-length keys) => count)))))))
-   (list shared-lookahead-rules lr1-not-lalr-rules (lr1-context-family-rules 4))))
+                                   (iota (vector-length dense)))))
+                     (equal (reverse actual)  normalized)
+                     (equal (table-ref keys normalized #f)  #f)
+                     (act (table-set! keys normalized state))
+                     (equal (table-ref keys normalized #f)  state))))
+               (each (edge) (edges)
+                 (scope ((key (list (car edge) (cadr edge))))
+                   (equal (table-ref edge-keys key #f)  #f)
+                   (act (table-set! edge-keys key #t))
+                   (equal (< (car edge) count)  #t)
+                   (equal (< (caddr edge) count)  #t)))
+               (act (##gc))
+               (equal (table-length keys)  count))))))))
 
-(def (partition-termination-bound-case)
+(defparser-check (partition-termination-bound-case)
   ;; This is an operation bound, not a timing assertion. The real dirty loop
   ;; must recurse only while the dense group count grows below the node count.
-  (for-each
-   (lambda (nodes)
-     (let ((rounds 0) (observed '()) (initial (if (= nodes 0) 0 1)))
-       (let-values (((ids groups)
+  (each (nodes) ('(0 1 2 3 8 16))
+     (scope ((rounds 0) (observed '()) (initial (if (= nodes 0) 0 1)))
+       (scope-values (((ids groups)
                      (compiler-index-partition-refine
                       (make-vector nodes 0) initial
                       (lambda (node ids) (if (= node 0) '() (list (vector-ref ids (- node 1)))))
                       (lambda (source visit) (when (< (+ source 1) nodes) (visit (+ source 1))))
-                      (lambda (groups count examined)
-                        (set! rounds (+ rounds 1))
-                        (set! observed (cons groups observed))
-                        (check count => nodes)
-                        (check (<= examined nodes) => #t)))))
-         (check groups => nodes)
-         (check (<= rounds (+ 1 (- nodes initial))) => #t)
-         (for-each (lambda (node) (check (vector-ref ids node) => node)) (iota nodes)))))
-   '(0 1 2 3 8 16)))
+                      (parser-check-procedure (parser-check (groups count examined)
+                        (act (set! rounds (+ rounds 1)))
+                        (act (set! observed (cons groups observed)))
+                        (equal count  nodes)
+                        (equal (<= examined nodes)  #t))))))
+         (equal groups  nodes)
+         (equal (<= rounds (+ 1 (- nodes initial)))  #t)
+         (each (node) ((iota nodes)) (equal (vector-ref ids node)  node))))))
 
-(def (lookahead-delivery-bound-case)
+(defparser-check (lookahead-delivery-bound-case)
   ;; Every native dequeue has a nonempty fresh pending mask. At most one such
   ;; delivery can be charged to each (physical item node, terminal) bit.
-  (for-each
-   (lambda (rules)
-     (let* ((productions (lower-rules rules 'source-file)) (table (production-table productions)))
-       (let-values (((_nullable nullable) (compute-nullable productions)))
-         (let-values (((_first first) (compute-first productions nullable)))
-           (let-values (((_states count masks offsets _edges terminals _layout _symbols _lr0-visits visits)
+  (each (rules) ((list shared-lookahead-rules lr1-not-lalr-rules (lr1-context-family-rules 8)))
+     (sequential ((productions (lower-rules rules 'source-file)) (table (production-table productions)))
+       (scope-values (((_nullable nullable) (compute-nullable productions)))
+         (scope-values (((_first first) (compute-first productions nullable)))
+           (scope-values (((_states count masks offsets _edges terminals _layout _symbols _lr0-visits visits)
                          (build-states-via-lr0 productions table first nullable)))
-             (check (vector-ref offsets count) => (vector-length masks))
-             (check (> visits 0) => #t)
-             (check (<= visits (* (vector-length masks) (vector-length terminals))) => #t))))))
-   (list shared-lookahead-rules lr1-not-lalr-rules (lr1-context-family-rules 8))))
+             (equal (vector-ref offsets count)  (vector-length masks))
+             (equal (> visits 0)  #t)
+             (equal (<= visits (* (vector-length masks) (vector-length terminals)))  #t)))))))
 
-(def (quotient-lookahead-storage-case)
-  (for-each (lambda (rules)
-    (let* ((productions (lower-rules rules 'source-file)) (table (production-table productions)))
-      (let-values (((_nullable nullable) (compute-nullable productions)))
-        (let-values (((_first first) (compute-first productions nullable)))
-          (let-values (((states count masks offsets edges terminals _layout _symbols _visits _items)
+(defparser-check (quotient-lookahead-storage-case)
+  (each (rules) ((list shared-lookahead-rules lr1-not-lalr-rules (lr1-context-family-rules 4)))
+    (sequential ((productions (lower-rules rules 'source-file)) (table (production-table productions)))
+      (scope-values (((_nullable nullable) (compute-nullable productions)))
+        (scope-values (((_first first) (compute-first productions nullable)))
+          (scope-values (((states count masks offsets edges terminals _layout _symbols _visits _items)
                         (build-states-via-canonical-lr1 productions table first nullable))
                        ((merged group-count merged-masks merged-offsets merged-edges merged-terminals
                                 _merged-layout _merged-symbols _merged-visits _merged-items)
                         (build-states-via-partitioned-lr1 productions table first nullable)))
-            (let ((owners (make-vector count #f))
+            (scope ((owners (make-vector count #f))
                   (expected (make-vector (vector-length merged-masks) 0)))
               ;; Recover the quotient map from paired reachable transitions,
               ;; independently of the implementation's interning/group IDs.
-              (let visit ((pending '((0 . 0))))
+              (iterate visit ((pending '((0 . 0))))
                 (unless (null? pending)
-                  (let* ((pair (car pending)) (state (car pair)) (group (cdr pair))
+                  (sequential ((pair (car pending)) (state (car pair)) (group (cdr pair))
                          (known (vector-ref owners state)))
-                    (if known
-                      (begin (check known => group) (visit (cdr pending)))
-                      (begin
-                        (vector-set! owners state group)
-                        (check (vector-ref states state) => (vector-ref merged group))
-                        (let (next (cdr pending))
-                          (for-each (lambda (edge)
+                    (branch known
+                      (group (equal known  group) (continue visit (cdr pending)))
+                      (group
+                        (act (vector-set! owners state group))
+                        (equal (vector-ref states state)  (vector-ref merged group))
+                        (scope ((next (cdr pending)))
+                          (each (edge) (edges)
                             (when (= (car edge) state)
-                              (let (target (find (lambda (candidate)
+                              (scope ((target (find (lambda (candidate)
                                              (and (= (car candidate) group)
-                                                  (equal? (cadr candidate) (cadr edge)))) merged-edges))
-                                (check (not (not target)) => #t)
-                                (set! next (cons (cons (caddr edge) (caddr target)) next))))) edges)
-                          (visit next)))))))
-              (check terminals => merged-terminals)
-              (for-each (lambda (state)
-                (let (group (vector-ref owners state))
-                  (check (number? group) => #t)
-                  (for-each (lambda (position)
-                    (let (target (+ (vector-ref merged-offsets group) position))
-                      (vector-set! expected target
+                                                  (equal? (cadr candidate) (cadr edge)))) merged-edges)))
+                                (equal (not (not target))  #t)
+                                (act (set! next (cons (cons (caddr edge) (caddr target)) next))))))
+                          (continue visit next)))))))
+              (equal terminals  merged-terminals)
+              (each (state) ((iota count))
+                (scope ((group (vector-ref owners state)))
+                  (equal (number? group)  #t)
+                  (each (position) ((iota (length (vector-ref states state))))
+                    (scope ((target (+ (vector-ref merged-offsets group) position)))
+                      (act (vector-set! expected target
                         (compiler-index-set-union (vector-ref expected target)
-                          (vector-ref masks (+ (vector-ref offsets state) position))))))
-                    (iota (length (vector-ref states state)))))) (iota count))
-              (check expected => merged-masks)
-              (check (vector-ref merged-offsets group-count) => (vector-length merged-masks))))))))
-    (list shared-lookahead-rules lr1-not-lalr-rules (lr1-context-family-rules 4))))
+                          (vector-ref masks (+ (vector-ref offsets state) position)))))))))
+              (equal expected  merged-masks)
+              (equal (vector-ref merged-offsets group-count)  (vector-length merged-masks)))))))))
 
-(def (dirty-successor-composition-case)
-  ;; A predecessor chain needs successive dirty rounds. Omitting successor
-  ;; delivery leaves a plausible but incorrect stable partition.
-  (def (refine deliver?)
+(defparser-check (dirty-successor-composition-case)
+(locals ((refine (lambda ( deliver?)
     (compiler-index-partition-refine
      '#(0 0 0 0) 1
      (lambda (node ids) (if (= node 0) '() (list (vector-ref ids (- node 1)))))
      (lambda (source visit) (when (and deliver? (< source 3)) (visit (+ source 1))))
-     (lambda (groups nodes examined) (void))))
-  (let-values (((correct count) (refine #t))
-               ((missed missed-count) (refine #f)))
-    (check correct => '#(0 1 2 3))
-    (check count => 4)
-    (check missed => '#(0 1 1 1))
-    (check missed-count => 2)))
+     (lambda (groups nodes examined) (void))))))
+  ;; A predecessor chain needs successive dirty rounds. Omitting successor
+  ;; delivery leaves a plausible but incorrect stable partition.
 
-(def (refined-conflict-origin-case)
+  (scope-values (((correct count) (refine #t))
+               ((missed missed-count) (refine #f)))
+    (equal correct  '#(0 1 2 3))
+    (equal count  4)
+    (equal missed  '#(0 1 1 1))
+    (equal missed-count  2))))
+
+(defparser-check (refined-conflict-origin-case)
   ;; All three members were initially packable because state 0 witnessed reduction mask
   ;; 56. Transition refinement separates it; states 1 and 2 cannot then retain
   ;; their unwitnessed conflicting union 24 in the remaining bucket.
-  (let ((ids '#(0 0 0 1))
+  (scope ((ids '#(0 0 0 1))
         (rows '#((((terminal literal "x") . 3))
                  (((terminal literal "x") . 0))
                  (((terminal literal "x") . 0)) ()))
         (actions '#(#(56 1) #(8 1) #(16 1) #(0 0))))
-    (let-values (((groups refined)
+    (scope-values (((groups refined)
                    (refine-canonical-partition ids rows actions 4 2)))
-      (check (ExtensibleVector-fill-pointer groups) => 4)
-      (check (= (vector-ref refined 1) (vector-ref refined 2)) => #f)
-      (for-each (lambda (left)
-        (for-each (lambda (right)
+      (equal (ExtensibleVector-fill-pointer groups)  4)
+      (equal (= (vector-ref refined 1) (vector-ref refined 2))  #f)
+      (each (left) ((iota 4))
+        (each (right) ((iota 4))
           (when (= (vector-ref refined left) (vector-ref refined right))
-            (check (vector-ref ids left) => (vector-ref ids right)))) (iota 4))) (iota 4)))))
+            (equal (vector-ref ids left)  (vector-ref ids right))))))))
 
 (def (character-tokens text (base 0))
   (let loop ((index 0) (found '()))
@@ -303,214 +295,202 @@
            (unless (null? rest) (error "LR parser left a token suffix" rest))
            root))))))
 
-(def (check-parse-equivalence canonical other alphabet length)
-  (let ((left (prepared-result-parser canonical)) (right (prepared-result-parser other)))
-    (let walk ((prefix "") (remaining length))
-      (if (zero? remaining)
-        (check (equal? (left (character-tokens prefix))
+(defparser-check (check-parse-equivalence canonical other alphabet length)
+  (scope ((left (prepared-result-parser canonical)) (right (prepared-result-parser other)))
+    (iterate walk ((prefix "") (remaining length))
+      (branch (zero? remaining)
+        (equal (equal? (left (character-tokens prefix))
                        (right (character-tokens prefix)))
-               => #t)
-        (for-each
-         (lambda (part)
-           (walk (string-append prefix part) (- remaining 1)))
-         alphabet)))))
+                #t)
+        (each (part) (alphabet)
+           (continue walk (string-append prefix part) (- remaining 1)))))))
 
-(def (check-lr0-candidates-cover-canonical rules)
-  (let* ((productions (lower-rules rules 'source-file))
+(defparser-check (check-lr0-candidates-cover-canonical rules)
+  (sequential ((productions (lower-rules rules 'source-file))
          (table (production-table productions)))
-    (let-values (((nullable nullable-index)
+    (scope-values (((nullable nullable-index)
                   (compute-nullable productions)))
-      (let-values (((first first-index)
+      (scope-values (((first first-index)
                     (compute-first productions nullable-index)))
-        (let-values (((lr0-states lr0-count terminals candidates)
+        (scope-values (((lr0-states lr0-count terminals candidates)
                       (lr0-conflict-candidates
                        productions table first-index nullable-index)))
-          (let-values (((canonical-states canonical-count lookaheads offsets
+          (scope-values (((canonical-states canonical-count lookaheads offsets
                             transitions canonical-terminals layout core-symbols
                             state-visits item-visits)
                         (build-states-via-canonical-lr1
                          productions table first-index nullable-index)))
-            (let ((index (make-table test: equal?))
+            (scope ((index (make-table test: equal?))
                   (canonical-conflicts
                    (raw-conflict-cells
                     canonical-states canonical-count lookaheads offsets
                     canonical-terminals layout core-symbols)))
-              (check (equal? terminals canonical-terminals) => #t)
-              (let index-loop ((state 0))
+              (equal (equal? terminals canonical-terminals)  #t)
+              (iterate index-loop ((state 0))
                 (when (< state lr0-count)
-                  (table-set! index (vector-ref lr0-states state) state)
-                  (index-loop (+ state 1))))
-              (let check-loop ((state 0))
+                  (act (table-set! index (vector-ref lr0-states state) state))
+                  (continue index-loop (+ state 1))))
+              (iterate check-loop ((state 0))
                 (when (< state canonical-count)
-                  (let (lr0-state
+                  (scope ((lr0-state
                         (table-ref index (vector-ref canonical-states state)
-                                   #f))
-                    (check (number? lr0-state) => #t)
-                    (check
+                                   #f)))
+                    (equal (number? lr0-state)  #t)
+                    (equal
                      (compiler-index-set-difference
                       (vector-ref canonical-conflicts state)
                       (vector-ref candidates lr0-state))
-                     => 0))
-                  (check-loop (+ state 1))))
-              (values candidates canonical-conflicts))))))))
+                      0))
+                  (continue check-loop (+ state 1))))
+              (act (values candidates canonical-conflicts)))))))))
 
-(def (check-forward-follows-match-lr0 rules)
-  (let* ((productions (lower-rules rules 'source-file))
+(defparser-check (check-forward-follows-match-lr0 rules)
+  (sequential ((productions (lower-rules rules 'source-file))
          (table (production-table productions)))
-    (let-values (((nullable nullable-index)
+    (scope-values (((nullable nullable-index)
                   (compute-nullable productions)))
-      (let-values (((first first-index)
+      (scope-values (((first first-index)
                     (compute-first productions nullable-index)))
-        (let-values (((follows follow-terminals)
+        (scope-values (((follows follow-terminals)
                       (forward-reachable-follow-masks
                        productions table first-index nullable-index)))
-          (let-values (((states count lookaheads offsets transitions
+          (scope-values (((states count lookaheads offsets transitions
                             lr0-terminals layout core-symbols
                             state-visits item-visits)
                         (build-states-via-lr0
                          productions table first-index nullable-index)))
-            (let (completed (make-vector (vector-length table) 0))
-              (check (equal? follow-terminals lr0-terminals) => #t)
-              (let state-loop ((state 0))
+            (scope ((completed (make-vector (vector-length table) 0)))
+              (equal (equal? follow-terminals lr0-terminals)  #t)
+              (iterate state-loop ((state 0))
                 (when (< state count)
-                  (let ((node (vector-ref offsets state)))
-                    (for-each
-                     (lambda (core)
+                  (scope ((node (vector-ref offsets state)))
+                    (each (core) ((vector-ref states state))
                        (unless (vector-ref core-symbols core)
-                         (let (production-id (core-item-production-id core layout))
-                           (vector-set!
+                         (scope ((production-id (core-item-production-id core layout)))
+                           (act (vector-set!
                             completed production-id
                             (compiler-index-set-union
                              (vector-ref completed production-id)
-                             (vector-ref lookaheads node)))))
-                       (set! node (+ node 1)))
-                     (vector-ref states state)))
-                  (state-loop (+ state 1))))
-              (let production-loop ((id 0))
+                             (vector-ref lookaheads node))))))
+                       (act (set! node (+ node 1)))))
+                  (continue state-loop (+ state 1))))
+              (iterate production-loop ((id 0))
                 (when (< id (vector-length table))
-                  (check (vector-ref follows id)
-                         => (vector-ref completed id))
-                  (production-loop (+ id 1)))))))))))
+                  (equal (vector-ref follows id)
+                          (vector-ref completed id))
+                  (continue production-loop (+ id 1)))))))))))
 
-(def (check-initial-backward-partitions rules)
-  (let* ((productions (lower-rules rules 'source-file))
+(defparser-check (check-initial-backward-partitions rules)
+  (sequential ((productions (lower-rules rules 'source-file))
          (table (production-table productions)))
-    (let-values (((nullable nullable-index)
+    (scope-values (((nullable nullable-index)
                   (compute-nullable productions)))
-      (let-values (((first first-index)
+      (scope-values (((first first-index)
                     (compute-first productions nullable-index)))
-        (let-values (((follows terminals)
+        (scope-values (((follows terminals)
                       (forward-reachable-follow-masks
                        productions table first-index nullable-index)))
-          (let-values (((partitions candidates partition-terminals)
+          (scope-values (((partitions candidates partition-terminals)
                         (initial-backward-follow-partitions
                          productions table first-index nullable-index)))
-            (check (equal? terminals partition-terminals) => #t)
+            (equal (equal? terminals partition-terminals)  #t)
             ;; Walk actual RHS intervals independently of the layout decoder.
             ;; A constant stride inferred from vector size hides padding.
-            (let production-loop ((id 0) (start 0))
+            (iterate production-loop ((id 0) (start 0))
               (when (< id (vector-length table))
-                (let dot-loop ((dot 0))
+                (iterate dot-loop ((dot 0))
                   (when (<= dot (length
                                  (production-rhs (vector-ref table id))))
-                    (let ((blocks (vector-ref partitions (+ start dot))) (seen 0))
-                      (for-each (lambda (block)
-                        (check (> (cdr block) 0) => #t)
-                        (check (bitwise-and seen (cdr block)) => 0)
-                        (set! seen (compiler-index-set-union seen (cdr block)))) blocks)
-                      (check
+                    (scope ((blocks (vector-ref partitions (+ start dot))) (seen 0))
+                      (each (block) (blocks)
+                        (equal (> (cdr block) 0)  #t)
+                        (equal (bitwise-and seen (cdr block))  0)
+                        (act (set! seen (compiler-index-set-union seen (cdr block)))))
+                      (equal
                        (foldl (lambda (block mask)
                                 (compiler-index-set-union mask (cdr block)))
                               0 blocks)
-                       => (vector-ref follows id)))
-                    (dot-loop (+ dot 1))))
-                (production-loop
-                 (+ id 1)
-                 (+ start 1 (length (production-rhs (vector-ref table id)))))))
-            partitions))))))
+                        (vector-ref follows id)))
+                    (continue dot-loop (+ dot 1))))
+                (continue production-loop (+ id 1) (+ start 1 (length (production-rhs (vector-ref table id)))))))
+            (result partitions)))))))
 
 ;; Kernel identity is independent of closure construction and key encoding.
 ;; Check its graph invariants on recursive, nullable, and shared contexts.
-(def (check-lr0-kernel-identity rules)
-  (let* ((productions (lower-rules rules 'source-file))
+(defparser-check (check-lr0-kernel-identity rules)
+  (sequential ((productions (lower-rules rules 'source-file))
          (table (production-table productions)))
-    (let-values (((terminals terminal-index)
+    (scope-values (((terminals terminal-index)
                   (production-terminal-catalog productions)))
-      (let* ((layout (make-item-layout table terminals))
+      (sequential ((layout (make-item-layout table terminals))
              (symbols (make-core-symbol-catalog table layout)))
-        (let-values (((states transitions count by-lhs visits)
+        (scope-values (((states transitions count by-lhs visits)
                       (build-lr0-automaton productions table layout symbols)))
-          (let ((kernels (make-vector count '()))
+          (scope ((kernels (make-vector count '()))
                 (seen (make-table test: equal?)))
-            (check visits => count)
-            (let index ((state 0))
+            (equal visits  count)
+            (iterate index ((state 0))
               (when (< state count)
-                (let (kernel
+                (scope ((kernel
                       (filter (lambda (item)
                                 (not (zero? (core-item-dot item layout))))
-                              (vector-ref states state)))
-                  (vector-set! kernels state kernel)
-                  (if (zero? state)
-                    (check kernel => '())
-                    (begin
-                      (check (pair? kernel) => #t)
-                      (check (table-ref seen kernel #f) => #f)
-                      (table-set! seen kernel state))))
-                (index (+ state 1))))
-            (let edges ((state 0))
+                              (vector-ref states state))))
+                  (act (vector-set! kernels state kernel))
+                  (branch (zero? state)
+                    (equal kernel  '())
+                    (group
+                      (equal (pair? kernel)  #t)
+                      (equal (table-ref seen kernel #f)  #f)
+                      (act (table-set! seen kernel state)))))
+                (continue index (+ state 1))))
+            (iterate edges ((state 0))
               (when (< state count)
                 ;; Every after-dot symbol must be published exactly once, in
                 ;; sorted-item discovery order, including shared predictions.
-                (let ((expected '()) (symbols-seen (make-table test: equal?)))
-                  (for-each
-                   (lambda (item)
-                     (let (symbol (vector-ref symbols item))
+                (scope ((expected '()) (symbols-seen (make-table test: equal?)))
+                  (each (item) ((vector-ref states state))
+                     (scope ((symbol (vector-ref symbols item)))
                        (when (and symbol (not (table-ref symbols-seen symbol #f)))
-                         (table-set! symbols-seen symbol #t)
-                         (set! expected (cons symbol expected)))))
-                   (vector-ref states state))
-                  (check (map car (vector-ref transitions state)) => (reverse expected)))
-                (for-each
-                 (lambda (edge)
-                   (let* ((symbol (car edge)) (target (cdr edge))
+                         (act (table-set! symbols-seen symbol #t))
+                         (act (set! expected (cons symbol expected))))))
+                  (equal (map car (vector-ref transitions state))  (reverse expected)))
+                (each (edge) ((vector-ref transitions state))
+                   (sequential ((symbol (car edge)) (target (cdr edge))
                           (expected
                            (map (lambda (item) (+ item 1))
                                 (filter (lambda (item)
                                           (equal? (vector-ref symbols item) symbol))
                                         (vector-ref states state)))))
-                     (check (> target 0) => #t)
-                     (check (equal? expected (vector-ref kernels target)) => #t)))
-                 (vector-ref transitions state))
-                (edges (+ state 1))))))))))
+                     (equal (> target 0)  #t)
+                     (equal (equal? expected (vector-ref kernels target))  #t)))
+                (continue edges (+ state 1))))))))))
 
-(def canonical-lr1-reference-test
-  (test-suite "canonical LR(1) reference"
-    (poo-flow-test-case "physical generic and eq probes retain tombstones, zero and rehashed entries"
-      (physical-table-probe-case))
-    (poo-flow-test-case "closure roots retain colliding tables, cycles and wide mask callbacks across GC"
-      (rooted-compiler-representation-case))
-    (poo-flow-test-case "native canonical keys inhabit their finite matrix catalogue and intern once"
-      (canonical-interning-domain-case))
-    (poo-flow-test-case "native partition rounds satisfy the finite dense-group bound"
-      (partition-termination-bound-case))
-    (poo-flow-test-case "native lookahead delivery stays within its finite item-terminal domain"
-      (lookahead-delivery-bound-case))
-    (poo-flow-test-case "quotient lookaheads preserve physical core positions and exact member unions"
-      (quotient-lookahead-storage-case))
-    (poo-flow-test-case "dirty successor delivery composes across predecessor rounds"
-      (dirty-successor-composition-case))
-    (poo-flow-test-case "transition splits retain a surviving canonical conflict witness"
-      (refined-conflict-origin-case))
-    (poo-flow-test-case "prepared corpus readers preserve fresh rejection and recovery"
-      (let* ((spec (compile-lr-spec lr1-not-lalr-rules 'source-file 'reject #f 'canonical-lr1))
+(deflanguage-parser-tests canonical-lr1-reference-test "canonical LR(1) reference"
+  (engine)
+    (profiled "physical generic and eq probes retain tombstones, zero and rehashed entries"
+      (verify physical-table-probe-case ))
+    (profiled "closure roots retain colliding tables, cycles and wide mask callbacks across GC"
+      (verify rooted-compiler-representation-case ))
+    (profiled "native canonical keys inhabit their finite matrix catalogue and intern once"
+      (verify canonical-interning-domain-case ))
+    (profiled "native partition rounds satisfy the finite dense-group bound"
+      (verify partition-termination-bound-case ))
+    (profiled "native lookahead delivery stays within its finite item-terminal domain"
+      (verify lookahead-delivery-bound-case ))
+    (profiled "quotient lookaheads preserve physical core positions and exact member unions"
+      (verify quotient-lookahead-storage-case ))
+    (profiled "dirty successor delivery composes across predecessor rounds"
+      (verify dirty-successor-composition-case ))
+    (profiled "transition splits retain a surviving canonical conflict witness"
+      (verify refined-conflict-origin-case ))
+    (profiled "prepared corpus readers preserve fresh rejection and recovery"
+      (sequential ((spec (compile-lr-spec lr1-not-lalr-rules 'source-file 'reject #f 'canonical-lr1))
              (parse (prepared-result-parser spec)))
-        (check (eq? (parse-result spec "acd") 'rejected) => #f)
-        (for-each
-          (lambda (text)
-            (check (parse (character-tokens text)) => (parse-result spec text)))
-          '("" "acd" "bce" "bad" "ace" "bcd" "acd" ""))))
-    (poo-flow-test-case "affected partition refinement matches exhaustive synchronous oracle"
-      (def (signature predecessors node ids)
+        (equal (eq? (parse-result spec "acd") 'rejected)  #f)
+        (each (text) ('("" "acd" "bce" "bad" "ace" "bcd" "acd" ""))
+            (equal (parse (character-tokens text))  (parse-result spec text)))))
+    (profiled "affected partition refinement matches exhaustive synchronous oracle"
+(locals ((signature (lambda ( predecessors node ids)
         (filter-map
          (lambda (label)
            (let (groups
@@ -521,8 +501,8 @@
                                   (vector-ref predecessors node)))
                          (iota (vector-length ids))))
              (and (pair? groups) (cons label groups))))
-         '(0 2)))
-      (def (oracle initial initial-count predecessors record)
+         '(0 2))))
+(oracle (lambda ( initial initial-count predecessors record)
         (let refine ((ids initial) (groups initial-count))
           (let ((next (make-vector (vector-length ids) 0))
                 (keys '()) (next-count 0))
@@ -544,10 +524,10 @@
                  (vector-set! next node (cdr known))))
              (iota (vector-length ids)))
             (if (= groups next-count) (values next next-count)
-                (refine next next-count)))))
-      (def (compare predecessors initial initial-count)
-        (let ((saved (vector->list initial)) (expected-calls 0) (actual-calls 0))
-          (let-values (((expected expected-count)
+                (refine next next-count))))))
+(compare (parser-check ( predecessors initial initial-count)
+        (scope ((saved (vector->list initial)) (expected-calls 0) (actual-calls 0))
+          (scope-values (((expected expected-count)
                         (oracle initial initial-count predecessors
                                 (lambda () (set! expected-calls (+ expected-calls 1)))))
                        ((actual actual-count)
@@ -566,106 +546,99 @@
             ;; One graph comparison carries all four facts. Keep full vector,
             ;; count, input immutability and examined-work checks, without four
             ;; separately synchronized progress transactions per tiny graph.
-            (check (list actual actual-count (vector->list initial)
+            (equal (list actual actual-count (vector->list initial)
                          (<= actual-calls expected-calls))
-                   => (list expected expected-count saved #t))
-            (values actual-calls expected-calls))))
-      (let graphs ((graph 0))
+                    (list expected expected-count saved #t))
+            (act (values actual-calls expected-calls)))))))
+
+
+      (iterate graphs ((graph 0))
         (when (< graph 512)
-          (let (predecessors (make-vector 3 '()))
-            (for-each (lambda (bit)
+          (scope ((predecessors (make-vector 3 '())))
+            (each (bit) ((iota 9))
                         (when (not (zero? (bitwise-and graph (arithmetic-shift 1 bit))))
-                          (let ((target (modulo bit 3)) (source (quotient bit 3)))
-                            (vector-set! predecessors target
-                                         (cons (cons 0 source) (vector-ref predecessors target))))))
-                      (iota 9))
-            (for-each (lambda (entry) (compare predecessors (car entry) (cdr entry)))
-                      (list (cons '#(0 0 0) 1) (cons '#(0 0 1) 2)
-                            (cons '#(0 1 0) 2) (cons '#(0 1 1) 2) (cons '#(0 1 2) 3))))
-          (graphs (+ graph 1))))
-      (let graphs ((graph 0))
+                          (scope ((target (modulo bit 3)) (source (quotient bit 3)))
+                            (act (vector-set! predecessors target
+                                         (cons (cons 0 source) (vector-ref predecessors target)))))))
+            (each (entry) ((list (cons '#(0 0 0) 1) (cons '#(0 0 1) 2)
+                            (cons '#(0 1 0) 2) (cons '#(0 1 1) 2) (cons '#(0 1 2) 3))) (verify compare predecessors (car entry) (cdr entry))))
+          (continue graphs (+ graph 1))))
+      (iterate graphs ((graph 0))
         (when (< graph 64)
-          (let (predecessors (make-vector 3 '()))
-            (for-each (lambda (bit)
+          (scope ((predecessors (make-vector 3 '())))
+            (each (bit) ((iota 6))
                         (when (not (zero? (bitwise-and graph (arithmetic-shift 1 bit))))
-                          (let* ((source (modulo bit 3)) (target (modulo (+ source 1) 3))
+                          (sequential ((source (modulo bit 3)) (target (modulo (+ source 1) 3))
                                  (edge (cons (if (< bit 3) 0 2) source)))
-                            (vector-set! predecessors target
-                                         (cons edge (cons edge (vector-ref predecessors target)))))))
-                      (iota 6))
-            (compare predecessors '#(0 0 0) 1)
-            (compare predecessors '#(0 0 1) 2))
-          (graphs (+ graph 1))))
+                            (act (vector-set! predecessors target
+                                         (cons edge (cons edge (vector-ref predecessors target))))))))
+            (verify compare predecessors '#(0 0 0) 1)
+            (verify compare predecessors '#(0 0 1) 2))
+          (continue graphs (+ graph 1))))
       ;; A split propagates along the chain while the independent self-loop
       ;; group remains stable, despite changes to its numeric group identity.
-      (let (predecessors '#(() ((0 . 0)) ((0 . 1)) ((0 . 2)) ((0 . 3)) ((0 . 4)) ((2 . 6)) ((2 . 7))))
-        (let-values (((actual expected) (compare predecessors '#(0 1 1 1 1 1 2 2) 3)))
-          (check actual => 16)
-          (check expected => 24)
-          (check (< actual expected) => #t)))
+      (scope ((predecessors '#(() ((0 . 0)) ((0 . 1)) ((0 . 2)) ((0 . 3)) ((0 . 4)) ((2 . 6)) ((2 . 7)))))
+        (scope-values (((actual expected) (parser-check-result compare predecessors '#(0 1 1 1 1 1 2 2) 3)))
+          (equal actual  16)
+          (equal expected  24)
+          (equal (< actual expected)  #t)))
       ;; Sizes belong to group identities, not node order. Exercise dense IDs
       ;; that are initially permuted before first-seen canonical publication.
-      (compare '#(() ((0 . 0)) ((2 . 1))) '#(1 0 0) 2)
-      (compare '#(() ((0 . 0)) ((2 . 1))) '#(2 0 1) 3)
-      (compare '#() '#() 0)
+      (verify compare '#(() ((0 . 0)) ((2 . 1))) '#(1 0 0) 2)
+      (verify compare '#(() ((0 . 0)) ((2 . 1))) '#(2 0 1) 3)
+      (verify compare '#() '#() 0)
       ;; Larger interacting groups exercise retained/new identities and both
       ;; member/worklist orders. Reverse the entire graph, not just its IDs;
       ;; every result is compared with the independent synchronous oracle.
-      (let graphs ((graph 0))
+      (iterate graphs ((graph 0))
         (when (< graph 64)
-          (let ((predecessors (make-vector 6 '()))
+          (scope ((predecessors (make-vector 6 '()))
                 (reversed (make-vector 6 '())))
-            (for-each
-             (lambda (source)
-               (let* ((target (modulo (+ source 1) 6))
+            (each (source) ((iota 6))
+               (sequential ((target (modulo (+ source 1) 6))
                       (label (if (zero? (bitwise-and graph (arithmetic-shift 1 source))) 0 2))
                       (edge (cons label source)))
-                 (vector-set! predecessors target
-                              (cons edge (cons edge (vector-ref predecessors target))))
+                 (act (vector-set! predecessors target
+                              (cons edge (cons edge (vector-ref predecessors target)))))
                  (when (zero? (modulo source 2))
-                   (let (target (modulo (+ source 3) 6))
-                     (vector-set! predecessors target
-                                  (cons (cons 2 source) (vector-ref predecessors target)))))
+                   (scope ((target (modulo (+ source 3) 6)))
+                     (act (vector-set! predecessors target
+                                  (cons (cons 2 source) (vector-ref predecessors target))))))
                  (when (not (zero? (bitwise-and graph (arithmetic-shift 1 source))))
-                   (vector-set! predecessors source
-                                (cons (cons 0 source) (vector-ref predecessors source))))))
-             (iota 6))
-            (for-each
-             (lambda (node)
-               (vector-set! reversed (- 5 node)
+                   (act (vector-set! predecessors source
+                                (cons (cons 0 source) (vector-ref predecessors source)))))))
+            (each (node) ((iota 6))
+               (act (vector-set! reversed (- 5 node)
                             (map (lambda (edge) (cons (car edge) (- 5 (cdr edge))))
-                                 (vector-ref predecessors node))))
-             (iota 6))
-            (for-each
-             (lambda (entry)
-               (compare predecessors (car entry) (cdr entry))
-               (compare reversed (list->vector (reverse (vector->list (car entry)))) (cdr entry)))
-             (list (cons '#(0 0 0 0 0 0) 1) (cons '#(1 0 0 1 0 0) 2)
-                   (cons '#(2 0 1 2 0 1) 3) (cons '#(0 1 1 1 1 1) 2))))
-          (graphs (+ graph 1))))
+                                 (vector-ref predecessors node)))))
+            (each (entry) ((list (cons '#(0 0 0 0 0 0) 1) (cons '#(1 0 0 1 0 0) 2)
+                   (cons '#(2 0 1 2 0 1) 3) (cons '#(0 1 1 1 1 1) 2)))
+               (verify compare predecessors (car entry) (cdr entry))
+               (verify compare reversed (list->vector (reverse (vector->list (car entry)))) (cdr entry))))
+          (continue graphs (+ graph 1))))
       ;; Workspaces must remain local to an invocation. A result produced
       ;; after multiple rounds survives a separate refinement call.
-      (let ((initial '#(0 0 0)) (rounds 0))
-        (let-values (((first groups)
+      (scope ((initial '#(0 0 0)) (rounds 0))
+        (scope-values (((first groups)
                       (compiler-index-partition-refine
                        initial 1 (lambda (node ids) (if (= node 0) 0 1))
                        (lambda (source visit) (void))
                        (lambda (groups nodes examined) (set! rounds (+ rounds 1))))))
-          (check first => '#(0 1 1))
-          (check groups => 2)
-          (check rounds => 2)
-          (let-values (((second groups)
+          (equal first  '#(0 1 1))
+          (equal groups  2)
+          (equal rounds  2)
+          (scope-values (((second groups)
                         (compiler-index-partition-refine
                          initial 1 (lambda (node ids) node)
                          (lambda (source visit) (void))
                          (lambda (groups nodes examined) (void)))))
-            (check second => '#(0 1 2))
-            (check groups => 3)
-            (check (eq? first second) => #f))
-          (check first => '#(0 1 1))
-          (check initial => '#(0 0 0)))))
-    (poo-flow-test-case "indexed reachability agrees with exhaustive list graph oracle"
-      (def (oracle initial rows)
+            (equal second  '#(0 1 2))
+            (equal groups  3)
+            (equal (eq? first second)  #f))
+          (equal first  '#(0 1 1))
+          (equal initial  '#(0 0 0))))))
+    (profiled "indexed reachability agrees with exhaustive list graph oracle"
+(locals ((oracle (lambda ( initial rows)
         (let visit ((pending (filter (lambda (node) (not (zero? (bitwise-and initial (arithmetic-shift 1 node))))) (iota (vector-length rows))))
                     (seen '()))
           (if (null? pending)
@@ -673,155 +646,148 @@
             (let (node (car pending))
               (if (memv node seen)
                 (visit (cdr pending) seen)
-                (visit (append (vector-ref rows node) (cdr pending)) (cons node seen)))))))
-      (let graphs ((graph 0))
+                (visit (append (vector-ref rows node) (cdr pending)) (cons node seen)))))))))
+
+      (iterate graphs ((graph 0))
         (when (< graph 512)
-          (let ((edges (make-vector 3 0)) (rows (make-vector 3 '())))
-            (for-each (lambda (node)
-              (let (mask (bitwise-and 7 (arithmetic-shift graph (* -3 node))))
-                (vector-set! edges node mask)
-                (vector-set! rows node (filter (lambda (target) (not (zero? (bitwise-and mask (arithmetic-shift 1 target))))) '(0 1 2))))) '(0 1 2))
-            (let (cache (make-vector 3 #f))
-              (for-each
-               (lambda (initial)
-                 (let (expected (oracle initial rows))
-                   (check (compiler-index-set-reachable initial edges) => expected)
-                   (check (compiler-index-set-reachable/memo initial edges (make-vector 3 #f)) => expected)
-                   (check (compiler-index-set-reachable/memo initial edges cache) => expected)))
-               (iota 8))
-              (for-each
-               (lambda (node)
-                 (let (closure (vector-ref cache node))
-                   (when closure (check closure => (oracle (arithmetic-shift 1 node) rows)))))
-               (iota 3))))
-          (graphs (+ graph 1))))
-      (check (compiler-index-set-reachable 0 '#()) => 0)
-      (check (compiler-index-set-reachable/memo 0 '#() '#()) => 0)
-      (let ((chain (make-vector 1024 0)) (cycle (make-vector 1024 0)))
-        (let nodes ((node 0))
+          (scope ((edges (make-vector 3 0)) (rows (make-vector 3 '())))
+            (each (node) ('(0 1 2))
+              (scope ((mask (bitwise-and 7 (arithmetic-shift graph (* -3 node)))))
+                (act (vector-set! edges node mask))
+                (act (vector-set! rows node (filter (lambda (target) (not (zero? (bitwise-and mask (arithmetic-shift 1 target))))) '(0 1 2))))))
+            (scope ((cache (make-vector 3 #f)))
+              (each (initial) ((iota 8))
+                 (scope ((expected (oracle initial rows)))
+                   (equal (compiler-index-set-reachable initial edges)  expected)
+                   (equal (compiler-index-set-reachable/memo initial edges (make-vector 3 #f))  expected)
+                   (equal (compiler-index-set-reachable/memo initial edges cache)  expected)))
+              (each (node) ((iota 3))
+                 (scope ((closure (vector-ref cache node)))
+                   (when closure (equal closure  (oracle (arithmetic-shift 1 node) rows)))))))
+          (continue graphs (+ graph 1))))
+      (equal (compiler-index-set-reachable 0 '#())  0)
+      (equal (compiler-index-set-reachable/memo 0 '#() '#())  0)
+      (scope ((chain (make-vector 1024 0)) (cycle (make-vector 1024 0)))
+        (iterate nodes ((node 0))
           (when (< node 1024)
-            (when (< node 1023) (vector-set! chain node (arithmetic-shift 1 (+ node 1))))
-            (vector-set! cycle node (arithmetic-shift 1 (modulo (+ node 1) 1024)))
-            (nodes (+ node 1))))
-        (check (compiler-index-set-reachable 1 chain) => (- (arithmetic-shift 1 1024) 1))
-        (check (compiler-index-set-reachable (arithmetic-shift 1 512) cycle) => (- (arithmetic-shift 1 1024) 1))
+            (when (< node 1023) (act (vector-set! chain node (arithmetic-shift 1 (+ node 1)))))
+            (act (vector-set! cycle node (arithmetic-shift 1 (modulo (+ node 1) 1024))))
+            (continue nodes (+ node 1))))
+        (equal (compiler-index-set-reachable 1 chain)  (- (arithmetic-shift 1 1024) 1))
+        (equal (compiler-index-set-reachable (arithmetic-shift 1 512) cycle)  (- (arithmetic-shift 1 1024) 1))
         ;; High-bit, overlapping roots preserve exact cold/warm results and
         ;; graph-specific cache ownership across independent calls.
-        (let ((cache (make-vector 1024 #f))
+        (scope ((cache (make-vector 1024 #f))
               (roots (bitwise-ior 1 (arithmetic-shift 1 512) (arithmetic-shift 1 1023)))
               (all (- (arithmetic-shift 1 1024) 1)))
-          (check (compiler-index-set-reachable/memo roots chain cache) => all)
-          (check (vector-ref cache 0) => all)
-          (check (compiler-index-set-reachable/memo roots chain cache) => all)
-          (check (compiler-index-set-reachable/memo roots cycle (make-vector 1024 #f)) => all))))
-    (poo-flow-test-case "indexed traversal agrees with bit membership across fields"
-      (def (check-mask mask)
-        (let ((actual '()) (expected '()))
-          (compiler-index-set-for-each mask (lambda (index) (set! actual (cons index actual))))
-          (let bits ((index 0))
+          (equal (compiler-index-set-reachable/memo roots chain cache)  all)
+          (equal (vector-ref cache 0)  all)
+          (equal (compiler-index-set-reachable/memo roots chain cache)  all)
+          (equal (compiler-index-set-reachable/memo roots cycle (make-vector 1024 #f))  all)))))
+    (profiled "indexed traversal agrees with bit membership across fields"
+(locals ((check-mask (parser-check ( mask)
+        (scope ((actual '()) (expected '()))
+          (act (compiler-index-set-for-each mask (lambda (index) (set! actual (cons index actual)))))
+          (iterate bits ((index 0))
             (when (< index (integer-length mask))
-              (when (not (zero? (bitwise-and mask (arithmetic-shift 1 index)))) (set! expected (cons index expected)))
-              (bits (+ index 1))))
-          (check actual => expected)))
-      (let masks ((mask 0))
-        (when (< mask 4096) (check-mask mask) (masks (+ mask 1))))
-      (let (width (integer-length (##greatest-fixnum)))
-        (for-each
-         (lambda (index)
-           (let (bit (arithmetic-shift 1 index))
-             (check-mask bit)
-             (check-mask (- bit 1))
-             (check-mask (bitwise-ior bit 1 (arithmetic-shift 1 (quotient index 2))))))
-         [(- width 1) width (+ width 1) (* width 2) 1024 4096]))
+              (when (not (zero? (bitwise-and mask (arithmetic-shift 1 index)))) (act (set! expected (cons index expected))))
+              (continue bits (+ index 1))))
+          (equal actual  expected)))))
+
+      (iterate masks ((mask 0))
+        (when (< mask 4096) (verify check-mask mask) (continue masks (+ mask 1))))
+      (scope ((width (integer-length (##greatest-fixnum))))
+        (each (index) ([(- width 1) width (+ width 1) (* width 2) 1024 4096])
+           (scope ((bit (arithmetic-shift 1 index)))
+             (verify check-mask bit)
+             (verify check-mask (- bit 1))
+             (verify check-mask (bitwise-ior bit 1 (arithmetic-shift 1 (quotient index 2)))))))
       ;; Reentrant traversal must not disturb the outer field or order.
-      (let ((outer '()) (inner '()))
-        (compiler-index-set-for-each (bitwise-ior 1 (arithmetic-shift 1 1024))
+      (scope ((outer '()) (inner '()))
+        (act (compiler-index-set-for-each (bitwise-ior 1 (arithmetic-shift 1 1024))
           (lambda (index)
             (set! outer (cons index outer))
-            (compiler-index-set-for-each 5 (lambda (bit) (set! inner (cons bit inner))))))
-        (check outer => '(1024 0))
-        (check inner => '(2 0 2 0)))
-      (let ((outer '()) (nested-count 0))
-        (compiler-index-set-for-each (- (arithmetic-shift 1 128) 1)
+            (compiler-index-set-for-each 5 (lambda (bit) (set! inner (cons bit inner)))))))
+        (equal outer  '(1024 0))
+        (equal inner  '(2 0 2 0)))
+      (scope ((outer '()) (nested-count 0))
+        (act (compiler-index-set-for-each (- (arithmetic-shift 1 128) 1)
           (lambda (index)
             (set! outer (cons index outer))
-            (compiler-index-set-for-each 5 (lambda (_) (set! nested-count (+ nested-count 1))))))
-        (check outer => (reverse (iota 128)))
-        (check nested-count => 256))
-      (let ((calls 0) (sentinel (list 'callback-failure)))
-        (check (with-catch identity
+            (compiler-index-set-for-each 5 (lambda (_) (set! nested-count (+ nested-count 1)))))))
+        (equal outer  (reverse (iota 128)))
+        (equal nested-count  256))
+      (scope ((calls 0) (sentinel (list 'callback-failure)))
+        (equal (with-catch identity
                  (lambda ()
                    (compiler-index-set-for-each (- (arithmetic-shift 1 128) 1)
                      (lambda (_) (set! calls (+ calls 1)) (raise sentinel)))))
-               => sentinel)
-        (check calls => 1)))
-    (poo-flow-test-case "LR(0) kernels uniquely identify states and goto targets"
-      (check-lr0-kernel-identity precedence-expression-rules)
-      (check-lr0-kernel-identity inactive-core-conflict-rules)
-      (check-lr0-kernel-identity (mixed-context-family-rules 16))
-      (check-lr0-kernel-identity (state-local-candidate-family-rules 16))
-      (check-lr0-kernel-identity (lr1-context-family-rules 16)))
-    (poo-flow-test-case "forward reachable follows agree with LR(0) propagation"
-      (check-forward-follows-match-lr0 lr1-not-lalr-rules)
-      (check-forward-follows-match-lr0 shared-lookahead-rules)
-      (check-forward-follows-match-lr0 genuine-reduce-conflict-rules)
-      (check-forward-follows-match-lr0 mixed-context-rules)
-      (check-forward-follows-match-lr0 (lr1-context-family-rules 16)))
-    (poo-flow-test-case "initial backward partition preserves all follow strings"
-      (let (partitions
-            (check-initial-backward-partitions lr1-not-lalr-rules))
-        (check (vector-any (lambda (blocks)
+                sentinel)
+        (equal calls  1))))
+    (profiled "LR(0) kernels uniquely identify states and goto targets"
+      (verify check-lr0-kernel-identity precedence-expression-rules)
+      (verify check-lr0-kernel-identity inactive-core-conflict-rules)
+      (verify check-lr0-kernel-identity (mixed-context-family-rules 16))
+      (verify check-lr0-kernel-identity (state-local-candidate-family-rules 16))
+      (verify check-lr0-kernel-identity (lr1-context-family-rules 16)))
+    (profiled "forward reachable follows agree with LR(0) propagation"
+      (verify check-forward-follows-match-lr0 lr1-not-lalr-rules)
+      (verify check-forward-follows-match-lr0 shared-lookahead-rules)
+      (verify check-forward-follows-match-lr0 genuine-reduce-conflict-rules)
+      (verify check-forward-follows-match-lr0 mixed-context-rules)
+      (verify check-forward-follows-match-lr0 (lr1-context-family-rules 16)))
+    (profiled "initial backward partition preserves all follow strings"
+      (scope ((partitions
+            (parser-check-result check-initial-backward-partitions lr1-not-lalr-rules)))
+        (equal (vector-any (lambda (blocks)
                              (and blocks (> (length blocks) 1)))
                            partitions)
-               => #t))
-      (check-initial-backward-partitions shared-lookahead-rules)
-      (check-initial-backward-partitions genuine-reduce-conflict-rules))
-    (poo-flow-test-case "initial partition skips cores without a conflict action"
-      (let (blocks (vector->list
-                   (check-initial-backward-partitions
-                    inactive-core-conflict-rules)))
-        (check (foldl (lambda (entry total)
+                #t))
+      (verify check-initial-backward-partitions shared-lookahead-rules)
+      (verify check-initial-backward-partitions genuine-reduce-conflict-rules))
+    (profiled "initial partition skips cores without a conflict action"
+      (scope ((blocks (vector->list
+                   (parser-check-result check-initial-backward-partitions inactive-core-conflict-rules))))
+        (equal (foldl (lambda (entry total)
                         (+ total (if entry (length entry) 0)))
                       0 blocks)
-               => 41)
-        (check (foldl (lambda (entry total)
+                41)
+        (equal (foldl (lambda (entry total)
                         (+ total (if (and entry (> (length entry) 1)) 1 0)))
                       0 blocks)
-               => 3)))
-    (poo-flow-test-case "LR(0) raw candidates conservatively cover canonical conflicts"
-      (let-values (((candidates canonical-conflicts)
-                    (check-lr0-candidates-cover-canonical
-                     lr1-not-lalr-rules)))
-        (check (vector-any (lambda (mask) (not (zero? mask))) candidates)
-               => #t)
-        (check (vector-any (lambda (mask) (not (zero? mask)))
+                3)))
+    (profiled "LR(0) raw candidates conservatively cover canonical conflicts"
+      (scope-values (((candidates canonical-conflicts)
+                    (parser-check-result check-lr0-candidates-cover-canonical lr1-not-lalr-rules)))
+        (equal (vector-any (lambda (mask) (not (zero? mask))) candidates)
+                #t)
+        (equal (vector-any (lambda (mask) (not (zero? mask)))
                            canonical-conflicts)
-               => #f))
-      (check-lr0-candidates-cover-canonical shared-lookahead-rules)
-      (check-lr0-candidates-cover-canonical inactive-core-conflict-rules)
-      (let-values (((candidates canonical-conflicts)
-                    (check-lr0-candidates-cover-canonical
-                     genuine-reduce-conflict-rules)))
-        (check (vector-any (lambda (mask) (not (zero? mask))) candidates)
-               => #t)
-        (check (vector-any (lambda (mask) (not (zero? mask)))
+                #f))
+      (verify check-lr0-candidates-cover-canonical shared-lookahead-rules)
+      (verify check-lr0-candidates-cover-canonical inactive-core-conflict-rules)
+      (scope-values (((candidates canonical-conflicts)
+                    (parser-check-result check-lr0-candidates-cover-canonical genuine-reduce-conflict-rules)))
+        (equal (vector-any (lambda (mask) (not (zero? mask))) candidates)
+                #t)
+        (equal (vector-any (lambda (mask) (not (zero? mask)))
                            canonical-conflicts)
-               => #t))
-      (check-exception
+                #t))
+      (raises
        (compile-lr-spec genuine-reduce-conflict-rules 'source-file
                         'reject #f 'follow-partition-lr1)
        true))
-    (poo-flow-test-case "split contexts remove an LALR reduce/reduce conflict"
-      (check-exception
+    (profiled "split contexts remove an LALR reduce/reduce conflict"
+      (raises
        (compile-lr-spec lr1-not-lalr-rules 'source-file)
        true)
-      (let (spec
+      (scope ((spec
             (compile-lr-spec lr1-not-lalr-rules 'source-file
-                             'reject #f 'canonical-lr1))
-        (check (lr-spec-ref spec 'algorithm)
-               => 'canonical-lr1-reference-v1)
-        (check (> (lr-spec-ref spec 'state-count) 0) => #t))
-      (let ((canonical
+                             'reject #f 'canonical-lr1)))
+        (equal (lr-spec-ref spec 'algorithm)
+                'canonical-lr1-reference-v1)
+        (equal (> (lr-spec-ref spec 'state-count) 0)  #t))
+      (scope ((canonical
              (compile-lr-spec lr1-not-lalr-rules 'source-file
                               'reject #f 'canonical-lr1))
             (partitioned
@@ -830,35 +796,30 @@
             (direct
              (compile-lr-spec lr1-not-lalr-rules 'source-file
                               'reject #f 'follow-partition-lr1)))
-        (check (lr-spec-ref partitioned 'algorithm)
-               => 'conflict-partitioned-lr1-v1)
-        (check (lr-spec-ref direct 'algorithm)
-               => 'follow-partition-lr1-v1)
-        (check (<= (lr-spec-ref partitioned 'state-count)
+        (equal (lr-spec-ref partitioned 'algorithm)
+                'conflict-partitioned-lr1-v1)
+        (equal (lr-spec-ref direct 'algorithm)
+                'follow-partition-lr1-v1)
+        (equal (<= (lr-spec-ref partitioned 'state-count)
                    (lr-spec-ref canonical 'state-count))
-               => #t)
-        (check (> (lr-spec-ref direct 'follow-block-count) 0) => #t)))
-    (poo-flow-test-case "prepared sweeps isolate successful and rejected requests"
-      (for-each
-       (lambda (route)
-         (let* ((spec (compile-lr-spec lr1-not-lalr-rules 'source-file 'reject #f route))
+                #t)
+        (equal (> (lr-spec-ref direct 'follow-block-count) 0)  #t)))
+    (profiled "prepared sweeps isolate successful and rejected requests"
+      (each (route) ('(canonical-lr1 follow-partition-lr1))
+         (sequential ((spec (compile-lr-spec lr1-not-lalr-rules 'source-file 'reject #f route))
                 (parse (prepared-result-parser spec))
                 (first-input (character-tokens "acd"))
                 (first-result (parse first-input)))
-           (check (eq? first-result 'rejected) => #f)
-           (check (parse (character-tokens "acc")) => 'rejected)
-           (for-each
-            (lambda (text)
-              (let (tokens (character-tokens text))
-                (check (parse tokens) => (parse-token-result spec tokens))))
-            '("ace" "" "bcd" "acc" "bce" "acd"))
+           (equal (eq? first-result 'rejected)  #f)
+           (equal (parse (character-tokens "acc"))  'rejected)
+           (each (text) ('("ace" "" "bcd" "acc" "bce" "acd"))
+              (scope ((tokens (character-tokens text)))
+                (equal (parse tokens)  (parse-token-result spec tokens))))
            ;; A later rejection must not overwrite an earlier returned product.
-           (check first-result => (parse-token-result spec first-input))))
-       '(canonical-lr1 follow-partition-lr1)))
-    (poo-flow-test-case "independent LR(1) contexts preserve parse products"
-      (for-each
-       (lambda (context-count)
-         (let* ((rules (lr1-context-family-rules context-count))
+           (equal first-result  (parse-token-result spec first-input)))))
+    (profiled "independent LR(1) contexts preserve parse products"
+      (each (context-count) ('(4 16 32 48 64))
+         (sequential ((rules (lr1-context-family-rules context-count))
                 (canonical
                  (compile-lr-spec rules 'source-file 'reject #f
                                   'canonical-lr1))
@@ -867,38 +828,33 @@
                                   'follow-partition-lr1))
                 (parse-canonical (prepared-result-parser canonical))
                 (parse-direct (prepared-result-parser direct)))
-           (check-exception (compile-lr-spec rules 'source-file) true)
-           (check (lr-spec-ref canonical 'state-count)
-                  => (lr-spec-ref direct 'state-count))
+           (raises (compile-lr-spec rules 'source-file) true)
+           (equal (lr-spec-ref canonical 'state-count)
+                   (lr-spec-ref direct 'state-count))
            (when (memv context-count '(32 48 64))
-             (check (lr-spec-ref direct 'follow-block-count) => 0))
-           (for-each
-            (lambda (index)
-              (let* ((prefix
+             (equal (lr-spec-ref direct 'follow-block-count)  0))
+           (each (index) ((iota context-count))
+              (sequential ((prefix
                       (string-append "region-" (number->string index) ":"))
                      (prefix-length (string-length prefix))
                      (prefix-token
                       (make-token 'punctuation prefix 0 prefix-length)))
-                (for-each
-                 (lambda (body)
-                   (let* ((tokens
+                (each (body) ('("acd" "ace" "bcd" "bce"))
+                   (sequential ((tokens
                            (cons prefix-token
                                  (character-tokens body prefix-length)))
                           (expected (parse-canonical tokens)))
-                     (check (eq? expected 'rejected) => #f)
-                     (check (equal? expected
+                     (equal (eq? expected 'rejected)  #f)
+                     (equal (equal? expected
                                     (parse-direct tokens))
-                            => #t)))
-                 '("acd" "ace" "bcd" "bce"))
-                (let (tokens
+                             #t)))
+                (scope ((tokens
                       (cons prefix-token
-                            (character-tokens "acc" prefix-length)))
-                  (check (parse-canonical tokens) => 'rejected)
-                  (check (parse-direct tokens) => 'rejected))))
-            (iota context-count))))
-       '(4 16 32 48 64)))
-    (poo-flow-test-case "state-local conflict candidates preserve parse products"
-      (let* ((rules (state-local-candidate-family-rules 32))
+                            (character-tokens "acc" prefix-length))))
+                  (equal (parse-canonical tokens)  'rejected)
+                  (equal (parse-direct tokens)  'rejected)))))))
+    (profiled "state-local conflict candidates preserve parse products"
+      (sequential ((rules (state-local-candidate-family-rules 32))
              (canonical
               (compile-lr-spec rules 'source-file 'selective-glr #f
                                'canonical-lr1))
@@ -907,29 +863,25 @@
                                'follow-partition-lr1))
              (parse-canonical (prepared-result-parser canonical))
              (parse-direct (prepared-result-parser direct)))
-        (check (< (lr-spec-ref direct 'state-count)
-                  (lr-spec-ref canonical 'state-count)) => #t)
-        (check (> (lr-spec-ref direct 'follow-block-count) 0) => #t)
-        (for-each
-         (lambda (index)
-           (let* ((prefix
+        (equal (< (lr-spec-ref direct 'state-count)
+                  (lr-spec-ref canonical 'state-count))  #t)
+        (equal (> (lr-spec-ref direct 'follow-block-count) 0)  #t)
+        (each (index) ('(0 15 31))
+           (sequential ((prefix
                    (string-append "region-" (number->string index) ":"))
                   (prefix-length (string-length prefix))
                   (prefix-token
                    (make-token 'punctuation prefix 0 prefix-length)))
-             (def (tokens body)
-               (cons prefix-token (character-tokens body prefix-length)))
-             (for-each
-              (lambda (body)
-                (let (input (tokens body))
-                  (check (equal? (parse-canonical input)
-                                 (parse-direct input)) => #t)))
-              '("axd" "axe" "bxxe" "bxe" "axf" "bxxd" ""))))
-         '(0 15 31))))
-    (poo-flow-test-case "mixed context family compresses forward follow blocks"
-      (for-each
-       (lambda (context-count)
-         (let* ((rules (mixed-context-family-rules context-count))
+(locals ((tokens (lambda ( body)
+               (cons prefix-token (character-tokens body prefix-length)))))
+
+             (each (body) ('("axd" "axe" "bxxe" "bxe" "axf" "bxxd" ""))
+                (scope ((input (tokens body)))
+                  (equal (equal? (parse-canonical input)
+                                 (parse-direct input))  #t))))))))
+    (profiled "mixed context family compresses forward follow blocks"
+      (each (context-count) ('(4 16 32 64 128))
+         (sequential ((rules (mixed-context-family-rules context-count))
                 (canonical
                  (compile-lr-spec rules 'source-file 'reject #f
                                   'canonical-lr1))
@@ -938,209 +890,173 @@
                                   'follow-partition-lr1))
                 (parse-canonical (prepared-result-parser canonical))
                 (parse-direct (prepared-result-parser direct)))
-           (check (< (lr-spec-ref direct 'state-count)
-                     (lr-spec-ref canonical 'state-count)) => #t)
-           (check (< (lr-spec-ref direct 'follow-block-count)
-                     (lr-spec-ref direct 'output-item-count)) => #t)
-           (for-each
-            (lambda (index)
-              (let* ((prefix
+           (equal (< (lr-spec-ref direct 'state-count)
+                     (lr-spec-ref canonical 'state-count))  #t)
+           (equal (< (lr-spec-ref direct 'follow-block-count)
+                     (lr-spec-ref direct 'output-item-count))  #t)
+           (each (index) ((iota context-count))
+              (sequential ((prefix
                       (string-append "region-" (number->string index) ":"))
                      (prefix-length (string-length prefix))
                      (prefix-token
                       (make-token 'punctuation prefix 0 prefix-length)))
-                (for-each
-                 (lambda (body)
-                   (let* ((tokens
+                (each (body) ('("acd" "ace" "bcd" "bce" "dd" "cdd" "acc" "cd"))
+                   (sequential ((tokens
                           (cons prefix-token
                                  (character-tokens body prefix-length)))
                           (expected (parse-canonical tokens)))
-                     (check (eq? expected 'rejected)
-                            => (if (member body '("acc" "cd")) #t #f))
-                     (check (equal? expected
+                     (equal (eq? expected 'rejected)
+                             (if (member body '("acc" "cd")) #t #f))
+                     (equal (equal? expected
                                     (parse-direct tokens))
-                            => #t)))
-                 '("acd" "ace" "bcd" "bce" "dd" "cdd" "acc" "cd"))))
-            (iota context-count))))
-       '(4 16 32 64 128)))
-    (poo-flow-test-case "FOLLOW stable edges preserve products after production reordering"
-      ;; Reordering productions changes core/block numbering. Compare with
-      ;; canonical construction to catch reuse of a previous round's edge IDs,
-      ;; including singleton and inactive blocks beside the final split.
-      (def (nullable-tail-family count)
+                             #t))))))))
+    (profiled "FOLLOW stable edges preserve products after production reordering"
+(locals ((nullable-tail-family (lambda ( count)
         (let (rules (mixed-context-family-rules count))
           (cons (list 'source-file
                       (list 'sequence (cadar rules) '(optional (literal "z"))))
-                (cdr rules))))
-      (for-each
-       (lambda (family)
-         (for-each
-          (lambda (count)
-            (let (rules (family count))
-              (for-each
-               (lambda (ordered)
-                 (let ((canonical (compile-lr-spec ordered 'source-file 'reject #f 'canonical-lr1))
+                (cdr rules))))))
+      ;; Reordering productions changes core/block numbering. Compare with
+      ;; canonical construction to catch reuse of a previous round's edge IDs,
+      ;; including singleton and inactive blocks beside the final split.
+
+      (each (family) ((list mixed-context-family-rules acyclic-mixed-context-family-rules nullable-tail-family))
+         (each (count) ('(4 8))
+            (scope ((rules (family count)))
+              (each (ordered) ((list rules (reverse rules)))
+                 (scope ((canonical (compile-lr-spec ordered 'source-file 'reject #f 'canonical-lr1))
                        (direct (compile-lr-spec ordered 'source-file 'reject #f 'follow-partition-lr1)))
-                   (check (> (lr-spec-ref direct 'follow-block-count) 0) => #t)
-                   (for-each
-                    (lambda (region)
-                      (let* ((prefix (string-append "region-" (number->string region) ":"))
+                   (equal (> (lr-spec-ref direct 'follow-block-count) 0)  #t)
+                   (each (region) ((iota count))
+                      (sequential ((prefix (string-append "region-" (number->string region) ":"))
                              (size (string-length prefix)))
-                        (for-each
-                         (lambda (body)
-                           (let (tokens (cons (make-token 'punctuation prefix 0 size)
-                                             (character-tokens body size)))
-                             (check (parse-token-result direct tokens)
-                                    => (parse-token-result canonical tokens))))
-                         '("acd" "ace" "bcd" "bce" "cc" "cd" "dc" "dd" "acc" "acdz" "cddz" "accz"))))
-                    (iota count))))
-               (list rules (reverse rules)))))
-          '(4 8)))
-       (list mixed-context-family-rules acyclic-mixed-context-family-rules nullable-tail-family)))
-    (poo-flow-test-case "acyclic shared contexts still need follow compression"
-      (for-each
-       (lambda (context-count)
-         (let* ((rules (acyclic-mixed-context-family-rules context-count))
+                        (each (body) ('("acd" "ace" "bcd" "bce" "cc" "cd" "dc" "dd" "acc" "acdz" "cddz" "accz"))
+                           (scope ((tokens (cons (make-token 'punctuation prefix 0 size)
+                                             (character-tokens body size))))
+                             (equal (parse-token-result direct tokens)
+                                     (parse-token-result canonical tokens)))))))))))))
+    (profiled "acyclic shared contexts still need follow compression"
+      (each (context-count) ('(32 64))
+         (sequential ((rules (acyclic-mixed-context-family-rules context-count))
                 (canonical
                  (compile-lr-spec rules 'source-file 'reject #f
                                   'canonical-lr1))
                 (direct
                  (compile-lr-spec rules 'source-file 'reject #f
                                   'follow-partition-lr1)))
-           (check (< (lr-spec-ref direct 'state-count)
-                     (lr-spec-ref canonical 'state-count)) => #t)
-           (check (> (lr-spec-ref direct 'follow-block-count) 0) => #t)
-           (for-each
-            (lambda (index)
-              (let* ((prefix
+           (equal (< (lr-spec-ref direct 'state-count)
+                     (lr-spec-ref canonical 'state-count))  #t)
+           (equal (> (lr-spec-ref direct 'follow-block-count) 0)  #t)
+           (each (index) ((list 0 15 (- context-count 1)))
+              (sequential ((prefix
                       (string-append "region-" (number->string index) ":"))
                      (prefix-length (string-length prefix))
                      (prefix-token
                       (make-token 'punctuation prefix 0 prefix-length)))
-                (for-each
-                 (lambda (body)
-                   (let* ((tokens
+                (each (body) ('("acd" "ace" "bcd" "bce" "cc" "cd" "dc" "dd" "acc"))
+                   (sequential ((tokens
                            (cons prefix-token
                                  (character-tokens body prefix-length)))
                           (expected (parse-token-result canonical tokens)))
-                     (check (equal? expected
-                                    (parse-token-result direct tokens)) => #t)))
-                 '("acd" "ace" "bcd" "bce" "cc" "cd" "dc" "dd" "acc"))))
-            (list 0 15 (- context-count 1)))))
-       '(32 64)))
-    (poo-flow-test-case "split shared productions do not force compression"
-      (for-each
-       (lambda (context-count)
-         (let* ((rules (split-shared-context-family-rules context-count))
+                     (equal (equal? expected
+                                    (parse-token-result direct tokens))  #t))))))))
+    (profiled "split shared productions do not force compression"
+      (each (context-count) ('(16 64))
+         (sequential ((rules (split-shared-context-family-rules context-count))
                 (canonical
                  (compile-lr-spec rules 'source-file 'reject #f
                                   'canonical-lr1))
                 (direct
                  (compile-lr-spec rules 'source-file 'reject #f
                                   'follow-partition-lr1)))
-           (check (lr-spec-ref direct 'state-count)
-                  => (lr-spec-ref canonical 'state-count))
-           (check (zero? (lr-spec-ref direct 'follow-block-count))
-                  => (>= context-count 64))
-           (for-each
-            (lambda (index)
-              (let* ((prefix
+           (equal (lr-spec-ref direct 'state-count)
+                   (lr-spec-ref canonical 'state-count))
+           (equal (zero? (lr-spec-ref direct 'follow-block-count))
+                   (>= context-count 64))
+           (each (index) ((list 0 15 (- context-count 1)))
+              (sequential ((prefix
                       (string-append "region-" (number->string index) ":"))
                      (prefix-length (string-length prefix))
                      (prefix-token
                       (make-token 'punctuation prefix 0 prefix-length)))
-                (for-each
-                 (lambda (body)
-                   (let* ((tokens
+                (each (body) ('("dx" "dy" "cdx" "cdy" "acc"))
+                   (sequential ((tokens
                            (cons prefix-token
                                  (character-tokens body prefix-length)))
                           (expected (parse-token-result canonical tokens)))
-                     (check (eq? expected 'rejected)
-                            => (equal? body "acc"))
-                     (check (equal? expected
-                                    (parse-token-result direct tokens)) => #t)))
-                 '("dx" "dy" "cdx" "cdy" "acc"))))
-            (list 0 15 (- context-count 1)))))
-       '(16 64)))
-    (poo-flow-test-case "unreachable repeated helper keeps canonical route"
-      (let* ((rules (unreachable-repeated-context-family-rules 64))
+                     (equal (eq? expected 'rejected)
+                             (equal? body "acc"))
+                     (equal (equal? expected
+                                    (parse-token-result direct tokens))  #t))))))))
+    (profiled "unreachable repeated helper keeps canonical route"
+      (sequential ((rules (unreachable-repeated-context-family-rules 64))
              (canonical
               (compile-lr-spec rules 'source-file 'reject #f 'canonical-lr1))
              (direct
               (compile-lr-spec rules 'source-file 'reject #f
                                'follow-partition-lr1)))
-        (check (lr-spec-ref direct 'state-count)
-               => (lr-spec-ref canonical 'state-count))
-        (check (lr-spec-ref direct 'follow-block-count) => 0)
-        (for-each
-         (lambda (index)
-           (let* ((prefix
+        (equal (lr-spec-ref direct 'state-count)
+                (lr-spec-ref canonical 'state-count))
+        (equal (lr-spec-ref direct 'follow-block-count)  0)
+        (each (index) ('(0 31 63))
+           (sequential ((prefix
                    (string-append "region-" (number->string index) ":"))
                   (prefix-length (string-length prefix))
                   (prefix-token
                    (make-token 'punctuation prefix 0 prefix-length)))
-             (for-each
-              (lambda (body)
-                (let (tokens
+             (each (body) ('("acd" "bce" "acc"))
+                (scope ((tokens
                       (cons prefix-token
-                            (character-tokens body prefix-length)))
-                  (check (equal? (parse-token-result canonical tokens)
-                                 (parse-token-result direct tokens)) => #t)))
-              '("acd" "bce" "acc"))))
-         '(0 31 63))))
-    (poo-flow-test-case "bounded canonical trial stops above its state budget"
-      (let* ((productions (lower-rules lr1-not-lalr-rules 'source-file))
+                            (character-tokens body prefix-length))))
+                  (equal (equal? (parse-token-result canonical tokens)
+                                 (parse-token-result direct tokens))  #t)))))))
+    (profiled "bounded canonical trial stops above its state budget"
+      (sequential ((productions (lower-rules lr1-not-lalr-rules 'source-file))
              (table (production-table productions)))
-        (let-values (((nullable nullable-index)
+        (scope-values (((nullable nullable-index)
                       (compute-nullable productions)))
-          (let-values (((first first-index)
+          (scope-values (((first first-index)
                         (compute-first productions nullable-index)))
-            (check
+            (equal
              (call-with-values
               (lambda ()
                 (build-states-via-canonical-lr1
                  productions table first-index nullable-index 1))
               list)
-             => '(#f))))))
-    (poo-flow-test-case "an LALR grammar remains admitted on both paths"
-      (let ((lalr (compile-lr-spec shared-lookahead-rules 'source-file))
+              '(#f))))))
+    (profiled "an LALR grammar remains admitted on both paths"
+      (scope ((lalr (compile-lr-spec shared-lookahead-rules 'source-file))
             (canonical
              (compile-lr-spec shared-lookahead-rules 'source-file
                               'reject #f 'canonical-lr1))
             (direct
              (compile-lr-spec shared-lookahead-rules 'source-file
                               'reject #f 'follow-partition-lr1)))
-        (check (>= (lr-spec-ref canonical 'state-count)
+        (equal (>= (lr-spec-ref canonical 'state-count)
                    (lr-spec-ref lalr 'state-count))
-               => #t)
-        (check (> (lr-spec-ref canonical 'output-item-count) 0)
-               => #t)
-        (check (> (lr-spec-ref direct 'state-count) 0) => #t)
-        (check (lr-spec-ref direct 'follow-block-count) => 0)
-        (for-each
-         (lambda (first-token)
-           (for-each
-            (lambda (second-token)
-              (for-each
-               (lambda (third-token)
-                 (let* ((text
+                #t)
+        (equal (> (lr-spec-ref canonical 'output-item-count) 0)
+                #t)
+        (equal (> (lr-spec-ref direct 'state-count) 0)  #t)
+        (equal (lr-spec-ref direct 'follow-block-count)  0)
+        (each (first-token) ('("c" "d"))
+           (each (second-token) ('("c" "d"))
+              (each (third-token) ('("c" "d"))
+                 (sequential ((text
                          (string-append first-token second-token third-token))
                         (expected (parse-result canonical text)))
-                   (check (equal? (parse-result lalr text) expected) => #t)
-                   (check (equal? (parse-result direct text) expected) => #t)))
-               '("c" "d")))
-            '("c" "d")))
-         '("c" "d"))
-        (let (partitioned
+                   (equal (equal? (parse-result lalr text) expected)  #t)
+                   (equal (equal? (parse-result direct text) expected)  #t)))))
+        (scope ((partitioned
               (compile-lr-spec shared-lookahead-rules 'source-file
-                               'reject #f 'partitioned-lr1))
-          (check (<= (lr-spec-ref partitioned 'state-count)
+                               'reject #f 'partitioned-lr1)))
+          (equal (<= (lr-spec-ref partitioned 'state-count)
                      (lr-spec-ref canonical 'state-count))
-                 => #t)
-          (check (lr-spec-ref partitioned 'state-count)
-                 => (lr-spec-ref lalr 'state-count)))))
-    (poo-flow-test-case "canonical and partitioned parsers accept the same fixtures"
-      (let ((canonical
+                  #t)
+          (equal (lr-spec-ref partitioned 'state-count)
+                  (lr-spec-ref lalr 'state-count)))))
+    (profiled "canonical and partitioned parsers accept the same fixtures"
+      (scope ((canonical
              (compile-lr-spec lr1-not-lalr-rules 'source-file
                               'reject #f 'canonical-lr1))
             (partitioned
@@ -1149,80 +1065,63 @@
             (direct
              (compile-lr-spec lr1-not-lalr-rules 'source-file
                               'reject #f 'follow-partition-lr1)))
-        (for-each
-         (lambda (text)
-           (let-values (((canonical-root canonical-rest)
+        (each (text) ('("acd" "ace" "bcd" "bce"))
+           (scope-values (((canonical-root canonical-rest)
                          (lr-parse canonical (character-tokens text)))
                         ((partitioned-root partitioned-rest)
                          (lr-parse partitioned (character-tokens text)))
                         ((direct-root direct-rest)
                          (lr-parse direct (character-tokens text))))
-             (check canonical-rest => '())
-             (check partitioned-rest => '())
-             (check direct-rest => '())
-             (check (equal? canonical-root partitioned-root) => #t)
-             (check (equal? canonical-root direct-root) => #t)))
-         '("acd" "ace" "bcd" "bce"))
-        (check-exception
+             (equal canonical-rest  '())
+             (equal partitioned-rest  '())
+             (equal direct-rest  '())
+             (equal (equal? canonical-root partitioned-root)  #t)
+             (equal (equal? canonical-root direct-root)  #t)))
+        (raises
          (lr-parse canonical (character-tokens "acc")) true)
-        (check-exception
+        (raises
          (lr-parse partitioned (character-tokens "acc")) true)
-        (check-exception
+        (raises
          (lr-parse direct (character-tokens "acc")) true)
-        (let ((alphabet '("a" "b" "c" "d" "e"))
+        (scope ((alphabet '("a" "b" "c" "d" "e"))
               (accepted 0))
-          (for-each
-           (lambda (first)
-             (for-each
-              (lambda (second)
-                (for-each
-                 (lambda (third)
-                   (let* ((text (string-append first second third))
+          (each (first) (alphabet)
+             (each (second) (alphabet)
+                (each (third) (alphabet)
+                   (sequential ((text (string-append first second third))
                           (left (parse-result canonical text))
                           (right (parse-result partitioned text))
                           (via-follow (parse-result direct text)))
                      (unless (eq? left 'rejected)
-                       (set! accepted (+ accepted 1)))
-                     (check (equal? left right) => #t)
-                     (check (equal? left via-follow) => #t)))
-                 alphabet))
-              alphabet))
-           alphabet)
-          (check accepted => 4))))
-    (poo-flow-test-case "precedence grammar keeps canonical parse products"
-      (let ((canonical
+                       (act (set! accepted (+ accepted 1))))
+                     (equal (equal? left right)  #t)
+                     (equal (equal? left via-follow)  #t)))))
+          (equal accepted  4))))
+    (profiled "precedence grammar keeps canonical parse products"
+      (scope ((canonical
              (compile-lr-spec precedence-expression-rules 'source-file
                               'reject #f 'canonical-lr1))
             (direct
              (compile-lr-spec precedence-expression-rules 'source-file
                               'reject #f 'follow-partition-lr1)))
-        (check (> (lr-spec-ref direct 'follow-block-count) 0) => #t)
-        (for-each
-         (lambda (text)
-           (check (equal? (parse-result canonical text)
+        (equal (> (lr-spec-ref direct 'follow-block-count) 0)  #t)
+        (each (text) ('("a" "a+a" "a*a" "a+a*a" "a*a+a" "a+a+a" "a*a*a"))
+           (equal (equal? (parse-result canonical text)
                           (parse-result direct text))
-                  => #t))
-         '("a" "a+a" "a*a" "a+a*a" "a*a+a" "a+a+a" "a*a*a"))))
-    (poo-flow-test-case "mixed contexts retain LR(1) recognition"
-      (let ((canonical
+                   #t))))
+    (profiled "mixed contexts retain LR(1) recognition"
+      (scope ((canonical
              (compile-lr-spec mixed-context-rules 'source-file
                               'reject #f 'canonical-lr1))
             (direct
              (compile-lr-spec mixed-context-rules 'source-file
                               'reject #f 'follow-partition-lr1)))
-        (check (> (lr-spec-ref direct 'follow-block-count) 0) => #t)
-        (check (<= (lr-spec-ref direct 'state-count)
-                   (lr-spec-ref canonical 'state-count)) => #t)
-        (for-each
-         (lambda (text)
-           (check (equal? (parse-result canonical text)
+        (equal (> (lr-spec-ref direct 'follow-block-count) 0)  #t)
+        (equal (<= (lr-spec-ref direct 'state-count)
+                   (lr-spec-ref canonical 'state-count))  #t)
+        (each (text) ('("acd" "ace" "bcd" "bce" "dd" "cdd" "cdcd" "acc" "ccc"))
+           (equal (equal? (parse-result canonical text)
                           (parse-result direct text))
-                  => #t))
-         '("acd" "ace" "bcd" "bce" "dd" "cdd" "cdcd" "acc" "ccc"))
-        (for-each
-         (lambda (length)
-           (check-parse-equivalence
-            canonical direct '("a" "b" "c" "d" "e") length))
-         '(2 3 4))))))
-
-(export canonical-lr1-reference-test)
+                   #t))
+        (each (length) ('(2 3 4))
+           (verify check-parse-equivalence canonical direct '("a" "b" "c" "d" "e") length)))))

@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 ;;; Non-semantic whitespace may change source/trivia spans, never syntax.
 
@@ -41,38 +42,25 @@
     (error "unexpected CST value" value))))
 
 ;; : (-> ParserMachine Procedure String String Void)
-(def (check-indentation-invariance machine parse plain indented)
-  (let ((plain-artifact (parse plain))
+(defparser-check (check-indentation-invariance machine parse plain indented)
+  (scope ((plain-artifact (parse plain))
         (indented-artifact (parse indented)))
-    (check (parse-artifact-success? plain-artifact) => #t)
-    (check (parse-artifact-success? indented-artifact) => #t)
-    (check (native-syntax-shape machine
+    (equal (parse-artifact-success? plain-artifact)  #t)
+    (equal (parse-artifact-success? indented-artifact)  #t)
+    (equal (native-syntax-shape machine
                                 (parse-artifact->cst indented-artifact))
-           =>
+
            (native-syntax-shape machine
                                 (parse-artifact->cst plain-artifact)))))
 
-(def indentation-invariance-tests
-  (test-suite "native AST indentation invariance"
-    (test-case "non-semantic indentation preserves native syntax shape"
-      (check-indentation-invariance
-       opencypher-parser parse-opencypher
-       "MATCH (n)\nRETURN n\n"
-       "  MATCH   (n)\n      RETURN   n\n")
-      (check-indentation-invariance
-       gql-parser parse-gql
-       "MATCH (n)\nRETURN n\n"
-       "  MATCH   (n)\n      RETURN   n\n")
-      (check-indentation-invariance
-       hcl-parser parse-hcl
-       "resource \"x\" \"y\" {\nvalue = 1\n}\n"
-       "resource   \"x\"   \"y\" {\n      value   =   1\n}\n")
-      (check-indentation-invariance
-       (language-grammar-machine tla-plus-core-language-grammar) parse-tla-plus-core
-       "---- MODULE Indent ----\nVARIABLE x\nInit == x = 1\n====\n"
-       "---- MODULE Indent ----\n    VARIABLE   x\n        Init   ==   x   =   1\n====\n"))))
+(deflanguage-parser-tests indentation-invariance-tests "native AST indentation invariance"
+  (engine)
+    (scenario "non-semantic indentation preserves native syntax shape"
+      (verify check-indentation-invariance opencypher-parser parse-opencypher "MATCH (n)\nRETURN n\n" "  MATCH   (n)\n      RETURN   n\n")
+      (verify check-indentation-invariance gql-parser parse-gql "MATCH (n)\nRETURN n\n" "  MATCH   (n)\n      RETURN   n\n")
+      (verify check-indentation-invariance hcl-parser parse-hcl "resource \"x\" \"y\" {\nvalue = 1\n}\n" "resource   \"x\"   \"y\" {\n      value   =   1\n}\n")
+      (verify check-indentation-invariance (language-grammar-machine tla-plus-core-language-grammar) parse-tla-plus-core "---- MODULE Indent ----\nVARIABLE x\nInit == x = 1\n====\n" "---- MODULE Indent ----\n    VARIABLE   x\n        Init   ==   x   =   1\n====\n")))
 
-(export indentation-invariance-tests)
 
 ;; gxtest discovers only exported names ending in -test.
 (def indentation-invariance-test indentation-invariance-tests)

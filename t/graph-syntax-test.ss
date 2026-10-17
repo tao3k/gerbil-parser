@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 
 (import (only-in :clan/poo/object .o)
@@ -8,7 +9,6 @@
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-success? parse-artifact-roundtrip)
         :gerbil-parser/graph-syntax-support)
 
-(export graph-syntax-syntax-test)
 
 (def Program
   (.o (:: @ GraphSyntaxProgram.)
@@ -29,16 +29,16 @@
           expression:
           (.o (:: @ GraphSyntaxProperty.) binding: 'c property: 'id))))
 
-(def graph-syntax-syntax-test
-  (test-suite "shared POO graph syntax"
-   (test-case "projects canonical source from the engine graph"
-     (check (graph-syntax-program? Program) => #t)
-     (check (graph-syntax-program->source Program)
-       => "MATCH (s:Scenario)-[:HAS_CASE]->(c:Case)\nWHERE s.identity = 'patient''s-case'\nRETURN c.id\n"))
-   (test-case "GQL and Cypher parse the same inherited engine syntax"
-     (let (source (graph-syntax-program->source Program))
-       (for-each (lambda (parse)
-                   (let (artifact (parse source))
-                     (check (parse-artifact-success? artifact) => #t)
-                     (check (parse-artifact-roundtrip artifact) => source)))
-                 (list parse-gql parse-opencypher))))))
+(deflanguage-parser-tests graph-syntax-syntax-test "shared POO graph syntax"
+  (engine)
+   (property "projects canonical source from the engine graph"
+      (bindings)
+      (equal (graph-syntax-program? Program)  #t)
+      (equal (graph-syntax-program->source Program)
+        "MATCH (s:Scenario)-[:HAS_CASE]->(c:Case)\nWHERE s.identity = 'patient''s-case'\nRETURN c.id\n"))
+   (scenario "GQL and Cypher parse the same inherited engine syntax"
+     (scope ((source (graph-syntax-program->source Program)))
+       (each (parse) ((list parse-gql parse-opencypher))
+                   (scope ((artifact (parse source)))
+                     (equal (parse-artifact-success? artifact)  #t)
+                     (equal (parse-artifact-roundtrip artifact)  source))))))

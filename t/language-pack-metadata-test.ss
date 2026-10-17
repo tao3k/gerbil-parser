@@ -1,3 +1,4 @@
+(import :gerbil-parser/language-test-support)
 ;;; Explicit POO pack entries expose grammar metadata and reusable test services.
 (import (only-in :gerbil-parser/language-support/entry language-metadata-ref) (only-in :gerbil-parser/languages/arithmetic/parser-test arithmetic-test-language)
         (only-in :gerbil-parser/languages/hcl/parser-test hcl-test-language)
@@ -38,26 +39,10 @@
     (if (source-language? descriptor) 'source-parser
       (external-site-count (cdr (assq 'lexical-rules (language-grammar-ir descriptor)))))))
 
-(def language-pack-metadata-test
-  (test-suite "public POO language pack metadata"
-    (test-case "shipped entries expose their descriptor and value metadata"
-      (for-each
-       (lambda (row)
-         (let (loader (car row))
-           (check (object? loader) => #t)
-           (for-each (lambda (key)
-                       (check (language-metadata-ref (.ref loader 'metadata) key) => (.ref loader key)))
-                     '(language version contract))
-           (let (descriptor (.ref loader 'descriptor))
-             (check (language-metadata-ref (.ref loader 'metadata) 'digest)
-                    => (if (source-language? descriptor) (source-language-digest descriptor)
-                         (parser-machine-grammar-digest (language-grammar-machine descriptor))))
-             (check (language-metadata-ref (.ref loader 'metadata) 'digest-kind)
-                    => (if (source-language? descriptor) 'source-identity 'parser-ir)))
-           (check (.ref loader 'schema) => +language-parser-entry-schema+)
-           (check (not (not (memq (.ref loader 'descriptor) (.ref loader 'grammars)))) => #t)
-           (check (language-metadata-ref (.ref loader 'metadata) 'grammar-format) => (cdr row))))
-       (list (cons arithmetic-language 'concise-dsl)
+(deflanguage-parser-tests language-pack-metadata-test "public POO language pack metadata"
+  (engine)
+    (scenario "shipped entries expose their descriptor and value metadata"
+      (each (row) ((list (cons arithmetic-language 'concise-dsl)
              (cons hcl-language 'concise-dsl)
              (cons hl7-language 'concise-dsl)
              (cons fhirpath-language 'concise-dsl)
@@ -66,29 +51,38 @@
              (cons bash-language 'source-parser)
              (cons tla-plus-core-language 'concise-dsl)
              (cons tla-plus-layout-language 'concise-dsl)
-             (cons tla-plus-sany-candidate-language 'concise-dsl))))
-    (test-case "the complete migration inventory follows all ten admitted descriptors"
-      (check (map loader-external-count
+             (cons tla-plus-sany-candidate-language 'concise-dsl)))
+         (scope ((loader (car row)))
+           (equal (object? loader)  #t)
+           (each (key) ('(language version contract))
+                       (equal (language-metadata-ref (.ref loader 'metadata) key)  (.ref loader key)))
+           (scope ((descriptor (.ref loader 'descriptor)))
+             (equal (language-metadata-ref (.ref loader 'metadata) 'digest)
+                     (if (source-language? descriptor) (source-language-digest descriptor)
+                         (parser-machine-grammar-digest (language-grammar-machine descriptor))))
+             (equal (language-metadata-ref (.ref loader 'metadata) 'digest-kind)
+                     (if (source-language? descriptor) 'source-identity 'parser-ir)))
+           (equal (.ref loader 'schema)  +language-parser-entry-schema+)
+           (equal (not (not (memq (.ref loader 'descriptor) (.ref loader 'grammars))))  #t)
+           (equal (language-metadata-ref (.ref loader 'metadata) 'grammar-format)  (cdr row)))))
+    (property "the complete migration inventory follows all ten admitted descriptors"
+      (bindings)
+      (equal (map loader-external-count
                   (list arithmetic-language hcl-language
                         gql-language opencypher-language
                         hl7-language fhirpath-language bash-language
                         tla-plus-core-language tla-plus-layout-language tla-plus-sany-candidate-language))
-             => '(0 0 0 0 0 0 source-parser 0 0 0)))
-    (test-case "registered fixture services preserve native corpus conformance"
-      (for-each
-       (lambda (loader)
-         (let (artifacts (run-language-test loader 'fixtures))
-           (check (pair? artifacts) => #t)
-           (check (every parse-artifact-valid? artifacts) => #t)))
-       (list arithmetic-test-language hcl-test-language
+              '(0 0 0 0 0 0 source-parser 0 0 0)))
+    (scenario "registered fixture services preserve native corpus conformance"
+      (each (loader) ((list arithmetic-test-language hcl-test-language
              gql-test-language opencypher-test-language
              hl7-test-language fhirpath-test-language bash-test-language
-             tla-plus-core-test-language tla-plus-layout-test-language tla-plus-sany-candidate-test-language)))
-    (test-case "Bash workers retain independent deferred scanner obligations"
-      (let* ((make-worker (lambda (source) (make-language-scan-worker bash-test-language 'command source)))
-             (first "cat <<EOF\nα\nEOF\n") (second "echo β\n")
-             (left (make-worker first)) (right (make-worker second)))
-        (check (apply string-append (map token-lexeme (source-scanner-tokens right 'command))) => second)
-        (check (apply string-append (map token-lexeme (source-scanner-tokens left 'command))) => first)
-        (check (apply string-append (map token-lexeme (source-scanner-tokens left 'command))) => first)))))
-(export language-pack-metadata-test)
+             tla-plus-core-test-language tla-plus-layout-test-language tla-plus-sany-candidate-test-language))
+         (scope ((artifacts (run-language-test loader 'fixtures)))
+           (equal (pair? artifacts)  #t)
+           (equal (every parse-artifact-valid? artifacts)  #t))))
+    (property "Bash workers retain independent deferred scanner obligations"
+      (bindings (make-worker (lambda (source) (make-language-scan-worker bash-test-language 'command source))) (first "cat <<EOF\nα\nEOF\n") (second "echo β\n") (left (make-worker first)) (right (make-worker second)))
+      (equal (apply string-append (map token-lexeme (source-scanner-tokens right 'command)))  second)
+      (equal (apply string-append (map token-lexeme (source-scanner-tokens left 'command)))  first)
+      (equal (apply string-append (map token-lexeme (source-scanner-tokens left 'command)))  first)))

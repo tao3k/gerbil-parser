@@ -1,3 +1,4 @@
+(import :gerbil-parser/language-test-support)
 (import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; -*- Gerbil -*-
 ;;; Existing concise admission errors retain author occurrence and context.
@@ -9,7 +10,7 @@
         (rename-in (only-in ./fixtures/language-diagnostics-vocabulary required-items)
                    (required-items renamed-items))
         (for-syntax (only-in :gerbil/expander core-expand)))
-(export language-diagnostics-test)
+
 
 (defsyntax (declaration-error stx)
   (def (capture form)
@@ -227,79 +228,55 @@
         (let (text (read-line port))
           (when (eof-object? text) (error "diagnostic line missing" location))
           (if (= line (cadr location)) text (loop (+ line 1))))))))
-(def (check-error result message blame text)
-  (check (car result) => message)
-  (check (cadr result) => blame)
-  (check (pair? (cadddr result)) => #t)
-  (check (cadr (car (cadddr result))) => 'diagnostic-study)
-  (let* ((location (caddr result)) (line (source-line location))
+(defparser-check (check-error result message blame text)
+  (equal (car result)  message)
+  (equal (cadr result)  blame)
+  (equal (pair? (cadddr result))  #t)
+  (equal (cadr (car (cadddr result)))  'diagnostic-study)
+  (sequential ((location (caddr result)) (line (source-line location))
          (offset (caddr location)))
-    (check (substring line offset (+ offset (string-length text))) => text)))
+    (equal (substring line offset (+ offset (string-length text)))  text)))
 
-(def language-diagnostics-test
-  (test-suite "concise declaration author diagnostics"
-    (test-case "direct unknown targets and constructor retain reader parameters"
-      (check-error direct-reference "explicit reference names an unknown rule"
-                   'missing-rule "missing-rule")
-      (check-error direct-token "explicit token names an unknown lexical declaration"
-                   'missing-token "missing-token")
-      (check-error direct-constructor "unknown concise GrammarExpr constructor"
-                   'misspelled "misspelled")
-      (check-error direct-identifier "unresolved concise grammar identifier"
-                   'missing-name "missing-name"))
-    (test-case "macro and renamed import report the author invocation"
-      (check-error macro-reference "explicit reference names an unknown rule"
-                   '(required-items argument (reference missing-rule) ",") "(required-items")
-      (check-error renamed-reference "explicit reference names an unknown rule"
-                   '(renamed-items argument (reference missing-rule) ",") "(renamed-items"))
-    (test-case "invalid generated constructors blame the author call"
-      (check-error macro-constructor "unknown concise GrammarExpr constructor"
-                   (quote (broken-wrapper identifier)) "(broken-wrapper"))
-    (test-case "equal invalid expressions select the first occurrence"
-      (check-error repeated-reference "explicit reference names an unknown rule"
-                   'repeated-missing "repeated-missing")
-      (let* ((location (caddr repeated-reference)) (line (source-line location))
+(deflanguage-parser-tests language-diagnostics-test "concise declaration author diagnostics"
+  (engine)
+    (scenario "direct unknown targets and constructor retain reader parameters"
+      (verify check-error direct-reference "explicit reference names an unknown rule" 'missing-rule "missing-rule")
+      (verify check-error direct-token "explicit token names an unknown lexical declaration" 'missing-token "missing-token")
+      (verify check-error direct-constructor "unknown concise GrammarExpr constructor" 'misspelled "misspelled")
+      (verify check-error direct-identifier "unresolved concise grammar identifier" 'missing-name "missing-name"))
+    (scenario "macro and renamed import report the author invocation"
+      (verify check-error macro-reference "explicit reference names an unknown rule" '(required-items argument (reference missing-rule) ",") "(required-items")
+      (verify check-error renamed-reference "explicit reference names an unknown rule" '(renamed-items argument (reference missing-rule) ",") "(renamed-items"))
+    (scenario "invalid generated constructors blame the author call"
+      (verify check-error macro-constructor "unknown concise GrammarExpr constructor" (quote (broken-wrapper identifier)) "(broken-wrapper"))
+    (scenario "equal invalid expressions select the first occurrence"
+      (verify check-error repeated-reference "explicit reference names an unknown rule" 'repeated-missing "repeated-missing")
+      (sequential ((location (caddr repeated-reference)) (line (source-line location))
              (offset (caddr location)))
-        (check (substring line (- offset 11) offset) => "(reference ")
-        (check (substring line 0 offset)
-               => "  (invalid-expression-error (seq (reference ")))
-    (test-case "forward helper shape is checked before field inference"
-      (check-error forward-field "invalid concise field expression"
-                   (quote (field argument)) "(field argument"))
-    (test-case "malformed forward helpers remain typed syntax errors"
-      (check-error forward-unary "invalid concise unary grammar expression"
-                   (quote (optional)) "(optional")
-      (check-error forward-reference "explicit reference names an unknown rule"
-                   (quote (reference)) "(reference"))
-    (test-case "root obligation identifies the authored body"
-      (check-error root-without-node "concise language root rule must construct one node"
-                   'identifier "identifier")
-      (check-error macro-root-without-node "concise language root rule must construct one node"
-                   '(required-items argument identifier ",") "(required-items")
-      (check-error multi-body-root "concise language root rule must construct one node"
-                   '(source-file identifier identifier) "(source-file identifier identifier)"))
-    (test-case "node and token kind collision retains author context"
-      (check-error node-token-collision "concise syntax kind is both a node and a token"
-                   'Identifier "Identifier")
-      (check-error macro-node-token-collision "concise syntax kind is both a node and a token"
-                   '(token-node identifier) "(token-node"))
-    (test-case "canonical scalar constraints fail at concise admission"
-      (for-each
-       (lambda (result blame)
-         (check-error result "invalid canonical GrammarExpr metadata" blame
-                      (if (string? blame) "\"\"" "(")))
-       scalar-errors scalar-blames)
-      (check-error dotted-surface "invalid concise grammar expression"
-                   '(optional . identifier) "(optional"))
-    (test-case "canonical entry rejects malformed constructors before list access"
-      (for-each
-       (lambda (result blame)
-         (check-error result "invalid GrammarExpr declaration" blame "("))
-       core-errors core-blames))
-    (test-case "canonical header checks and recursive membership stay distinct"
-      (for-each
-       (lambda (row) (check (and (grammar-expression? (car row)) #t) => (cadr row)))
-       '(((empty) #t) ((literal "a") #t) ((literal "") #f)
+        (equal (substring line (- offset 11) offset)  "(reference ")
+        (equal (substring line 0 offset)
+                "  (invalid-expression-error (seq (reference ")))
+    (scenario "forward helper shape is checked before field inference"
+      (verify check-error forward-field "invalid concise field expression" (quote (field argument)) "(field argument"))
+    (scenario "malformed forward helpers remain typed syntax errors"
+      (verify check-error forward-unary "invalid concise unary grammar expression" (quote (optional)) "(optional")
+      (verify check-error forward-reference "explicit reference names an unknown rule" (quote (reference)) "(reference"))
+    (scenario "root obligation identifies the authored body"
+      (verify check-error root-without-node "concise language root rule must construct one node" 'identifier "identifier")
+      (verify check-error macro-root-without-node "concise language root rule must construct one node" '(required-items argument identifier ",") "(required-items")
+      (verify check-error multi-body-root "concise language root rule must construct one node" '(source-file identifier identifier) "(source-file identifier identifier)"))
+    (scenario "node and token kind collision retains author context"
+      (verify check-error node-token-collision "concise syntax kind is both a node and a token" 'Identifier "Identifier")
+      (verify check-error macro-node-token-collision "concise syntax kind is both a node and a token" '(token-node identifier) "(token-node"))
+    (scenario "canonical scalar constraints fail at concise admission"
+      (each (result blame) (scalar-errors scalar-blames)
+         (verify check-error result "invalid canonical GrammarExpr metadata" blame (if (string? blame) "\"\"" "(")))
+      (verify check-error dotted-surface "invalid concise grammar expression" '(optional . identifier) "(optional"))
+    (scenario "canonical entry rejects malformed constructors before list access"
+      (each (result blame) (core-errors core-blames)
+         (verify check-error result "invalid GrammarExpr declaration" blame "(")))
+    (scenario "canonical header checks and recursive membership stay distinct"
+      (each (row) ('(((empty) #t) ((literal "a") #t) ((literal "") #f)
          ((layout-start " ") #t) ((layout-next "") #f)
          ((layout-end) #t) ((layout-end ")") #t) ((layout-end "") #f)
          ((token name) #t) ((reference rule) #t) ((sequence (empty)) #t)
@@ -309,29 +286,29 @@
          ((precedence left 10 (token name)) #t)
          ((precedence sideways 10 (token name)) #f)
          ((precedence right "high" (token name)) #f)
-         ((optional . name) #f) ((optional invalid-child) #f)))
-      (check (and (grammar-expression-header? '(optional invalid-child)) #t) => #t)
+         ((optional . name) #f) ((optional invalid-child) #f))) (equal (and (grammar-expression? (car row)) #t)  (cadr row)))
+      (equal (and (grammar-expression-header? '(optional invalid-child)) #t)  #t)
       ;; Nullability/liveness policy is owned by construction/resolved LR analysis,
       ;; not by canonical structural membership or the new header predicate.
-      (check (grammar-expression? '(repeat (empty))) => #t))
-    (test-case "defaulted declarations retain the original author context"
-      (check-error defaulted-root "concise language root rule must construct one node"
-                   'identifier "identifier")
-      (check (car (cadddr defaulted-root))
-             => '(deflanguage diagnostic-study
+      (equal (grammar-expression? '(repeat (empty)))  #t))
+    (scenario "defaulted declarations retain the original author context"
+      (verify check-error defaulted-root "concise language root rule must construct one node" 'identifier "identifier")
+      (equal (car (cadddr defaulted-root))
+              '(deflanguage diagnostic-study
   (syntax
    (lexical
     (root source-file)
     (lex (identifier Identifier (identifier)))))
   (rules (source-file identifier))))
-      (check (car source-free-defaulted-root)
-             => "concise language root rule must construct one node")
-      (check (caddr source-free-defaulted-root) => #f)
-      (check (cadddr source-free-defaulted-root) => (cadddr defaulted-root)))
-    (test-case "source-free input does not invent author coordinates"
-      (check (car source-free-reference) => "explicit reference names an unknown rule")
-      (check (cadr source-free-reference) => 'missing-rule)
-(check (caddr source-free-reference) => #f)
-      (check (car source-free-collision) => "concise syntax kind is both a node and a token")
-      (check (cadr source-free-collision) => 'Identifier)
-      (check (caddr source-free-collision) => #f))))
+      (equal (car source-free-defaulted-root)
+              "concise language root rule must construct one node")
+      (equal (caddr source-free-defaulted-root)  #f)
+      (equal (cadddr source-free-defaulted-root)  (cadddr defaulted-root)))
+    (property "source-free input does not invent author coordinates"
+      (bindings)
+      (equal (car source-free-reference)  "explicit reference names an unknown rule")
+      (equal (cadr source-free-reference)  'missing-rule)
+      (equal (caddr source-free-reference)  #f)
+      (equal (car source-free-collision)  "concise syntax kind is both a node and a token")
+      (equal (cadr source-free-collision)  'Identifier)
+      (equal (caddr source-free-collision)  #f)))

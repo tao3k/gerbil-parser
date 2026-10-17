@@ -1,3 +1,4 @@
+(import :gerbil-parser/language-test-support)
 (import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; -*- Gerbil -*-
 ;;; Published ABI order is validated over the concise DSL's inferred syntax.
@@ -84,35 +85,29 @@
                      (terminals (word WordToken)) (reserved-token-kinds Missing))
             (catalog (syntax-kinds (Root node (value)) (WordToken token (text)))))))))
 
-(def language-catalog-test
-  (test-suite "validated published language catalog"
-    (test-case "retains reserved nodes, fields and interleaved public kind IDs"
-      (check (grammar-ir-ref projected-grammar 'syntax-kinds)
-             => (grammar-ir-ref published-grammar 'syntax-kinds))
-      (check (parser-ir-ref projected-parser-ir 'root-kind) => 'Root)
-      (check (grammar-ir-ref projected-grammar 'terminals)
-             => (grammar-ir-ref published-grammar 'terminals)))
-    (test-case "preserves canonical rules, lexical priority and LR tables"
-      (for-each
-       (lambda (key)
-         (check (grammar-ir-ref projected-grammar key) => (grammar-ir-ref published-grammar key)))
-       '(lexical-rules rules extras keywords parser-entrypoints recoveries conflicts case-insensitive flow))
-      (check (parser-ir-ref projected-parser-ir 'lr-spec) => (parser-ir-ref published-parser-ir 'lr-spec)))
-    (test-case "preserves accepted and rejected lossless artifacts"
-      (for-each
-       (lambda (source)
-         (let ((actual (parse-source projected-parser source))
+(deflanguage-parser-tests language-catalog-test "validated published language catalog"
+  (engine)
+    (property "retains reserved nodes, fields and interleaved public kind IDs"
+      (bindings)
+      (equal (grammar-ir-ref projected-grammar 'syntax-kinds)
+              (grammar-ir-ref published-grammar 'syntax-kinds))
+      (equal (parser-ir-ref projected-parser-ir 'root-kind)  'Root)
+      (equal (grammar-ir-ref projected-grammar 'terminals)
+              (grammar-ir-ref published-grammar 'terminals)))
+    (scenario "preserves canonical rules, lexical priority and LR tables"
+      (each (key) ('(lexical-rules rules extras keywords parser-entrypoints recoveries conflicts case-insensitive flow))
+         (equal (grammar-ir-ref projected-grammar key)  (grammar-ir-ref published-grammar key)))
+      (equal (parser-ir-ref projected-parser-ir 'lr-spec)  (parser-ir-ref published-parser-ir 'lr-spec)))
+    (scenario "preserves accepted and rejected lossless artifacts"
+      (each (source) ('("alpha" " α " "?" "alpha beta" ""))
+         (scope ((actual (parse-source projected-parser source))
                (expected (parse-source published-parser source)))
-           (check (parse-artifact-success? actual) => (parse-artifact-success? expected))
-           (check (parse-artifact-roundtrip actual) => source)
-           (check (parse-artifact-events actual) => (parse-artifact-events expected))))
-       '("alpha" " α " "?" "alpha beta" "")))
-    (test-case "rejects incomplete, remapped and malformed catalogs during expansion"
-      (let (messages (catalog-rejection-messages))
-        (check (length messages) => 12)
-        (for-each
-         (lambda (message)
-           (check (not (not (string-contains message "catalog"))) => #t)
-           (check (string-contains message "UNEXPECTED-ADMISSION") => #f))
-         messages)))))
-(export language-catalog-test)
+           (equal (parse-artifact-success? actual)  (parse-artifact-success? expected))
+           (equal (parse-artifact-roundtrip actual)  source)
+           (equal (parse-artifact-events actual)  (parse-artifact-events expected)))))
+    (scenario "rejects incomplete, remapped and malformed catalogs during expansion"
+      (scope ((messages (catalog-rejection-messages)))
+        (equal (length messages)  12)
+        (each (message) (messages)
+           (equal (not (not (string-contains message "catalog")))  #t)
+           (equal (string-contains message "UNEXPECTED-ADMISSION")  #f)))))

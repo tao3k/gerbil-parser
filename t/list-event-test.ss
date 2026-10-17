@@ -1,3 +1,4 @@
+(import :gerbil-parser/language-test-support)
 ;;; Non-Org declaration controls for scoped native list structure and spans.
 (import :std/test
         (only-in :gerbil-parser/src/modules/parser/interface
@@ -9,7 +10,7 @@
                  source-list-paragraph-span-forms source-list-paragraph-close-form
                  source-list-close-forms source-list-first-blank-forms source-list-reset-blank-form)
         (only-in :gerbil-parser/src/compiler/event-fold-runtime run-event-fold))
-(export list-event-test)
+
 (def rule (make-list-line "+" #t 'Sequence 'Entry 'Marker 'Space 4))
 (def text (make-text-line 'Blank 'Raw #f 'Content))
 (def scope (make-source-event-scope 'non-org-list))
@@ -48,43 +49,42 @@
                          (,@close (token Raw start end))))))
                ((token Raw start end))))))
     (source-list-close-forms text scope #f '() #f)))
-(def list-event-test
-  (test-suite "native declarative list transitions"
-    (test-case "non-Org siblings preserve Unicode CRLF and EOF"
-      (let* ((source "+ α\r\n+ β") (result (events source)))
-        (check (starts result 'Sequence) => 1)
-        (check (starts result 'Entry) => 2)
-        (check (covers? result source) => #t)))
-    (test-case "nested dedent and sibling transitions balance every node"
-      (let* ((source "+ a\n  + b\n    + c\n  + d\n+ e\n")
-             (result (events source)))
-        (check (starts result 'Sequence) => 3)
-        (check (starts result 'Entry) => 5)
-        (check (covers? result source) => #t)))
-    (test-case "ordered kind changes replace a same-column container"
-      (let* ((source "+ a\n1. b\n+ c") (result (events source)))
-        (check (starts result 'Sequence) => 3)
-        (check (covers? result source) => #t)))
-    (test-case "tab width belongs to the admitted list declaration"
-      (let* ((source "+ a\n\t+ b\n   + c\n") (result (events source)))
-        (check (starts result 'Sequence) => 3)
-        (check (covers? result source) => #t)))
-    (test-case "one blank retains the item and two blanks terminate it"
-      (for-each (lambda (source)
-                  (check (covers? (events source) source) => #t))
-                '("+ a\n\n  b\n+ c" "+ a\n\n\nplain\n"))
-      (check (starts (events "+ a\n\n  b\n+ c") 'Sequence) => 1))
-    (test-case "bullet span is explicit language policy"
-      (check (and (member '(token Marker 0 1) (events "+ a")) #t) => #t)
-      (check (and (member '(token Marker 0 2) (events "+ a" 'with-separator)) #t) => #t)
-      (check (covers? (events "+ a" 'with-separator) "+ a") => #t))
-    (test-case "disabled ordered markers and empty documents stay lossless"
-      (let (unordered (make-list-line "+" #f 'Sequence 'Entry 'Marker 'Space 4))
-        (check (starts (events "1. raw\n+ item" 'marker unordered) 'Sequence) => 1)
-        (check (covers? (events "1. raw\n+ item" 'marker unordered) "1. raw\n+ item") => #t))
-      (check (covers? (events "") "") => #t))
-    (test-case "invalid declarations and transition policies fail before execution"
-      (check-exception (source-list-initial #f scope text) true)
-      (check-exception (source-list-initial rule #f text) true)
-      (check-exception (source-list-item-open-forms rule scope 'ordered) true)
-      (check-exception (source-list-item-open-forms rule scope #f bullet-span: 'unknown) true))))
+(deflanguage-parser-tests list-event-test "native declarative list transitions"
+  (engine)
+    (property "non-Org siblings preserve Unicode CRLF and EOF"
+      (bindings (source "+ α\r\n+ β") (result (events source)))
+      (equal (starts result 'Sequence)  1)
+      (equal (starts result 'Entry)  2)
+      (equal (covers? result source)  #t))
+    (property "nested dedent and sibling transitions balance every node"
+      (bindings (source "+ a\n  + b\n    + c\n  + d\n+ e\n") (result (events source)))
+      (equal (starts result 'Sequence)  3)
+      (equal (starts result 'Entry)  5)
+      (equal (covers? result source)  #t))
+    (property "ordered kind changes replace a same-column container"
+      (bindings (source "+ a\n1. b\n+ c") (result (events source)))
+      (equal (starts result 'Sequence)  3)
+      (equal (covers? result source)  #t))
+    (property "tab width belongs to the admitted list declaration"
+      (bindings (source "+ a\n\t+ b\n   + c\n") (result (events source)))
+      (equal (starts result 'Sequence)  3)
+      (equal (covers? result source)  #t))
+    (scenario "one blank retains the item and two blanks terminate it"
+      (each (source) ('("+ a\n\n  b\n+ c" "+ a\n\n\nplain\n"))
+                  (equal (covers? (events source) source)  #t))
+      (equal (starts (events "+ a\n\n  b\n+ c") 'Sequence)  1))
+    (property "bullet span is explicit language policy"
+      (bindings)
+      (equal (and (member '(token Marker 0 1) (events "+ a")) #t)  #t)
+      (equal (and (member '(token Marker 0 2) (events "+ a" 'with-separator)) #t)  #t)
+      (equal (covers? (events "+ a" 'with-separator) "+ a")  #t))
+    (scenario "disabled ordered markers and empty documents stay lossless"
+      (scope ((unordered (make-list-line "+" #f 'Sequence 'Entry 'Marker 'Space 4)))
+        (equal (starts (events "1. raw\n+ item" 'marker unordered) 'Sequence)  1)
+        (equal (covers? (events "1. raw\n+ item" 'marker unordered) "1. raw\n+ item")  #t))
+      (equal (covers? (events "") "")  #t))
+    (scenario "invalid declarations and transition policies fail before execution"
+      (raises (source-list-initial #f scope text) true)
+      (raises (source-list-initial rule #f text) true)
+      (raises (source-list-item-open-forms rule scope 'ordered) true)
+      (raises (source-list-item-open-forms rule scope #f bullet-span: 'unknown) true)))

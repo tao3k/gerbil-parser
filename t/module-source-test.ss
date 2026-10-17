@@ -1,3 +1,4 @@
+(import :gerbil-parser/language-test-support)
 (import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; Source framing is closed lexical data with bounded immutable indexes.
 (import :std/test
@@ -10,7 +11,7 @@
         (only-in :gerbil-parser/languages/tla-plus/parser tla-plus-sany-candidate-language-grammar)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-ir)
         (only-in "module-source-cases.ss" module-source-cases))
-(export module-source-test module-framing-language-grammar)
+(export  module-framing-language-grammar)
 (def module-expression '(module-text "----" "MODULE" "====" "(*" "*)" "\\*" "_"))
 (def module-plan (prepare-lexical-source-plan (list (list 'text module-expression))))
 (begin
@@ -29,46 +30,39 @@
   (unit (node Unit (seq border (literal "MODULE") (field name name) border
                        (repeat (choice name string (reference unit))) end)))))
  (bind-fixture-grammar-release module-framing "module-framing" "v1" "module-framing.v1") )
-(def module-source-test
- (test-suite "prepared module framing IR"
-  (test-case "the real TLA+ descriptor publishes closed framing data"
-   (check (cadr (assq 'module-text (cdr (assq 'lexical-rules (language-grammar-ir tla-plus-sany-candidate-language-grammar)))))
-          => module-expression))
-  (test-case "framing keeps character boundaries, nested depth and module text stops"
-   (for-each (lambda (row)
-    (call-with-lexical-source module-plan (car row)
-     (lambda () (check (scan-module-text (car row) (cadr row) module-expression) => (caddr row)))))
-    module-source-cases))
-  (test-case "nested comments and quoted end markers never close a module"
-   (for-each (lambda (middle)
-    (let* ((prefix (string-append "---- MODULE A ----\n" middle "\n"))
+(deflanguage-parser-tests module-source-test "prepared module framing IR"
+  (engine)
+  (property "the real TLA+ descriptor publishes closed framing data"
+      (bindings)
+      (equal (cadr (assq 'module-text (cdr (assq 'lexical-rules (language-grammar-ir tla-plus-sany-candidate-language-grammar)))))
+           module-expression))
+  (scenario "framing keeps character boundaries, nested depth and module text stops"
+   (each (row) (module-source-cases)
+    (using (call-with-lexical-source module-plan (car row)) () (equal (scan-module-text (car row) (cadr row) module-expression)  (caddr row)))))
+  (scenario "nested comments and quoted end markers never close a module"
+   (each (middle) ('("(* ---- MODULE B ----\n==== (* nested ==== *) *)" "\"====\"" "\\* ====\nword"))
+    (sequential ((prefix (string-append "---- MODULE A ----\n" middle "\n"))
            (source (string-append prefix "still inside\n====\nfooter")))
-     (call-with-lexical-source module-plan source
-      (lambda () (check (scan-module-text source (string-length prefix) module-expression) => #f)))))
-    '("(* ---- MODULE B ----\n==== (* nested ==== *) *)" "\"====\"" "\\* ====\nword")))
-  (test-case "long repeated borders remain one indexed interval"
-   (let (source (string-append (make-string 100000 #\-) " MODULE A ----\n====\nfooter"))
-    (call-with-lexical-source module-plan source
-     (lambda ()
-      (check (scan-module-text source 0 module-expression) => #f)
-      (check (scan-module-text source (- (string-length source) 6) module-expression) => (string-length source))))))
-  (test-case "the same data executes in an ordinary lossless parser"
-   (for-each (lambda (source)
-    (let (artifact (parse-language-source module-framing-language-grammar source))
-     (check (parse-artifact-success? artifact) => #t)
-     (check (parse-artifact-roundtrip artifact) => source)))
-    '("preamble\n---- MODULE A ----\n====\nfooter"
+     (using (call-with-lexical-source module-plan source) () (equal (scan-module-text source (string-length prefix) module-expression)  #f)))))
+  (scenario "long repeated borders remain one indexed interval"
+   (scope ((source (string-append (make-string 100000 #\-) " MODULE A ----\n====\nfooter")))
+    (using (call-with-lexical-source module-plan source) ()
+      (equal (scan-module-text source 0 module-expression)  #f)
+      (equal (scan-module-text source (- (string-length source) 6) module-expression)  (string-length source)))))
+  (scenario "the same data executes in an ordinary lossless parser"
+   (each (source) ('("preamble\n---- MODULE A ----\n====\nfooter"
       "---- MODULE A ----\n---- MODULE B ----\n====\ninner\n====\nfooter"
-      "---- MODULE A ----\n(* ==== *)\n\"====\"\n====\nfooter")))
-  (test-case "an explicit extra name character may itself be numeric"
-   (let* ((expression '(module-text "~~~" "UNIT" "!!!" "(*" "*)" "\\*" "0"))
+      "---- MODULE A ----\n(* ==== *)\n\"====\"\n====\nfooter"))
+    (scope ((artifact (parse-language-source module-framing-language-grammar source)))
+     (equal (parse-artifact-success? artifact)  #t)
+     (equal (parse-artifact-roundtrip artifact)  source))))
+  (scenario "an explicit extra name character may itself be numeric"
+   (sequential ((expression '(module-text "~~~" "UNIT" "!!!" "(*" "*)" "\\*" "0"))
           (plan (prepare-lexical-source-plan (list (list 'text expression)))))
-    (for-each (lambda (source expected)
-     (call-with-lexical-source plan source (lambda ()
-      (check (scan-module-text source 0 expression) => expected))))
-     '("~~~ UNIT 000 ~~~" "~~~ UNIT 111 ~~~") '(#f 16))))
-  (test-case "malformed framing profiles reject before source preparation"
-   (for-each (lambda (expression) (check (lexical-expression? expression) => #f))
-    '((module-text "-x" "MODULE" "====" "(*" "*)" "\\*" "_")
+    (each (source expected) ('("~~~ UNIT 000 ~~~" "~~~ UNIT 111 ~~~") '(#f 16))
+     (using (call-with-lexical-source plan source) ()
+      (equal (scan-module-text source 0 expression)  expected)))))
+  (scenario "malformed framing profiles reject before source preparation"
+   (each (expression) ('((module-text "-x" "MODULE" "====" "(*" "*)" "\\*" "_")
       (module-text "----" "" "====" "(*" "*)" "\\*" "_")
-      (module-text "----" "MODULE" "====" "(*" "*)" "\\*" "__"))))))
+      (module-text "----" "MODULE" "====" "(*" "*)" "\\*" "__"))) (equal (lexical-expression? expression)  #f))))

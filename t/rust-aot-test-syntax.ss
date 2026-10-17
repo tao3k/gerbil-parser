@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Structural checks for generated Rust functions, without string snapshots.
 
-(import (only-in :std/test check)
+(import (only-in :gerbil-parser/language-test-support parser-check parser-check-result)
         (only-in :std/encoding/json JSONReadOptions string->json)
         (only-in :std/misc/ports read-all-as-string)
         (only-in :gerbil-parser/src/compiler/rust-syntax
@@ -59,84 +59,84 @@
   (syntax-case stx ()
     ((_ function fixture)
      (syntax
-      (let (options (JSONReadOptions object-as-hash: #t))
-        (check
+      (parser-check ()(scope ((options (JSONReadOptions object-as-hash: #t)))
+        (equal
          (json-ir-equivalent?
           (string->json (rust-function-ir-json function) options)
           (call-with-input-file fixture
             (lambda (port)
               (string->json (read-all-as-string port) options))))
-         => #t))))))
+          #t)))))))
 
 (defsyntax (check-rust-event-strategy stx)
   (syntax-case stx ()
     ((_ strategy name root)
      (syntax
-      (let* ((value strategy)
+      (parser-check ()(sequential ((value strategy)
              (body (rust-line-event-function-form-body value)))
-        (check (rust-line-event-function-form? value) => #t)
-        (check (rust-line-event-function-form-name value) => name)
-        (check (rust-line-event-function-form-root value) => root)
-        (check (rust-event-if-form? body) => #t)
-        (check (rust-event-node-form?
-                (rust-event-if-form-consequent body)) => #t)
-        (check (rust-event-node-form?
-                (rust-event-if-form-alternate body)) => #t)
-        (check (rust-event-token-form?
+        (equal (rust-line-event-function-form? value)  #t)
+        (equal (rust-line-event-function-form-name value)  name)
+        (equal (rust-line-event-function-form-root value)  root)
+        (equal (rust-event-if-form? body)  #t)
+        (equal (rust-event-node-form?
+                (rust-event-if-form-consequent body))  #t)
+        (equal (rust-event-node-form?
+                (rust-event-if-form-alternate body))  #t)
+        (equal (rust-event-token-form?
                 (car (rust-event-node-form-children
                       (rust-event-if-form-consequent body))))
-               => #t))))))
+                #t)))))))
 
 (defsyntax (check-rust-aot-any stx)
   (syntax-case stx ()
     ((_ function name parameters result)
      (syntax
-      (let* ((value function)
+      (parser-check ()(sequential ((value function)
              (body (rust-function-form-body value)))
-        (check (rust-function-form? value) => #t)
-        (check (rust-function-form-name value) => name)
-        (check (rust-function-form-parameters value) => parameters)
-        (check (rust-function-form-result value) => result)
-        (check (rust-any-form? (rust-block-form-result body)) => #t))))))
+        (equal (rust-function-form? value)  #t)
+        (equal (rust-function-form-name value)  name)
+        (equal (rust-function-form-parameters value)  parameters)
+        (equal (rust-function-form-result value)  result)
+        (equal (rust-any-form? (rust-block-form-result body))  #t)))))))
 
 (defsyntax (check-rust-aot-function stx)
   (syntax-case stx ()
     ((_ function name parameters result method)
      (syntax
-      (let* ((value function)
+      (parser-check ()(sequential ((value function)
              (body (rust-function-form-body value))
              (tail (rust-block-form-result body)))
-        (check (rust-function-form? value) => #t)
-        (check (rust-function-form-name value) => name)
-        (check (rust-function-form-parameters value) => parameters)
-        (check (rust-function-form-result value) => result)
-        (check (rust-block-form? body) => #t)
-        (check (rust-block-form-statements body) => '())
-        (check (rust-method-form? tail) => #t)
-        (check (rust-method-form-method tail) => method))))))
+        (equal (rust-function-form? value)  #t)
+        (equal (rust-function-form-name value)  name)
+        (equal (rust-function-form-parameters value)  parameters)
+        (equal (rust-function-form-result value)  result)
+        (equal (rust-block-form? body)  #t)
+        (equal (rust-block-form-statements body)  '())
+        (equal (rust-method-form? tail)  #t)
+        (equal (rust-method-form-method tail)  method)))))))
 
 (defsyntax (check-rust-aot-artifact stx)
   (syntax-case stx ()
     ((_ function path)
      (syntax
-      (check (call-with-input-file path read-all-as-string)
-             => (rust-render function))))))
+      (parser-check ()(equal (call-with-input-file path read-all-as-string)
+              (rust-render function)))))))
 
 (defsyntax (check-rust-aot-conditional stx)
   (syntax-case stx ()
     ((_ function name parameters result)
      (syntax
-      (let* ((value function)
+      (parser-check ()(sequential ((value function)
              (body (rust-function-form-body value))
              (binding (car (rust-block-form-statements body)))
              (branch (rust-block-form-result body)))
-        (check (rust-function-form? value) => #t)
-        (check (rust-function-form-name value) => name)
-        (check (rust-function-form-parameters value) => parameters)
-        (check (rust-function-form-result value) => result)
-        (check (length (rust-block-form-statements body)) => 1)
-        (check (rust-let-form? binding) => #t)
-        (check (rust-first-word-form? (rust-let-form-value binding)) => #t)
-        (check (rust-if-form? branch) => #t)
-        (check (rust-string-in-form? (rust-if-form-condition branch)) => #t)
-        (check (rust-if-form? (rust-if-form-alternate branch)) => #t))))))
+        (equal (rust-function-form? value)  #t)
+        (equal (rust-function-form-name value)  name)
+        (equal (rust-function-form-parameters value)  parameters)
+        (equal (rust-function-form-result value)  result)
+        (equal (length (rust-block-form-statements body))  1)
+        (equal (rust-let-form? binding)  #t)
+        (equal (rust-first-word-form? (rust-let-form-value binding))  #t)
+        (equal (rust-if-form? branch)  #t)
+        (equal (rust-string-in-form? (rust-if-form-condition branch))  #t)
+        (equal (rust-if-form? (rust-if-form-alternate branch))  #t)))))))

@@ -1,3 +1,4 @@
+(import :gerbil-parser/language-test-support)
 (import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; Differential witness for admission filters on nonregular lexical rules.
 (import :std/test
@@ -42,18 +43,19 @@
     (name (identifier))
     (other (fallback)))))
 
-(def lexical-first-character-test
-  (test-suite "closed lexical first-character admission"
-    (test-case "prepared competition preserves evaluation order and empty projections"
-      (let (observed '())
-        (def (rule name rank first? extent)
+(deflanguage-parser-tests lexical-first-character-test "closed lexical first-character admission"
+  (engine)
+    (scenario "prepared competition preserves evaluation order and empty projections"
+      (scope ((observed '()))
+(locals ((rule (lambda ( name rank first? extent)
           (vector (lambda (terminals) #t)
                   (lambda (source offset)
                     (set! observed (cons name observed))
                     (let (end (extent source offset))
                       (and end (list name end rank))))
-                  #f name rank first? #f))
-        (let-values (((lexer plans certificates)
+                  #f name rank first? #f))))
+
+        (scope-values (((lexer plans certificates)
                       (prepare-generated-lexer
                        (list
                         (rule 'first 0 char-alphabetic? (lambda (s o) (+ o 1)))
@@ -61,59 +63,54 @@
                               (lambda (s o) (and (char=? (string-ref s o) #\a) (+ o 2))))
                         (rule 'priority 9 char-alphabetic? (lambda (s o) (+ o 1))))
                        (lambda () (error "unused certificate preparation")) '#())))
-          (for-each
-           (lambda (row)
-             (set! observed '())
-             (let-values (((token end) (lexer (car row) 0 7 #f)))
-               (check (list (token-kind token) (token-lexeme token)
-                            (token-start token) (token-end token) end)
-                      => (cadr row)))
-             (check (reverse observed) => (caddr row)))
-           '(("ab" (long "ab" 7 9 2) (priority long first))
+          (each (row) ('(("ab" (long "ab" 7 9 2) (priority long first))
              ("b" (priority "b" 7 8 1) (priority first))
              ("α" (priority "α" 7 9 1) (priority long first))))
-          (set! observed '())
-          (check-exception (lexer "?" 0 0 #f) true)
-          (check observed => '()))))
-    (test-case "engine token bytes preserve 1-4 byte scalars NUL and combining marks"
-      (let* ((source (string-append "Aé中😀" (string #\nul) "e" (string (integer->char #x301))))
+             (act (set! observed '()))
+             (scope-values (((token end) (lexer (car row) 0 7 #f)))
+               (equal (list (token-kind token) (token-lexeme token)
+                            (token-start token) (token-end token) end)
+                       (cadr row)))
+             (equal (reverse observed)  (caddr row)))
+          (act (set! observed '()))
+          (raises (lexer "?" 0 0 #f) true)
+          (equal observed  '())))))
+    (scenario "engine token bytes preserve 1-4 byte scalars NUL and combining marks"
+      (sequential ((source (string-append "Aé中😀" (string #\nul) "e" (string (integer->char #x301))))
              (scanner (make-source-scanner source #f
                         (lambda (text start context _mode)
                           (values (and (< start (string-length text)) 'scalar)
                                   (+ start 1) context)))))
-        (let loop ((state (source-scanner-initial-state scanner))
+        (iterate loop ((state (source-scanner-initial-state scanner))
                    (index 0) (byte-start 0) (widths '(1 2 3 4 1 1 2)))
-          (if (null? widths)
-            (let-values (((token final) (source-scanner-step scanner state #f)))
-              (check token => #f)
-              (check (source-scan-state-character-offset final) => 7)
-              (check (source-scan-state-byte-offset final) => 14))
-            (let* ((byte-end (+ byte-start (car widths)))
+          (branch (null? widths)
+            (scope-values (((token final) (source-scanner-step scanner state #f)))
+              (equal token  #f)
+              (equal (source-scan-state-character-offset final)  7)
+              (equal (source-scan-state-byte-offset final)  14))
+            (sequential ((byte-end (+ byte-start (car widths)))
                    (direct (scan-emit source 'scalar index (+ index 1) (+ 7 byte-start))))
-              (check (token-start direct) => (+ 7 byte-start))
-              (check (token-end direct) => (+ 7 byte-end))
-              (let-values (((token next) (source-scanner-step scanner state #f)))
-                (check (token-kind token) => 'scalar)
-                (check (token-lexeme token) => (substring source index (+ index 1)))
-                (check (token-start token) => byte-start)
-                (check (token-end token) => byte-end)
-                (loop next (+ index 1) byte-end (cdr widths))))))))
-    (test-case "filtered scanner preserves maximal munch at every offset"
-      (for-each
-       (lambda (source)
-         (let loop ((offset 0))
+              (equal (token-start direct)  (+ 7 byte-start))
+              (equal (token-end direct)  (+ 7 byte-end))
+              (scope-values (((token next) (source-scanner-step scanner state #f)))
+                (equal (token-kind token)  'scalar)
+                (equal (token-lexeme token)  (substring source index (+ index 1)))
+                (equal (token-start token)  byte-start)
+                (equal (token-end token)  byte-end)
+                (continue loop next (+ index 1) byte-end (cdr widths))))))))
+    (scenario "filtered scanner preserves maximal munch at every offset"
+      (each (source) ('("foo .25 1. 0xAB 0b10 hexAB 12_345M"
+         "\"a\"\"b\" 'c' @d\\@e@ @unterminated"
+         "αβ λ1 ٣.٢" "<<EOF\nbody\nEOF\n" "plain < > ."))
+         (iterate loop ((offset 0))
            (when (< offset (string-length source))
-             (let* ((match (reference-match source offset))
+             (sequential ((match (reference-match source offset))
                     (expected (scan-emit source (car match) offset (cadr match) 0)))
-               (let-values (((actual end)
+               (scope-values (((actual end)
                              (scan-source-token first-character-witness-parser
                                                 source offset 0 #f)))
-                 (check (list (token-kind actual) (token-lexeme actual)
+                 (equal (list (token-kind actual) (token-lexeme actual)
                               (token-end actual) end)
-                        => (list (token-kind expected) (token-lexeme expected)
+                         (list (token-kind expected) (token-lexeme expected)
                                  (token-end expected) (cadr match)))))
-             (loop (+ offset 1)))))
-       '("foo .25 1. 0xAB 0b10 hexAB 12_345M"
-         "\"a\"\"b\" 'c' @d\\@e@ @unterminated"
-         "αβ λ1 ٣.٢" "<<EOF\nbody\nEOF\n" "plain < > .")))))
-(export lexical-first-character-test)
+             (continue loop (+ offset 1)))))))

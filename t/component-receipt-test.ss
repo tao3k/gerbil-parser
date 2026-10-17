@@ -1,7 +1,8 @@
+(import :gerbil-parser/language-test-support)
 ;;; Forged or incomplete observations must not qualify an optimization.
 (import :std/test :std/io/tempfile
         (only-in :gerbil-parser/t/benchmarks/parser-stage-cost/receipt read-parser-component-receipt))
-(export component-receipt-test)
+
 (def (sample index (bytes 64))
   (list 'PARSER-COMPONENT-SAMPLE 'control
         (list (cons 'sample index) '(cpu-ms . 2.) '(gc-count . 0.)
@@ -26,18 +27,21 @@
   (with-catch
     (lambda (e) (equal? (error-message e) "parser component receipt rejected"))
     (lambda () (admit rows complete?) #f)))
-(def component-receipt-test
-  (test-suite "component evidence admission"
-    (test-case "complete independent samples retain exact allocation"
-      (let (result (admit (list (sample 0) (sample 1) (summary))))
-        (check (caddr result) => 2)
-        (check (hash-get (cadr result) 'control) => '(64 64))))
-    (test-case "repeated sample identities and summaries are rejected"
-      (check (rejected? (list (sample 0) (sample 0) (summary))) => #t)
-      (check (rejected? (list (sample 0) (sample 1) (summary) (summary))) => #t))
-    (test-case "changed counters and stale CPU summaries are rejected"
-      (check (rejected? (list (sample 0) (sample 1 72) (summary))) => #t)
-      (check (rejected? (list (sample 0) (sample 1) (summary 3.))) => #t))
-    (test-case "missing completion and missing observations are rejected"
-      (check (rejected? (list (sample 0) (sample 1) (summary)) #f) => #t)
-      (check (rejected? (list (sample 0) (summary))) => #t))))
+(deflanguage-parser-tests component-receipt-test "component evidence admission"
+  (engine)
+    (property "complete independent samples retain exact allocation"
+      (bindings (result (admit (list (sample 0) (sample 1) (summary)))))
+      (equal (caddr result)  2)
+      (equal (hash-get (cadr result) 'control)  '(64 64)))
+    (property "repeated sample identities and summaries are rejected"
+      (bindings)
+      (equal (rejected? (list (sample 0) (sample 0) (summary)))  #t)
+      (equal (rejected? (list (sample 0) (sample 1) (summary) (summary)))  #t))
+    (property "changed counters and stale CPU summaries are rejected"
+      (bindings)
+      (equal (rejected? (list (sample 0) (sample 1 72) (summary)))  #t)
+      (equal (rejected? (list (sample 0) (sample 1) (summary 3.)))  #t))
+    (property "missing completion and missing observations are rejected"
+      (bindings)
+      (equal (rejected? (list (sample 0) (sample 1) (summary)) #f)  #t)
+      (equal (rejected? (list (sample 0) (summary)))  #t)))

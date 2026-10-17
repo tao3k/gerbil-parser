@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 
 (import :std/test
@@ -16,27 +17,21 @@
         (error "LALR fixed-point scenario contract failed"))
       (loop (- remaining 1)))))
 
-(def lalr-fixed-point-benchmark-tests
-  (test-suite "LALR fixed-point performance scenario"
-    (test-case "classic grammars retain exactly-once LR(0) state visits"
-      (check (benchmark-contract-valid? benchmark-path) => #t)
-      (let (algorithm-receipt (lalr-fixed-point-scenario))
-        (write algorithm-receipt)
-        (newline)
-        (force-output)
-        (check (lalr-fixed-point-scenario-pass? algorithm-receipt) => #t))
-      (run-scenario-batch)
-      (##gc)
-      (let (benchmark-receipt
-            (benchmark-contract-run benchmark-path run-scenario-batch))
-        (write benchmark-receipt)
-        (newline)
-        (force-output)
-        (check (benchmark-contract-receipt-pass? benchmark-receipt) => #t)))))
+(deflanguage-parser-tests lalr-fixed-point-benchmark-tests "LALR fixed-point performance scenario"
+  (engine (exclusive #t))
+    (scenario "classic grammars retain exactly-once LR(0) state visits"
+      (equal (benchmark-contract-valid? benchmark-path)  #t)
+      (scope ((algorithm-receipt (lalr-fixed-point-scenario)))
+        (receipt algorithm-receipt)
+        (equal (lalr-fixed-point-scenario-pass? algorithm-receipt)  #t))
+      (act (run-scenario-batch))
+      (act (##gc))
+      (scope ((benchmark-receipt
+            (benchmark-contract-run benchmark-path run-scenario-batch)))
+        (receipt benchmark-receipt)
+        (equal (benchmark-contract-receipt-pass? benchmark-receipt)  #t))))
 
 (def lalr-fixed-point-benchmark-test lalr-fixed-point-benchmark-tests)
-(export lalr-fixed-point-benchmark-tests lalr-fixed-point-benchmark-test)
+(export  lalr-fixed-point-benchmark-test)
 
 ;; Resource admission owns its measurement interval in the shared runtime.
-(def test-worker-exclusive? #t)
-(export test-worker-exclusive?)

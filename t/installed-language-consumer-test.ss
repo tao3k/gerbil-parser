@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 ;;; Run from outside the checkout against an installed GERBIL_PATH. This owner
 ;;; proves that generated language modules can resolve their packaged IR files.
@@ -12,7 +13,7 @@
                  parse-artifact-roundtrip
                  parse-artifact-success?
                  parse-artifact-valid?))
-(export installed-language-consumer-tests)
+
 
 ;; : (-> (-> String Alist) String List)
 (def (consumer-receipt parse source)
@@ -21,20 +22,21 @@
           (parse-artifact-valid? artifact)
           (equal? (parse-artifact-roundtrip artifact) source))))
 
-(def installed-language-consumer-tests
-  (test-suite "installed GQL and openCypher consumers"
-    (test-case "ISO GQL resolves its installed sidecars"
-      (check (consumer-receipt
+(deflanguage-parser-tests installed-language-consumer-tests "installed GQL and openCypher consumers"
+  (engine)
+    (property "ISO GQL resolves its installed sidecars"
+      (bindings)
+      (equal (consumer-receipt
               parse-gql
               "MATCH (n) RETURN n\n")
-             => '(#t #t #t)))
-    (test-case "openCypher resolves its installed sidecars"
-      (check (consumer-receipt
+              '(#t #t #t)))
+    (property "openCypher resolves its installed sidecars"
+      (bindings)
+      (equal (consumer-receipt
               parse-opencypher
               "MATCH (n) RETURN n\n")
-             => '(#t #t #t)))))
+              '(#t #t #t))))
 
-(export installed-language-consumer-tests)
 
 ;; gxtest discovers only exported names ending in -test.
 (def installed-language-consumer-test installed-language-consumer-tests)

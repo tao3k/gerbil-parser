@@ -1,8 +1,9 @@
+(import :gerbil-parser/language-test-support)
 ;;; Exact language ABI fixture parity is an ordinary Scheme semantic test.
 (import :std/test :std/io/tempfile :std/misc/ports
         :std/encoding/json :std/encoding/hex
         (only-in ./generate-language-abi-alignment write-language-abi-alignment! report-language-abi-mismatch!))
-(export language-abi-alignment-test)
+
 (def (text-fixture-bytes)
   (call-with-output-u8vector
     (lambda (port)
@@ -23,17 +24,17 @@
                          (make-JSONReadOptions object-as-hash: #t)))
           (call-with-input-file "rust/gerbil-parser-artifact/tests/fixtures/languages.json"
             read-json))))))
-(def language-abi-alignment-test
-  (test-suite "all-language ABI byte alignment"
-    (test-case "accepted and rejected language products match the Rust fixture exactly"
-      (let (directory (make-temporary-file-name "parser-language-alignment-"))
-        (create-directory directory)
-        (try
-          (let (product (path-expand "language-artifacts.bin" directory))
-            (write-language-abi-alignment! product)
-            (let* ((actual (call-with-input-file product read-all-as-u8vector))
+(deflanguage-parser-tests language-abi-alignment-test "all-language ABI byte alignment"
+  (engine)
+    (scenario "accepted and rejected language products match the Rust fixture exactly"
+      (scope ((directory (make-temporary-file-name "parser-language-alignment-")))
+        (act (create-directory directory))
+        (protect (body
+          (scope ((product (path-expand "language-artifacts.bin" directory)))
+            (act (write-language-abi-alignment! product))
+            (sequential ((actual (call-with-input-file product read-all-as-u8vector))
                    (expected (text-fixture-bytes)))
               (unless (equal? actual expected)
-                (report-language-abi-mismatch! actual expected))
-              (check (equal? actual expected) => #t)))
-          (finally (delete-file-or-directory directory #t)))))))
+                (act (report-language-abi-mismatch! actual expected)))
+              (equal (equal? actual expected)  #t)))
+          ) (cleanup (act (delete-file-or-directory directory #t)))))))

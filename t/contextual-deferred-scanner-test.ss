@@ -1,3 +1,4 @@
+(import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 ;;; Language declarations exercise one engine-owned deferred delimiter scanner.
 
@@ -18,7 +19,7 @@
                  prepare-contextual-scan-suffix contextual-scan-suffix-state)
         (only-in :gerbil-parser/src/runtime/token
                  token-kind token-lexeme token-start token-end))
-(export contextual-deferred-scanner-test)
+
 
 (def (method name mode position form result)
   (make-contextual-method name mode position form result))
@@ -83,151 +84,141 @@
         (loop next (cons token tokens))
         (values (reverse tokens) next)))))
 
-(def contextual-deferred-scanner-test
-  (test-suite "generic deferred delimiter scanner"
-    (test-case "prefix replay reaches source-owned HCL and Bash delimiter states"
-      (for-each
-       (lambda (policy)
-         (let* ((plan (prepare-contextual-scanner-plan
+(deflanguage-parser-tests contextual-deferred-scanner-test "generic deferred delimiter scanner"
+  (engine)
+    (scenario "prefix replay reaches source-owned HCL and Bash delimiter states"
+      (each (policy) ('(raw shell-quote-removal))
+         (sequential ((plan (prepare-contextual-scanner-plan
                        (deferred-scanner-ir 'prefix-replay policy '("<<" "<<-" "<<<"))))
                 (old (prepare-contextual-scanner plan "猫 <<A\nα\nA\n"))
                 (new (prepare-contextual-scanner plan "猫 <<A\nβ\nA\n")))
-           (def (advance scanner count)
+(locals ((advance (lambda ( scanner count)
              (let loop ((state (contextual-scanner-initial-state scanner)) (n count))
                (if (zero? n) state
                  (let-values (((token next) (contextual-scanner-step scanner state 'command)))
-                   (loop next (- n 1))))))
-           (for-each
-            (lambda (count)
-              (let* ((checkpoint (advance old count))
+                   (loop next (- n 1))))))))
+
+           (each (count) ('(0 4 5))
+              (sequential ((checkpoint (advance old count))
                      (receipt (contextual-scan-state-canonical checkpoint))
                      (replayed (contextual-scanner-replay-prefix new checkpoint (make-list count 'command))))
-                (check (contextual-scan-state-canonical replayed)
-                       => (contextual-scan-state-canonical (advance new count)))
-                (check (contextual-scan-state-canonical checkpoint) => receipt)
-                (check-exception (contextual-scanner-step new checkpoint 'command) true)
-                (let-values (((token next) (contextual-scanner-step new replayed 'command)))
-                  (check (and token #t) => #t))))
-            '(0 4 5))
-           (let (checkpoint (advance old 5))
-             (check-exception (contextual-scanner-replay-prefix new checkpoint '(command)) true)
-             (check-exception (contextual-scanner-replay-prefix new checkpoint (make-list 6 'command)) true)
-             (check-exception (contextual-scanner-replay-prefix new checkpoint '(unknown)) true)
-             (check-exception
+                (equal (contextual-scan-state-canonical replayed)
+                        (contextual-scan-state-canonical (advance new count)))
+                (equal (contextual-scan-state-canonical checkpoint)  receipt)
+                (raises (contextual-scanner-step new checkpoint 'command) true)
+                (scope-values (((token next) (contextual-scanner-step new replayed 'command)))
+                  (equal (and token #t)  #t))))
+           (scope ((checkpoint (advance old 5)))
+             (raises (contextual-scanner-replay-prefix new checkpoint '(command)) true)
+             (raises (contextual-scanner-replay-prefix new checkpoint (make-list 6 'command)) true)
+             (raises (contextual-scanner-replay-prefix new checkpoint '(unknown)) true)
+             (raises
               (contextual-scanner-replay-prefix new (contextual-scan-state-with-mode checkpoint 'command)
                                                (make-list 5 'command)) true))
-           (for-each
-            (lambda (sources)
-              (let* ((a (prepare-contextual-scanner plan (car sources)))
+           (each (sources) ('(("cat" "catx") ("<<A" "<<-A") ("\"x\"" "\"x\"tail") ("猫 " "犬 ") ("cat " "ca")))
+              (sequential ((a (prepare-contextual-scanner plan (car sources)))
                      (b (prepare-contextual-scanner plan (cadr sources)))
                      (checkpoint (advance a 1)))
                 ;; The prefix bytes match, but actual longest-match/EOF/quote decisions change.
-                (check-exception (contextual-scanner-replay-prefix b checkpoint '(command)) true)))
-            '(("cat" "catx") ("<<A" "<<-A") ("\"x\"" "\"x\"tail") ("猫 " "犬 ") ("cat " "ca")))
-           (let ((foreign (prepare-contextual-scanner
+                (raises (contextual-scanner-replay-prefix b checkpoint '(command)) true)))
+           (scope ((foreign (prepare-contextual-scanner
                            (prepare-contextual-scanner-plan
                             (deferred-scanner-ir 'prefix-replay policy '("<<" "<<-" "<<<")))
                            "猫 <<A\nβ\nA\n")))
-             (check-exception (contextual-scanner-replay-prefix foreign (advance old 5)
-                                                              (make-list 5 'command)) true))))
-       '(raw shell-quote-removal)))
-    (test-case "edited HCL and Bash prefixes converge only with the complete lexical context"
-      (for-each
-       (lambda (policy)
-         (let* ((plan (prepare-contextual-scanner-plan
+             (raises (contextual-scanner-replay-prefix foreign (advance old 5)
+                                                              (make-list 5 'command)) true))))))
+    (scenario "edited HCL and Bash prefixes converge only with the complete lexical context"
+      (each (policy) ('(raw shell-quote-removal))
+         (sequential ((plan (prepare-contextual-scanner-plan
                        (deferred-scanner-ir 'convergence policy '("<<" "<<-"))))
                 (a (prepare-contextual-scanner plan "cat <<A\nα\nA\n"))
                 (b (prepare-contextual-scanner plan "猫猫 <<A\nα\nA\n")))
-           (def (advance scanner count)
+(locals ((advance (lambda ( scanner count)
              (let loop ((state (contextual-scanner-initial-state scanner)) (n count))
                (if (zero? n) state
                  (let-values (((token next) (contextual-scanner-step scanner state 'command)))
-                   (loop next (- n 1))))))
-           (def (trace scanner state origin)
+                   (loop next (- n 1)))))))
+(trace (lambda ( scanner state origin)
              (let-values (((token next) (contextual-scanner-step scanner state 'command)))
                (if token
                  (cons (list (token-kind token) (token-lexeme token)
                              (- (token-start token) origin) (- (token-end token) origin))
-                       (trace scanner next origin)) '())))
-           (let* ((old (advance a 5)) (new (advance b 5))
+                       (trace scanner next origin)) '())))))
+
+
+           (sequential ((old (advance a 5)) (new (advance b 5))
                   (receipt (contextual-scan-state-canonical new)))
-             (check (contextual-scan-state-converged? old new) => #t)
-             (check (trace a old (contextual-scan-state-byte-offset old))
-                    => (trace b new (contextual-scan-state-byte-offset new)))
-             (let (proof (prepare-contextual-scan-suffix old new))
-               (let-values (((body old-next) (contextual-scanner-step a old 'command)))
-                 (let-values (((body new-next) (contextual-scanner-step b new 'command)))
-                   (let (rebound (contextual-scan-suffix-state proof old-next))
-                     (check (contextual-scan-state-canonical rebound) => (contextual-scan-state-canonical new-next))
-                     (check (trace b rebound (contextual-scan-state-byte-offset new))
-                            => (trace b new-next (contextual-scan-state-byte-offset new))))))
-               (for-each
-                (lambda (outside)
-                  (check (with-catch (lambda (condition) (error-message condition))
+             (equal (contextual-scan-state-converged? old new)  #t)
+             (equal (trace a old (contextual-scan-state-byte-offset old))
+                     (trace b new (contextual-scan-state-byte-offset new)))
+             (scope ((proof (prepare-contextual-scan-suffix old new)))
+               (scope-values (((body old-next) (contextual-scanner-step a old 'command)))
+                 (scope-values (((body new-next) (contextual-scanner-step b new 'command)))
+                   (scope ((rebound (contextual-scan-suffix-state proof old-next)))
+                     (equal (contextual-scan-state-canonical rebound)  (contextual-scan-state-canonical new-next))
+                     (equal (trace b rebound (contextual-scan-state-byte-offset new))
+                             (trace b new-next (contextual-scan-state-byte-offset new))))))
+               (each (outside) ((list (contextual-scanner-initial-state a) new))
+                  (equal (with-catch (lambda (condition) (error-message condition))
                            (lambda () (contextual-scan-suffix-state proof outside) #f))
-                         => "checkpoint is outside the admitted scanner suffix"))
-                (list (contextual-scanner-initial-state a) new)))
+                          "checkpoint is outside the admitted scanner suffix")))
              ;; Each adversarial receipt changes lexical context with the same suffix.
-             (for-each
-              (lambda (replacement)
-                (let ((changed (restore-contextual-scan-state
-                                b (map (lambda (row)
-                                         (if (eq? (car row) (car replacement)) replacement row)) receipt))))
-                  (check (contextual-scan-state-converged? old changed) => #f)))
-              '((active . ("B" #f #f)) (active . ("A" #t #f))
+             (each (replacement) ('((active . ("B" #f #f)) (active . ("A" #t #f))
                 (active . ("A" #f #t)) (expecting . plain) (mode . command)
                 (pending . (("A" #f #f)))))
-             (check (contextual-scan-state-converged?
-                     old (advance (prepare-contextual-scanner plan "cat <<A\nβ\nA\n") 5)) => #f)
-             (check (contextual-scan-state-converged?
+                (scope ((changed (restore-contextual-scan-state
+                                b (map (lambda (row)
+                                         (if (eq? (car row) (car replacement)) replacement row)) receipt))))
+                  (equal (contextual-scan-state-converged? old changed)  #f)))
+             (equal (contextual-scan-state-converged?
+                     old (advance (prepare-contextual-scanner plan "cat <<A\nβ\nA\n") 5))  #f)
+             (equal (contextual-scan-state-converged?
                      old (advance (prepare-contextual-scanner
                                    (prepare-contextual-scanner-plan
                                     (deferred-scanner-ir 'convergence policy '("<<" "<<-")))
-                                   "cat <<A\nα\nA\n") 5)) => #f))
-           (let* ((pending (advance a 4))
+                                   "cat <<A\nα\nA\n") 5))  #f))
+           (sequential ((pending (advance a 4))
                   (receipt (contextual-scan-state-canonical pending)))
-             (check (contextual-scan-state-converged? pending (advance b 4)) => #t)
-             (for-each
-              (lambda (values)
-                (let ((changed (restore-contextual-scan-state
+             (equal (contextual-scan-state-converged? pending (advance b 4))  #t)
+             (each (values) ('((("B" #f #f)) (("A" #t #f)) (("A" #f #t))))
+                (scope ((changed (restore-contextual-scan-state
                                 a (map (lambda (row)
                                          (if (eq? (car row) 'pending) (cons 'pending values) row)) receipt))))
-                  (check (contextual-scan-state-converged? pending changed) => #f)))
-              '((("B" #f #f)) (("A" #t #f)) (("A" #f #t)))))
-           (let* ((q (prepare-contextual-scanner plan "<<A <<B\nA\nB\n"))
+                  (equal (contextual-scan-state-converged? pending changed)  #f))))
+           (sequential ((q (prepare-contextual-scanner plan "<<A <<B\nA\nB\n"))
                   (state (advance q 5))
                   (receipt (contextual-scan-state-canonical state))
                   (reordered (restore-contextual-scan-state
                               q (map (lambda (row)
                                        (if (eq? (car row) 'pending)
                                          (cons 'pending (reverse (cdr row))) row)) receipt))))
-             (check (contextual-scan-state-converged? state reordered) => #f))))
-       '(raw shell-quote-removal)))
-    (test-case "shared scanner plans keep delimiter queues source-local"
-      (let* ((ir (deferred-scanner-ir 'plan-queues 'raw '("<<")))
+             (equal (contextual-scan-state-converged? state reordered)  #f))))))
+    (scenario "shared scanner plans keep delimiter queues source-local"
+      (sequential ((ir (deferred-scanner-ir 'plan-queues 'raw '("<<")))
              (plan (prepare-contextual-scanner-plan ir))
              (a (prepare-contextual-scanner plan "<<A\nα\nA\n"))
              (b (prepare-contextual-scanner plan "<<B\nβ\nB\n")))
-        (def (queued scanner)
+(locals ((queued (lambda ( scanner)
           (let-values (((open next) (contextual-scanner-step scanner (contextual-scanner-initial-state scanner) 'command)))
-            (let-values (((word next) (contextual-scanner-step scanner next 'command))) next)))
-        (check (cdr (assq 'pending (contextual-scan-state-canonical (queued a)))) => '(("A" #f #f)))
-        (check (cdr (assq 'pending (contextual-scan-state-canonical (contextual-scanner-initial-state b)))) => '())
-        (check (cdr (assq 'pending (contextual-scan-state-canonical (queued b)))) => '(("B" #f #f)))
-        (let-values (((tokens final) (scan-all a)))
-          (check (map token-lexeme tokens) => '("<<" "A" "\n" "α\n" "A\n")))
-        (let-values (((tokens final) (scan-all b)))
-          (check (map token-lexeme tokens) => '("<<" "B" "\n" "β\n" "B\n")))))
-    (test-case "queued checkpoints preserve FIFO order across independent futures"
-      (let* ((source "<<A <<B <<C\nα\nA\nβ\nB\nγ\nC\n")
+            (let-values (((word next) (contextual-scanner-step scanner next 'command))) next)))))
+
+        (equal (cdr (assq 'pending (contextual-scan-state-canonical (queued a))))  '(("A" #f #f)))
+        (equal (cdr (assq 'pending (contextual-scan-state-canonical (contextual-scanner-initial-state b))))  '())
+        (equal (cdr (assq 'pending (contextual-scan-state-canonical (queued b))))  '(("B" #f #f)))
+        (scope-values (((tokens final) (scan-all a)))
+          (equal (map token-lexeme tokens)  '("<<" "A" "\n" "α\n" "A\n")))
+        (scope-values (((tokens final) (scan-all b)))
+          (equal (map token-lexeme tokens)  '("<<" "B" "\n" "β\n" "B\n"))))))
+    (scenario "queued checkpoints preserve FIFO order across independent futures"
+      (sequential ((source "<<A <<B <<C\nα\nA\nβ\nB\nγ\nC\n")
              (scanner (deferred-scanner source 'queue-checkpoint 'raw '("<<")))
              (initial (contextual-scanner-initial-state scanner)))
-        (def (advance state count)
+(locals ((advance (lambda ( state count)
           (if (zero? count) state
             (let-values (((_token next)
                           (contextual-scanner-step scanner state 'command)))
-              (advance next (- count 1)))))
-        (def (suffix state)
+              (advance next (- count 1))))))
+(suffix (lambda ( state)
           (let loop ((state state) (trace '()))
             (let-values (((token next)
                           (contextual-scanner-step scanner state 'command)))
@@ -235,48 +226,49 @@
                 (loop next
                       (cons (list (token-kind token) (token-lexeme token)
                                   (contextual-scan-state-canonical next)) trace))
-                (reverse trace)))))
-        (let* ((after-a (advance initial 2))
+                (reverse trace)))))))
+
+
+        (sequential ((after-a (advance initial 2))
                (receipt (contextual-scan-state-canonical after-a))
                (restored (restore-contextual-scan-state scanner receipt))
                (after-b (advance restored 3))
                (second (contextual-scan-state-canonical after-b)))
-          (check (cdr (assq 'pending second)) => '(("A" #f #f) ("B" #f #f)))
-          (check (suffix after-a) => (suffix restored))
-          (check (suffix after-b)
-                 => (suffix (restore-contextual-scan-state scanner second)))
-          (check (map cadr (filter (lambda (row) (eq? (car row) 'here-end))
+          (equal (cdr (assq 'pending second))  '(("A" #f #f) ("B" #f #f)))
+          (equal (suffix after-a)  (suffix restored))
+          (equal (suffix after-b)
+                  (suffix (restore-contextual-scan-state scanner second)))
+          (equal (map cadr (filter (lambda (row) (eq? (car row) 'here-end))
                                   (suffix restored)))
-                 => '("A\n" "B\n" "C\n"))
-          (check (contextual-scan-state-canonical after-a) => receipt))))
-    (test-case "Bash here bodies preserve marker order and CRLF bytes"
-      (let* ((source "cat <<'A' <<-B\r\n$x α\r\nA\r\n\tβ $x\r\n\tB\r\n")
+                  '("A\n" "B\n" "C\n"))
+          (equal (contextual-scan-state-canonical after-a)  receipt)))))
+    (scenario "Bash here bodies preserve marker order and CRLF bytes"
+      (sequential ((source "cat <<'A' <<-B\r\n$x α\r\nA\r\n\tβ $x\r\n\tB\r\n")
              (scanner
               (deferred-scanner source 'bash-deferred
                                 'shell-quote-removal bash-operators)))
-        (let-values (((tokens final) (scan-all scanner)))
-          (check (map token-kind
+        (scope-values (((tokens final) (scan-all scanner)))
+          (equal (map token-kind
                       (filter (lambda (token)
                                 (memq (token-kind token)
                                       '(here-body here-end)))
                               tokens))
-                 => '(here-body here-end here-body here-end))
-          (check (map token-lexeme
+                  '(here-body here-end here-body here-end))
+          (equal (map token-lexeme
                       (filter (lambda (token)
                                 (eq? (token-kind token) 'here-end))
                               tokens))
-                 => '("A\r\n" "\tB\r\n"))
-          (check (contextual-scan-state-mode final) => 'command)
-          (check (contextual-scan-state-byte-offset final)
-                 => (u8vector-length (string->utf8 source)))
-          (check (cdr (assq 'pending (contextual-scan-state-canonical final)))
-                 => '())
-          (check (cdr (assq 'active (contextual-scan-state-canonical final)))
-                 => #f))))
-    (test-case "marker slices reject equal-prefix and equal-suffix body lines"
-      (for-each
-       (lambda (separator)
-         (let* ((line-end (string (or separator #\newline)))
+                  '("A\r\n" "\tB\r\n"))
+          (equal (contextual-scan-state-mode final)  'command)
+          (equal (contextual-scan-state-byte-offset final)
+                  (u8vector-length (string->utf8 source)))
+          (equal (cdr (assq 'pending (contextual-scan-state-canonical final)))
+                  '())
+          (equal (cdr (assq 'active (contextual-scan-state-canonical final)))
+                  #f))))
+    (scenario "marker slices reject equal-prefix and equal-suffix body lines"
+      (each (separator) ('(#f #\newline #\return))
+         (sequential ((line-end (string (or separator #\newline)))
                 (source (string-append "<<-猫" line-end
                                        "\t猫x" line-end "\tx猫" line-end
                                        "\t猫猫" line-end "\t猫"))
@@ -284,140 +276,135 @@
                        (deferred-scanner-ir 'slice-marker 'raw
                                             '("<<" "<<-") separator)))
                 (scanner (prepare-contextual-scanner plan source)))
-           (let-values (((tokens final) (scan-all scanner)))
-             (check (map token-kind tokens)
-                    => '(here-open word newline here-body here-body here-body here-end))
-             (check (map token-lexeme (list-tail tokens 3))
-                    => (list (string-append "\t猫x" line-end)
+           (scope-values (((tokens final) (scan-all scanner)))
+             (equal (map token-kind tokens)
+                     '(here-open word newline here-body here-body here-body here-end))
+             (equal (map token-lexeme (list-tail tokens 3))
+                     (list (string-append "\t猫x" line-end)
                               (string-append "\tx猫" line-end)
                               (string-append "\t猫猫" line-end) "\t猫"))
-             (check (contextual-scan-state-mode final) => 'command)
-             (check (contextual-scan-state-byte-offset final)
-                    => (u8vector-length (string->utf8 source))))))
-       '(#f #\newline #\return)))
-    (test-case "HCL raw marker uses the same deferred scanner"
-      (let* ((source "<<EOF\nα\nEOF")
+             (equal (contextual-scan-state-mode final)  'command)
+             (equal (contextual-scan-state-byte-offset final)
+                     (u8vector-length (string->utf8 source)))))))
+    (scenario "HCL raw marker uses the same deferred scanner"
+      (sequential ((source "<<EOF\nα\nEOF")
              (scanner (deferred-scanner source 'hcl-deferred
                                         'raw '("<<" "<<-"))))
-        (let-values (((tokens final) (scan-all scanner)))
-          (check (map token-kind tokens)
-                 => '(here-open word newline here-body here-end))
-          (check (token-lexeme (list-ref tokens 3)) => "α\n")
-          (check (token-lexeme (list-ref tokens 4)) => "EOF")
-          (check (contextual-scan-state-byte-offset final)
-                 => (u8vector-length (string->utf8 source))))))
-    (test-case "an unfinished marker fails at EOF"
-      (let (scanner
+        (scope-values (((tokens final) (scan-all scanner)))
+          (equal (map token-kind tokens)
+                  '(here-open word newline here-body here-end))
+          (equal (token-lexeme (list-ref tokens 3))  "α\n")
+          (equal (token-lexeme (list-ref tokens 4))  "EOF")
+          (equal (contextual-scan-state-byte-offset final)
+                  (u8vector-length (string->utf8 source))))))
+    (property "an unfinished marker fails at EOF"
+      (bindings (scanner
             (deferred-scanner "cat <<EOF\nbody\n" 'bash-deferred
-                              'shell-quote-removal bash-operators))
-        (check
+                              'shell-quote-removal bash-operators)))
+      (equal
          (with-catch
           (lambda (condition) (error-message condition))
           (lambda () (scan-all scanner) #f))
-         => "unfinished contextual scanner obligation")))
-    (test-case "shell marker quote removal preserves ordinary backslashes"
-      (let* ((source "cat <<\"\\q\"\npayload\n\\q\n")
+          "unfinished contextual scanner obligation"))
+    (scenario "shell marker quote removal preserves ordinary backslashes"
+      (sequential ((source "cat <<\"\\q\"\npayload\n\\q\n")
              (scanner (deferred-scanner source 'bash-deferred
                                         'shell-quote-removal bash-operators)))
-        (let-values (((tokens final) (scan-all scanner)))
-          (check (apply string-append (map token-lexeme tokens)) => source)
-          (check (map token-lexeme
+        (scope-values (((tokens final) (scan-all scanner)))
+          (equal (apply string-append (map token-lexeme tokens))  source)
+          (equal (map token-lexeme
                       (filter (lambda (token) (eq? (token-kind token) 'here-end))
                               tokens))
-                 => '("\\q\n")))))
-    (test-case "empty quoted shell marker closes on the blank line"
-      (let* ((source "cat <<''\npayload\n\n")
+                  '("\\q\n")))))
+    (scenario "empty quoted shell marker closes on the blank line"
+      (sequential ((source "cat <<''\npayload\n\n")
              (scanner (deferred-scanner source 'bash-deferred
                                         'shell-quote-removal bash-operators)))
-        (let-values (((tokens final) (scan-all scanner)))
-          (check (apply string-append (map token-lexeme tokens)) => source)
-          (check (map token-lexeme
+        (scope-values (((tokens final) (scan-all scanner)))
+          (equal (apply string-append (map token-lexeme tokens))  source)
+          (equal (map token-lexeme
                       (filter (lambda (token) (eq? (token-kind token) 'here-end))
                               tokens))
-                 => '("\n")))))
-    (test-case "checkpoint restore counts a Unicode source prefix and resumes its tail"
-      (let* ((source "<<EOF\nα😀\nEOF\n")
+                  '("\n")))))
+    (scenario "checkpoint restore counts a Unicode source prefix and resumes its tail"
+      (sequential ((source "<<EOF\nα😀\nEOF\n")
              (scanner (deferred-scanner source 'hcl-deferred 'raw '("<<" "<<-"))))
-        (let advance ((remaining 4) (state (contextual-scanner-initial-state scanner)))
-          (if (positive? remaining)
-            (let-values (((_token next) (contextual-scanner-step scanner state 'command)))
-              (advance (- remaining 1) next))
-            (let* ((receipt (contextual-scan-state-canonical state))
+        (iterate advance ((remaining 4) (state (contextual-scanner-initial-state scanner)))
+          (branch (positive? remaining)
+            (scope-values (((_token next) (contextual-scanner-step scanner state 'command)))
+              (continue advance (- remaining 1) next))
+            (sequential ((receipt (contextual-scan-state-canonical state))
                    (restored (restore-contextual-scan-state scanner receipt)))
-              (check (contextual-scan-state-byte-offset restored) => 13)
-              (check (contextual-scan-state-canonical restored) => receipt)
-              (let-values (((tail next) (contextual-scanner-step scanner restored 'command)))
-                (check (token-lexeme tail) => "EOF\n")
-                (check (token-start tail) => 13)
-                (check (token-end tail) => 17)
-                (check (contextual-scan-state-byte-offset next) => 17)))))))
-    (test-case "scanner requests own source snapshots across declaration policies"
-      (for-each
-       (lambda (entry)
-         (let* ((source (string-copy "<<EOF\nα\nEOF\n"))
+              (equal (contextual-scan-state-byte-offset restored)  13)
+              (equal (contextual-scan-state-canonical restored)  receipt)
+              (scope-values (((tail next) (contextual-scanner-step scanner restored 'command)))
+                (equal (token-lexeme tail)  "EOF\n")
+                (equal (token-start tail)  13)
+                (equal (token-end tail)  17)
+                (equal (contextual-scan-state-byte-offset next)  17)))))))
+    (scenario "scanner requests own source snapshots across declaration policies"
+      (each (entry) ('((hcl-owned raw) (bash-owned shell-quote-removal)))
+         (sequential ((source (string-copy "<<EOF\nα\nEOF\n"))
                 (scanner (deferred-scanner source (car entry) (cadr entry) '("<<")))
                 (receipt (contextual-scan-state-canonical (contextual-scanner-initial-state scanner))))
-           (string-set! source 2 #\X)
-           (check (contextual-scan-state-canonical (contextual-scanner-initial-state scanner)) => receipt)
-           (let-values (((tokens final) (scan-all scanner)))
-             (check (map token-lexeme tokens) => '("<<" "EOF" "\n" "α\n" "EOF\n")))))
-       '((hcl-owned raw) (bash-owned shell-quote-removal))))
-    (test-case "published and restored checkpoints own pending and active markers"
-      (for-each
-       (lambda (entry)
-         (let* ((scanner (deferred-scanner "<<EOF\nα\nEOF\n" (car entry) (cadr entry) '("<<")))
+           (act (string-set! source 2 #\X))
+           (equal (contextual-scan-state-canonical (contextual-scanner-initial-state scanner))  receipt)
+           (scope-values (((tokens final) (scan-all scanner)))
+             (equal (map token-lexeme tokens)  '("<<" "EOF" "\n" "α\n" "EOF\n"))))))
+    (scenario "published and restored checkpoints own pending and active markers"
+      (each (entry) ('((hcl-checkpoint-owned raw) (bash-checkpoint-owned shell-quote-removal)))
+         (sequential ((scanner (deferred-scanner "<<EOF\nα\nEOF\n" (car entry) (cadr entry) '("<<")))
                 (initial (contextual-scanner-initial-state scanner)))
-           (let-values (((_open after-open) (contextual-scanner-step scanner initial 'command)))
-             (let-values (((_marker pending) (contextual-scanner-step scanner after-open 'command)))
-               (let* ((receipt (contextual-scan-state-canonical pending))
+           (scope-values (((_open after-open) (contextual-scanner-step scanner initial 'command)))
+             (scope-values (((_marker pending) (contextual-scanner-step scanner after-open 'command)))
+               (sequential ((receipt (contextual-scan-state-canonical pending))
                       (expected (contextual-scan-state-canonical pending))
                       (restored (restore-contextual-scan-state scanner receipt)))
-                 (string-set! (cdr (assq 'schema receipt)) 0 #\X)
-                 (string-set! (cdr (assq 'scannerDigest receipt)) 0 #\X)
-                 (string-set! (cdr (assq 'sourceDigest receipt)) 0 #\X)
-                 (string-set! (caar (cdr (assq 'pending receipt))) 0 #\X)
-                 (check (contextual-scan-state-canonical pending) => expected)
-                 (check (contextual-scan-state-canonical restored) => expected)
-                 (let-values (((_newline active) (contextual-scanner-step scanner restored 'command)))
-                   (let* ((receipt (contextual-scan-state-canonical active))
+                 (act (string-set! (cdr (assq 'schema receipt)) 0 #\X))
+                 (act (string-set! (cdr (assq 'scannerDigest receipt)) 0 #\X))
+                 (act (string-set! (cdr (assq 'sourceDigest receipt)) 0 #\X))
+                 (act (string-set! (caar (cdr (assq 'pending receipt))) 0 #\X))
+                 (equal (contextual-scan-state-canonical pending)  expected)
+                 (equal (contextual-scan-state-canonical restored)  expected)
+                 (scope-values (((_newline active) (contextual-scanner-step scanner restored 'command)))
+                   (sequential ((receipt (contextual-scan-state-canonical active))
                           (expected (contextual-scan-state-canonical active))
                           (restored (restore-contextual-scan-state scanner receipt)))
-                     (string-set! (car (cdr (assq 'active receipt))) 0 #\X)
-                     (check (contextual-scan-state-canonical active) => expected)
-                     (check (contextual-scan-state-canonical restored) => expected)
-                     (let-values (((body next) (contextual-scanner-step scanner restored 'command)))
-                       (check (token-lexeme body) => "α\n")
-                       (let-values (((end final) (contextual-scanner-step scanner next 'command)))
-                         (check (token-lexeme end) => "EOF\n"))))))))))
-       '((hcl-checkpoint-owned raw) (bash-checkpoint-owned shell-quote-removal))))
-    (test-case "checkpoint restores only for the same source and machine"
-      (let* ((source "<<EOF\nα\nEOF\n")
+                     (act (string-set! (car (cdr (assq 'active receipt))) 0 #\X))
+                     (equal (contextual-scan-state-canonical active)  expected)
+                     (equal (contextual-scan-state-canonical restored)  expected)
+                     (scope-values (((body next) (contextual-scanner-step scanner restored 'command)))
+                       (equal (token-lexeme body)  "α\n")
+                       (scope-values (((end final) (contextual-scanner-step scanner next 'command)))
+                         (equal (token-lexeme end)  "EOF\n")))))))))))
+    (scenario "checkpoint restores only for the same source and machine"
+      (sequential ((source "<<EOF\nα\nEOF\n")
              (scanner (deferred-scanner source 'hcl-deferred
                                         'raw '("<<" "<<-")))
              (initial (contextual-scanner-initial-state scanner)))
-        (let-values (((_open after-open)
+        (scope-values (((_open after-open)
                       (contextual-scanner-step scanner initial 'command)))
-          (let-values (((_marker after-marker)
+          (scope-values (((_marker after-marker)
                         (contextual-scanner-step scanner after-open 'command)))
-            (let-values (((_newline active)
+            (scope-values (((_newline active)
                           (contextual-scanner-step scanner after-marker
                                                    'command)))
-              (let* ((receipt (contextual-scan-state-canonical active))
+              (sequential ((receipt (contextual-scan-state-canonical active))
                      (restored
                       (restore-contextual-scan-state scanner receipt))
                      (other-source
                       (deferred-scanner "<<EOF\nβ\nEOF\n" 'hcl-deferred
                                         'raw '("<<" "<<-"))))
-                (check (contextual-scan-state-canonical restored)
-                       => receipt)
-                (check
+                (equal (contextual-scan-state-canonical restored)
+                        receipt)
+                (equal
                  (with-catch
                   (lambda (condition) (error-message condition))
                   (lambda ()
                     (restore-contextual-scan-state other-source receipt)
                     #f))
-                 => "contextual scanner checkpoint identity mismatch")
-                (check
+                  "contextual scanner checkpoint identity mismatch")
+                (equal
                  (with-catch
                   (lambda (condition) (error-message condition))
                   (lambda ()
@@ -428,4 +415,4 @@
                               (cons 'byteOffset 1) row))
                           receipt))
                     #f))
-                 => "invalid contextual scanner checkpoint")))))))))
+                  "invalid contextual scanner checkpoint"))))))))

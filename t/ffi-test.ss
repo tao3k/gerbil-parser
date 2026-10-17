@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 
 ;; Admit the negative-case parser fixture through the normal native loader
@@ -22,61 +23,59 @@
 (def gql-native (bind-language-abi gql-language-grammar))
 (def cypher-native (bind-language-abi opencypher-language-grammar))
 
-(def ffi-tests
-  (test-suite "parser-owned native ParseArtifact v1 ABI"
-    (test-case "descriptor publishes the parser-owned grammar surface"
-      (check (artifact-abi-version) => 1)
-      (let (descriptor (abi-datum-read (abi-descriptor-payload gql-native)
-                                    ))
-        (check (hash-get descriptor "schema")
-               => "gerbil-parser.native-descriptor.v1")
-        (check (hash-get descriptor "language") => "gql")
-        (check (positive? (length (hash-get descriptor "syntaxKinds")))
-               => #t)
-        (let (fields (hash-get descriptor "fields"))
-          (check (not (not (member "operator" fields))) => #t)
-          (check (not (not (member "sign" fields))) => #t))))
-    (test-case "accepted source produces typed binary ParseArtifact v1"
-      (let (artifact
-            (abi-parse-binary-payload gql-native "MATCH (n) RETURN n"))
-        (check (subu8vector artifact 0 4) => #u8(71 80 65 49))
-        (check (u8vector-u32-ref artifact 4 little) => 1)
-        (check (u8vector-u32-ref artifact 8 little) => 0)
-        (check (positive? (u8vector-u32-ref artifact 12 little)) => #t)
-        (check (u8vector-length artifact)
-               => (+ 80 (* 24 (u8vector-u32-ref artifact 12 little))))))
-    (test-case "openCypher uses its own descriptor and parser"
-      (let* ((descriptor
+(deflanguage-parser-tests ffi-tests "parser-owned native ParseArtifact v1 ABI"
+  (engine)
+    (scenario "descriptor publishes the parser-owned grammar surface"
+      (equal (artifact-abi-version)  1)
+      (scope ((descriptor (abi-datum-read (abi-descriptor-payload gql-native)
+                                    )))
+        (equal (hash-get descriptor "schema")
+                "gerbil-parser.native-descriptor.v1")
+        (equal (hash-get descriptor "language")  "gql")
+        (equal (positive? (length (hash-get descriptor "syntaxKinds")))
+                #t)
+        (scope ((fields (hash-get descriptor "fields")))
+          (equal (not (not (member "operator" fields)))  #t)
+          (equal (not (not (member "sign" fields)))  #t))))
+    (property "accepted source produces typed binary ParseArtifact v1"
+      (bindings (artifact
+            (abi-parse-binary-payload gql-native "MATCH (n) RETURN n")))
+      (equal (subu8vector artifact 0 4)  #u8(71 80 65 49))
+      (equal (u8vector-u32-ref artifact 4 little)  1)
+      (equal (u8vector-u32-ref artifact 8 little)  0)
+      (equal (positive? (u8vector-u32-ref artifact 12 little))  #t)
+      (equal (u8vector-length artifact)
+                (+ 80 (* 24 (u8vector-u32-ref artifact 12 little)))))
+    (property "openCypher uses its own descriptor and parser"
+      (bindings (descriptor
               (abi-datum-read (abi-descriptor-payload cypher-native)
-                            ))
-             (artifact
+                            )) (artifact
               (abi-parse-binary-payload
                cypher-native "MATCH (n:Person) RETURN n\n")))
-        (check (hash-get descriptor "language") => "opencypher")
-        (check (positive? (length (hash-get descriptor "syntaxKinds")))
-               => #t)
-        (check (u8vector-u32-ref artifact 8 little) => 0)
-        (check (positive? (u8vector-u32-ref artifact 12 little)) => #t)))
-    (test-case "invalid descriptor fails closed"
-      (check-exception (bind-language-abi "unknown") true))
-    (test-case "grammar path compiles through the Scheme Rust backend"
-      (check (rust-aot-abi-version) => 1)
-      (let (source
+      (equal (hash-get descriptor "language")  "opencypher")
+      (equal (positive? (length (hash-get descriptor "syntaxKinds")))
+                #t)
+      (equal (u8vector-u32-ref artifact 8 little)  0)
+      (equal (positive? (u8vector-u32-ref artifact 12 little))  #t))
+    (scenario "invalid descriptor fails closed"
+      (raises (bind-language-abi "unknown") true))
+    (scenario "grammar path compiles through the Scheme Rust backend"
+      (equal (rust-aot-abi-version)  1)
+      (scope ((source
             (rust-runtime-source
-             "t/fixtures/runtime-record-assignments/languages/records/grammar.ss"))
-        (check (not (not (string-contains
-                           source "language: \"record-assignments\""))) => #t)
-        (check (not (not (string-contains
-                           source "grammar_digest: \"sha256:9c7e8b0f"))) => #t)
-        (check (not (not (string-contains
-                           source "pub static LANGUAGE: LanguageSpec"))) => #t)))
-    (test-case "module without a language descriptor fails closed"
-      (check-exception
+             "t/fixtures/runtime-record-assignments/languages/records/grammar.ss")))
+        (equal (not (not (string-contains
+                           source "language: \"record-assignments\"")))  #t)
+        (equal (not (not (string-contains
+                           source "grammar_digest: \"sha256:9c7e8b0f")))  #t)
+        (equal (not (not (string-contains
+                           source "pub static LANGUAGE: LanguageSpec")))  #t)))
+    (scenario "module without a language descriptor fails closed"
+      (raises
        (rust-runtime-source
         "t/fixtures/runtime-record-assignments/languages/records/parser.ss")
-       true))))
+       true)))
 
-(export ffi-tests)
 
 ;; gxtest discovers only exported names ending in -test.
 (def ffi-test ffi-tests)

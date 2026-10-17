@@ -1,3 +1,4 @@
+(import :gerbil-parser/language-test-support)
 ;;; Generic POO generation and both semantic backends use two independent packs.
 (import (only-in :gerbil-parser/languages/arithmetic/parser-test arithmetic-test-language)
         (only-in :gerbil-parser/languages/hcl/parser-test hcl-test-language)
@@ -34,7 +35,7 @@
         (only-in :gerbil-parser/language-support/development LanguageDevelopmentLoaderContract)
         (prefix-in :gerbil-parser/src/compiler/hcl-reductions hcl-)
         (prefix-in "fixtures/arithmetic-reductions.ss" arithmetic-))
-(export fused-reduction-test)
+
 
 (deflanguage nullable-boundary-probe
   (syntax
@@ -57,46 +58,41 @@
        (cdr-expression-count (car form)) (cdr-expression-count (cdr form)))
     0))
 
-(def (check-linear-stack-reads descriptor)
-  (let* ((form (call-with-input-string (emitted (make-fused-reduction-strategy descriptor)) read))
+(defparser-check (check-linear-stack-reads descriptor)
+  (sequential ((form (call-with-input-string (emitted (make-fused-reduction-strategy descriptor)) read))
          (table (production-table (lr-spec-ref (cdr (assq 'lr-spec (language-grammar-ir descriptor))) 'productions)))
          (steps (filter (lambda (definition)
                           (and (pair? definition) (eq? (car definition) 'def)
                                (pair? (cadr definition)))) (cdr form))))
-    (check (length steps) => 2)
-    (for-each
-     (lambda (step)
-       (for-each
-        (lambda (clause)
+    (equal (length steps)  2)
+    (each (step) (steps)
+       (each (clause) ((cddr (caddr step)))
           (when (pair? (car clause))
-            (let* ((id (caar clause))
+            (sequential ((id (caar clause))
                    (width (length (production-rhs (vector-ref table id))))
                    (bindings (cadr (cadr clause))))
-              (let loop ((remaining bindings) (reads 0))
-                (if (eq? (caar remaining) 'offset)
-                  (check reads => (* 2 width))
-                  (loop (cdr remaining) (+ reads (cdr-expression-count (cadar remaining)))))))))
-        (cddr (caddr step)))) steps)))
-(def (check-reductions descriptor sources step event-step)
-  (let (machine (language-grammar-machine descriptor))
-    (for-each
-     (lambda (source)
-       (let ((baseline (parse-indexed-reference machine source))
+              (iterate loop ((remaining bindings) (reads 0))
+                (branch (eq? (caar remaining) 'offset)
+                  (equal reads  (* 2 width))
+                  (continue loop (cdr remaining) (+ reads (cdr-expression-count (cadar remaining))))))))))))
+(defparser-check (check-reductions descriptor sources step event-step)
+  (scope ((machine (language-grammar-machine descriptor)))
+    (each (source) (sources)
+       (scope ((baseline (parse-indexed-reference machine source))
              (fused (parse-indexed-reference machine source step)))
-         (check fused => baseline)
-         (check (parse-artifact-valid? fused) => #t)
-         (check (parse-artifact-roundtrip fused) => source)
-         (parameterize ((current-lr-event-program-enabled? #t))
-           (let* ((events-machine (parser-machine-for-current-semantic-backend machine))
+         (equal fused  baseline)
+         (equal (parse-artifact-valid? fused)  #t)
+         (equal (parse-artifact-roundtrip fused)  source)
+         (parameters ((current-lr-event-program-enabled? #t))
+           (sequential ((events-machine (parser-machine-for-current-semantic-backend machine))
                   (event-artifact (parse-indexed-reference events-machine source event-step)))
-             (check (lr-runtime-event-program? (parser-machine-runtime events-machine)) => #t)
-             (check event-artifact => baseline)))))
-     sources)))
+             (equal (lr-runtime-event-program? (parser-machine-runtime events-machine))  #t)
+             (equal event-artifact  baseline)))))))
 
-(def fused-reduction-test
-  (test-suite "generic POO fused reduction strategy"
-    (test-case "generated recognition and event reducers preserve nullable sibling origins"
-      (let* ((descriptor nullable-boundary-probe-language-grammar)
+(deflanguage-parser-tests fused-reduction-test "generic POO fused reduction strategy"
+  (engine)
+    (scenario "generated recognition and event reducers preserve nullable sibling origins"
+      (sequential ((descriptor nullable-boundary-probe-language-grammar)
              (machine (language-grammar-machine descriptor))
              (token (make-token 'word "a" 0 1))
              (root (make-recognition-node 'SourceFile 0 1
@@ -108,40 +104,32 @@
              (strategy (.cc (make-fused-reduction-strategy descriptor)
                             'step-name 'nullable-step 'event-name 'nullable-event-step
                             'digest-name 'nullable-digest)))
-        (eval (call-with-input-string (emitted strategy) read))
-        (check (parse-artifact-valid? expected) => #t)
-        (check (parse-indexed-reference machine "a") => expected)
-        (check (parse-indexed-reference machine "a" (eval 'nullable-step)) => expected)
-        (parameterize ((current-lr-event-program-enabled? #t))
-          (check (parse-indexed-reference (parser-machine-for-current-semantic-backend machine)
-                                         "a" (eval 'nullable-event-step)) => expected))))
-    (test-case "both emitted backends traverse each stack suffix once"
-      (for-each check-linear-stack-reads (list arithmetic-language-grammar hcl-language-grammar)))
-    (test-case "two descriptors generate independently and deterministically"
-      (let* ((hcl (make-fused-reduction-strategy hcl-language-grammar))
-             (arithmetic (make-fused-reduction-strategy arithmetic-language-grammar))
-             (first (emitted hcl)))
-        (check first => (call-with-input-file "src/compiler/hcl-reductions.ss" read-all-as-string))
-        (check (emitted arithmetic) => (call-with-input-file "t/fixtures/arithmetic-reductions.ss" read-all-as-string))
-        (check (equal? first (emitted arithmetic)) => #f)
-        (check (emitted hcl) => first)))
-    (test-case "POO inherited slots rename output and carry extension metadata"
-      (let* ((prototype (.o (:: self FusedReductionStrategy.)
+        (act (eval (call-with-input-string (emitted strategy) read)))
+        (equal (parse-artifact-valid? expected)  #t)
+        (equal (parse-indexed-reference machine "a")  expected)
+        (equal (parse-indexed-reference machine "a" (eval 'nullable-step))  expected)
+        (parameters ((current-lr-event-program-enabled? #t))
+          (equal (parse-indexed-reference (parser-machine-for-current-semantic-backend machine)
+                                         "a" (eval 'nullable-event-step))  expected))))
+    (scenario "both emitted backends traverse each stack suffix once"
+      (each (subject) ((list arithmetic-language-grammar hcl-language-grammar)) (verify check-linear-stack-reads subject)))
+    (property "two descriptors generate independently and deterministically"
+      (bindings (hcl (make-fused-reduction-strategy hcl-language-grammar)) (arithmetic (make-fused-reduction-strategy arithmetic-language-grammar)) (first (emitted hcl)))
+      (equal first  (call-with-input-file "src/compiler/hcl-reductions.ss" read-all-as-string))
+      (equal (emitted arithmetic)  (call-with-input-file "t/fixtures/arithmetic-reductions.ss" read-all-as-string))
+      (equal (equal? first (emitted arithmetic))  #f)
+      (equal (emitted hcl)  first))
+    (property "POO inherited slots rename output and carry extension metadata"
+      (bindings (prototype (.o (:: self FusedReductionStrategy.)
                             step-name: 'reduce-step event-name: 'reduce-events digest-name: 'reduce-digest
-                            metadata: (.o consumer: 'downstream)))
-             (strategy (make-fused-reduction-strategy arithmetic-language-grammar prototype))
-             (form (call-with-input-string (emitted strategy) read)))
-        (check (.ref (.ref strategy 'metadata) 'consumer) => 'downstream)
-        (check (and (member '(export reduce-step reduce-events reduce-digest) (cdr form)) #t) => #t)
-        (check (equal? (emitted strategy) (emitted (make-fused-reduction-strategy arithmetic-language-grammar))) => #f)))
-    (test-case "effective overrides reject stale identity and malformed names before emission"
-      (let ((hcl (make-fused-reduction-strategy hcl-language-grammar))
+                            metadata: (.o consumer: 'downstream))) (strategy (make-fused-reduction-strategy arithmetic-language-grammar prototype)) (form (call-with-input-string (emitted strategy) read)))
+      (equal (.ref (.ref strategy 'metadata) 'consumer)  'downstream)
+      (equal (and (member '(export reduce-step reduce-events reduce-digest) (cdr form)) #t)  #t)
+      (equal (equal? (emitted strategy) (emitted (make-fused-reduction-strategy arithmetic-language-grammar)))  #f))
+    (scenario "effective overrides reject stale identity and malformed names before emission"
+      (scope ((hcl (make-fused-reduction-strategy hcl-language-grammar))
             (port (open-output-string)))
-        (for-each
-         (lambda (invalid)
-           (check-exception (validate FusedReductionStrategyContract invalid) true)
-           (check-exception (emit-build-strategy invalid port) true))
-         (list (.cc hcl 'digest "sha256:stale")
+        (each (invalid) ((list (.cc hcl 'digest "sha256:stale")
                (.cc hcl 'descriptor arithmetic-language-grammar 'digest hcl-direct-grammar-digest)
                (.cc hcl 'event-name 'direct-step)
                (.cc hcl 'step-name 'if)
@@ -149,11 +137,12 @@
                (.cc hcl 'digest-name 'token-start)
                (.cc hcl 'step-name '|bad name|)
                (.cc hcl 'metadata #f)))
-        (check (get-output-string port) => "")))
-    (test-case "unresolved reference overrides reject before either fused backend emits"
-      (def original arithmetic-language-grammar)
-      (def ir
-        (map (lambda (entry)
+           (raises (validate FusedReductionStrategyContract invalid) true)
+           (raises (emit-build-strategy invalid port) true))
+        (equal (get-output-string port)  "")))
+    (scenario "unresolved reference overrides reject before either fused backend emits"
+(locals ((original arithmetic-language-grammar)
+(ir (map (lambda (entry)
                (if (eq? (car entry) 'lr-spec)
                  (cons 'lr-spec
                        (map (lambda (row)
@@ -164,41 +153,35 @@
                                                           '((nonterminal missing)) 'pass #f))))
                                 row)) (cdr entry)))
                  entry)) (language-grammar-ir original)))
-      (def descriptor
-        (make-language-grammar +language-grammar-schema+
+(descriptor (make-language-grammar +language-grammar-schema+
                                (language-grammar-language original) (language-grammar-version original)
                                (language-grammar-contract original) (language-grammar-grammar original)
                                ir (language-grammar-machine original) (language-grammar-observability original)))
-      (def candidate (.cc (make-fused-reduction-strategy original) 'descriptor descriptor))
-      (def port (open-output-string))
-      (check-exception (validate FusedReductionStrategyContract candidate) true)
-      (check-exception (emit-build-strategy candidate port) true)
-      (check (get-output-string port) => ""))
-    (test-case "Loader slots admit declared strategies and reject foreign or duplicated bindings"
-      (let (output (call-with-output-string (lambda (port) (emit-language-build-strategy hcl-test-language 'fused-reductions port))))
-        (check output => (emitted (make-fused-reduction-strategy hcl-language-grammar)))
-        (check (length (.ref arithmetic-test-language 'build-strategies)) => 2)
-        (check-exception (validate LanguageDevelopmentLoaderContract
+(candidate (.cc (make-fused-reduction-strategy original) 'descriptor descriptor))
+(port (open-output-string)))
+
+
+      (raises (validate FusedReductionStrategyContract candidate) true)
+      (raises (emit-build-strategy candidate port) true)
+      (equal (get-output-string port)  "")))
+    (scenario "Loader slots admit declared strategies and reject foreign or duplicated bindings"
+      (scope ((output (call-with-output-string (lambda (port) (emit-language-build-strategy hcl-test-language 'fused-reductions port)))))
+        (equal output  (emitted (make-fused-reduction-strategy hcl-language-grammar)))
+        (equal (length (.ref arithmetic-test-language 'build-strategies))  2)
+        (raises (validate LanguageDevelopmentLoaderContract
                          (.cc hcl-test-language 'build-strategies (.ref arithmetic-test-language 'build-strategies))) true)
-        (check-exception (validate LanguageDevelopmentLoaderContract
+        (raises (validate LanguageDevelopmentLoaderContract
                          (.cc hcl-test-language 'build-strategies
                               (append (.ref hcl-test-language 'build-strategies) (.ref hcl-test-language 'build-strategies)))) true)
-        (check-exception (emit-language-build-strategy hcl-test-language 'missing (open-output-string)) true)))
-    (test-case "HCL field and alias reductions preserve both native semantic backends"
-      (check-reductions hcl-language-grammar
-        (map syntax-fixture-source (filter (lambda (fixture) (eq? (syntax-fixture-expected-status fixture) 'accepted)) hcl-official-fixtures))
-        hcl-direct-step hcl-direct-event-step))
-    (test-case "Arithmetic precedence and zero-width reductions preserve both backends"
-      (check-reductions arithmetic-language-grammar
-        '("1" "a" "1 + 2 * 3" "(1 + 2) * 3" "-1 + +2" "a / (b - c)" "1 - 2 - 3" "α + 2" "1\r\n + 2")
-        arithmetic-direct-step arithmetic-direct-event-step))
-    (test-case "malformed sources reject with generic and generated reductions"
-      (for-each
-       (lambda (row)
-         (let ((machine (language-grammar-machine (car row))) (step (cadr row)))
-           (for-each (lambda (source)
-                       (check-exception (parse-indexed-reference machine source) true)
-                       (check-exception (parse-indexed-reference machine source step) true))
-                     (cddr row))))
-       (list (list hcl-language-grammar hcl-direct-step "x =\n" "b { x = 1\n")
-             (list arithmetic-language-grammar arithmetic-direct-step "1 +" "(1 + 2"))))))
+        (raises (emit-language-build-strategy hcl-test-language 'missing (open-output-string)) true)))
+    (scenario "HCL field and alias reductions preserve both native semantic backends"
+      (verify check-reductions hcl-language-grammar (map syntax-fixture-source (filter (lambda (fixture) (eq? (syntax-fixture-expected-status fixture) 'accepted)) hcl-official-fixtures)) hcl-direct-step hcl-direct-event-step))
+    (scenario "Arithmetic precedence and zero-width reductions preserve both backends"
+      (verify check-reductions arithmetic-language-grammar '("1" "a" "1 + 2 * 3" "(1 + 2) * 3" "-1 + +2" "a / (b - c)" "1 - 2 - 3" "α + 2" "1\r\n + 2") arithmetic-direct-step arithmetic-direct-event-step))
+    (scenario "malformed sources reject with generic and generated reductions"
+      (each (row) ((list (list hcl-language-grammar hcl-direct-step "x =\n" "b { x = 1\n")
+             (list arithmetic-language-grammar arithmetic-direct-step "1 +" "(1 + 2")))
+         (scope ((machine (language-grammar-machine (car row))) (step (cadr row)))
+           (each (source) ((cddr row))
+                       (raises (parse-indexed-reference machine source) true)
+                       (raises (parse-indexed-reference machine source step) true))))))

@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 ;;; Runtime regression gate for the full ISO GQL lexical catalog.
 
@@ -28,22 +29,18 @@
       (loop (- remaining 1))))
   (report-test-progress! "GQL-BATCH-OK parses=" +parse-count+))
 
-(def gql-runtime-benchmark-tests
-  (test-suite "ISO GQL parser runtime benchmark"
-    (test-case "one hundred GQL parses satisfy the runtime contract"
-      (check (benchmark-contract-valid? benchmark-path) => #t)
-      (parse-gql-batch)
-      (##gc)
-      (let (receipt
-            (benchmark-contract-run benchmark-path parse-gql-batch))
-        (write receipt)
-        (newline)
-        (force-output)
-        (check (benchmark-contract-receipt-pass? receipt) => #t)))))
+(deflanguage-parser-tests gql-runtime-benchmark-tests "ISO GQL parser runtime benchmark"
+  (engine (exclusive #t))
+    (scenario "one hundred GQL parses satisfy the runtime contract"
+      (equal (benchmark-contract-valid? benchmark-path)  #t)
+      (act (parse-gql-batch))
+      (act (##gc))
+      (scope ((receipt
+            (benchmark-contract-run benchmark-path parse-gql-batch)))
+        (receipt receipt)
+        (equal (benchmark-contract-receipt-pass? receipt)  #t))))
 
 (def gql-runtime-benchmark-test gql-runtime-benchmark-tests)
-(export gql-runtime-benchmark-tests gql-runtime-benchmark-test)
+(export  gql-runtime-benchmark-test)
 
 ;; Resource admission owns its measurement interval in the shared runtime.
-(def test-worker-exclusive? #t)
-(export test-worker-exclusive?)

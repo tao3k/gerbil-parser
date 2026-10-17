@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 
 (import (only-in :gerbil-parser/languages/hcl/parser-test hcl-test-language)
@@ -30,22 +31,18 @@
         (unless (and (parse-artifact-success? artifact) (equal? (parse-artifact-roundtrip artifact) source))
           (error "official corpus benchmark parse failed" (syntax-fixture-id fixture))))) (cdr group))) benchmark-corpus))
 
-(def versioned-language-benchmark-tests
-  (test-suite "versioned language benchmark"
-    (test-case "HCL, GQL, openCypher, and TLA+ share the parser performance contract"
-      (check (benchmark-contract-valid? benchmark-path) => #t)
-      (parse-language-batch)
-      (##gc)
-      (let (receipt
-            (benchmark-contract-run benchmark-path parse-language-batch))
-        (write receipt)
-        (newline)
-        (force-output)
-        (check (benchmark-contract-receipt-pass? receipt) => #t)))))
+(deflanguage-parser-tests versioned-language-benchmark-tests "versioned language benchmark"
+  (engine (exclusive #t))
+    (scenario "HCL, GQL, openCypher, and TLA+ share the parser performance contract"
+      (equal (benchmark-contract-valid? benchmark-path)  #t)
+      (act (parse-language-batch))
+      (act (##gc))
+      (scope ((receipt
+            (benchmark-contract-run benchmark-path parse-language-batch)))
+        (receipt receipt)
+        (equal (benchmark-contract-receipt-pass? receipt)  #t))))
 
 (def versioned-language-benchmark-test versioned-language-benchmark-tests)
-(export versioned-language-benchmark-tests versioned-language-benchmark-test)
+(export  versioned-language-benchmark-test)
 
 ;; Resource admission owns its measurement interval in the shared runtime.
-(def test-worker-exclusive? #t)
-(export test-worker-exclusive?)

@@ -1,3 +1,4 @@
+(import :gerbil-parser/language-test-support)
 ;;; Core CLOS preparation and contextual conflict contracts.
 ;;; These executable design controls do not install a parser backend.
 (import :std/test
@@ -6,7 +7,7 @@
                  compile-contextual-dispatch contextual-dispatch-ref)
         (only-in :gerbil-parser/src/modules/parser/contextual-objects
                  make-contextual-role make-contextual-method))
-(export generic-dispatch-contract-test)
+
 
 (def selections 0)
 (.defgeneric test-select-semantic-plan (backend capability))
@@ -32,27 +33,26 @@
                  (make-contextual-method 'by-position 'any 'command 'any second-result))))
    '(shell) '(command) '(word)))
 
-(def generic-dispatch-contract-test
-  (test-suite "generic preparation and contextual contracts"
-    (test-case "normal values select a fixed kernel once at preparation"
-      (set! selections 0)
-      (let (kernel (test-select-semantic-plan 'event 'plain))
-        (for-each (lambda (value) (check (kernel value) => (list 'event value)))
-                  '(a b c d))
-        (check selections => 1))
-      (check ((test-select-semantic-plan 'recognition 'layout) 'input)
-             => '(recognition input))
-      (check-exception (test-select-semantic-plan 'event 'layout)
+(deflanguage-parser-tests generic-dispatch-contract-test "generic preparation and contextual contracts"
+  (engine)
+    (scenario "normal values select a fixed kernel once at preparation"
+      (act (set! selections 0))
+      (scope ((kernel (test-select-semantic-plan 'event 'plain)))
+        (each (value) ('(a b c d)) (equal (kernel value)  (list 'event value)))
+        (equal selections  1))
+      (equal ((test-select-semantic-plan 'recognition 'layout) 'input)
+              '(recognition input))
+      (raises (test-select-semantic-plan 'event 'layout)
                        (lambda (condition)
                          (equal? (error-message condition)
                                  "unsupported test semantic plan"))))
-    (test-case "argument precedence cannot silently replace contextual conflict admission"
-      (check (test-context-selection 'shell 'command) => 'mode-choice)
-      (check-exception (contextual-intersection 'mode-choice 'position-choice)
+    (scenario "argument precedence cannot silently replace contextual conflict admission"
+      (equal (test-context-selection 'shell 'command)  'mode-choice)
+      (raises (contextual-intersection 'mode-choice 'position-choice)
                        (lambda (condition)
                          (equal? (error-message condition) "ambiguous contextual dispatch"))))
-    (test-case "equal contextual results retain both declaration origins"
-      (let (ir (contextual-intersection 'same-result 'same-result))
-        (check (contextual-dispatch-ref ir 'cells)
-               => '((shell command word
-                           (same-result ((example by-mode) (example by-position))))))))))
+    (property "equal contextual results retain both declaration origins"
+      (bindings (ir (contextual-intersection 'same-result 'same-result)))
+      (equal (contextual-dispatch-ref ir 'cells)
+                '((shell command word
+                           (same-result ((example by-mode) (example by-position))))))))

@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 
 (import :std/test
@@ -13,27 +14,21 @@
            (incremental-suffix-scenario))
     (error "incremental suffix convergence scenario failed")))
 
-(def incremental-suffix-benchmark-tests
-  (test-suite "incremental suffix convergence complexity scenario"
-    (test-case "one hundred operands resume and reuse both sides of the edit"
-      (check (benchmark-contract-valid? benchmark-path) => #t)
-      (let (algorithm-receipt (incremental-suffix-scenario))
-        (write algorithm-receipt)
-        (newline)
-        (force-output)
-        (check (incremental-suffix-scenario-pass? algorithm-receipt) => #t))
-      (run-scenario)
-      (##gc)
-      (let (benchmark-receipt
-            (benchmark-contract-run benchmark-path run-scenario))
-        (write benchmark-receipt)
-        (newline)
-        (force-output)
-        (check (benchmark-contract-receipt-pass? benchmark-receipt) => #t)))))
+(deflanguage-parser-tests incremental-suffix-benchmark-tests "incremental suffix convergence complexity scenario"
+  (engine (exclusive #t))
+    (scenario "one hundred operands resume and reuse both sides of the edit"
+      (equal (benchmark-contract-valid? benchmark-path)  #t)
+      (scope ((algorithm-receipt (incremental-suffix-scenario)))
+        (receipt algorithm-receipt)
+        (equal (incremental-suffix-scenario-pass? algorithm-receipt)  #t))
+      (act (run-scenario))
+      (act (##gc))
+      (scope ((benchmark-receipt
+            (benchmark-contract-run benchmark-path run-scenario)))
+        (receipt benchmark-receipt)
+        (equal (benchmark-contract-receipt-pass? benchmark-receipt)  #t))))
 
 (def incremental-suffix-benchmark-test incremental-suffix-benchmark-tests)
-(export incremental-suffix-benchmark-tests incremental-suffix-benchmark-test)
+(export  incremental-suffix-benchmark-test)
 
 ;; Resource admission owns its measurement interval in the shared runtime.
-(def test-worker-exclusive? #t)
-(export test-worker-exclusive?)

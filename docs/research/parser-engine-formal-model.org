@@ -4584,3 +4584,66 @@ rejects with exit 70. The evidence-input invalidation control passes. Lean
 builds successfully across 90 jobs using the locked toolchain and standard
 axioms. Upstream commit =9dfa6d6= passes both-platform semantics and all required
 CI jobs; these local receipts qualify the new change separately.
+
+** Declarative test ownership and evidence preservation
+
+All 145 eligible parser test owners previously containing raw Suite/Case or
+assertion declarations now use =deflanguage-parser-tests=. Simple checks reuse
+=property=; stateful cases use the engine's closed scenario vocabulary. Shared
+checks are sealed capabilities. The line-structure and Rust assertion templates
+produce those capabilities at their established module paths. Parser AST checks
+reuse the existing AST macros, and inline iterator checks retain the real
+literal-lambda execution path. Parallel bindings, multiple values, continuation
+reentry, cleanup and POO case admission retain their original semantics.
+
+The source contract is shared by macro admission and the test ownership audit.
+It checks active template escapes and explicit fixture-port ownership without
+misreading import argument tails as applications. It is a syntactic ownership
+contract over trusted Scheme, not a compiler, host or sandbox proof. Execution
+metadata declares typed =exclusive= and =affinity= fields through the same
+owner macro. Existing exclusive intervals are preserved.
+
+The complete source batch exposed idle-budget interference in the full OpenGQL
+compiler owner. Under identical fixed watchdogs, the original and migrated
+ANTLR owners both pass their nine cases independently. Their process times
+include different module-loading/cache states and establish no CPU speedup.
+The complete compiler now uses the existing exclusive-owner phase; ordinary
+owners retain concurrent workers. Failed aggregate attempts remain failures.
+The 90-second owner budget and five-second idle interval are unchanged.
+
+Native preparation also exposed an invalid old compiled fixture product set:
+both the official importer and the qualification importer crashed in the
+same grammar-composition fixture. Rebuilding only that parser fixture with the
+installed SDK and GCC made the same official import exit successfully. This
+does not prove which old product or ABI caused the invalid set. No Gambit
+source was modified or built.
+
+Three cold imports of the recovery/barrier closure subsequently exit normally.
+A separate sampled load shows Darwin's synchronous image-notification wait,
+but the observer can affect that path. The two earlier import idle failures
+therefore retain an unresolved host-loading premise. Successful later imports
+do not retrospectively establish their exact cause.
+
+The shared contract, public test facade, domain adapters and author guide are
+bound into evidence-input invalidation controls. The unchanged Lean graph
+builds across 90 jobs with its locked toolchain; real Scheme source-data
+freshness and evidence invalidation controls pass. These checks preserve the
+paper/model/source evidence boundary and add no parser performance claim.
+The pre-change PR revision =6ecf6d6= passes all required CI jobs on both platforms.
+
+Final source qualification passes all 145 migrated owners and 1,151 cases in
+90.2 seconds, using four persistent workers and the existing exclusive phase.
+The additional 14 previously declarative language/model owners pass 195 cases.
+The macro controls reject 89 malformed declarations and validate keyword
+hygiene, checked helper results, cleanup, callback delivery and execution
+metadata. The ownership audit rejects hand-written assertions, Suite/Case
+constructors and reserved worker metadata definitions. New properties remain
+inside the existing conformance-owned style Suite, preserving exact ownership
+coverage. Failed preparation interfaces are removed with the official
+=prepare-gxtest!= / =std/make= output map before fresh compilation.
+
+All 14 evidence-layer controls pass in the locked Python environment against
+an existing, receipt-checked ASCENT library. Earlier raw Python attempts lack
+the declared environment or binding and are retained as setup failures; no
+engine library was rebuilt. These are evidence admission controls, not parser
+performance or complete native-refinement proofs.

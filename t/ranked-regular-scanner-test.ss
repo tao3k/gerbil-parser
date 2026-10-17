@@ -1,3 +1,4 @@
+(import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 ;;; Differential witness for the mode-local closed-run lexical DFA.
 
@@ -66,99 +67,93 @@
              (string=? (car entry) (substring source at end))
              (list (cadr entry) end (caddr entry) (cadddr entry)))))) #f fused-literals))
 
-(def ranked-regular-scanner-tests
-  (test-suite "ranked regular scanner"
-    (test-case "DFA agrees with individual scanners at every source offset"
-      (for-each
-       (lambda (source)
-         (let loop ((offset 0))
-           (when (< offset (string-length source))
-             (let (match (regular-scanner source offset))
-               (check (and match (list (car match) (cadr match)
-                                       (caddr match)))
-                      => (legacy-regular-match source offset)))
-             (loop (+ offset 1)))))
-       '("alpha-27 42\r\n" "αβ-٣\t\n?" "7.2 foo" " \t\n"
+(deflanguage-parser-tests ranked-regular-scanner-tests "ranked regular scanner"
+  (engine)
+    (scenario "DFA agrees with individual scanners at every source offset"
+      (each (source) ('("alpha-27 42\r\n" "αβ-٣\t\n?" "7.2 foo" " \t\n"
          "_name-1+other" "1." "1e" "1e+" "1.2e+3"
-         "٧.٢E-٣" "8e+4z")))
-    (test-case "start-state specialization agrees with independent runs in every rule subset"
-      (for-each (lambda (mask)
-        (let (scan (make-ranked-regular-scanner
-                     (filter (lambda (entry) (odd? (quotient mask (expt 2 (cadddr entry))))) regular-entries)))
-          (for-each (lambda (source)
-            (let offsets ((at 0))
+         "٧.٢E-٣" "8e+4z"))
+         (iterate loop ((offset 0))
+           (when (< offset (string-length source))
+             (scope ((match (regular-scanner source offset)))
+               (equal (and match (list (car match) (cadr match)
+                                       (caddr match)))
+                       (legacy-regular-match source offset)))
+             (continue loop (+ offset 1))))))
+    (scenario "start-state specialization agrees with independent runs in every rule subset"
+      (each (mask) ((iota 64))
+        (scope ((scan (make-ranked-regular-scanner
+                     (filter (lambda (entry) (odd? (quotient mask (expt 2 (cadddr entry))))) regular-entries))))
+          (each (source) ('("alpha-27 42\r\n" "αβ-٣\t\n?" "1." "1e" "1e+" "1.2e+3"
+              "٧.٢E-٣" "Ⅳ¼²名字" "8e+4z" "e.E+-1" "_name-1+other" "" "?"))
+            (iterate offsets ((at 0))
               (when (< at (string-length source))
-                (check (scan source at) => (masked-run-reference source at mask))
-                (offsets (+ at 1)))))
-            '("alpha-27 42\r\n" "αβ-٣\t\n?" "1." "1e" "1e+" "1.2e+3"
-              "٧.٢E-٣" "Ⅳ¼²名字" "8e+4z" "e.E+-1" "_name-1+other" "" "?"))))
-        (iota 64)))
-    (test-case "product automaton agrees with independent scans in every regular subset"
-      (let (factory (make-ranked-lexical-scanner-factory fused-literals))
-        (for-each (lambda (mask)
-          (for-each (lambda (literal-mask)
-            (let* ((admissions (list->vector (map (lambda (index)
+                (equal (scan source at)  (masked-run-reference source at mask))
+                (continue offsets (+ at 1))))))))
+    (scenario "product automaton agrees with independent scans in every regular subset"
+      (scope ((factory (make-ranked-lexical-scanner-factory fused-literals)))
+        (each (mask) ((iota 64))
+          (each (literal-mask) ('(0 64 8191 4096))
+            (sequential ((admissions (list->vector (map (lambda (index)
                                                    (odd? (quotient literal-mask (expt 2 index)))) (iota 13))))
                    (entries (filter (lambda (entry) (odd? (quotient mask (expt 2 (cadddr entry))))) regular-entries))
                    (scan (factory entries admissions)))
-              (for-each (lambda (source)
-                (let offsets ((at 0))
+              (each (source) ('("if ifelse ifelseif" "a ab abc" "α😀 αβ-٣ \t\r\n"
+                  "1.2e+3 1e+ 1." "Ⅳ¼² 名字 ?"))
+                (iterate offsets ((at 0))
                   (when (<= at (string-length source))
-                    (check (scan source at)
-                           => (prefer-oracle (masked-run-reference source at mask)
+                    (equal (scan source at)
+                            (prefer-oracle (masked-run-reference source at mask)
                                              (fused-literal-oracle source at admissions)))
-                    (offsets (+ at 1)))))
-                '("if ifelse ifelseif" "a ab abc" "α😀 αβ-٣ \t\r\n"
-                  "1.2e+3 1e+ 1." "Ⅳ¼² 名字 ?"))))
-            '(0 64 8191 4096))) (iota 64))))
-    (test-case "mode preparation freezes masks and publishes fresh complete results"
-      (let* ((factory (make-ranked-lexical-scanner-factory fused-literals))
+                    (continue offsets (+ at 1))))))))))
+    (scenario "mode preparation freezes masks and publishes fresh complete results"
+      (sequential ((factory (make-ranked-lexical-scanner-factory fused-literals))
              (admissions (make-vector 13 #t))
              (scan (factory regular-entries admissions))
              (result (scan "if!" 0)))
-        (vector-set! admissions 6 #f)
-        (set-car! result 'foreign)
-        (check (scan "if!" 0) => '(keyword 2 2 6))
-        (check (scan "ifelsewhere!" 0) => '(name 11 0 4))))
-    (test-case "closed singleton modes own their literal snapshot"
-      (let* ((text (string-copy "α😀")) (entry (list text 'wide 2 0))
+        (act (vector-set! admissions 6 #f))
+        (act (set-car! result 'foreign))
+        (equal (scan "if!" 0)  '(keyword 2 2 6))
+        (equal (scan "ifelsewhere!" 0)  '(name 11 0 4))))
+    (scenario "closed singleton modes own their literal snapshot"
+      (sequential ((text (string-copy "α😀")) (entry (list text 'wide 2 0))
              (factory (make-ranked-lexical-scanner-factory (list entry))))
-        (string-set! text 0 #\x)
-        (set-car! (cdr entry) 'foreign)
-        (let (scan (factory '() (vector #t)))
-          (check (scan "α😀!" 0) => '(wide 2 2 0))
-          (check (scan "x😀!" 0) => #f)
-          (check (scan "α" 0) => #f)
-          (check (scan "" 0) => #f))))
-    (test-case "regular scanning retains live winner payloads and fresh result cells"
-      (let* ((entry (list 'identifier 'name 0 0))
+        (act (string-set! text 0 #\x))
+        (act (set-car! (cdr entry) 'foreign))
+        (scope ((scan (factory '() (vector #t))))
+          (equal (scan "α😀!" 0)  '(wide 2 2 0))
+          (equal (scan "x😀!" 0)  #f)
+          (equal (scan "α" 0)  #f)
+          (equal (scan "" 0)  #f))))
+    (scenario "regular scanning retains live winner payloads and fresh result cells"
+      (sequential ((entry (list 'identifier 'name 0 0))
              (scan (make-ranked-regular-scanner (list entry)))
              (first (scan "alpha!" 0)))
-        (check first => '(name 5 0 0))
-        (set-car! first 'foreign)
-        (set-car! (cdr entry) 'updated)
-        (check (scan "a!" 0) => '(updated 1 0 0))
-        (check (scan "α!" 0) => '(updated 1 0 0))
-        (check (scan "!a" 1) => '(updated 2 0 0))
-        (check (scan "" 0) => #f)))
-    (test-case "product scanning compare live regular priority against literal candidates"
-      (let* ((entry (list 'identifier 'name 0 0))
+        (equal first  '(name 5 0 0))
+        (act (set-car! first 'foreign))
+        (act (set-car! (cdr entry) 'updated))
+        (equal (scan "a!" 0)  '(updated 1 0 0))
+        (equal (scan "α!" 0)  '(updated 1 0 0))
+        (equal (scan "!a" 1)  '(updated 2 0 0))
+        (equal (scan "" 0)  #f)))
+    (scenario "product scanning compare live regular priority against literal candidates"
+      (sequential ((entry (list 'identifier 'name 0 0))
              (factory (make-ranked-lexical-scanner-factory '(("a" keyword 2 1))))
              (scan (factory (list entry) (vector #t #t))))
-        (check (scan "a!" 0) => '(keyword 1 2 1))
-        (set-car! (cddr entry) 9)
-        (check (scan "a!" 0) => '(name 1 9 0))
-        (check (scan "alpha!" 0) => '(name 5 9 0))
-        (check (scan "α!" 0) => '(name 1 9 0))))
-    (test-case "longest match precedes rank and declaration order"
-      (check (regular-scanner " \t\n" 0) => '(white 3 0 0))
-      (check (regular-scanner "\t\tx" 0) => '(horizontal 2 3 1))
-      (check (regular-scanner "α-2+" 0) => '(name 3 0 4))
-      (check (regular-scanner "12.3e+4!" 0) => '(number 7 0 5))
-      (check (regular-scanner "12e+!" 0) => '(digits 2 1 3))
-      (check (regular-scanner "?" 0) => #f))))
+        (equal (scan "a!" 0)  '(keyword 1 2 1))
+        (act (set-car! (cddr entry) 9))
+        (equal (scan "a!" 0)  '(name 1 9 0))
+        (equal (scan "alpha!" 0)  '(name 5 9 0))
+        (equal (scan "α!" 0)  '(name 1 9 0))))
+    (property "longest match precedes rank and declaration order"
+      (bindings)
+      (equal (regular-scanner " \t\n" 0)  '(white 3 0 0))
+      (equal (regular-scanner "\t\tx" 0)  '(horizontal 2 3 1))
+      (equal (regular-scanner "α-2+" 0)  '(name 3 0 4))
+      (equal (regular-scanner "12.3e+4!" 0)  '(number 7 0 5))
+      (equal (regular-scanner "12e+!" 0)  '(digits 2 1 3))
+      (equal (regular-scanner "?" 0)  #f)))
 
-(export ranked-regular-scanner-tests)
 
 ;; gxtest discovers only exported names ending in -test.
 (def ranked-regular-scanner-test ranked-regular-scanner-tests)

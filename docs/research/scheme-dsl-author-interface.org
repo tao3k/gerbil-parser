@@ -802,8 +802,8 @@ remain here; native backend changes do not add a language-pack interface.
 ** Shared engine test declarations
 
 Use the same =deflanguage-parser-tests= macro for source correspondence and
-shared engine checks. The =(engine)= profile accepts only closed =property=
-and =matrix= clauses; it does not require a fabricated language loader. Language
+shared engine checks. The =(engine)= profile accepts closed =property=, =matrix=,
+=scenario= and =profiled= clauses; it does not require a fabricated language loader. Language
 fixture suites retain =(loader entry)= and their language-specific clauses.
 
 #+begin_src scheme
@@ -829,3 +829,79 @@ Scheme source witnesses use the engine's =parser-source-data= declarations to
 serialize reader trees. Only =SourceData.lean= is generated. Admissions,
 mutation controls and universal proofs remain ordinary Lean declarations in
 =WalkWitness.lean=, checked by the Lean kernel.
+
+*** Stateful scenarios and reusable checks
+
+Prefer =property= for simple value assertions and =matrix= for shared setup
+with Cartesian inputs. Use =scenario= when the subject needs mutable state,
+resource cleanup, callbacks or multiple values. The declaration compiler owns
+every assertion and checks every step before emitting lexical bindings.
+
+#+begin_src scheme
+(defparser-check (check-pair actual expected)
+  (equal (car actual) (car expected))
+  (equal (cdr actual) (cdr expected)))
+
+(deflanguage-parser-tests pair-owner-test "pair ownership"
+  (engine)
+  (scenario "preserve parallel bindings and cleanup"
+    (scope ((pair (cons 1 2)))
+      (protect
+        (body (verify check-pair pair '(1 . 2)))
+        (cleanup (act (set-cdr! pair 0)))))))
+#+end_src
+
+=scope= and =scope-values= preserve parallel bindings; =sequential= and
+=sequential-values= preserve sequential bindings. =locals= permits recursive
+local helpers, =parameters= owns dynamic parameterization, and =each= owns
+zipped iteration. =iterate= and =continue= check loop ownership and arity.
+=branch=, =choose=, =when=, =unless= and =group= retain explicit control flow.
+=protect= and =wind= preserve cleanup and dynamic-wind ordering. Unknown
+steps, raw test constructors and embedded raw assertions are rejected.
+
+=act= invokes a subject operation; it is not a free test body. =equal=,
+=matches= and =raises= provide assertions. =result= returns a helper value,
+including multiple values. =verify= invokes a sealed =parser-check= capability
+or a =defparser-check= declaration. =parser-check-procedure= adapts that checked
+capability when a subject API requires a callback. Optional helper parameters
+retain their original Scheme evaluation semantics. Domain-specific assertion
+macros produce these capabilities and do not emit independent test suites.
+
+=using= appends a framework-owned callback to a provider application and
+requires delivery before normal return. Deferred registration uses
+=install-check= and must be followed by an assertion about the resulting
+execution. =inline-callback= supplies a literal callback as the first argument
+when a subject macro requires inline lambda syntax. Its checked body does not
+claim callback delivery; the enclosing case must assert the resulting state.
+The =ast= and =accepted-parse= steps reuse the existing parser AST and accepted
+artifact assertion macros. =profiled= retains the existing POO test-case policy. No migration
+may collapse a parallel binding group or replace a POO case with an ordinary
+case.
+
+=receipt= emits a structured datum through the framework. Fixture construction
+may write only through its explicitly owned output-string or output-file port.
+A codec callback can use =parser-test-datum-writer= to return a datum while the
+adapter owns the port protocol. Reassignment or lexical shadowing revokes port
+authority. The shared =src/testing/contracts.ss= checker enforces the same
+source policy at macro expansion and in the repository ownership audit;
+quoted negative fixtures remain data. This is a syntax contract over trusted
+Scheme forms, not a sandbox or a claim about compiler semantics.
+
+The ownership audit covers parser test owners and the two shared domain
+assertion adapters. Framework negative-control subjects intentionally construct
+failing or duplicate suites and remain outside parser-owner declarations. The
+compiler reservation fixture belongs to the installed compiler's dialect and
+is not a parser test owner.
+
+*** Owner execution metadata
+
+An engine owner can declare =(engine (exclusive #t) (affinity runtime-owner))=.
+The macro exports the runner's existing typed execution metadata. Both options
+are optional; exclusivity requires a Boolean, affinity requires a symbol, and
+duplicated or unknown fields reject during expansion. Only one suite in a
+module declares shared owner metadata. This retains the persistent worker
+protocol and its fixed watchdogs; it does not add an environment variable.
+CPU admission owners retain their existing exclusivity. The full OpenGQL
+compiler owner also runs in that phase: its complete source test passes alone
+but exhausted the idle interval when competing with the full source batch.
+The batch still uses concurrent workers for its ordinary owners.

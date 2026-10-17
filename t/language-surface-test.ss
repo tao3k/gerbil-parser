@@ -1,3 +1,4 @@
+(import :gerbil-parser/language-test-support)
 (import (only-in :gerbil-parser/src/compiler/language-expander compile-language)
         (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; -*- Gerbil -*-
@@ -139,101 +140,97 @@
                    (seq "(" helper ")" (field tail word))))))
  (bind-fixture-grammar-release transparent-fields-witness "transparent-fields" "v1" "transparent-fields.v1") )
 
-(def concise-language-surface-tests
-  (test-suite "concise v1 language surface"
-    (test-case "transparent recursive references infer fields without crossing nodes"
-      (check (assq 'Root (grammar-ir-ref transparent-fields-witness-grammar 'syntax-kinds))
-             => '(Root node (item tail)))
-      (check (assq 'Root (grammar-ir-ref alternative-fields-witness-grammar 'syntax-kinds))
-             => '(Root node (value)))
-      (for-each
-       (lambda (source)
-         (let (artifact (parse-source transparent-fields-witness-parser source))
-           (check (parse-artifact-success? artifact) => #t)
-           (check (parse-artifact-roundtrip artifact) => source)))
-       '("alpha" "(beta)gamma" "((a)b)c")))
-    (test-case "alternative node schemas and explicit namespaces share one DSL"
-      (check (assq 'Name (grammar-ir-ref alternative-fields-witness-grammar 'syntax-kinds))
-             => '(Name node (reserved left right)))
-      (check (grammar-ir-ref alternative-fields-witness-grammar 'flow)
-             => '((source lexical) (lexical parser) (parser cst)))
-      (for-each
-       (lambda (source)
-         (let (artifact (parse-source alternative-fields-witness-parser source))
-           (check (parse-artifact-success? artifact) => #t)
-           (check (parse-artifact-roundtrip artifact) => source)))
-       '("alpha" "+")))
-    (test-case "infers the stable grammar and parser contracts"
-      (let* ((source "alpha")
+(deflanguage-parser-tests concise-language-surface-tests "concise v1 language surface"
+  (engine)
+    (scenario "transparent recursive references infer fields without crossing nodes"
+      (equal (assq 'Root (grammar-ir-ref transparent-fields-witness-grammar 'syntax-kinds))
+              '(Root node (item tail)))
+      (equal (assq 'Root (grammar-ir-ref alternative-fields-witness-grammar 'syntax-kinds))
+              '(Root node (value)))
+      (each (source) ('("alpha" "(beta)gamma" "((a)b)c"))
+         (scope ((artifact (parse-source transparent-fields-witness-parser source)))
+           (equal (parse-artifact-success? artifact)  #t)
+           (equal (parse-artifact-roundtrip artifact)  source))))
+    (scenario "alternative node schemas and explicit namespaces share one DSL"
+      (equal (assq 'Name (grammar-ir-ref alternative-fields-witness-grammar 'syntax-kinds))
+              '(Name node (reserved left right)))
+      (equal (grammar-ir-ref alternative-fields-witness-grammar 'flow)
+              '((source lexical) (lexical parser) (parser cst)))
+      (each (source) ('("alpha" "+"))
+         (scope ((artifact (parse-source alternative-fields-witness-parser source)))
+           (equal (parse-artifact-success? artifact)  #t)
+           (equal (parse-artifact-roundtrip artifact)  source))))
+    (scenario "infers the stable grammar and parser contracts"
+      (sequential ((source "alpha")
              (artifact (parse-source concise-witness-parser source)))
-        (check (grammar-ir-ref concise-witness-grammar 'schema)
-               => "gerbil-parser.grammar-ir.v1")
-        (check (grammar-ir-ref concise-witness-grammar 'syntax-kinds)
-               => '((SourceFile node (name))
+        (equal (grammar-ir-ref concise-witness-grammar 'schema)
+                "gerbil-parser.grammar-ir.v1")
+        (equal (grammar-ir-ref concise-witness-grammar 'syntax-kinds)
+                '((SourceFile node (name))
                     (Whitespace token (text))
                     (Identifier token (text))
                     (Unknown token (text))))
-        (check (parser-ir-ref concise-witness-parser-ir 'root-rule)
-               => 'source-file)
-        (check (bound-grammar-ir-ref
+        (equal (parser-ir-ref concise-witness-parser-ir 'root-rule)
+                'source-file)
+        (equal (bound-grammar-ir-ref
                 concise-witness-bound-grammar-ir 'schema)
-               => "gerbil-parser.bound-grammar-ir.v1")
-        (check (bound-grammar-ir-ref
+                "gerbil-parser.bound-grammar-ir.v1")
+        (equal (bound-grammar-ir-ref
                 concise-witness-bound-grammar-ir 'expansionLineage)
-               => '(deflanguage named-node))
-        (check (bound-grammar-ir-ref
+                '(deflanguage named-node))
+        (equal (bound-grammar-ir-ref
                 concise-witness-bound-grammar-ir 'bindingCount)
-               => 15)
-        (check (bound-grammar-ir-ref
+                15)
+        (equal (bound-grammar-ir-ref
                 concise-witness-bound-grammar-ir 'referenceCount)
-               => 12)
-        (let ((source-binding
+                12)
+        (scope ((source-binding
                (bound-grammar-ir-binding
                 concise-witness-bound-grammar-ir 'rule 'source-file))
               (field-binding
                (bound-grammar-ir-binding
                 concise-witness-bound-grammar-ir 'field 'name 'SourceFile)))
-          (check (bound-grammar-ir-ref source-binding 'references)
-                 => '(((package . gerbil-parser)
+          (equal (bound-grammar-ir-ref source-binding 'references)
+                  '(((package . gerbil-parser)
                        (grammar . concise-witness-grammar)
                        (namespace . terminal)
                        (name . identifier))))
-          (check (cdr (assq 'path
+          (equal (cdr (assq 'path
                             (bound-grammar-ir-ref source-binding 'source)))
-                 => (bound-grammar-ir-ref
+                  (bound-grammar-ir-ref
                      concise-witness-bound-grammar-ir 'originModule))
-          (check (bound-grammar-ir-ref field-binding 'references)
-                 => '(((package . gerbil-parser)
+          (equal (bound-grammar-ir-ref field-binding 'references)
+                  '(((package . gerbil-parser)
                        (grammar . concise-witness-grammar)
                        (namespace . syntax-kind)
                        (name . SourceFile)))))
-        (check (substring
+        (equal (substring
                 (bound-grammar-ir-ref
                  concise-witness-bound-grammar-ir 'grammarDigest)
                 0 7)
-               => "sha256:")
-        (check (parser-ir-ref explicit-v1-witness-parser-ir 'schema)
-               => "gerbil-parser.parser-ir.v1")
-        (check (parse-artifact-success? artifact) => #t)
-        (check (parse-artifact-roundtrip artifact) => source)))
-    (test-case "internal lexical expansion preserves ordered dispatch"
-      (check lexical-end-witness => 5)
-      (check lexical-choice-witness => 5)
-      (check lexical-dispatch-witness => '(identifier . 5))
-      (check lexical-longest-witness => '(identifier . 5))
-      (check lexical-precedence-witness => '(high 1 10))
-      (check external-scanner-witness => 2)
-      (check (literal-trie-witness "<=" 0) => 2)
-      (check (literal-trie-witness "MATCHED suffix" 0) => 7)
-      (check (literal-trie-witness "missing" 0) => #f))
-    (test-case "mode dispatch keeps Unicode and fallback byte boundaries"
-      (let (tokens (lex-source concise-witness-parser "α β?"))
-        (check (map token-kind tokens)
-               => '(identifier whitespace identifier unknown))
-        (check (map token-start tokens) => '(0 2 3 5))
-        (check (map token-end tokens) => '(2 3 5 6))))))
+                "sha256:")
+        (equal (parser-ir-ref explicit-v1-witness-parser-ir 'schema)
+                "gerbil-parser.parser-ir.v1")
+        (equal (parse-artifact-success? artifact)  #t)
+        (equal (parse-artifact-roundtrip artifact)  source)))
+    (property "internal lexical expansion preserves ordered dispatch"
+      (bindings)
+      (equal lexical-end-witness  5)
+      (equal lexical-choice-witness  5)
+      (equal lexical-dispatch-witness  '(identifier . 5))
+      (equal lexical-longest-witness  '(identifier . 5))
+      (equal lexical-precedence-witness  '(high 1 10))
+      (equal external-scanner-witness  2)
+      (equal (literal-trie-witness "<=" 0)  2)
+      (equal (literal-trie-witness "MATCHED suffix" 0)  7)
+      (equal (literal-trie-witness "missing" 0)  #f))
+    (property "mode dispatch keeps Unicode and fallback byte boundaries"
+      (bindings (tokens (lex-source concise-witness-parser "α β?")))
+      (equal (map token-kind tokens)
+                '(identifier whitespace identifier unknown))
+      (equal (map token-start tokens)  '(0 2 3 5))
+      (equal (map token-end tokens)  '(2 3 5 6))))
 
-(export concise-language-surface-tests)
 
 ;; gxtest discovers only exported names ending in -test.
 (def language-surface-test concise-language-surface-tests)
@@ -255,69 +252,67 @@
 (def (backend-rejects? thunk)
   (with-catch (lambda (_) #t) (lambda () (thunk) #f)))
 
-(def language-backend-test
-  (test-suite "Engine-owned parser backend admission"
-    (test-case "captured representations distinguish generated entries from prepared preference"
-      (let* ((machine backend-admission-witness-parser)
+(deflanguage-parser-tests language-backend-test "Engine-owned parser backend admission"
+  (engine)
+    (scenario "captured representations distinguish generated entries from prepared preference"
+      (sequential ((machine backend-admission-witness-parser)
              (selected (parameterize ((current-lr-event-program-enabled? #t))
                          (parser-machine-for-current-semantic-backend machine))))
-        (check (eq? machine selected) => #f)
-        (check (parser-machine-backend-representation machine 'prepared) => 'recognition)
-        (check (parser-machine-backend-representation selected 'prepared) => 'event-program)
-        (check (parser-machine-backend-representation selected 'drive) => #f)
-        (check (parser-machine-backend-representation selected 'source) => 'parse-artifact)
-        (check (backend-rejects?
+        (equal (eq? machine selected)  #f)
+        (equal (parser-machine-backend-representation machine 'prepared)  'recognition)
+        (equal (parser-machine-backend-representation selected 'prepared)  'event-program)
+        (equal (parser-machine-backend-representation selected 'drive)  #f)
+        (equal (parser-machine-backend-representation selected 'source)  'parse-artifact)
+        (equal (backend-rejects?
                 (lambda ()
                   (install-parser-machine-backends! selected
                     (list (list 'drive (parser-machine-grammar-digest selected) (lambda _ #f))
-                          (list 'step (parser-machine-grammar-digest selected) (lambda _ #f)))))) => #t)
-        (check (parser-machine-backend-representation selected 'drive) => #f)
-        (check (backend-rejects?
+                          (list 'step (parser-machine-grammar-digest selected) (lambda _ #f))))))  #t)
+        (equal (parser-machine-backend-representation selected 'drive)  #f)
+        (equal (backend-rejects?
                 (lambda () (install-parser-machine-direct-step!
-                            selected (parser-machine-grammar-digest selected) (lambda _ #f)))) => #t)
-        (install-parser-machine-backends! selected
+                            selected (parser-machine-grammar-digest selected) (lambda _ #f))))  #t)
+        (act (install-parser-machine-backends! selected
           (list (list 'drive (parser-machine-grammar-digest selected)
-                      (lambda _ (error "contract control must not execute generated drive")))))
-        (check (parser-machine-backend-representation selected 'drive) => 'recognition)
-        (check (parser-machine-backend-representation machine 'drive) => #f)
-        (parameterize ((current-lr-event-program-enabled? #f))
-          (check (parser-machine-backend-representation selected 'prepared) => 'event-program))
-        (check (backend-rejects? (lambda () (parser-machine-backend-representation #f 'prepared))) => #t)
-        (check (backend-rejects? (lambda () (parser-machine-backend-representation machine 'unknown))) => #t)))
-    (test-case "declarative source backend retains the ordinary LR fallback"
-      (check (eq? (parser-machine-direct-source backend-admission-witness-parser)
-                  backend-source-fallback) => #t)
-      (let (artifact (parse-source backend-admission-witness-parser "example"))
-        (check (parse-artifact-success? artifact) => #t)
-        (check (parse-artifact-roundtrip artifact) => "example")))
-    (test-case "a stale later row cannot partially install an earlier backend"
-      (check
+                      (lambda _ (error "contract control must not execute generated drive"))))))
+        (equal (parser-machine-backend-representation selected 'drive)  'recognition)
+        (equal (parser-machine-backend-representation machine 'drive)  #f)
+        (parameters ((current-lr-event-program-enabled? #f))
+          (equal (parser-machine-backend-representation selected 'prepared)  'event-program))
+        (equal (backend-rejects? (lambda () (parser-machine-backend-representation #f 'prepared)))  #t)
+        (equal (backend-rejects? (lambda () (parser-machine-backend-representation machine 'unknown)))  #t)))
+    (scenario "declarative source backend retains the ordinary LR fallback"
+      (equal (eq? (parser-machine-direct-source backend-admission-witness-parser)
+                  backend-source-fallback)  #t)
+      (scope ((artifact (parse-source backend-admission-witness-parser "example")))
+        (equal (parse-artifact-success? artifact)  #t)
+        (equal (parse-artifact-roundtrip artifact)  "example")))
+    (property "a stale later row cannot partially install an earlier backend"
+      (bindings)
+      (equal
        (backend-rejects?
         (lambda ()
           (install-parser-machine-backends!
            explicit-v1-witness-parser
            (list (list 'drive (parser-machine-grammar-digest explicit-v1-witness-parser)
                        (lambda _ #f))
-                 (list 'step "sha256:stale" (lambda _ #f)))))) => #t)
-      (check (parser-machine-direct-drive explicit-v1-witness-parser) => #f))
-    (test-case "unknown duplicate and occupied backend slots reject"
-      (let ((digest (parser-machine-grammar-digest explicit-v1-witness-parser))
+                 (list 'step "sha256:stale" (lambda _ #f))))))  #t)
+      (equal (parser-machine-direct-drive explicit-v1-witness-parser)  #f))
+    (scenario "unknown duplicate and occupied backend slots reject"
+      (scope ((digest (parser-machine-grammar-digest explicit-v1-witness-parser))
             (procedure (lambda _ #f)))
-        (for-each
-         (lambda (rows)
-           (check (backend-rejects?
-                   (lambda () (install-parser-machine-backends!
-                               explicit-v1-witness-parser rows))) => #t)
-           (check (parser-machine-direct-drive explicit-v1-witness-parser) => #f))
-         (list (list (list 'unknown digest procedure))
+        (each (rows) ((list (list (list 'unknown digest procedure))
                (list (list 'drive digest procedure) (list 'drive digest procedure))
                (list (list 'drive digest #f))))
-        (check
+           (equal (backend-rejects?
+                   (lambda () (install-parser-machine-backends!
+                               explicit-v1-witness-parser rows)))  #t)
+           (equal (parser-machine-direct-drive explicit-v1-witness-parser)  #f))
+        (equal
          (backend-rejects?
           (lambda ()
             (install-parser-machine-backends!
              backend-admission-witness-parser
              (list (list 'source
                          (parser-machine-grammar-digest backend-admission-witness-parser)
-                         procedure))))) => #t)))))
-(export language-backend-test)
+                         procedure)))))  #t))))

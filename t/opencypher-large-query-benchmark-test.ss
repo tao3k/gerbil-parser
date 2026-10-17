@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 
 (import :std/test
@@ -17,30 +18,24 @@
     (report-test-progress! "SCENARIO-OK opencypher-large-query clauses=100")
     (force-output)))
 
-(def opencypher-large-query-benchmark-tests
-  (test-suite "openCypher large-query complexity scenario"
-    (test-case "one hundred clauses remain linear at full scale"
-      (check (benchmark-contract-valid? benchmark-path) => #t)
-      (let (algorithm-receipt (opencypher-large-query-scenario))
-        (write algorithm-receipt)
-        (newline)
-        (force-output)
-        (check (opencypher-large-query-scenario-pass? algorithm-receipt)
-               => #t))
-      (run-scenario)
-      (##gc)
-      (let (benchmark-receipt
-            (benchmark-contract-run benchmark-path run-scenario))
-        (write benchmark-receipt)
-        (newline)
-        (force-output)
-        (check (benchmark-contract-receipt-pass? benchmark-receipt) => #t)))))
+(deflanguage-parser-tests opencypher-large-query-benchmark-tests "openCypher large-query complexity scenario"
+  (engine (exclusive #t))
+    (scenario "one hundred clauses remain linear at full scale"
+      (equal (benchmark-contract-valid? benchmark-path)  #t)
+      (scope ((algorithm-receipt (opencypher-large-query-scenario)))
+        (receipt algorithm-receipt)
+        (equal (opencypher-large-query-scenario-pass? algorithm-receipt)
+                #t))
+      (act (run-scenario))
+      (act (##gc))
+      (scope ((benchmark-receipt
+            (benchmark-contract-run benchmark-path run-scenario)))
+        (receipt benchmark-receipt)
+        (equal (benchmark-contract-receipt-pass? benchmark-receipt)  #t))))
 
 (def opencypher-large-query-benchmark-test
   opencypher-large-query-benchmark-tests)
-(export opencypher-large-query-benchmark-tests
+(export
         opencypher-large-query-benchmark-test)
 
 ;; Resource admission owns its measurement interval in the shared runtime.
-(def test-worker-exclusive? #t)
-(export test-worker-exclusive?)

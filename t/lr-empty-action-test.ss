@@ -1,3 +1,4 @@
+(import :gerbil-parser/language-test-support)
 (import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; -*- Gerbil -*-
 ;;; Empty reductions and identity operands must agree across semantic backends.
@@ -13,7 +14,7 @@
                  make-incremental-session incremental-session-artifact
                  incremental-session-project-artifact parse-incremental-session
                  make-edit apply-edit))
-(export lr-empty-action-test)
+
 
 (begin
  (deflanguage empty-action-probe
@@ -98,107 +99,93 @@
   (parameterize ((current-lr-event-program-enabled? events?))
     (parse-source empty-action-probe-parser source)))
 
-(def lr-empty-action-test
-  (test-suite "LR identity operands and empty reductions"
-    (test-case "nullable and decorated operands retain identical artifacts"
-      (for-each
-       (lambda (source)
-         (let (artifact (parse-probe source #f))
-           (check (parse-artifact-success? artifact) => #t)
-           (check (parse-artifact-valid? artifact) => #t)
-           (check (parse-artifact-roundtrip artifact) => source)
-           (check (parse-probe source #t) => artifact)))
-       '("" " " "a" ",b" "a, b"))
-      (for-each
-       (lambda (source)
-         (let (artifact (parse-probe source #f))
-           (check (parse-artifact-success? artifact) => #f)
-           (check (parse-probe source #t) => artifact)))
-       '("a," "a,b,c")))
-    (test-case "multi-operand concatenation retains field and token order"
-      (for-each
-       (lambda (entry)
-         (let* ((source (car entry))
+(deflanguage-parser-tests lr-empty-action-test "LR identity operands and empty reductions"
+  (engine)
+    (scenario "nullable and decorated operands retain identical artifacts"
+      (each (source) ('("" " " "a" ",b" "a, b"))
+         (scope ((artifact (parse-probe source #f)))
+           (equal (parse-artifact-success? artifact)  #t)
+           (equal (parse-artifact-valid? artifact)  #t)
+           (equal (parse-artifact-roundtrip artifact)  source)
+           (equal (parse-probe source #t)  artifact)))
+      (each (source) ('("a," "a,b,c"))
+         (scope ((artifact (parse-probe source #f)))
+           (equal (parse-artifact-success? artifact)  #f)
+           (equal (parse-probe source #t)  artifact))))
+    (scenario "multi-operand concatenation retains field and token order"
+      (each (entry) ('(("a,b,c" (first middle last) ("a" "," "b" "," "c"))
+         ("a,,c" (first last) ("a" "," "," "c"))
+         ("a, b, c" (first middle last) ("a" "," " " "b" "," " " "c"))))
+         (sequential ((source (car entry))
                 (artifact (parse-source ordered-action-probe-parser source))
                 (events (parse-artifact-events artifact)))
-           (check (parse-artifact-success? artifact) => #t)
-           (check (parse-artifact-valid? artifact) => #t)
-           (check (parse-artifact-roundtrip artifact) => source)
-           (check (map (lambda (event) (vector-ref event 1))
+           (equal (parse-artifact-success? artifact)  #t)
+           (equal (parse-artifact-valid? artifact)  #t)
+           (equal (parse-artifact-roundtrip artifact)  source)
+           (equal (map (lambda (event) (vector-ref event 1))
                        (filter (lambda (event) (eq? (event-kind event) 'start-field)) events))
-                  => (cadr entry))
-           (check (map token-event-lexeme (filter token-event? events)) => (caddr entry))
-           (check (parameterize ((current-lr-event-program-enabled? #t))
-                    (parse-source ordered-action-probe-parser source)) => artifact)))
-       '(("a,b,c" (first middle last) ("a" "," "b" "," "c"))
-         ("a,,c" (first last) ("a" "," "," "c"))
-         ("a, b, c" (first middle last) ("a" "," " " "b" "," " " "c")))))
-    (test-case "chained fields and aliases retain their nesting order"
-      (for-each
-       (lambda (source)
-         (let* ((artifact (parameterize ((current-lr-event-program-enabled? #f))
+                   (cadr entry))
+           (equal (map token-event-lexeme (filter token-event? events))  (caddr entry))
+           (equal (parameterize ((current-lr-event-program-enabled? #t))
+                    (parse-source ordered-action-probe-parser source))  artifact))))
+    (scenario "chained fields and aliases retain their nesting order"
+      (each (source) ('("a" " a "))
+         (sequential ((artifact (parameterize ((current-lr-event-program-enabled? #f))
                            (parse-source chained-action-probe-parser source)))
                 (events (parse-artifact-events artifact)))
-           (check (parse-artifact-success? artifact) => #t)
-           (check (parse-artifact-valid? artifact) => #t)
-           (check (parse-artifact-roundtrip artifact) => source)
-           (check (map (lambda (event) (vector-ref event 1))
+           (equal (parse-artifact-success? artifact)  #t)
+           (equal (parse-artifact-valid? artifact)  #t)
+           (equal (parse-artifact-roundtrip artifact)  source)
+           (equal (map (lambda (event) (vector-ref event 1))
                        (filter (lambda (event) (eq? (event-kind event) 'start-field)) events))
-                  => '(outer inner))
-           (check (map (lambda (event) (vector-ref event 2))
+                   '(outer inner))
+           (equal (map (lambda (event) (vector-ref event 2))
                        (filter (lambda (event) (eq? (event-kind event) 'start-node)) events))
-                  => '(SourceFile Renamed Original))
-           (check (parameterize ((current-lr-event-program-enabled? #t))
-                    (parse-source chained-action-probe-parser source)) => artifact)))
-       '("a" " a ")))
-    (test-case "unary actions consume only the top value above retained siblings"
-      (for-each
-       (lambda (source)
-         (for-each
-          (lambda (events?)
-            (parameterize ((current-lr-event-program-enabled? events?))
-              (let* ((artifact (parse-source unary-stack-probe-parser source))
+                   '(SourceFile Renamed Original))
+           (equal (parameterize ((current-lr-event-program-enabled? #t))
+                    (parse-source chained-action-probe-parser source))  artifact))))
+    (scenario "unary actions consume only the top value above retained siblings"
+      (each (source) ('("a;b" "a ; β"))
+         (each (events?) ('(#f #t))
+            (parameters ((current-lr-event-program-enabled? events?))
+              (sequential ((artifact (parse-source unary-stack-probe-parser source))
                      (events (parse-artifact-events artifact))
                      (session (make-incremental-session unary-stack-probe-parser source #t))
                      (edit (make-edit 0 1 "alpha")))
-                (check (parse-artifact-success? artifact) => #t)
-                (check (parse-artifact-valid? artifact) => #t)
-                (check (parse-artifact-roundtrip artifact) => source)
-                (check (map (lambda (event) (vector-ref event 1))
+                (equal (parse-artifact-success? artifact)  #t)
+                (equal (parse-artifact-valid? artifact)  #t)
+                (equal (parse-artifact-roundtrip artifact)  source)
+                (equal (map (lambda (event) (vector-ref event 1))
                             (filter (lambda (event) (eq? (event-kind event) 'start-field)) events))
-                       => '(head tail inner))
-                (check (map (lambda (event) (vector-ref event 2))
+                        '(head tail inner))
+                (equal (map (lambda (event) (vector-ref event 2))
                             (filter (lambda (event) (eq? (event-kind event) 'start-node)) events))
-                       => '(SourceFile Head Renamed Original))
-                (check (parameterize ((current-lr-event-program-enabled? (not events?)))
-                         (parse-source unary-stack-probe-parser source)) => artifact)
-                (let-values (((next receipt) (parse-incremental-session session edit)))
-                  (check (incremental-session-artifact next)
-                         => (parse-source unary-stack-probe-parser (apply-edit source edit)))
+                        '(SourceFile Head Renamed Original))
+                (equal (parameterize ((current-lr-event-program-enabled? (not events?)))
+                         (parse-source unary-stack-probe-parser source))  artifact)
+                (scope-values (((next receipt) (parse-incremental-session session edit)))
+                  (equal (incremental-session-artifact next)
+                          (parse-source unary-stack-probe-parser (apply-edit source edit)))
                   ;; Two successors must retain independent semantics while the
                   ;; source session and its previously published artifact stay valid.
-                  (let (other-edit (make-edit 0 1 "gamma"))
-                    (let-values (((other other-receipt)
+                  (scope ((other-edit (make-edit 0 1 "gamma")))
+                    (scope-values (((other other-receipt)
                                   (parse-incremental-session session other-edit)))
-                      (check (incremental-session-artifact other)
-                             => (parse-source unary-stack-probe-parser
+                      (equal (incremental-session-artifact other)
+                              (parse-source unary-stack-probe-parser
                                               (apply-edit source other-edit)))
-                      (check (incremental-session-artifact next)
-                             => (parse-source unary-stack-probe-parser
+                      (equal (incremental-session-artifact next)
+                              (parse-source unary-stack-probe-parser
                                               (apply-edit source edit)))
-                      (check (incremental-session-artifact session) => artifact)))))))
-          '(#f #t)))
-       '("a;b" "a ; β")))
-    (test-case "editing through empty source matches independent production replay"
-      (for-each
-       (lambda (events?)
-         (parameterize ((current-lr-event-program-enabled? events?))
-           (let loop ((source "a, b")
+                      (equal (incremental-session-artifact session)  artifact)))))))))
+    (scenario "editing through empty source matches independent production replay"
+      (each (events?) ('(#f #t))
+         (parameters ((current-lr-event-program-enabled? events?))
+           (iterate loop ((source "a, b")
                       (session (make-incremental-session empty-action-probe-parser "a, b" #t))
                       (edits (list (make-edit 0 4 "") (make-edit 0 0 "a, b"))))
-             (check (incremental-session-artifact session) => (parse-probe source events?))
-             (check (incremental-session-project-artifact session) => (incremental-session-artifact session))
+             (equal (incremental-session-artifact session)  (parse-probe source events?))
+             (equal (incremental-session-project-artifact session)  (incremental-session-artifact session))
              (when (pair? edits)
-               (let-values (((next receipt) (parse-incremental-session session (car edits))))
-                 (loop (apply-edit source (car edits)) next (cdr edits)))))))
-       '(#f #t)))))
+               (scope-values (((next receipt) (parse-incremental-session session (car edits))))
+                 (continue loop (apply-edit source (car edits)) next (cdr edits)))))))))

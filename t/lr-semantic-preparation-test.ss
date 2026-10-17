@@ -1,3 +1,4 @@
+(import :gerbil-parser/language-test-support)
 ;;; Prepared backend admission and retained runtime identity.
 (import :std/test
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
@@ -11,64 +12,59 @@
                  lr-runtime-case-insensitive? lr-runtime-dynamic? lr-runtime-layout?
                  lr-runtime-lexical-modes lr-runtime-lexical-mode-catalog lr-runtime-action-selector
                  lr-runtime-goto-columns))
-(export lr-semantic-preparation-test)
+
 
 ;;; Recognition kernel is shared; backend-specific reducers/plans are not.
-(def (check-recognition-kernel source selected)
-  (for-each
-   (lambda (field) (check (eq? (field source) (field selected)) => #t))
-   (list lr-runtime-productions lr-runtime-table lr-runtime-reduction-widths
+(defparser-check (check-recognition-kernel source selected)
+  (each (field) ((list lr-runtime-productions lr-runtime-table lr-runtime-reduction-widths
          lr-runtime-actions lr-runtime-action-index lr-runtime-gotos lr-runtime-goto-index
          lr-runtime-case-insensitive? lr-runtime-lexical-modes lr-runtime-lexical-mode-catalog
-         lr-runtime-action-selector lr-runtime-goto-columns))
-  (check (lr-runtime-dynamic? selected) => #f)
-  (check (lr-runtime-layout? selected) => #f))
+         lr-runtime-action-selector lr-runtime-goto-columns)) (equal (eq? (field source) (field selected))  #t))
+  (equal (lr-runtime-dynamic? selected)  #f)
+  (equal (lr-runtime-layout? selected)  #f))
 
 (def (event-runtime runtime)
   (parameterize ((current-lr-event-program-enabled? #t))
     (lr-runtime-for-current-semantic-backend runtime)))
 
-(def lr-semantic-preparation-test
-  (test-suite "LR semantic preparation"
-    (test-case "preparation captures both strategies independently of request preference"
-      (let* ((spec (compile-lr-spec '((source-file (token word))) 'source-file))
+(deflanguage-parser-tests lr-semantic-preparation-test "LR semantic preparation"
+  (engine)
+    (scenario "preparation captures both strategies independently of request preference"
+      (sequential ((spec (compile-lr-spec '((source-file (token word))) 'source-file))
              (runtime (parameterize ((current-lr-event-program-enabled? #t))
                         (lr-prepare spec)))
              (selected (event-runtime runtime)))
-        (check (lr-runtime-event-program? runtime) => #f)
-        (check (lr-runtime-event-program? selected) => #t)
-        (check (eq? selected runtime) => #f)
-        (check-recognition-kernel runtime selected)
-        (check-recognition-kernel runtime (event-runtime runtime))
-        (check-recognition-kernel runtime (event-runtime selected))
-        (check (eq? selected (event-runtime runtime)) => #t)
-        (check (eq? selected (event-runtime selected)) => #t)
-        (parameterize ((current-lr-event-program-enabled? #f))
-          (check (eq? runtime (lr-runtime-for-current-semantic-backend runtime)) => #t)
-          (check (eq? selected (lr-runtime-for-current-semantic-backend selected)) => #t))
-        (check (eq? selected (event-runtime (lr-prepare spec))) => #f)))
-    (test-case "generated step installation changes future selection, not retained executors"
-      (let* ((runtime (lr-prepare (compile-lr-spec '((source-file (token word))) 'source-file)))
+        (equal (lr-runtime-event-program? runtime)  #f)
+        (equal (lr-runtime-event-program? selected)  #t)
+        (equal (eq? selected runtime)  #f)
+        (verify check-recognition-kernel runtime selected)
+        (verify check-recognition-kernel runtime (event-runtime runtime))
+        (verify check-recognition-kernel runtime (event-runtime selected))
+        (equal (eq? selected (event-runtime runtime))  #t)
+        (equal (eq? selected (event-runtime selected))  #t)
+        (parameters ((current-lr-event-program-enabled? #f))
+          (equal (eq? runtime (lr-runtime-for-current-semantic-backend runtime))  #t)
+          (equal (eq? selected (lr-runtime-for-current-semantic-backend selected))  #t))
+        (equal (eq? selected (event-runtime (lr-prepare spec)))  #f)))
+    (scenario "generated step installation changes future selection, not retained executors"
+      (sequential ((runtime (lr-prepare (compile-lr-spec '((source-file (token word))) 'source-file)))
              (retained (event-runtime runtime))
              (step (lambda args (error "test step must not execute"))))
-        (install-lr-runtime-event-step! runtime step)
-        (let (selected (event-runtime runtime))
-          (check (eq? selected retained) => #f)
-          (check-recognition-kernel runtime retained)
-          (check-recognition-kernel runtime selected)
-          (check (eq? selected (event-runtime runtime)) => #t)
-          (check (eq? step (lr-runtime-direct-step selected)) => #t)
-          (check (lr-runtime-direct-step retained) => #f))
-        (check-exception (install-lr-runtime-event-step! runtime step) true)))
-    (test-case "dynamic, branching and layout grammars retain recognition fallback"
-      (for-each
-       (lambda (rules)
-         (let (runtime (lr-prepare (compile-lr-spec rules 'source-file 'selective-glr)))
-           (for-each (lambda (_) (check (eq? runtime (event-runtime runtime)) => #t))
-                     '(first second third))
-           (check (lr-runtime-event-program? runtime) => #f)))
-       '(((source-file (precedence dynamic 1 (token word))))
+        (act (install-lr-runtime-event-step! runtime step))
+        (scope ((selected (event-runtime runtime)))
+          (equal (eq? selected retained)  #f)
+          (verify check-recognition-kernel runtime retained)
+          (verify check-recognition-kernel runtime selected)
+          (equal (eq? selected (event-runtime runtime))  #t)
+          (equal (eq? step (lr-runtime-direct-step selected))  #t)
+          (equal (lr-runtime-direct-step retained)  #f))
+        (raises (install-lr-runtime-event-step! runtime step) true)))
+    (scenario "dynamic, branching and layout grammars retain recognition fallback"
+      (each (rules) ('(((source-file (precedence dynamic 1 (token word))))
          ((source-file (choice (reference first-path) (reference second-path)))
           (first-path (alias First (token word)))
           (second-path (alias Second (token word))))
-         ((source-file (sequence (layout-start "|>") (token word) (layout-end "END")))))))))
+         ((source-file (sequence (layout-start "|>") (token word) (layout-end "END"))))))
+         (scope ((runtime (lr-prepare (compile-lr-spec rules 'source-file 'selective-glr))))
+           (each (_) ('(first second third)) (equal (eq? runtime (event-runtime runtime))  #t))
+           (equal (lr-runtime-event-program? runtime)  #f)))))

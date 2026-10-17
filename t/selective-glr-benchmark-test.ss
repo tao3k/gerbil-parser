@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 
 (import :std/test
@@ -19,28 +20,22 @@
     (report-test-progress! "SCENARIO-BATCH-OK selective-glr groups=100")
     (force-output)))
 
-(def selective-glr-benchmark-tests
-  (test-suite "selective GLR completion scenario"
-    (test-case "static and dynamic forks retain complete bounded evidence"
-      (check (benchmark-contract-valid? benchmark-path) => #t)
-      (let (algorithm-receipt (selective-glr-scenario))
-        (write algorithm-receipt)
-        (newline)
-        (force-output)
-        (check (selective-glr-scenario-pass? algorithm-receipt) => #t))
-      (run-scenario-batch)
-      (##gc)
-      (let (benchmark-receipt
-            (benchmark-contract-run benchmark-path run-scenario-batch))
-        (write benchmark-receipt)
-        (newline)
-        (force-output)
-        (check (benchmark-contract-receipt-pass? benchmark-receipt) => #t)))))
+(deflanguage-parser-tests selective-glr-benchmark-tests "selective GLR completion scenario"
+  (engine (exclusive #t))
+    (scenario "static and dynamic forks retain complete bounded evidence"
+      (equal (benchmark-contract-valid? benchmark-path)  #t)
+      (scope ((algorithm-receipt (selective-glr-scenario)))
+        (receipt algorithm-receipt)
+        (equal (selective-glr-scenario-pass? algorithm-receipt)  #t))
+      (act (run-scenario-batch))
+      (act (##gc))
+      (scope ((benchmark-receipt
+            (benchmark-contract-run benchmark-path run-scenario-batch)))
+        (receipt benchmark-receipt)
+        (equal (benchmark-contract-receipt-pass? benchmark-receipt)  #t))))
 
 (def selective-glr-benchmark-test selective-glr-benchmark-tests)
 
-(export selective-glr-benchmark-tests selective-glr-benchmark-test)
+(export  selective-glr-benchmark-test)
 
 ;; Resource admission owns its measurement interval in the shared runtime.
-(def test-worker-exclusive? #t)
-(export test-worker-exclusive?)

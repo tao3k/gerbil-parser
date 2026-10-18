@@ -17,4 +17,9 @@
     (scope ((catalog (cadr (caddr (read-source-definition "build-language-conformance.ss" 'conformance-modules))))
             (imports (source-procedure "scripts/test-plan.ss" 'conformance-imported-test-names '())))
       (each (owner) ((filter (lambda (name) (string-suffix? "-test" name)) catalog))
-        (equal (pair? (imports owner)) #t)))))
+        (equal (pair? (imports owner)) #t))))
+  (scenario "source index evaluation has an expander owner and native diagnostics stay compiled"
+    (scope ((declared (cadr (caddr (read-source-definition "t/conformance-main.ss" 'source-suites))))
+            (imports (source-procedure "scripts/test-plan.ss" 'conformance-imported-test-names '())))
+      (equal (cdr (assoc "t/nullable-origin-test" declared)) '(nullable-index-source-test))
+      (equal (imports "t/nullable-origin-test") '(nullable-origin-test)))))

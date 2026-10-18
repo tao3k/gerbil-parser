@@ -88,7 +88,7 @@ def loopBindings : List Datum → Option (List String × List Datum)
 
 def callable : Datum → Bool
   | .symbol "quote" | .symbol "lambda" | .symbol "set!" | .symbol "and"
-  | .symbol "or" | .symbol "begin" | .symbol "let" => false
+  | .symbol "or" | .symbol "begin" | .symbol "let" | .symbol "if" | .symbol "cond" => false
   | _ => true
 
 /-- Primitive globals are unshadowed in this fragment. Local procedure calls
@@ -97,6 +97,9 @@ def primitive (operation : String) (args : List Value) (heap : Heap) : Option (V
   match operation, args with
   | "car", [.list (head :: _)] => some (head, heap)
   | "cadr", [.list (_ :: head :: _)] => some (head, heap)
+  | "cdr", [.list (_ :: rest)] => some (.list rest, heap)
+  | "null?", [.list values] => some (.boolean values.isEmpty, heap)
+  | "eq?", [.symbol left, .symbol right] => some (.boolean (left == right), heap)
   | "cons", [head, .list tail] => some (.list (head :: tail), heap)
   | "list", values => some (.list values, heap)
   | "reverse", [.list values] => some (.list values.reverse, heap)
@@ -111,6 +114,15 @@ def primitive (operation : String) (args : List Value) (heap : Heap) : Option (V
   | "string-append", [.text a, .text b, .text c, .text d] => some (.text (a ++ b ++ c ++ d), heap)
   | "string->symbol", [.text name] => some (.symbol name, heap)
   | _, _ => none
+
+/-- The supported cond syntax has a final else clause. Expansion preserves
+test order and each clause's sequence; unsupported envelopes are rejected. -/
+def expandCond : List Datum → Option Datum
+  | [.list (.symbol "else" :: first :: rest)] => some (app "begin" (first :: rest))
+  | .list (test :: first :: body) :: rest => do
+      let fallback ← expandCond rest
+      return app "if" [test, app "begin" (first :: body), fallback]
+  | _ => none
 
 mutual
 inductive Eval : Environment → Heap → Datum → Value → Heap → Prop where
@@ -132,6 +144,12 @@ inductive Eval : Environment → Heap → Datum → Value → Heap → Prop wher
   | disjunctionFalse (head : Eval env before first value middle) (continued : truthy value = false)
       (tail : Eval env middle second result after) : Eval env before (app "or" [first, second]) result after
   | begin (body : Sequence env before expressions result after) : Eval env before (app "begin" expressions) result after
+  | conditionalTrue (test : Eval env before condition value middle) (chosen : truthy value = true)
+      (branch : Eval env middle yes result after) : Eval env before (app "if" [condition, yes, no]) result after
+  | conditionalFalse (test : Eval env before condition value middle) (chosen : truthy value = false)
+      (branch : Eval env middle no result after) : Eval env before (app "if" [condition, yes, no]) result after
+  | cond (expanded : expandCond clauses = some expression) (execution : Eval env before expression result after) :
+      Eval env before (app "cond" clauses) result after
   | call (allowed : callable callee = true) (procedure : Eval env before callee function middle)
       (arguments : Arguments env middle expressions values ready)
       (result : Invoke ready function values value after) :

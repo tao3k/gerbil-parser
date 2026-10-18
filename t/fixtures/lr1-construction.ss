@@ -315,6 +315,9 @@
         (for-each reserve expression)))
     (for-each (lambda (row) (reserve (cadr row))) rules)
     (for-each (lambda (production) (intern (production-lhs production))) productions)
+    ;; An allocated empty-choice helper has no production lhs. The binding
+    ;; observation, rather than the row set, owns its directory membership.
+    (for-each (lambda (binding) (intern (car binding))) (reverse bindings))
     (def (name-id name)
       (let loop ((rest names) (index 0))
         (cond ((null? rest) (error "missing grammar name" name))
@@ -428,7 +431,8 @@
                 (alias Item (precedence dynamic 3 (token word))))))
       ((start (repeat (literal "a"))) (start (repeat (literal "a"))))
       ((start (choice (repeat (literal "a")) (repeat1 (token word))))
-       ($start.0 (empty)) ($accept (empty))))))
+       ($start.0 (empty)) ($accept (empty)))
+      ((start (choice (sequence (choice)) (literal "x")))))))
 
 (def (traversal-data rules)
   (let (data (origin-data rules)) (list (caddr data) (car data))))
@@ -457,4 +461,6 @@
       (ParserEngine.LoweringBranchSource rootSource
         (read-source-definition "src/compiler/lr.ss" 'lower-rules))
       (ParserEngine.RuleIndexSource definitionSource
-        (read-source-definition "src/compiler/lr.ss" 'rule-index-by-lhs))) output))
+        (read-source-definition "src/compiler/lr.ss" 'rule-index-by-lhs))
+      (ParserEngine.SchemeNameEncoding source
+        (read-source-subdefinition "t/fixtures/lr1-construction.ss" 'origin-data 'name-id))) output))

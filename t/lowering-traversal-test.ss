@@ -1,7 +1,8 @@
 (import :gerbil-parser/language-test-support
         (only-in :std/misc/ports read-all-as-string)
         (only-in :gerbil-parser/t/fixtures/lr1-construction write-lowering-traversal-data)
-        (only-in :gerbil-parser/src/compiler/lr lower-rules production-id production-lhs production-rhs base-symbol))
+        (only-in :gerbil-parser/src/compiler/lr lower-rules production-id production-lhs production-rhs base-symbol
+          validate-production-semantics))
 
 (def (nested-expression kind depth)
   (if (= depth 0) '(literal "x")
@@ -67,6 +68,19 @@
 
 (deflanguage-parser-tests lowering-traversal-test "recursive lowering generation and source alignment"
   (engine)
+  (scenario "an empty-language helper has a binding without an lhs row and exposes the canonical vocabulary gap"
+    (scope ((bindings '())
+            (rules '((start (choice (sequence (choice)) (literal "x"))))))
+      (scope ((rows (lower-rules rules 'start #t #f
+        (lambda (kind value _proof) (when (eq? kind 'binding) (set! bindings (cons value bindings)))))))
+        (equal (length bindings) 1)
+        (equal (member (car bindings) (map production-lhs rows)) #f)
+        (equal (map base-symbol (production-rhs (cadr rows)))
+          (list (list 'nonterminal (car bindings))))
+        (equal (map base-symbol (production-rhs (last rows))) '((terminal literal "x")))
+        ;; Keep this failure visible until the declaration vocabulary is part
+        ;; of the canonical producer/consumer contract, not inferred from lhs.
+        (raises (validate-production-semantics rows) true))))
   (scenario "the shared renderer reproduces the complete native traversal proof input"
     (equal (call-with-output-string write-lowering-traversal-data)
       (call-with-input-file "formal/ParserEngine/LoweringTraversalData.lean" read-all-as-string)))

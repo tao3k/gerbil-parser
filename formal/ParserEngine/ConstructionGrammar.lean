@@ -97,6 +97,21 @@ theorem operand_exact (input : Input) (receipt : Admitted input) (record : Recor
     | none => simp [found] at allowed
     | some ordinal => exact ⟨ordinal, found, by simp [symbol, base, found]⟩
 
+/-- The current canonical vocabulary is reconstructed from lhs rows. This
+rejects every allocated zero-row helper used on an RHS, even when lowering
+origin admission succeeds. A declared-name vocabulary is a separate obligation;
+this theorem deliberately does not weaken unresolved-reference validation. -/
+theorem missing_owner_rejected (input : Input) (record : Record)
+    (member : record ∈ input.records) (operand : ProducerAdmission.Operand)
+    (present : operand ∈ record.value.rhs) (base : operand.base = .nonterminal name)
+    (missing : name ∉ input.records.tail.map (fun row => row.value.lhs)) : checks input = false := by
+  cases accepted : checks input with
+  | false => rfl
+  | true =>
+    have required := operand_exact input ⟨accepted⟩ record member operand present
+    rw [base] at required
+    exact False.elim (missing required)
+
 theorem origins (input : Input) (receipt : Admitted input) :
     ∀ production ∈ (grammar input).tail, Names.OriginSupported input.rules input.decode production :=
   Names.admitted_native_sound (admitted_fields input receipt).2.2.2.2.2

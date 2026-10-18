@@ -31,11 +31,14 @@
       (equal (table-ref index name '())
         (map cadr (filter (lambda (row) (eq? (car row) name)) ordered))))))
 
-(deflanguage-parser-tests nullable-origin-test "complete nullable declaration witnesses"
+(deflanguage-parser-tests nullable-index-source-test "source nullable index evaluation"
   (engine)
   (matrix "source table evaluation preserves exact bucket order and multiplicity"
     (setup) ((count '(0 1 2 8 32)) (reversed? '(#f #t))) (bindings)
-    (equal (parser-check-result complete-index-case count reversed?) (void)))
+    (equal (parser-check-result complete-index-case count reversed?) (void))))
+
+(deflanguage-parser-tests nullable-origin-test "complete nullable declaration witnesses"
+  (engine)
   (matrix "a consuming duplicate never hides a nullable declaration"
     (setup) ((alternatives '(((empty) (literal "x"))
                              ((literal "x") (empty))))) (bindings)

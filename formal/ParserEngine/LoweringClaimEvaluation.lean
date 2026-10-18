@@ -7,8 +7,8 @@ namespace ParserEngine.LoweringClaimEvaluation
 open WalkSource SchemeTableEvaluation
 
 def procedure : Datum → Option (String × Procedure)
-  | .list [.symbol "def", .list (.symbol name :: parameters), body] =>
-      some (name, ⟨parameters, [body]⟩)
+  | .list (.symbol "def" :: .list (.symbol name :: parameters) :: first :: rest) =>
+      some (name, ⟨parameters, first :: rest⟩)
   | _ => none
 
 def claimBody : Datum := app "and" [

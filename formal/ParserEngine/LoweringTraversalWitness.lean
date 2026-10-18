@@ -56,7 +56,7 @@ set_option maxRecDepth 16384
 set_option maxHeartbeats 1600000
 
 theorem decoded : (array fixture corpus).isSome = true := by decide
-theorem cardinality : fixtures.length = 23 := by decide
+theorem cardinality : fixtures.length = 24 := by decide
 theorem compared : fixtures.all check = true := by decide_cbv
 
 theorem actual_trace (value : Fixture) (member : value ∈ fixtures) : check value = true :=

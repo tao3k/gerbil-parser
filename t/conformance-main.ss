@@ -47,7 +47,8 @@
 (export main)
 ;; Source-module admission requires a live expander; retain that Suite there.
 (def source-suites
-  '(("languages/tla-plus/parser-test" sany-closure-test)))
+  '(("languages/tla-plus/parser-test" sany-closure-test)
+    ("t/nullable-origin-test" nullable-index-source-test)))
 (def suites
   (list
         (cons "ranked-requests" (list lr-action-preparation-test lr-ordinary-action-preparation-test ranked-parser-request-test))

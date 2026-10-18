@@ -1,6 +1,8 @@
 import ParserEngine.Components
 import ParserEngine.SchemeCells
 import ParserEngine.LoweringAllocationCalls
+import ParserEngine.LoweringRootScope
+import ParserEngine.SchemeNameEncoding
 
 #print axioms ParserEngine.Grammar.nullable_iff_derives
 #print axioms ParserEngine.Grammar.nullable_least
@@ -458,7 +460,7 @@ import ParserEngine.LoweringAllocationCalls
 #print axioms ParserEngine.SchemeCells.shared_counter
 #print axioms ParserEngine.SchemeCells.increment_not_atomic
 #print axioms ParserEngine.LoweringClaimEvaluation.available_unique
-#print axioms ParserEngine.LoweringFreshEvaluation.extracted_group
+#print axioms ParserEngine.LoweringFreshEvaluation.extracted_declarations
 #print axioms ParserEngine.LoweringFreshEvaluation.loop_eval
 #print axioms ParserEngine.LoweringFreshEvaluation.fresh_unique
 #print axioms ParserEngine.LoweringFreshEvaluation.allocation_simulation
@@ -466,3 +468,12 @@ import ParserEngine.LoweringAllocationCalls
 #print axioms ParserEngine.LoweringAllocationCalls.source_unique
 #print axioms ParserEngine.LoweringAllocationCalls.every_return
 #print axioms ParserEngine.LoweringAllocationCalls.committed_frame
+#print axioms ParserEngine.LoweringRootStorage.source_entry
+#print axioms ParserEngine.LoweringRootStorage.roots
+#print axioms ParserEngine.LoweringRootStorage.root_frame
+#print axioms ParserEngine.LoweringRootScope.extracted
+#print axioms ParserEngine.LoweringRootScope.root_allocations
+#print axioms ParserEngine.SchemeNameEncoding.extracted
+#print axioms ParserEngine.SchemeNameEncoding.every_return
+#print axioms ParserEngine.SchemeNameEncoding.code_preserves_identity
+#print axioms ParserEngine.ConstructionGrammar.missing_owner_rejected

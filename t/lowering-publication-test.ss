@@ -1,6 +1,7 @@
 (import :gerbil-parser/language-test-support
         (only-in :gerbil-parser/t/fixtures/event-walk-source read-source-definition read-source-subdefinition)
         (only-in :gerbil-parser/t/fixtures/lr1-construction native-fact-rules)
+        (only-in :gerbil-parser/src/testing/source-witness parser-source-symbol-text)
         (only-in :gerbil-parser/src/compiler/lr lower-rules production-id production-rhs))
 
 ;;; Execute the complete source emitter in its real lexical counter/list scope.
@@ -27,6 +28,48 @@
 
 (def (candidate-name owner index)
   (string->symbol (string-append "$" (symbol->string owner) "." (number->string index))))
+
+;;; Retain the real root initializer, full procedure scope and reservation
+;;; prefix. Entry closures execute the original authored pass and finalizer.
+(def (make-source-root rules root)
+  (let* ((scope (caddr (read-source-definition "src/compiler/lr.ss" 'lower-rules)))
+         (body (cddr scope)) (count (length body)))
+    ((eval (list 'lambda '(rules root allow-dynamic? observe-origin observe-proof)
+       (append (list 'let (cadr scope))
+         (map (lambda (name) (read-source-definition "src/compiler/lr.ss" name))
+              '(make-production marked-symbol? operand-add-action))
+         (take body (- count 2))
+         (list (list 'values 'fresh 'emit-production
+           (list 'lambda '() (list-ref body (- count 2)))
+           (list 'lambda '() (last body))
+           '(lambda () (list next-id next-synthetic (reverse productions)
+                        (eq? used-names rule-counts)))))))) rules root #t #f #f)))
+
+(defparser-check (source-root-case rules)
+  (scope-values (((_fresh _emit dispatch finish inspect) (make-source-root rules 'start)))
+    (equal (inspect) '(1 0 () #f))
+    (act (dispatch))
+    (scope ((before (inspect)) (rows (finish)))
+      (equal rows (lower-rules rules 'start #t))
+      (equal (car before) (length rows))
+      (equal (map production-id rows) (iota (length rows)))
+      (each (pair) ((map cons (caddr before) (cdr rows)))
+        (equal (eq? (car pair) (cdr pair)) #t)))))
+
+(def (make-source-name-index names)
+  ((eval (list 'lambda '(names)
+     (list 'let '()
+       (read-source-subdefinition "t/fixtures/lr1-construction.ss" 'origin-data 'name-id)
+       'name-id))) names))
+
+(defparser-check (source-name-index-case count reversed?)
+  (sequential ((input (map (lambda (index) (list-ref '(a b 名称) (modulo index 3))) (iota count)))
+               (names (if reversed? (reverse input) input))
+               (encode (make-source-name-index names)))
+    (each (name) (names)
+      (equal (encode name)
+        (car (filter (lambda (index) (eq? name (list-ref names index))) (iota count)))))
+    (raises (encode 'absent) true)))
 
 (defparser-check (captured-name-case initial collisions)
   (scope ((reserved (map (lambda (offset) (candidate-name 'left (+ initial offset))) (iota collisions))))
@@ -106,6 +149,30 @@
 
 (deflanguage-parser-tests lowering-publication-test "source lowering publication protocol"
   (engine)
+  (matrix "source name encoding retains first occurrences and rejects absent identities"
+    (setup) ((count '(0 1 2 8 32)) (reversed? '(#f #t))) (bindings)
+    (equal (parser-check-result source-name-index-case count reversed?) (void)))
+  (scenario "equal printed uninterned symbols are distinct and never silently transported as text"
+    (scope ((left (string->uninterned-symbol "same")) (right (string->uninterned-symbol "same")))
+      (scope ((encode (make-source-name-index (list left right))))
+        (equal (symbol->string left) (symbol->string right))
+        (equal (encode left) 0)
+        (equal (encode right) 1)
+        (raises (parser-source-symbol-text left) true)
+        (raises (parser-source-symbol-text right) true))))
+  (matrix "the complete root scope executes reservation, recursive dispatch and final publication"
+    (setup) ((rules native-fact-rules)) (bindings)
+    (equal (parser-check-result source-root-case rules) (void)))
+  (scenario "root name and production cells and tables have separate ownership"
+    (scope-values (((fresh emit _dispatch _finish inspect) (make-source-root '() 'start)))
+      (equal (fresh 'start) '$start.0)
+      (equal (inspect) '(1 1 () #f))
+      (act (emit 'start '() 'concat #f 'start '() '(empty) '(identity ())))
+      (equal (car (inspect)) 2)
+      (equal (cadr (inspect)) 1)
+      (equal (fresh 'start) '$start.1)
+      (equal (map production-id (caddr (inspect))) '(1))
+      (equal (cadr (inspect)) 2)))
   (matrix "source closures share the lexical counter across collision retries and isolate requests"
     (setup) ((initial '(0 4 31)) (collisions '(0 1 8 32))) (bindings)
     (equal (parser-check-result captured-name-case initial collisions) (void)))

@@ -12,6 +12,8 @@ protocol, rather than an input assumption or a finite corpus comparison.
 | Stage | Generated obligation | Implementation |
 |-------+----------------------+----------------|
 | Source admission | Complete root and recursive helper schemas equal extracted source | LoweringBranchSource, LoweringNamesSource |
+| Root storage | Execute actual initializer forms; allocate separate mutable cells and table identities; preserve prior storage | SchemeStorage, LoweringRootStorage |
+| Lexical module | Construct the allocation interface from every directly nested source procedure and initialized root bindings | LoweringRootScope |
 | Recursive dispatch | All branches compile to scoped code with exact logical erasure | LoweringProgram, LoweringProgramBuilder |
 | Fresh names | Recursive source evaluation generates complete allocation and cross-call histories | LoweringNames, LoweringFreshEvaluation, LoweringAllocationCalls |
 | Mutable storage | Occupied names retain their meanings across subsequent claims | LoweringNameStore |
@@ -144,13 +146,71 @@ not equality with a second allocator on a finite input corpus.
 =every_return= uses call-sequence determinism to extend that generated history
 to every returning operational execution of the sequence.
 
-The remaining parser-owned premises are explicit: constructing the initial
-lexical cells from the root let, native symbol/text transport and candidate
-encoding injectivity, and deriving this request sequence from the entire
-recursive lowering dispatcher. The current allocation-call theorem takes the
-request sequence as input; it does not prove that the complete dispatcher
-produces it. The original retained LeanPoo construction remains authoritative;
-no parallel certificate or unchecked factory wrapper is introduced.
+The allocation interface now accepts the real lexical module. It no longer
+replaces that module with a separate two-procedure environment. The original
+retained LeanPoo construction remains authoritative; no parallel certificate or
+unchecked factory wrapper is introduced.
+
+** Root storage, module capture and name encoding
+
+[[file:../../../formal/ParserEngine/SchemeStorage.lean][SchemeStorage]] gives the initializer fragment allocation semantics with an
+owned frontier. That frontier denotes fresh logical identities, not physical GC
+addresses or a memory-capacity estimate. Each table consumes its own identity,
+even though its initial entry map is empty. Assigned variables receive mutable
+cells; immutable bindings retain their initialized values.
+
+[[file:../../../formal/ParserEngine/LoweringRootStorage.lean][LoweringRootStorage.source_entry]] executes the initializer list extracted from
+the actual root declaration. Conservative mutation collection ignores quoted
+data and includes nested procedures. For any prior heap satisfying the fresh
+frontier contract, it generates three distinct mutable cells and two distinct
+tables. The initial values, empty table contents and preservation of every
+previously owned location are kernel theorems. Root setup is no longer an
+independently supplied parser premise.
+
+[[file:../../../formal/ParserEngine/LoweringRootScope.lean][LoweringRootScope]] extracts every directly nested procedure, preserving the
+emitter, recursive dispatcher and proof helpers. It constructs the generic
+allocation scope using the real root environment. Primitive behavior remains a
+host interface; actual counter/table bindings and procedure lookup are proved
+from source. =root_allocations= composes arbitrary allocation calls in that
+complete module immediately after initialization. Reservation-prefix execution
+and deriving the call sequence from the dispatcher remain parser obligations;
+the theorem does not pretend those prefix effects have already occurred.
+
+[[file:../../../formal/ParserEngine/SchemeNameEncoding.lean][SchemeNameEncoding]] executes the extracted =name-id= loop using named-let,
+ordered cond tests and recursive calls. For every successful directory lookup,
+every returning evaluation has the same ordinal and unchanged heap. The proof
+uses the existing =ConstructionEncoding.lookup= and its identity-preservation
+theorem, including duplicate directory entries and nonzero loop indices.
+The directory domain is canonical interned source symbols. Native controls show
+that two distinct uninterned symbols may print identically while receiving
+different ordinals; the source renderer rejects such symbols rather than
+silently transporting their printed text as identity. Decimal candidate
+injectivity and broader native symbol transport still need their own proofs.
+
+** Discovered zero-row helper and vocabulary gap
+
+The grammar =start -> choice(sequence(choice()), literal("x"))= allocates a
+helper for the empty choice. That helper denotes the empty language and has no
+lhs production. The scoped lowering model already permits this trajectory;
+its allocation history cannot be reconstructed from emitted rows.
+
+The real witness producer nevertheless built its name directory from authored
+names, source references and production lhs values. It then attempted to encode
+the separately observed helper binding, raising =missing grammar name= for
+=$start.0=. The fix interns every observed binding as well as every row owner.
+The new native fixture retains the allocation even when no helper row exists;
+the complete origin/recipe comparison now covers 24 generated fixtures.
+
+This repair also exposes an independent canonical-IR boundary. The native
+validator and =ConstructionGrammar.operandAllowed= both require every referenced
+nonterminal to occur as an lhs row. =missing_owner_rejected= proves rejection
+for arbitrary records with such a missing owner, independent of a finite
+fixture. The new native control records that current rejection while retaining
+the productive literal alternative. No validation guard has been weakened.
+Closing this gap requires a declaration vocabulary distinct from production
+rows throughout the producer/consumer contract, or a proved grammar-wide
+elimination of empty-language branches. It is not solved by the encoder fix,
+and whole-engine model closure remains open until that obligation is discharged.
 
 * Source correspondence and remaining proof obligations
 
@@ -165,10 +225,11 @@ The following boundary remains explicit:
 
 - The physical interpreter denotes the restricted normal-return source protocol.
   Table indexing and recursive allocation now have operational simulations.
-  The complete dispatcher, emitter and root cell allocation still need their
+  The complete dispatcher, reservation prefix and emitter still need their
   joint simulation into that interpreter. These are parser source-refinement
   obligations, not assumed host theorems. Closure allocation proofs do not
-  discharge the dispatch-to-request or string-to-normalized-identity edges.
+  discharge the dispatch-to-request edge. Directory lookup now has a source
+  simulation; native symbol transport and candidate encoding remain explicit.
 - Native symbol/text normalization must preserve the reserved vocabulary and
   injective candidate encoding. The complete raw physical CFG is checked
   against generated emissions before the retained construction is admitted.
@@ -187,7 +248,7 @@ optimization remains gated on the remaining model obligations.
 
 * Qualification
 
-The shared =parser-source-data= renderer retains 23 native origin/recipe
+The shared =parser-source-data= renderer retains 24 native origin/recipe
 comparisons and extracts the complete source schema. Scheme controls use the
 existing =deflanguage-parser-tests= and =defparser-check= macros. The new
 collision matrix covers authored and reference-only reserved names, distinct
@@ -259,3 +320,17 @@ The complete Lean package passes 224 build jobs, including the new explicit
 axiom audit; all reported dependencies are standard Lean logical axioms. The
 19 evidence-admission controls pass. The existing repository test-plan control
 and unchanged lowering source generator check both exit naturally with zero.
+
+At the following current commit, both preparation jobs pass, while both native
+semantics jobs expose an ownership error: the source-evaluation index Suite was
+sent to the compiled runner without a live Gerbil expander. Its raw evaluation
+rejects Gerbil's binding syntax. The existing =source-suites= mechanism now owns
+that Suite; native nullable diagnostics remain in the compiled entry. The
+repository plan check and a macro regression verify the split without dropping
+assertions or executing a Suite twice.
+
+The extended working-tree qualification passes 228 Lean build jobs and 113
+macro-owned cases across seven owners, with four workers and natural exit zero
+in 44.19 seconds. The 19 evidence-admission controls pass. The failing zero-row
+helper serialization receipt is retained separately from the corrected
+generation. No parser watchdog, proof resource limit or SDK component changed.

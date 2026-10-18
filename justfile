@@ -433,11 +433,15 @@ regenerate-language-abi-fixtures: build-qualification
       -e '(import (only-in :gerbil-parser/t/generate-language-abi-alignment write-language-abi-fixtures!)) (write-language-abi-fixtures! "rust/gerbil-parser-artifact/tests/fixtures/languages.json")' \
       -e '(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)) (test-child-process-exit! 0)'
 
-test-language-abi-alignment:
+build-test-driver:
+    gerbil env gxi build-test-driver.ss compile
+
+build-ffi-tests:
+    gerbil env gxi build-ffi-tests.ss compile
+
+test-language-abi-alignment: build-qualification build-test-driver build-ffi-tests
     mkdir -p .data
-    gerbil compile -O {{if os() == "macos" { "-ld-options '-Wl,-undefined,dynamic_lookup'" } else { "" }}} src/ffi/language-abi-context.ss
-    gerbil compile -O src/ffi/event-binary.ss src/ffi/language-artifact-codec.ss t/generate-language-abi-alignment.ss t/language-abi-alignment-test.ss
-    gerbil test -v 5 t/language-abi-alignment-test.ss > .data/language-abi-alignment-test.log 2>&1
+    gerbil env gxi qualify.ss run --timeout 180 --idle-timeout 5 --log .data/language-abi-alignment-test.log --require '^OK$' -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (run-observed-sdk-tests! "-v" "5" "t/language-abi-alignment-test.ss")'
     test "$(grep -c '^NATIVE-ALIGNMENT-CASE ' .data/language-abi-alignment-test.log)" = 20
     grep -q '^CASE-OK accepted and rejected language products match the Rust fixture exactly$' .data/language-abi-alignment-test.log
     grep -q '^OK$' .data/language-abi-alignment-test.log

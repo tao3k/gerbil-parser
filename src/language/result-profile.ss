@@ -1,5 +1,9 @@
 ;;; Declarative result construction is the authority for publication and catalogs.
-(import (only-in :clan/poo/object .o .ref object?)
+(import (only-in ../runtime/result-plan
+                 make-result-plan result-plan? result-plan-owned-recipe
+                 result-plan-node-index result-plan-token-index result-plan-projection-index
+                 result-plan-recipe result-plan-catalog copy-result-datum)
+        (only-in :clan/poo/object .o .ref object?)
         (only-in :clan/poo/mop define-type validate)
         (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
         (only-in ./scanner-profile compile-scanner-profile)
@@ -13,11 +17,7 @@
         result-plan? result-plan-recipe result-plan-catalog result-plan-node result-plan-token
         result-plan-projection result-projection-build result-projection-parts-field result-projection-build-parts result-plan-bind-projections)
 (def ResultProfile. (.o nodes: '() tokens: '() scanner: #f projections: '()))
-(defstruct result-plan (owned-recipe node-index token-index projection-index))
 (defstruct result-projection (owner kind captures operations arity executor direct-parts?))
-(def (copy-datum value)
-  (cond ((pair? value) (cons (copy-datum (car value)) (copy-datum (cdr value))))
-        ((string? value) (string-copy value)) (else value)))
 (def (unique-symbols? values)
   (and (list? values) (andmap symbol? values)
        (let (seen (make-hash-table-eq))
@@ -53,7 +53,7 @@
 (def (profile-plan profile)
   (unless (object? profile) (error "result profile requires a POO object"))
   (let ((nodes (.ref profile 'nodes)) (tokens (.ref profile 'tokens))
-        (scanner (.ref profile 'scanner)) (projections (copy-datum (.ref profile 'projections))))
+        (scanner (.ref profile 'scanner)) (projections (copy-result-datum (.ref profile 'projections))))
     (unless (and (list? nodes)
                  (andmap (lambda (row)
                            (and (list? row) (= (length row) 2) (symbol? (car row))
@@ -249,16 +249,6 @@
 (def (compile-result-profile profile)
   (validate ResultProfileContract profile)
   (profile-plan profile))
-(def (result-plan-recipe plan)
-  (let (recipe (result-plan-owned-recipe plan))
-    (list (map (lambda (row) (list (car row) (map values (cadr row)))) (car recipe))
-          (map values (cadr recipe)) (copy-datum (caddr recipe)))))
-(def (result-plan-catalog plan)
-  ;; Catalog publication copies only the catalog, never the projection program.
-  (let (recipe (result-plan-owned-recipe plan))
-    (list (cons 'syntax-kinds
-                (map (lambda (row) (list (car row) 'result (map values (cadr row)))) (car recipe)))
-          (cons 'terminals (map (lambda (kind) (list kind 'token)) (cadr recipe))))))
 (def (result-plan-token plan token)
   (unless (and (token? token) (exact-integer? (token-start token))
                (exact-integer? (token-end token)) (<= 0 (token-start token) (token-end token))

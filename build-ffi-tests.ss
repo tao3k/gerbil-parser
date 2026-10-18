@@ -15,6 +15,27 @@
                          (map (lambda (object) (path-expand object (gerbil-path))) objects) " ")))))))
 (defbuild-script
   (compiler-build-spec (list
+   ;; ABI parity uses the admitted production generation. Any required native
+   ;; rebuild belongs to this writer, never an untracked recipe compilation.
+   ;; std/make keeps current production modules; the public native test route
+   ;; and exact-byte fixture assertions remain unchanged.
+   (compiled-spec "src/ffi/language-abi-context")
+   (compiled-spec "src/ffi/event-binary")
+   (compiled-spec "src/ffi/language-artifact-codec")
+   ;; The native fixture producer imports these declaration values. Publish
+   ;; its complete dynamic closure rather than depending on conformance's
+   ;; optional static generation or a previous source-only helper load.
+   (compiled-spec "languages/arithmetic/parser-test")
+   (compiled-spec "languages/bash/parser-test")
+   (compiled-spec "languages/cypher/parser-test")
+   (compiled-spec "languages/fhirpath/parser-test")
+   (compiled-spec "languages/gql/parser-test")
+   (compiled-spec "languages/hcl/parser-test")
+   (compiled-spec "languages/hl7/parser-test")
+   (compiled-spec "languages/tla-plus/parser-test")
+   (compiled-spec "t/fixtures/language-entries")
+   (compiled-spec "t/generate-language-abi-alignment")
+   (compiled-spec "t/language-abi-alignment-test")
    (compiled-spec "t/fixtures/ffi/abi-probe"
     '("lib/gerbil-parser/src/ffi/language-abi~0.o1"
       "lib/gerbil-parser/src/ffi/rust-aot-abi~0.o1"))

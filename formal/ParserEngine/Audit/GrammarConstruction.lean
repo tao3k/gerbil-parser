@@ -1,5 +1,9 @@
 import ParserEngine.TestPhase
 import ParserEngine.AuthorPhase
+import ParserEngine.ModuleWrapper
+import ParserEngine.ModuleEvaluation
+import ParserEngine.BuildEnvironment
+import ParserEngine.LanguagePhase
 import ParserEngine.LoweringReservationEvaluation
 import ParserEngine.LoweringPreprocessingEvaluation
 import ParserEngine.Components
@@ -14,6 +18,7 @@ import ParserEngine.SourceInventory
 #print axioms ParserEngine.TestPhase.generic_independent
 #print axioms ParserEngine.TestPhase.source_independent
 #print axioms ParserEngine.TestPhase.loader_missing
+#print axioms ParserEngine.TestPhase.loader_independent
 #print axioms ParserEngine.TestPhase.build_order
 #print axioms ParserEngine.TestPhase.import_absence
 #print axioms ParserEngine.TestPhase.caller_import_survives
@@ -27,6 +32,14 @@ import ParserEngine.SourceInventory
 #print axioms ParserEngine.AuthorPhase.retained_operands
 #print axioms ParserEngine.AuthorPhase.literal_transport
 #print axioms ParserEngine.AuthorPhase.literal_context_counterexample
+#print axioms ParserEngine.ModuleWrapper.extraction_sound
+#print axioms ParserEngine.ModuleWrapper.extraction_complete
+#print axioms ParserEngine.ModuleWrapper.selected_trace
+#print axioms ParserEngine.ModuleWrapper.data_walk_counterexample
+#print axioms ParserEngine.ModuleWrapper.opaque_rejects_whole_plan
+#print axioms ParserEngine.ModuleWrapper.raw_encoding
+#print axioms ParserEngine.ModuleWrapper.raw_execution
+#print axioms ParserEngine.ModuleWrapper.declaration_context
 #print axioms ParserEngine.TestPhase.requested_phases
 #print axioms ParserEngine.TestPhase.selected_import_owned
 #print axioms ParserEngine.TestPhase.stored_import_order
@@ -527,3 +540,20 @@ import ParserEngine.SourceInventory
 #print axioms ParserEngine.LoweringPreprocessingEvaluation.source_execution
 #print axioms ParserEngine.LoweringPreprocessingEvaluation.prefix_execution
 #print axioms ParserEngine.LoweringPreprocessingEvaluation.frame
+
+#print axioms ParserEngine.ModuleEvaluation.observation_preserves
+#print axioms ParserEngine.ModuleEvaluation.eager_import_counterexample
+#print axioms ParserEngine.ModuleEvaluation.built_observation
+
+#print axioms ParserEngine.ModuleEvaluation.missing_helper_not_ready
+#print axioms ParserEngine.ModuleEvaluation.parent_failure_cache
+
+#print axioms ParserEngine.BuildEnvironment.normalize_preserves
+#print axioms ParserEngine.BuildEnvironment.prepared_capabilities_preserved
+#print axioms ParserEngine.BuildEnvironment.reordering_changes
+
+#print axioms ParserEngine.ModuleEvaluation.settled_replay_context
+
+#print axioms ParserEngine.LanguagePhase.prepare_preserved
+#print axioms ParserEngine.LanguagePhase.consumer_preserved
+#print axioms ParserEngine.LanguagePhase.outside_request

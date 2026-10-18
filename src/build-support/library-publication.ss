@@ -3,7 +3,9 @@
 (import (only-in :std/io/tempfile make-temporary-file-name)
         (only-in :std/os/flock open-output-file/lock LOCK_SH)
         (only-in :std/os/device device-close)
-        "./preparation-snapshot.ss" "./compiler-profile.ss")
+        "./preparation-snapshot.ss" "./compiler-profile.ss"
+        "./build-environment.ss"
+        "./loader-products.ss")
 (export call-with-library-publication library-publication-inputs publication-build-main call-with-library-reader)
 
 (def (publication-root path)
@@ -29,7 +31,10 @@
                 (not (or (equal? path namespace)
                          (string-prefix? (path-expand "static/gerbil-parser__" library) path))))))))
     (list (compiler-gsc-options)
-          (map (lambda (name) (cons name (getenv name #f)))
+          (map (lambda (name)
+                 (cons name (if (equal? name "PATH")
+                              (canonical-build-search-path (getenv name #f))
+                              (getenv name #f))))
                '("GERBIL_GCC" "GERBIL_GSC" "GAMBOPT" "CC" "CFLAGS" "CPPFLAGS" "LDFLAGS" "SDKROOT"
                  "PATH" "LIBRARY_PATH" "MACOSX_DEPLOYMENT_TARGET" "GERBIL_BUILD_DEBUG"
                  "CORCXXFLAGS_GAMBUILD" "LDFLAGS_GAMBUILD"))
@@ -162,7 +167,9 @@
       ((or (null? args) (equal? (car args) "compile"))
        (gc-report-set! #t)
        (call-with-library-publication (gerbil-path)
-         (lambda (_root) (call-with-compiler-import-progress (lambda () (apply compile-main args))))
+         (lambda (root)
+           (call-with-compiler-import-progress (lambda () (apply compile-main args)))
+           (prepare-library-loader-products! root))
          (lambda (root)
            (list (if (null? args) '("compile") args) (library-publication-inputs root)))
          (not extension?)

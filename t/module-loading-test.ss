@@ -1,24 +1,12 @@
 ;;; Official module promises, source invalidation and failed initializer recovery.
 (import :gerbil-parser/language-test-support :gerbil/expander
-        (only-in :std/io/tempfile make-temporary-file-name)
+        (only-in ./fixtures/module-loading/runtime-files
+                 with-module-file with-runtime-file write-program write-datum)
         (only-in :gerbil-parser/src/language/module-input language-module-descriptor)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-language)
         (only-in :gerbil-parser/src/ffi/rust-runtime-aot rust-runtime-source))
 (include "fixtures/tla-sany-differential/preload.ss")
 
-(def (with-module-file extension procedure)
-  (let (file (string-append (make-temporary-file-name "parser-module-control-") extension))
-    (try (procedure file)
-         (finally (when (file-exists? file) (delete-file file))))))
-(def (with-runtime-file procedure)
-  (with-module-file ".scm"
-    (lambda (file)
-      (let ((prior (load-path)) (name (path-strip-extension (path-strip-directory file))))
-        (try (add-load-path! (path-directory file)) (procedure file name)
-             (finally (set-load-path! prior)))))))
-(def (write-program file writer value)
-  (call-with-output-file file (lambda (port) (writer value port))))
-(def write-datum (parser-test-datum-writer values))
 (def write-grammar
   (parser-test-datum-writer
     (lambda (language)

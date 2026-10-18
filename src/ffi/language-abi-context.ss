@@ -5,7 +5,7 @@
         (only-in :std/string/misc string-every)
         (only-in ../grammar/algebra grammar-expression-fields)
         (only-in ../language/descriptor language-grammar-grammar)
-        (only-in ../language/source source-language? source-language-result-catalog))
+        (only-in ../language/source-descriptor source-language? source-language-result-catalog))
 (export #t)
 
 (defstruct language-abi-context

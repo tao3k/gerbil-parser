@@ -1,7 +1,6 @@
 ;;; -*- Gerbil -*-
 ;;; Private common identity utilities shared by public and development entries.
-(import (only-in ../src/language/entry parse-language-source call-with-language-parser-policy)
-        (only-in :clan/poo/object .o .ref .cc .slot? object?)
+(import (only-in :clan/poo/object .o .ref .cc .slot? object?)
         (only-in :clan/poo/mop define-type validate)
         (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
         (only-in ../src/compiler/machine parser-machine-grammar-digest)
@@ -10,8 +9,8 @@
                  language-grammar-machine language-grammar-observability
                  language-grammar-version language-grammar-parser-policy
                  language-parser-policy-branch-budget language-parser-policy-cst-validator language-grammar-with-identity)
-        (only-in ../src/language/source
-                 parse-source-language source-language?
+        (only-in ../src/language/source-descriptor
+                 source-language?
                  source-language-contract source-language-language
                  source-language-version source-language-digest source-language-scanner-factory source-language-with-identity))
 (export +language-parser-entry-schema+ language-parser-entry-ref descriptor-capabilities

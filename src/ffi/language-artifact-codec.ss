@@ -16,8 +16,8 @@
         (only-in ../language/descriptor language-grammar-ir language-grammar? language-grammar-grammar language-grammar-language language-grammar-machine
                  language-grammar-parser-policy language-parser-policy-identity
                  language-parser-policy-branch-budget)
-        (only-in ../language/source source-language-digest source-language-root-kind source-language? source-language-language
-                 parse-source-language/session source-language-session-artifact source-language-session-history)
+        (only-in ../language/source-descriptor source-language-digest source-language-root-kind source-language? source-language-language)
+        (only-in ../language/source-parser parse-source-language/session source-language-session-artifact source-language-session-history)
         (only-in ../runtime/artifact parse-artifact-events parse-artifact-ref with-parse-event-walk)
         (only-in ../language/entry parse-language-source call-with-language-parser-policy)
         (only-in ../compiler/machine parser-machine-grammar-digest)

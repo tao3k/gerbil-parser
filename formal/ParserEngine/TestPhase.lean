@@ -7,14 +7,14 @@ namespace ParserEngine.TestPhase
 open LeanPoo.Functional
 universe u v
 
-inductive Profile where | engine | fixture | source | loader deriving DecidableEq
+inductive Profile where | engine | fixture | source | loader | development deriving DecidableEq
 inductive Capability where | assertions | language | development deriving DecidableEq
 variable {Context : Type u} {Value : Context → Capability → Type v}
 
 def demand : Profile → List Capability
   | .engine | .fixture => [.assertions]
-  | .source => [.assertions, .language]
-  | .loader => [.assertions, .language, .development]
+  | .source | .loader => [.assertions, .language]
+  | .development => [.assertions, .language, .development]
 
 /-- Arbitrary batches preserve declaration order, without deduplicating cases.
 This is distinct from the SDK's cache of imported modules. -/
@@ -27,7 +27,7 @@ def requests : Declaration → List Capability
   | .batch left right => requests left ++ requests right
 
 def generic : Declaration → Prop
-  | .single .loader | .single .source => False
+  | .single .loader | .single .source | .single .development => False
   | .single _ => True
   | .batch left right => generic left ∧ generic right
 
@@ -79,6 +79,16 @@ theorem source_independent
   rcases member with rfl | rfl
   · exact sameAssertions
   · exact sameLanguage
+
+/-- The production POO loader needs parsing assertions, not the development
+catalog. This corresponds to the real loader-controls module snapshot. -/
+theorem loader_independent
+    (provider other : Provider Context Capability Value)
+    (sameAssertions : provider .assertions = other .assertions)
+    (sameLanguage : provider .language = other .language) :
+    Requirements.prepare provider (demand .loader) =
+      Requirements.prepare other (demand .loader) :=
+  source_independent provider other sameAssertions sameLanguage
 
 /-- The admitted loader branch must preserve the language capability failure;
 it cannot silently fall back to an empty or generic test suite. -/

@@ -1,4 +1,5 @@
 (import :gerbil-parser/language-test-support
+        (only-in :gerbil-parser/src/build-support/build-environment canonical-build-search-path)
         (only-in :std/io/tempfile make-temporary-file-name)
         (only-in :std/misc/ports read-all-as-string)
         (only-in :std/os/flock open-output-file/lock)
@@ -52,6 +53,9 @@
 (def (publication-path-identity _root)
   (list '("compile") (getenv "PATH")))
 
+(def (normalized-publication-path-identity _root)
+  (list '("compile") (canonical-build-search-path (getenv "PATH"))))
+
 (def (invoke-standard-clean procedure)
   ((publication-build-main procedure #f) "clean"))
 (def (with-publication-directory root procedure)
@@ -75,6 +79,15 @@
       (equal (file-exists? (path-expand "library-publication.sexp" root)) #t)
       (act (call-with-library-publication root build-products publication-path-identity #f))
       (equal (get-product root "module.ssi") "new-interface")))
+  (scenario "nested SDK PATH prefixes retain the same extension identity"
+    (using (with-publication-root) (root)
+      (scope ((prefix (string-append root "/bin:"))
+              (path (string-append root "/bin:" (getenv "PATH"))))
+        (using (with-publication-path path) ()
+          (act (call-with-library-publication root build-products normalized-publication-path-identity)))
+        (using (with-publication-path (string-append prefix path)) ()
+          (act (call-with-library-publication root build-products normalized-publication-path-identity #f)))
+        (equal (get-product root "module~0.o1") "new-object"))))
   (scenario "foreign static build outputs do not invalidate source inputs"
     (using (with-publication-root) (root)
       (act (put-library-input root "static/foreign__helper.scm" "dependency source"))

@@ -1,3 +1,8 @@
+(import (only-in :gerbil-parser/src/modules/loader
+                 compiled-dependencies compiled-wrapper-forms read-compiled-dependencies
+                 sdk-module-ready? settled-source-wrapper? owned-source-wrapper?
+                 load-ready-source-wrapper load-parser-module)
+        (only-in :gerbil/runtime/init __scheme-source))
 ;;; -*- Gerbil -*-
 ;;; Report real compiled-module admission before the test entry imports it.
 ;;; Dependency boundaries keep cold imports subject to the same silence gate.
@@ -24,28 +29,50 @@
           (when path (table-set! +compiled-files+ key path))
           path))))
 
-(def (compiled-dependencies value)
-  (cond ((and (pair? value) (eq? (car value) 'load-module)
-              (pair? (cdr value)) (string? (cadr value)))
-         (list (cadr value)))
-        ((pair? value)
-         (append (compiled-dependencies (car value))
-                 (compiled-dependencies (cdr value))))
-        (else '())))
-
 ;; Runtime wrappers do not list compile-time imports from .ssi interfaces.
 ;; Use the expander's import parameter to report the real nested admission
 ;; work. Delegate unchanged and restore the parameter on return or exception.
+(def +reported-interface-imports+ (make-table test: equal?))
+(def current-interface-tracing? (make-parameter #f))
+(def (interface-request-key path)
+  ;; A relative request can select a different module in another caller.
+  ;; Cache diagnostics only for resolved files and qualified library paths.
+  (let (value (gx#stx-e path))
+    (def (qualified? value)
+      (and (symbol? value) (string-prefix? ":" (symbol->string value))))
+    (cond ((qualified? value) value)
+          ((and (string? value) (string-prefix? "/" value)) value)
+          ((and (pair? value) (list? value) (qualified? (gx#stx-e (car value)))
+                (andmap (lambda (part)
+                          (let (datum (gx#stx-e part))
+                            (or (symbol? datum) (string? datum)))) value))
+           (map gx#stx-e value))
+          (else #f))))
 (def (call-with-compiled-interface-trace thunk)
-  (let (importer (gx#current-expander-module-import))
-    (parameterize
-        ((gx#current-expander-module-import
-          (lambda (path reload?)
-            (displayln "INTERFACE-IMPORT " path) (force-output)
-            (let (context (importer path reload?))
-              (displayln "INTERFACE-IMPORTED " path) (force-output)
-              context))))
-      (thunk))))
+  (if (current-interface-tracing?) (thunk)
+    (let (importer (gx#current-expander-module-import))
+      (parameterize
+          ((current-interface-tracing? #t)
+           (gx#current-expander-module-import
+            (lambda (path reload?)
+              (let* ((key (interface-request-key path))
+                     (report? (or reload? (not key)
+                                  (not (table-ref +reported-interface-imports+ key #f)))))
+                (when report? (displayln "INTERFACE-IMPORT " path) (force-output))
+                (with-catch
+                  (lambda (exception)
+                    (when key (table-set! +reported-interface-imports+ key #f))
+                    (displayln "INTERFACE-IMPORT-FAILED " path) (force-output)
+                    (raise exception))
+                  (lambda ()
+                    ;; Every lookup still runs, including cached diagnostics.
+                    (let (context (importer path reload?))
+                      (when (current-module-promise-admission)
+                        (install-module-promise-trace! context))
+                      (when key (table-set! +reported-interface-imports+ key #t))
+                      (when report? (displayln "INTERFACE-IMPORTED " path) (force-output))
+                      context)))))))
+        (thunk)))))
 
 ;; Source owners can finish interface expansion before evaluating their
 ;; dependency bodies. Observe that official phase too; never replace evaluation
@@ -69,53 +96,22 @@
                                       (string-append (path-strip-extension interface) ".scm")))
                             name))))))))
 
-;;; Read the SDK's expanded imports, including imports emitted by macros.
-;;; The context stores them in reverse declaration order. Source overlays and
-;;; nonzero-phase exports remain under the SDK's own evaluation protocol.
-(def (module-evaluation-runtime-imports module)
-  (let (runtime (module-evaluation-runtime-name module))
-    (cond
-      (runtime (list runtime))
-      ((gx#module-context? module)
-       (filter-map
-         (lambda (entry)
-           (let (context
-                  (cond
-                    ((and (gx#import-set? entry) (zero? (gx#import-set-phi entry)))
-                     (gx#import-set-source entry))
-                    ((and (gx#module-import? entry) (zero? (gx#module-import-phi entry))
-                          (zero? (gx#module-export-phi (gx#module-import-source entry))))
-                     (gx#module-export-context (gx#module-import-source entry)))
-                    ((gx#module-context? entry) entry)
-                    (else #f)))
-             (and context (module-evaluation-runtime-name context))))
-         (reverse (gx#module-context-import module))))
-      (else '()))))
+(include "module-promises.ss")
 
 (def (evaluate-observed-module module evaluate (admit preload-runtime-module))
-  (let ((name (if (or (gx#module-context? module) (gx#prelude-context? module))
-                  (gx#expander-context-id module) module))
-        (runtimes (module-evaluation-runtime-imports module)))
-    (displayln "MODULE-EVALUATE " name) (force-output)
-    (when (pair? runtimes)
-      ;; core-eval-module forces the prelude before the runtime body. Delegate
-      ;; that same promise first; the SDK owns memoization and failed states.
-      (let (prelude (gx#core-context-prelude module))
-        (when prelude
-          (call-with-values (lambda () (evaluate prelude)) (lambda _ (void)))))
-      (for-each admit runtimes))
-    (call-with-values
-      (lambda () (evaluate module))
-      (lambda results
-        (displayln "MODULE-EVALUATED " name) (force-output)
-        (apply values results)))))
+  ;; Install observers without forcing imports. The SDK still chooses when to
+  ;; force each promise, including nested source helpers and opaque bodies.
+  (install-module-promise-trace! module)
+  (parameterize ((current-module-promise-admission admit))
+    (evaluate module)))
 
 (def (call-with-module-evaluation-trace thunk)
   (let (evaluate (gx#current-expander-module-eval))
     (parameterize
-      ((gx#current-expander-module-eval
+      ((current-module-promise-admission preload-runtime-module)
+       (gx#current-expander-module-eval
         (lambda (module) (evaluate-observed-module module evaluate))))
-      (thunk))))
+      (call-with-compiled-interface-trace thunk))))
 
 (def (import-compiled-interface! module)
   (call-with-compiled-interface-trace
@@ -123,26 +119,10 @@
      (gx#import-module (string->symbol (string-append ":" module)) #f #t))))
 
 (def (preload-runtime-module module (visiting #f))
-  ;; SDK states are authoritative, including loading and failed states.
-  ;; Inspect wrappers only for a cold module so its dependencies report real
-  ;; progress before the SDK initializes the entry. Warm entries never scan.
-  (let (visiting (or visiting (make-table test: equal?)))
-    (unless (table-ref visiting module #f)
-      (table-set! visiting module #t)
-      (unless (or (assoc module (list-modules)) (string-contains module "~"))
-        (let (source (compiled-file module ".scm"))
-          (when source
-            (for-each
-              (lambda (dependency) (preload-runtime-module dependency visiting))
-              (call-with-input-file source
-                (lambda (port)
-                  (let loop ((dependencies '()))
-                    (let (value (read port))
-                      (if (eof-object? value) dependencies
-                        (loop (append dependencies (compiled-dependencies value))))))))))))
-      (displayln "MODULE-LOAD " module) (force-output)
-      (load-module module)
-      (displayln "MODULE-LOADED " module) (force-output))))
+  (load-parser-module module visiting
+    (lambda (phase name)
+      (displayln (if (eq? phase 'loading) "MODULE-LOAD " "MODULE-LOADED ") name)
+      (force-output))))
 
 (def (preload-module module)
   ;; Runtime dependencies need native initialization, not an expander import
@@ -225,3 +205,15 @@
                       (for-each (lambda (entry) (preload-import-set entry source))
                                 (cdr form)))
                     (loop)))))))))))
+
+;;; Use the SDK's own native test driver and exit status. Only admission
+;;; observation is shared with the complete aggregate; no suites are replaced.
+(def (run-observed-sdk-tests! . arguments)
+  (gc-report-set! #t)
+  (call-with-module-evaluation-trace
+    (lambda ()
+      (preload-module "gerbil/tools/gxtest")
+      (preload-runtime-module
+        "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
+      (let (status (apply (eval 'gerbil/tools/gxtest#main) arguments))
+        ((eval 'gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process#test-child-process-exit!) status)))))

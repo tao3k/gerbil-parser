@@ -15,8 +15,9 @@
                  language-grammar-machine language-grammar-observability
                  language-grammar-version language-grammar-parser-policy
                  language-parser-policy-branch-budget language-parser-policy-cst-validator)
-        (only-in ./source
-                 parse-source-language source-language?
+        (only-in ./source-parser parse-source-language)
+        (only-in ./source-descriptor
+                 source-language?
                  source-language-contract source-language-language
                  source-language-version source-language-digest source-language-scanner-factory))
 (export parse-language-source call-with-language-parser-policy)

@@ -4,7 +4,7 @@
                  language-abi-context-source-admission language-abi-context-event-row-writer)
         (only-in ./language-artifact-codec bind-language-abi
                  abi-parse-binary-payload/bytes/session abi-descriptor-payload)
-        (only-in ../language/source source-language-session-scanned-token-count
+        (only-in ../language/source-parser source-language-session-scanned-token-count
                  source-language-session-reused-token-count))
 (export register-language! register-language-context! release-language!
         language-handle-descriptor language-handle-parse

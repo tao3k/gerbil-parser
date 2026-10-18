@@ -30,15 +30,8 @@
       (heap-limit-bytes (* 3 1024 1024 1024))))
 
 (def (import-test-owner file)
-  (let (importer (current-expander-module-import))
-    (parameterize
-      ((current-expander-module-import
-         (lambda (path reload?)
-           (displayln "INTERFACE-IMPORT " path) (force-output)
-           (let (context (importer path reload?))
-             (displayln "INTERFACE-IMPORTED " path) (force-output)
-             context))))
-      (import-module file #f #t))))
+  (call-with-compiled-interface-trace
+    (lambda () (import-module file #f #t))))
 
 (def (test-files directory)
   (if (not (eq? (file-type directory) 'directory))
@@ -169,9 +162,16 @@
     (let-values (((ok? cases)
                    (call-with-owner-budget file emit
                      (lambda ()
-                       (parameterize ((poo-flow-current-testing-case-profile
-                                       testing-case-profile))
-                         (test-result-ok? (test-run! (test-owner-harness owner)))))
+                       (let (run (lambda ()
+                                    (parameterize ((poo-flow-current-testing-case-profile
+                                                    testing-case-profile))
+                                      (test-result-ok? (test-run! (test-owner-harness owner))))))
+                         ;; Exclusive cases may first request an author capability.
+                         ;; Observe actual SDK work without racing worker expanders.
+                         (if (test-owner-exclusive? owner)
+                           (call-with-compiled-interface-trace
+                            (lambda () (call-with-module-evaluation-trace run)))
+                           (run))))
                      (- 90 (test-owner-preparation-seconds owner)))))
       (unless ok? (error "Scheme test owner failed" file))
       (when (zero? cases) (error "Scheme test module ran no cases" file))

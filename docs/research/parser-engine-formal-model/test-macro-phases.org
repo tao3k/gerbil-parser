@@ -15,7 +15,7 @@ Scheme-evaluation obligations.
 | Obligation | General model | Scheme owner | Real controls |
 |------------+---------------+--------------+---------------|
 | Ordered demand for arbitrary declaration batches | TestPhase.requests, generic_requests | deflanguage-parser-tests | generic fixture and matrix |
-| Unrequested providers cannot affect preparation | batch_independent, source_independent | engine/source/development branches | captured module-registry observations |
+| Unrequested providers cannot affect preparation | batch_independent, source_independent, loader_independent | engine/source/development branches | captured module-registry observations |
 | Requested failure remains an error | loader_missing | selected helper import | loading failure and retry |
 | Retained capabilities preserve context and order | build_order | checked loader and dispatcher | real accepted/rejected parses |
 | Generated names and single loader evaluation | external syntax premise | fresh caller-context aliases | caller binding collision and evaluation count |
@@ -258,3 +258,148 @@ insufficient for the observed expansion loads. No source-interface pruning or
 local parser runtime optimization is admitted by this capability proof.
 Host/compiler behavior stays external, and all handwritten modules remain
 below the repository's thousand-line limit.
+
+* Closed loading and construction phases
+
+** Defects and semantic ownership
+
+The old dependency observer searched arbitrary Scheme data for =load-module=.
+It could execute quoted or deferred code, or run a child before an earlier
+opaque parent failure. The shared =src/modules/loader.ss= now recognizes a
+closed executable language: exact load calls, proper nested =begin= sequences,
+and the pinned compiler's exact declaration. An unsupported sibling rejects
+the entire extraction before any speculative effect.
+
+A second defect crossed declaration and execution phases. Grammar loader
+identity imported the complete source-language declaration owner merely to
+recognize its descriptor type. That imported source strategy binding,
+result/scanner profiles and contextual compilation even for Arithmetic.
+
+| Owner | Responsibility |
+|-------+----------------|
+| =src/language/source-descriptor.ss= | One nominal descriptor family, metadata and identity binding |
+| =src/language/source-parser.ss= | Execution, receipts and sessions of admitted descriptors |
+| =src/language/source.ss= | Declaration admission and source strategy construction |
+| =src/runtime/result-plan.ss= | Owned construction storage and copied public catalog views |
+| =src/language/result-profile.ss= | POO profile admission and executable projection compilation |
+
+Loader identity, development metadata and FFI consumers now import the needed
+owner. The declaration API exports the same underlying descriptor and request
+bindings; there is no second class family or compatibility implementation.
+Schemas, declaration values and parsing algorithms are unchanged.
+
+The original =loader-controls.ss= captures eight source-construction modules
+before execution and requires them all to be absent. Existing accepted and
+rejected requests still run. This checks the actual prepared language closure,
+not only a source-text dependency diagram.
+
+** SDK cache and evaluator contract
+
+The SDK remains authoritative for selected paths, module states, exceptions,
+initialization, reloads and concurrent loading. The observer does not replace
+its registry or force a directory of declared imports. Promise observation
+reports actual SDK invocations; installation itself does not force them.
+Repeated diagnostics may be suppressed for qualified identities, but SDK
+lookup is never skipped. Relative requests and explicit reloads remain visible.
+Failures clear diagnostic suppression and preserve the original exception.
+
+Speculative child failure does not bypass the parent SDK request: the parent
+must retain its own first failure even after child recovery. Quoted data,
+deferred calls and unsupported opaque code retain their original execution
+boundary. Source and macro-generated imports use the SDK's actual contexts.
+
+Compiled interfaces may themselves call =load-module= before returning an
+expander context. A later promise observer cannot retrospectively report those
+calls. The runner therefore observes its bootstrap and real completed GC work
+as well. A single opaque operation with no observable progress still fails the
+silence fence; no periodic heartbeat is introduced.
+
+** Compiler products and source replay
+
+Native wrapper images duplicate a closed loader program already present in
+=.scm=. The publication writer now omits only such package-owned wrapper
+objects. It retains interfaces, source, native implementation sidecars and
+foreign libraries. The shared loader and native child launcher retain native
+bootstrap objects. Unknown source, missing interfaces, quoted/deferred code and
+raw executable products are ineligible.
+
+Classification uses a hash index over wrapper identities. Retained product
+bytes are checked before and after removal, under the existing publication
+lock. The final receipt records the actual products. Standard clean/build
+remains the owner; there is no copied library tree or custom SDK cache.
+
+GXI's ordinary Gerbil evaluator rejects a raw compiled =declare= form. The
+shared loader uses the SDK's existing Scheme source parameter only for an
+admitted package wrapper whose dependencies form a settled prefix: cached
+successes, optionally ending at the first cached failure. Fresh initializers
+run in the original evaluator. A cold/loading prefix cannot authorize replay.
+The parameter is restored on both success and failure; a cached failure skips
+the remaining suffix and preserves its exception identity.
+
+These are parser capability and execution-trace contracts. Physical selected
+paths reflect the new product representation; no equality of native filenames,
+SDK internals, host scheduling or compiler implementation is asserted.
+
+** Publication identity and compiled host capabilities
+
+Nested SDK environment invocations can repeat the first PATH entry. Publication
+identity collapses only consecutive copies of that entry. Unset PATH remains
+distinct from empty PATH; trailing empty components, relative entries, later
+duplicates, remaining search order and every other compiler flag are retained.
+Stable filesystem lookup is an external premise.
+
+Compiled host test products initialize their module through the shared loader
+and resolve its qualified runtime procedure. They do not evaluate a Gerbil
+=import= form in a host Scheme evaluator. A non-procedure export fails admission.
+Canonical Rust fixture regeneration also restores the descriptor hashes owned
+by the Scheme producer, rather than adjusting assertions to accept stale data.
+
+The FFI build owner declares its dynamic producer and language-test closure.
+The ABI recipe still invokes SDK gxtest, all twenty original native cases and
+the exact-byte assertion. Build dependencies are actual named recipes. Native
+helpers are not substituted with source-only test entrypoints.
+
+** Models, controls and qualification
+
+=ModuleWrapper= proves closed extraction and ordered execution, with negative
+controls for inert data and unsupported siblings. =ModuleEvaluation= proves
+observation preservation and settled cache replay, including the first failure.
+=LanguagePhase= reuses LeanPoo's heterogeneous capability preparation: providers
+agreeing on requested keys retain the same factories, first missing-key error
+and arbitrary consumers. An unrequested constructor can be absent.
+=BuildEnvironment= proves first-match lookup and prepared-capability preservation
+under leading PATH normalization. These are conditional protocol proofs, not
+proofs of the Scheme reader, SDK, GC or native compiler.
+
+| Qualification | Result | Scope |
+|---------------+--------+-------|
+| Lean build | 239 jobs passed | Full model build and axiom audit |
+| Wrapper Quint | Seven controls and 1,000 traces passed | Closed loader protocol |
+| Evaluation Quint | Nine controls and 1,000 traces passed | SDK force/cache protocol |
+| Environment Quint | Six controls and 1,000 traces passed | Search identity protocol |
+| Integrated standard clean/build | 86.32 seconds, exit zero | Package compiler products |
+| Four preparation owners | 42.52 seconds, exit zero | Original native helper owners |
+| First complete sixteen-owner aggregate | 156.71 seconds, exit zero | Original GXI entry, four workers, complete scope |
+| Loader control preparation | 47.70 seconds | Original owner and new construction-isolation assertions |
+| Complete native ABI recipe, first cold | 173.78 seconds, exit zero | Build dependencies, twenty rows and exact bytes |
+| Focused loading/POO controls | 38 cases, 26.97 seconds, exit zero | Eight owners; cache/error/context and product protection |
+| Plain SDK client | Three cases, 4.89 seconds, exit zero | Original loader Suite without the test preloader |
+| Public C ABI follow-up | 13.62 seconds, exit zero | NATIVE-ABI-OK and three generated matches |
+| Rust native artifact contracts | Nine tests, exit zero | Canonical descriptor and payload fixture |
+
+The complete aggregate and complete ABI recipe retain the explicitly authorized
+180/5 guard. Helper preparation and focused controls retain 90/5; each original
+owner retains its combined ninety-second preparation/execution limit. Root cold
+build retains 180/5. No budget was widened by this implementation.
+
+Earlier failures are not relabeled: the native-wrapper aggregate exceeded its
+total budget; the common-prefix AOT host exceeded an owner's budget; raw source
+wrapper replay without SDK Scheme mode failed with illegal =declare= context.
+The common-prefix AOT route is not installed. Its diagnostic build linked
+installed SDK objects read-only; SDK/Gambit sources and objects were never built
+or modified. The successful integrated result uses the standard package build
+and original complete aggregate, without warmed or split acceptance.
+
+The timing rows establish deadline closure for these requests. They do not
+establish a complete-parser CPU speedup. Paper/model/source correspondence,
+local native acceptance and CI at the pushed commit remain distinct evidence.

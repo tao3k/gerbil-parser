@@ -10,6 +10,16 @@
          "gerbil-parser/src/compiler/parser-ir"
          "gerbil-parser/src/compiler/bound-ir"
          "gerbil-parser/src/compiler/language-declaration")))
+(def +source-construction-loaded+
+  (map (lambda (name) (and (assoc name (list-modules)) #t))
+       '("gerbil-parser/src/language/source"
+         "gerbil-parser/src/language/source-strategy"
+         "gerbil-parser/src/language/result-profile"
+         "gerbil-parser/src/language/scanner-profile"
+         "gerbil-parser/src/compiler/contextual-program"
+         "gerbil-parser/src/compiler/contextual-dispatch"
+         "gerbil-parser/src/compiler/contextual-scanner-ir"
+         "gerbil-parser/src/runtime/source-engines")))
 (def checked-test-loader 'caller-loader)
 (def language-loader-test-clause 'caller-clause)
 (def loader-evaluations 0)
@@ -22,4 +32,5 @@
     (equal checked-test-loader 'caller-loader)
     (equal language-loader-test-clause 'caller-clause)
     (equal loader-evaluations 1)
+    (equal +source-construction-loaded+ '(#f #f #f #f #f #f #f #f))
     (equal +development-loaded+ '(#f #f #f #f #f #f #f))))

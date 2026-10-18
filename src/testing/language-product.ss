@@ -1,6 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Closed tool fixtures and descriptor/native/build admission test execution.
-(import (only-in :std/test check check-exception)
+(import (only-in ../modules/loader load-parser-module)
+        (only-in :std/test check check-exception)
         (only-in :std/misc/process run-process)
         (only-in :std/string/misc string-trim-eol)
         (only-in :clan/poo/object .ref)
@@ -45,14 +46,20 @@
           tlc: (if (eq? (car tool) 'unresolved) "this-tool-must-not-be-resolved" executable)
           workers: workers))))))
 
+(def (test-product-export module name)
+  ;; This is a runtime capability, including in a compiled executable. Ask the
+  ;; SDK to initialize it, then read its published runtime binding. No import
+  ;; form is handed to the host evaluator and no GXI global hooks are needed.
+  (load-parser-module module)
+  (let (value (eval (string->symbol (string-append module "#" name))))
+    (unless (procedure? value) (error "invalid test product export" module name))
+    value))
+
 (def (check-language-abi-entry loader source artifact accepted?)
-  ;; Engine-only scenarios do not require native ABI preparation. Load this
-  ;; capability through the official module cache only when it is selected.
-  (let-values (((bind-language-abi abi-parse-binary-payload/bytes)
-                (eval '(begin
-                         (import (only-in :gerbil-parser/src/ffi/language-artifact-codec
-                                          bind-language-abi abi-parse-binary-payload/bytes))
-                         (values bind-language-abi abi-parse-binary-payload/bytes)))))
+  (let ((bind-language-abi
+          (test-product-export "gerbil-parser/src/ffi/language-artifact-codec" "bind-language-abi"))
+        (abi-parse-binary-payload/bytes
+          (test-product-export "gerbil-parser/src/ffi/language-artifact-codec" "abi-parse-binary-payload/bytes")))
     (let* ((descriptor (.ref loader 'descriptor)) (native (bind-language-abi descriptor)))
       (check artifact => (parse-language-source descriptor source))
       (check (u8vector-u32-ref (abi-parse-binary-payload/bytes native (string->utf8 source)) 8 little)
@@ -60,8 +67,6 @@
 
 (def (check-language-portable-rejection module-path message)
   (let (rust-runtime-source
-        (eval '(begin
-                 (import (only-in :gerbil-parser/src/ffi/rust-runtime-aot rust-runtime-source))
-                 rust-runtime-source)))
+          (test-product-export "gerbil-parser/src/ffi/rust-runtime-aot" "rust-runtime-source"))
     (check-exception (rust-runtime-source module-path)
                      (lambda (exception) (equal? (error-message exception) message)))))

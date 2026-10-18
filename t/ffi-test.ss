@@ -8,6 +8,9 @@
         :std/test
         (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/parser
                  parse-records)
+        (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/grammar records-language-grammar)
+        (only-in :gerbil-parser/src/language/descriptor language-grammar-machine)
+        (only-in :gerbil-parser/src/compiler/machine parser-machine-grammar-digest)
         (only-in :std/vector/u8vector little u8vector-u32-ref)
 
         (only-in :gerbil-parser/src/ffi/language-artifact-codec
@@ -67,7 +70,9 @@
         (equal (not (not (string-contains
                            source "language: \"record-assignments\"")))  #t)
         (equal (not (not (string-contains
-                           source "grammar_digest: \"sha256:9c7e8b0f")))  #t)
+                           source (string-append "grammar_digest: \""
+                             (parser-machine-grammar-digest
+                               (language-grammar-machine records-language-grammar)) "\"" ))))  #t)
         (equal (not (not (string-contains
                            source "pub static LANGUAGE: LanguageSpec")))  #t)))
     (scenario "module without a language descriptor fails closed"

@@ -4,6 +4,7 @@ import ParserEngine.ModuleWrapper
 import ParserEngine.ModuleEvaluation
 import ParserEngine.BuildEnvironment
 import ParserEngine.LanguagePhase
+import ParserEngine.PhaseDemand
 import ParserEngine.LoweringReservationEvaluation
 import ParserEngine.LoweringPreprocessingEvaluation
 import ParserEngine.Components
@@ -557,3 +558,21 @@ import ParserEngine.SourceInventory
 #print axioms ParserEngine.LanguagePhase.prepare_preserved
 #print axioms ParserEngine.LanguagePhase.consumer_preserved
 #print axioms ParserEngine.LanguagePhase.outside_request
+
+#print axioms ParserEngine.PhaseDemand.reachable_allowed
+#print axioms ParserEngine.PhaseDemand.requests_allowed
+#print axioms ParserEngine.PhaseDemand.prepare_preserved
+#print axioms ParserEngine.PhaseDemand.consumer_preserved
+#print axioms ParserEngine.PhaseDemand.constructor_absent
+#print axioms ParserEngine.PhaseDemand.direct_import_counterexample
+#print axioms ParserEngine.PhaseDemand.template_runtime_cut
+
+#print axioms ParserEngine.PhaseDemand.record_dependencies
+#print axioms ParserEngine.PhaseDemand.stopped_requests
+#print axioms ParserEngine.PhaseDemand.wrapper_requests
+#print axioms ParserEngine.PhaseDemand.extracted_wrapper_requests
+
+#print axioms ParserEngine.PhaseDemand.recorded_sound
+#print axioms ParserEngine.PhaseDemand.recorded_constructor_absent
+
+#print axioms ParserEngine.PhaseDemand.prepared_provider_identity

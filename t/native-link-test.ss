@@ -1,0 +1,60 @@
+;;; Physical linker inputs must follow the SDK's current object generation.
+(import :gerbil-parser/language-test-support
+        (only-in :std/io/tempfile make-temporary-file-name)
+        (only-in :gerbil/runtime/loader __find-library-module)
+        (only-in :gerbil-parser/src/build-support/native-links native-module-object)
+        (only-in ./fixtures/module-loading/runtime-files write-program write-datum))
+
+(def (with-native-link-root procedure)
+  (let* ((root (make-temporary-file-name "parser-native-link-"))
+         (library (path-expand "lib" root))
+         (namespace (path-expand "gerbil-parser" library))
+         (prior (load-path)) (previous (getenv "GERBIL_PATH" #f)))
+    (create-directory* namespace)
+    (try (setenv "GERBIL_PATH" root) (set-load-path! (list library))
+         (procedure root namespace)
+         (finally
+           (set-load-path! prior)
+           (if previous (setenv "GERBIL_PATH" previous) (setenv "GERBIL_PATH"))
+           (delete-file-or-directory root #t)))))
+(def (native-link-product namespace name)
+  (write-program (path-expand name namespace) write-datum 'unexecuted-product))
+
+(deflanguage-parser-tests native-link-test "SDK-selected physical native inputs"
+  (engine (exclusive #t))
+  (scenario "consumer resolves after producer publication, rather than pinning the first object"
+    (using (with-native-link-root) (root namespace)
+      (act (native-link-product namespace "entry~0.scm"))
+      (act (native-link-product namespace "entry~0.o1"))
+      (scope ((old (native-module-object "gerbil-parser/entry~0")))
+        (act (native-link-product namespace "entry~0.o2"))
+        (equal (native-module-object "gerbil-parser/entry~0")
+               (path-normalize (path-expand "entry~0.o2" namespace)))
+        (equal (native-module-object "gerbil-parser/entry~0")
+               (__find-library-module "gerbil-parser/entry~0"))
+        (equal (equal? old (native-module-object "gerbil-parser/entry~0")) #f))))
+  (scenario "a generation gap follows SDK selection, never a directory maximum"
+    (using (with-native-link-root) (root namespace)
+      (act (native-link-product namespace "entry~0.scm"))
+      (act (native-link-product namespace "entry~0.o1"))
+      (act (native-link-product namespace "entry~0.o3"))
+      (equal (native-module-object "gerbil-parser/entry~0")
+             (path-normalize (path-expand "entry~0.o1" namespace)))))
+  (scenario "source fallback and missing objects cannot satisfy native linkage"
+    (using (with-native-link-root) (root namespace)
+      (act (native-link-product namespace "entry~0.scm"))
+      (raises (native-module-object "gerbil-parser/entry~0") error?)
+      (raises (native-module-object "gerbil-parser/missing") error?)))
+  (scenario "foreign namespaces cannot satisfy parser native ownership"
+    (using (with-native-link-root) (root namespace)
+      (raises (native-module-object "foreign/entry~0") error?)
+      (raises (native-module-object "gerbil-parser/../foreign/entry~0") error?)))
+  (scenario "earlier foreign load roots cannot replace the owned physical object"
+    (using (with-native-link-root) (root namespace)
+      (scope ((foreign (path-expand "foreign" root))
+              (foreign-namespace (path-expand "foreign/gerbil-parser" root)))
+        (act (create-directory* foreign-namespace))
+        (act (native-link-product namespace "entry~0.o1"))
+        (act (native-link-product foreign-namespace "entry~0.o1"))
+        (act (add-load-path! foreign))
+        (raises (native-module-object "gerbil-parser/entry~0") error?)))))

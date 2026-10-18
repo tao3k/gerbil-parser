@@ -1,5 +1,21 @@
-pub const PARSER_DIGEST: &str = "sha256:2f4a0b470cdfd6086248d45baf7725d0b1b71de98878f868c32eb0ae0b58b729";
+pub const PARSER_DIGEST: &str = "sha256:e75a09b8ad001fa9236ba59ceeb1bad11e1dae8a6de5c92040cb53969934accb";
 pub fn parse_outline_lines(source: &str) -> Vec<TreeEvent> {
+    #[inline(always)]
+    fn __event_push_token(
+        events: &mut Vec<TreeEvent>,
+        kind: u16,
+        start: usize,
+        end: usize,
+    ) {
+        if start != end {
+            events
+                .push(TreeEvent::Token {
+                    kind,
+                    start,
+                    end,
+                });
+        }
+    }
     let bytes = source.as_bytes();
     let mut events = Vec::with_capacity(bytes.len() / 16 + 2);
     events.push(TreeEvent::StartNode(0u16));
@@ -30,21 +46,11 @@ pub fn parse_outline_lines(source: &str) -> Vec<TreeEvent> {
             events.push(TreeEvent::StartNode(4u16));
             open_levels.push(__event_marker_42_32);
             events.push(TreeEvent::StartNode(1u16));
-            events
-                .push(TreeEvent::Token {
-                    kind: 3u16,
-                    start,
-                    end,
-                });
+            __event_push_token(&mut events, 3u16, start, end);
             events.push(TreeEvent::FinishNode);
         } else {
             events.push(TreeEvent::StartNode(2u16));
-            events
-                .push(TreeEvent::Token {
-                    kind: 3u16,
-                    start,
-                    end,
-                });
+            __event_push_token(&mut events, 3u16, start, end);
             events.push(TreeEvent::FinishNode);
         }
         start = end;

@@ -242,15 +242,15 @@ Quint protocol passes seven controls and one thousand sampled traces; six
 model-input checks pass. No parser CPU benefit, complete Scheme lowering
 simulation or ninety-second first aggregate is established by these results.
 
-* Remaining construction boundary
+* Construction boundary ledger
 
-| Gap | Evidence | Required next model |
-|-----+----------+---------------------|
+| Boundary | Current evidence | Remaining proof obligation |
+|----------+------------------+----------------------------|
 | Compiled author grammar interfaces | Native registry control excludes parser-ir, bound-ir and the declaration service; metadata traversal remains | Complete phase-indexed source extraction beyond the declared SDK premise |
-| Complete cold parser admission | Whole rebuilt-library aggregation still exceeds ninety seconds | Separate framework effects, caller compiler imports and external loader latency |
-| Generic assertion closure | The shared AST module still imports artifact/CST execution | Preserve expression-level parser-check, hygiene and standalone/native consumers before changing admission |
-| Runtime source descriptor closure | source and source-strategy import contextual-program accessors from a compiler owner, which imports profile compilation | Separate runtime data/operations from admission and prove their shared ownership before migration |
-| Source evaluation | Prelude/value/error controls pass; arbitrary initializer interleavings are not proved equivalent | Complete recursive Scheme evaluation, closures and mutable-store composition |
+| Complete cold parser admission | Standard rebuilt-library sixteen-owner aggregation passes the authorized 180/5 guard; each owner retains ninety seconds | A local deadline receipt is not a universal latency theorem |
+| Generic assertion closure | Shared AST syntax still imports artifact/CST execution, while the control excludes language execution and compiler modules | Demand-sensitive AST support must preserve expression-level parser-check, hygiene and standalone/native consumers before migration |
+| Runtime source descriptor closure | Descriptor data and request execution have separate owners; the original loader control excludes eight construction owners | Universal extraction of the entire transitive source graph is still required; direct imports alone are insufficient |
+| Source evaluation | Prelude/value/error controls and settled-prefix replay pass | Arbitrary initializer interleavings, recursive Scheme evaluation, closures and mutable-store composition remain outside the proved wrapper protocol |
 | Lowering emission | Existing reservation, counter and publication fragments remain available | Complete arbitrary recursive evaluation-to-emission composition in the lowering ledger |
 
 Import-trace nodes can be phase/module pairs; name-only projection is
@@ -367,30 +367,39 @@ observation preservation and settled cache replay, including the first failure.
 =LanguagePhase= reuses LeanPoo's heterogeneous capability preparation: providers
 agreeing on requested keys retain the same factories, first missing-key error
 and arbitrary consumers. An unrequested constructor can be absent.
-=BuildEnvironment= proves first-match lookup and prepared-capability preservation
+=PhaseDemand= extends that direct-key contract to a transitive, phase-aware
+capability cut. =BuildEnvironment= proves first-match lookup and prepared-capability preservation
 under leading PATH normalization. These are conditional protocol proofs, not
 proofs of the Scheme reader, SDK, GC or native compiler.
 
 | Qualification | Result | Scope |
 |---------------+--------+-------|
-| Lean build | 239 jobs passed | Full model build and axiom audit |
-| Wrapper Quint | Seven controls and 1,000 traces passed | Closed loader protocol |
-| Evaluation Quint | Nine controls and 1,000 traces passed | SDK force/cache protocol |
-| Environment Quint | Six controls and 1,000 traces passed | Search identity protocol |
-| Integrated standard clean/build | 86.32 seconds, exit zero | Package compiler products |
-| Four preparation owners | 42.52 seconds, exit zero | Original native helper owners |
-| First complete sixteen-owner aggregate | 156.71 seconds, exit zero | Original GXI entry, four workers, complete scope |
-| Loader control preparation | 47.70 seconds | Original owner and new construction-isolation assertions |
-| Complete native ABI recipe, first cold | 173.78 seconds, exit zero | Build dependencies, twenty rows and exact bytes |
-| Focused loading/POO controls | 38 cases, 26.97 seconds, exit zero | Eight owners; cache/error/context and product protection |
-| Plain SDK client | Three cases, 4.89 seconds, exit zero | Original loader Suite without the test preloader |
-| Public C ABI follow-up | 13.62 seconds, exit zero | NATIVE-ABI-OK and three generated matches |
-| Rust native artifact contracts | Nine tests, exit zero | Canonical descriptor and payload fixture |
+| Lean build | 240 jobs passed | Full model build and axiom audit |
+| Wrapper Quint | Seven controls and 1,000 traces passed | Unchanged closed loader protocol |
+| Evaluation Quint | Nine controls and 1,000 traces passed | Unchanged SDK force/cache protocol |
+| Environment Quint | Six controls and 1,000 traces passed | Unchanged search identity protocol |
+| Standard clean/build | 126.14 seconds, exit zero | Original aggregate preparation; four compiler workers |
+| Four preparation owners | 43.86 seconds, exit zero | Original native helper owners |
+| First complete sixteen-owner aggregate | 159.27 seconds, exit zero | Original GXI entry, four test workers, complete scope |
+| Loader control preparation | 49.72 seconds | Original owner and eight construction-isolation assertions |
+| ABI standard clean/build | 130.71 seconds, exit zero | Separate fresh package generation |
+| Complete native ABI recipe, first cold | 169.11 seconds, exit zero | All build dependencies, twenty rows and exact Rust fixture bytes |
+| Native link, metadata and FFI controls | Fourteen cases, 21.81 seconds, exit zero | Current SDK object selection, owner metadata and complete grammar digest |
+| Scheme IR to Rust source | Three cases, exit zero | Complete emitted fold source identity, modulo outer whitespace |
+| Rust event runtime | Nine cases, exit zero | Event trees, empty input and outline behavior |
+| Rust consumer link | 38.87 seconds, exit zero | Standard native owner and the actual Cargo static library |
+| Rust consumer ownership | 16.38 seconds, exit zero | One hundred calls, two released handles, 113 freed results and Source edits |
+| Record and owned-word generation | 14.65 seconds, exit zero | Public generators; record digest update and unchanged owned-word bytes |
 
 The complete aggregate and complete ABI recipe retain the explicitly authorized
 180/5 guard. Helper preparation and focused controls retain 90/5; each original
 owner retains its combined ninety-second preparation/execution limit. Root cold
-build retains 180/5. No budget was widened by this implementation.
+build retains 180/5. These current deadline receipts use the same four compiler
+workers as CI. A separate six-worker trial hit the five-second idle guard after
+its last observed native product; that failure remains unattributed. The passing
+four-worker result establishes this capacity-qualified request, rather than a
+universal host scheduling or exit-latency claim. All configured limits remain
+unchanged.
 
 Earlier failures are not relabeled: the native-wrapper aggregate exceeded its
 total budget; the common-prefix AOT host exceeded an owner's budget; raw source
@@ -414,3 +423,91 @@ source-parent fallback, reproduces the original failure. The ordinary test
 macro also reloads the source owner while rejecting ambient parser-library
 imports. This instantiates =AuthorPhase.ambient_masks_missing= at the real
 build boundary; compiler and SDK behavior remain external premises.
+
+
+** Transitive phase correspondence
+
+The direct-key =LanguagePhase= contract has an important limit: narrowing a
+root import does not prove that its transitive runtime closure excludes a
+constructor. =PhaseDemand.direct_import_counterexample= exhibits precisely
+that leak. The generic assertion facade is a concrete remaining audit target:
+it imports =parser-ast= even when a declaration contains no AST clause. The
+current generic control does not claim artifact/CST absence. Its existing
+language-execution isolation result remains valid.
+
+The reusable =PhaseDemand.Cut= contract requires both admitted roots and closure
+of every admitted owner's selected runtime edges. Selection reuses the existing
+=TestPhase.ResolvedImport= projection, preserving import and source phases.
+Template-only dependencies are distinct from runtime requests; their author
+service execution belongs to the expansion graph. Cycles and repeated requests
+do not require an acyclicity or deduplication assumption.
+
+=record_dependencies= proves correspondence when an actual owner records its
+ordered dependency list. =stopped_requests= retains correspondence for a stopped
+prefix, including first-error termination. =extracted_wrapper_requests= composes
+arbitrary recursive closed-wrapper encoding/extraction with phase selection,
+using the existing =ModuleWrapper.raw_execution= proof. =Recording= derives
+request correspondence from roots, dependency records and stopped prefixes. It does not enumerate
+fixture names or replace the SDK reader.
+
+For any request transcript corresponding to this graph, a closed capability cut
+bounds its requests. LeanPoo's =Requirements.prepare_congr= and the existing
+consumer theorem then preserve factories, first missing-key errors and arbitrary
+prepared consumers when providers agree inside the cut. Constructor absence is
+valid only after establishing the cut, not from direct root inspection.
+
+These results establish a protocol obligation for the real module graph. Source
+graph completeness, dynamic imports, SDK cache/reentry behavior and compiler
+phase interpretation remain external premises. The complete native controls
+exercise actual imports and retained parser behavior; they do not discharge
+those premises for all Scheme programs. No parser runtime optimization or CPU
+speedup is claimed by this dependency work.
+
+
+** Native producer and consumer identity
+
+The current Ubuntu Rust ownership control exposed a concrete physical-provider
+violation. The ABI recipe rebuilt =records-abi~0= as its second dynamic object,
+while the Rust consumer still linked the first object. SDK admission selected
+the current generation; the native call bound the old generation and terminated
+with signal 139. Darwin does not embed these ELF dependency paths and its FFI
+control passed. This platform difference is evidence about the binding defect,
+not a proof of every host callback behavior.
+
+The native link owner now resolves each object with the SDK's actual
+=__find-library-module= selector. Missing objects, source fallbacks and foreign
+load roots cannot satisfy linkage. Generation gaps follow SDK selection rather
+than a directory maximum. The FFI owner uses ordinary =defbuild-script= phases
+under one publication lock: finish descriptor producers, compile ABI entries,
+then resolve and build their native consumers. The separate Rust consumer
+resolves its inputs after that owner finishes. No object generation is pinned
+in source.
+
+=PhaseDemand.prepared_provider_identity= reuses LeanPoo's named factory access:
+two successful preparations retaining the same tuple must agree at every
+requested provider. A changed physical object violates that premise even when
+its logical module name is unchanged. SDK object selection and binary loading
+remain host premises. The native-link test macro covers current generations,
+gaps, fallback rejection and ownership; the existing native FFI controls retain
+all handle, result, parse and cleanup assertions.
+
+The generation and semantics jobs also exposed stale test identities. The
+record grammar assertion now compares the complete emitted digest with the
+admitted descriptor, rather than an obsolete eight-character prefix. The event
+strategy and two fold IR fixtures were regenerated through their public Scheme
+producers; only their parser digests changed. The grammar descriptor and line
+strategy parsing code are unchanged, and the current line-strategy digest was
+independently checked against its complete declared SHA-256 input. The downstream
+fold Rust files were also regenerated with the pinned IR compiler, including its
+nonempty-token helper. Their existing tree/empty-input/outline controls remain.
+The build-support contracts now compare complete emitted Rust source, modulo
+outer whitespace, instead of checking only a digest substring.
+
+
+The later record-pack generation step had the same obsolete digest in its
+committed Rust fixture. Its public Scheme generator now matches that fixture;
+its parsing tables and code are unchanged. The pure owned-word fixture already
+matches byte for byte. Metadata controls additionally ensure that phased owners
+retain one ordinary SDK =meta= response and that clean/metadata do not require
+native link resolution. The compiler selection remains GCC; SDK/Gambit sources
+and installed objects are read-only throughout qualification.

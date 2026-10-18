@@ -426,7 +426,7 @@ pub static LANGUAGE: LanguageSpec = LanguageSpec {
     language: "record-assignments",
     version: "v1",
     contract: "record-assignments.v1",
-    grammar_digest: "sha256:9c7e8b0f807fb1bf13198c417ce5b74b90f65d67f054b48188cf5268dba4d1d4",
+    grammar_digest: "sha256:a47aec7313b36ac2a3267737a92cee14c51854304d1492507451740e63b29bbd",
     case_insensitive: false,
     root_kind: 0,
     kinds: KINDS,

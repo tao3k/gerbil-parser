@@ -12,4 +12,9 @@
       (each (edge) ('(("t/fixtures/prediction-witness" "t/fixtures/event-walk-source")
                      ("t/fixtures/event-walk-source" "t/fixtures/lr1-construction")))
         (equal (and (member (car edge) catalog) (member (cadr edge) catalog)
-                    (> (length (member (car edge) catalog)) (length (member (cadr edge) catalog)))) #t)))))
+                    (> (length (member (car edge) catalog)) (length (member (cadr edge) catalog)))) #t))))
+  (scenario "every compiled conformance test owner has an explicit unified entry import"
+    (scope ((catalog (cadr (caddr (read-source-definition "build-language-conformance.ss" 'conformance-modules))))
+            (imports (source-procedure "scripts/test-plan.ss" 'conformance-imported-test-names '())))
+      (each (owner) ((filter (lambda (name) (string-suffix? "-test" name)) catalog))
+        (equal (pair? (imports owner)) #t)))))

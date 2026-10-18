@@ -32,21 +32,21 @@ theorem push_eval (heap : Heap) (row : Row) (address : Nat) (rules : List Row)
     Eval (extend (env address rules) "row" (rowValue row)) heap body .unit (push address row heap) := by
   obtain ⟨values, found⟩ := valid row.1
   have tableRead : Eval (extend (env address rules) "row" (rowValue row)) heap (s "rows") (.table address) heap :=
-    .variable (by simp [env, extend])
+    .variable (by simp [resolve, env, extend])
   have rowRead : Eval (extend (env address rules) "row" (rowValue row)) heap (s "row") (rowValue row) heap :=
-    .variable (by simp [extend])
+    .variable (by simp [resolve, extend, rowValue])
   have keyRead : Eval (extend (env address rules) "row" (rowValue row)) heap
-      (app "car" [s "row"]) (.natural row.1) heap := .apply (.cons rowRead .nil) rfl
+      (app "car" [s "row"]) (.natural row.1) heap := .apply (.cons rowRead .nil) rfl (by simp [env, extend])
   have valueRead : Eval (extend (env address rules) "row" (rowValue row)) heap
-      (app "cadr" [s "row"]) row.2 heap := .apply (.cons rowRead .nil) rfl
+      (app "cadr" [s "row"]) row.2 heap := .apply (.cons rowRead .nil) rfl (by simp [env, extend])
   have bucketRead : Eval (extend (env address rules) "row" (rowValue row)) heap
       (app "table-ref" [s "rows", app "car" [s "row"], app "quote" [.list []]]) (.list values) heap :=
     .apply (.cons tableRead (.cons keyRead (.cons .empty .nil)))
-      (by simpa [primitive, lookup] using congrArg (fun value => some (value, heap)) found)
+      (by simpa [primitive, lookup] using congrArg (fun value => some (value, heap)) found) (by simp [env, extend])
   have prepend : Eval (extend (env address rules) "row" (rowValue row)) heap
       (app "cons" [app "cadr" [s "row"], app "table-ref" [s "rows", app "car" [s "row"], app "quote" [.list []]]])
-      (.list (row.2 :: values)) heap := .apply (.cons valueRead (.cons bucketRead .nil)) rfl
-  exact .apply (.cons tableRead (.cons keyRead (.cons prepend .nil))) (by simp [primitive, push, found])
+      (.list (row.2 :: values)) heap := .apply (.cons valueRead (.cons bucketRead .nil)) rfl (by simp [env, extend])
+  exact .apply (.cons tableRead (.cons keyRead (.cons prepend .nil))) (by simp [primitive, push, found]) (by simp [env, extend])
 
 def execute (address : Nat) (heap : Heap) : List Row → Heap
   | [] => heap
@@ -63,10 +63,10 @@ theorem each_eval (heap : Heap) (address : Nat) (rules rows : List Row) (valid :
 theorem source_execution (heap : Heap) (address : Nat) (rules : List Row) (valid : Buckets address heap) :
     Eval (env address rules) heap loopSource .unit (execute address heap rules.reverse) := by
   have input : Eval (env address rules) heap (s "rules") (.list (rules.map rowValue)) heap :=
-    .variable (by simp [env, extend])
+    .variable (by simp [resolve, env, extend])
   have reversed : Eval (env address rules) heap (app "reverse" [s "rules"])
-      (.list (rules.reverse.map rowValue)) heap := .apply (.cons input .nil) (by simp [primitive])
-  exact .forEach reversed (each_eval heap address rules rules.reverse valid)
+      (.list (rules.reverse.map rowValue)) heap := .apply (.cons input .nil) (by simp [primitive]) (by simp [env, extend])
+  exact .forEach reversed (each_eval heap address rules rules.reverse valid) (by simp [env, extend])
 
 def selected (key : Nat) (rows : List Row) : List Value :=
   rows.filterMap (fun row => if row.1 = key then some row.2 else none)

@@ -15,6 +15,7 @@
         (only-in :gerbil-parser/t/grammar-composition-lowering-test grammar-composition-lowering-test)
         (only-in :gerbil-parser/t/grammar-composition-execution-test grammar-composition-execution-test)
         (only-in :gerbil-parser/t/resolved-grammar-test resolved-grammar-test)
+        (only-in :gerbil-parser/t/nullable-origin-test nullable-origin-test)
         (only-in :gerbil-parser/t/lr-conflict-origins-test lr-conflict-origins-test)
         (only-in :gerbil-parser/t/lr-action-preparation-test lr-action-preparation-test lr-ordinary-action-preparation-test)
         (only-in :gerbil-parser/t/ranked-parser-request-test ranked-parser-request-test)
@@ -56,7 +57,7 @@
         (cons "surface" (list language-surface-test language-backend-test))
         (cons "composition" (list grammar-composition-contract-test
                                   grammar-composition-lowering-test
-                                  grammar-composition-execution-test resolved-grammar-test
+                                  grammar-composition-execution-test resolved-grammar-test nullable-origin-test
                                   lr-conflict-origins-test layout-column-storage-test))
         (cons "publication" (list language-artifact-test artifact-publication-cost-test
                                   artifact-window-publication-test))

@@ -13,7 +13,7 @@ protocol, rather than an input assumption or a finite corpus comparison.
 |-------+----------------------+----------------|
 | Source admission | Complete root and recursive helper schemas equal extracted source | LoweringBranchSource, LoweringNamesSource |
 | Recursive dispatch | All branches compile to scoped code with exact logical erasure | LoweringProgram, LoweringProgramBuilder |
-| Fresh names | Collision retries terminate and produce the source retry/claim relation | LoweringNames |
+| Fresh names | Recursive source evaluation generates complete allocation and cross-call histories | LoweringNames, LoweringFreshEvaluation, LoweringAllocationCalls |
 | Mutable storage | Occupied names retain their meanings across subsequent claims | LoweringNameStore |
 | Lexical references | Captured operands preserve their physical names across scope extension | LoweringScope |
 | Call/return | Every lower-to call returns before its caller continuation; frames balance | LoweringCallStack |
@@ -64,8 +64,8 @@ certified wrapper around the same unchecked source would not close a gap.
 | Obligation from the unified contract | Native audit result | Evidence and remaining work |
 |-------------------------------------+---------------------+-----------------------------|
 | Keep every authored declaration for a shared lhs | Nullable diagnostic indexing overwrote earlier declarations | Fixed; operational table evaluation and complete bucket theorem cover arbitrary lists |
-| Preserve candidate counter and occupied-name state | Source increments the counter before claim; protocol records retry/claim | Final-state allocation is proved; intermediate source evaluation still needs simulation |
-| Preserve captured operands across recursive calls | Protocol distinguishes binding scope from actual lower-to return | Scoped theorem exists; actual closure/application simulation remains open |
+| Preserve candidate counter and occupied-name state | Source increments the counter before claim; strong per-assignment refinement is false | Source fresh/claim recursion now simulates one completed allocation, including arbitrary collision prefixes |
+| Preserve captured operands across recursive calls | Captured variables must denote shared cells, not copied values | Closure and recursive-call evaluation plus arbitrary allocation-call composition are proved; lower-to dispatch integration remains open |
 | Publish rows, recipes and callbacks in one order | Shared publication protocol checks complete retained output | Arbitrary native observer and exceptional execution remain outside the normal-return theorem |
 
 ** Discovered declaration-loss defect
@@ -99,8 +99,10 @@ counterexample explains why the old scalar representation cannot meet the
 contract. No finite corpus, successful source digest or supplied row-alignment
 premise replaces these theorems.
 
-Fresh-table allocation, the unshadowed primitive prelude, the reader and
-compiler remain explicit external contracts. Faithful, injective native symbol
+Fresh-table allocation and primitive behavior have explicit semantic contracts;
+constructing and passing the correct initial table and cells remains a parser
+source obligation. The reader, compiler and collector are external. Faithful,
+injective native symbol
 to model-key transport is a separate parser representation obligation; it must
 not be silently declared a proved host property. Source payloads must also stay
 stable during traversal. The theorem starts after allocation with
@@ -108,6 +110,47 @@ the captured table and rule-list environment. It does not certify arbitrary
 closures, the complete lowering dispatcher, all diagnostic BFS behavior or exact
 source locations for duplicate declarations sharing one owner metadata entry.
 Those obligations remain in the unified chain rather than being declared solved.
+
+** Captured cells and complete allocation calls
+
+The operational evaluator now represents lexical environments separately from
+mutable heap cells. Closures capture environments containing cell addresses;
+every invocation reads those cells from the current heap. Mutually recursive
+procedure groups and named-let calls retain the same captured scope. Arguments
+and sequences thread heap effects in order. Primitive application requires an
+unshadowed global; it cannot bypass a locally bound procedure of the same name.
+Optional missing arguments currently support literal defaults only.
+
+[[file:../../../formal/ParserEngine/SchemeCells.lean][SchemeCells]] proves arbitrary shared-counter calls and lexical scope, and
+rejects the proposed strong simulation: with no occupied names, the source
+counter-increment state cannot be a completed =Names.Trace= transition. This is
+a defect in that proposed correspondence, not evidence of a parser acceptance
+bug. Changing source mutation order merely to fit that model is unjustified.
+
+[[file:../../../formal/ParserEngine/LoweringClaimEvaluation.lean][LoweringClaimEvaluation]] and [[file:../../../formal/ParserEngine/LoweringFreshEvaluation.lean][LoweringFreshEvaluation]] extract the actual fresh
+and claim declarations into procedures. Operational derivations execute their
+real bodies, including the captured counter assignment, occupied/free branches,
+recursive loop call and return. =fresh_unique= covers every returning evaluation
+of the supported fragment. =allocation_simulation= derives the abstract history
+at complete-allocation boundaries, with all intervening collisions included.
+
+[[file:../../../formal/ParserEngine/LoweringAllocationCalls.lean][LoweringAllocationCalls.source_history]] composes arbitrary request sequences
+over the same physical heap. It generates both the source evaluations and one
+abstract history. =source_unique= derives global helper uniqueness and reserved
+name exclusion, including repeated owners. Counter/table projections are
+preserved after every return; =committed_frame= proves every other location is
+unchanged. These properties come from the grammar's name-separation obligation,
+not equality with a second allocator on a finite input corpus.
+=every_return= uses call-sequence determinism to extend that generated history
+to every returning operational execution of the sequence.
+
+The remaining parser-owned premises are explicit: constructing the initial
+lexical cells from the root let, native symbol/text transport and candidate
+encoding injectivity, and deriving this request sequence from the entire
+recursive lowering dispatcher. The current allocation-call theorem takes the
+request sequence as input; it does not prove that the complete dispatcher
+produces it. The original retained LeanPoo construction remains authoritative;
+no parallel certificate or unchecked factory wrapper is introduced.
 
 * Source correspondence and remaining proof obligations
 
@@ -121,10 +164,11 @@ adequacy theorem.
 The following boundary remains explicit:
 
 - The physical interpreter denotes the restricted normal-return source protocol.
-  The table-building fragment now has operational evaluation and a universal
-  source simulation. The complete recursive dispatcher, closure applications
-  and mutable counter still lack the joint simulation. This is a parser
-  source-refinement obligation, not an assumed host theorem.
+  Table indexing and recursive allocation now have operational simulations.
+  The complete dispatcher, emitter and root cell allocation still need their
+  joint simulation into that interpreter. These are parser source-refinement
+  obligations, not assumed host theorems. Closure allocation proofs do not
+  discharge the dispatch-to-request or string-to-normalized-identity edges.
 - Native symbol/text normalization must preserve the reserved vocabulary and
   injective candidate encoding. The complete raw physical CFG is checked
   against generated emissions before the retained construction is admitted.
@@ -197,3 +241,21 @@ The final seven-owner combination passes all 105 cases with four workers in
 idle fences remain unchanged. Earlier signal and timeout receipts are retained;
 this successful confirmation does not prove their unique cause. No Gambit source,
 compiler binary or SDK library was changed or rebuilt.
+
+The current-head preparation failures on both platforms have the same concrete
+cause: =t/nullable-origin-test= was compiled but absent from the unified entry's
+imports and suite list. Both entry declarations are now present. A macro-owned
+catalog regression checks every compiled test owner's entry import, preventing
+this class of omission before native linking. This is a plan-consistency repair,
+not a watchdog change or a diagnosis of an older import timeout.
+
+The extended seven-owner run passes 107 cases with four workers, natural exit
+zero and unchanged watchdogs in 34.27 seconds. An earlier attempt with a new
+test-parenthesis error failed during preparation; it is retained as a failed
+receipt. These are correctness controls, not performance measurements. The
+source closure matrix exercises nonzero counters, collision runs, two closures
+sharing a cell, a caller's shadowing binding and independent request state.
+The complete Lean package passes 224 build jobs, including the new explicit
+axiom audit; all reported dependencies are standard Lean logical axioms. The
+19 evidence-admission controls pass. The existing repository test-plan control
+and unchanged lowering source generator check both exit naturally with zero.

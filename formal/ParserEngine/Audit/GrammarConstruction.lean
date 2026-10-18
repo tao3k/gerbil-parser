@@ -1,4 +1,6 @@
 import ParserEngine.Components
+import ParserEngine.SchemeCells
+import ParserEngine.LoweringAllocationCalls
 
 #print axioms ParserEngine.Grammar.nullable_iff_derives
 #print axioms ParserEngine.Grammar.nullable_least
@@ -453,3 +455,14 @@ import ParserEngine.Components
 #print axioms ParserEngine.RuleIndexSource.source_checked
 #print axioms ParserEngine.RuleIndexSource.simulate
 #print axioms ParserEngine.RuleIndexSource.complete
+#print axioms ParserEngine.SchemeCells.shared_counter
+#print axioms ParserEngine.SchemeCells.increment_not_atomic
+#print axioms ParserEngine.LoweringClaimEvaluation.available_unique
+#print axioms ParserEngine.LoweringFreshEvaluation.extracted_group
+#print axioms ParserEngine.LoweringFreshEvaluation.loop_eval
+#print axioms ParserEngine.LoweringFreshEvaluation.fresh_unique
+#print axioms ParserEngine.LoweringFreshEvaluation.allocation_simulation
+#print axioms ParserEngine.LoweringAllocationCalls.source_history
+#print axioms ParserEngine.LoweringAllocationCalls.source_unique
+#print axioms ParserEngine.LoweringAllocationCalls.every_return
+#print axioms ParserEngine.LoweringAllocationCalls.committed_frame

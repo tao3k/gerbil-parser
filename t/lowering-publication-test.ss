@@ -14,6 +14,40 @@
          '(values emit-production (lambda () (list next-id (reverse productions)))))))
    origin proof))
 
+;;; Execute both actual nested declarations in one lexical allocation scope.
+(def (make-source-names initial reserved)
+  ((eval
+    (list 'lambda '(initial reserved)
+      (list 'let '((next-synthetic initial) (used-names (make-table test: eq?)))
+        (read-source-subdefinition "src/compiler/lr.ss" 'lower-rules 'claim-name)
+        (read-source-subdefinition "src/compiler/lr.ss" 'lower-rules 'fresh)
+        '(for-each (lambda (name) (claim-name name)) reserved)
+        '(values (lambda () (fresh 'left)) (lambda () (fresh 'right))
+           claim-name (lambda () next-synthetic))))) initial reserved))
+
+(def (candidate-name owner index)
+  (string->symbol (string-append "$" (symbol->string owner) "." (number->string index))))
+
+(defparser-check (captured-name-case initial collisions)
+  (scope ((reserved (map (lambda (offset) (candidate-name 'left (+ initial offset))) (iota collisions))))
+    (scope-values (((left right claim inspect) (make-source-names initial reserved))
+                   ((independent-left _right _claim independent-inspect) (make-source-names initial '())))
+      (equal (inspect) initial)
+      (scope ((next-synthetic -100))
+        (equal (left) (candidate-name 'left (+ initial collisions)))
+        (equal next-synthetic -100))
+      (equal (inspect) (+ initial collisions 1))
+      (equal (right) (candidate-name 'right (+ initial collisions 1)))
+      (equal (left) (candidate-name 'left (+ initial collisions 2)))
+      (equal (inspect) (+ initial collisions 3))
+      (equal (claim (candidate-name 'left (+ initial collisions))) #f)
+      (equal (claim 'extra-reserved) 'extra-reserved)
+      (equal (claim 'extra-reserved) #f)
+      (equal (inspect) (+ initial collisions 3))
+      (equal (independent-inspect) initial)
+      (equal (independent-left) (candidate-name 'left initial))
+      (equal (independent-inspect) (+ initial 1)))))
+
 (defparser-check (publication-observer-case origin? proof?)
   (scope ((inspect #f) (observed '()))
     (scope-values (((emit snapshot)
@@ -72,6 +106,9 @@
 
 (deflanguage-parser-tests lowering-publication-test "source lowering publication protocol"
   (engine)
+  (matrix "source closures share the lexical counter across collision retries and isolate requests"
+    (setup) ((initial '(0 4 31)) (collisions '(0 1 8 32))) (bindings)
+    (equal (parser-check-result captured-name-case initial collisions) (void)))
   (matrix "callbacks observe the pre-commit counter and the same native objects"
     (setup) ((origin? '(#f #t)) (proof? '(#f #t))) (bindings)
     (equal (parser-check-result publication-observer-case origin? proof?) (void)))

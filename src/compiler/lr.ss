@@ -558,6 +558,15 @@
 (def current-grammar-source-map (make-parameter '()))
 (defstruct nullable-origin-task (owner expression path references))
 
+(def (rule-index-by-lhs rules)
+  (let (rows (make-table test: eq?))
+    ;; Reverse the input, then prepend: preserve all declarations in source order.
+    (for-each (lambda (row)
+                (table-set! rows (car row)
+                            (cons (cadr row) (table-ref rows (car row) '()))))
+              (reverse rules))
+    rows))
+
 (def (validate-resolved-repetitions rules nullable)
   (def source-map (current-grammar-source-map))
   (def rule-sources (let (entry (assq 'rule source-map)) (if entry (cdr entry) '())))
@@ -569,10 +578,9 @@
   ;; derivation tree. Rule sharing and cycles are visited once. The fixed point
   ;; above remains the authority that the complete operand is nullable.
   (def (witness owner expression path)
-    (def rows (make-table test: eq?))
+    (def rows (rule-index-by-lhs rules))
     (def visited (make-table test: eq?))
     (def facts (make-table test: eq?))
-    (for-each (lambda (row) (table-set! rows (car row) (cadr row))) rules)
     (def (nullable? expr)
       (let (cached (table-ref facts expr 'unknown))
         (if (not (eq? cached 'unknown)) cached
@@ -603,12 +611,15 @@
           (case (car expr)
             ((empty layout-end repeat optional) (reverse references))
             ((reference)
-             (let ((name (cadr expr)) (row (table-ref rows (cadr expr) #f)))
-               (when (and row (table-ref nullable name #f) (not (table-ref visited name #f)))
+             (let ((name (cadr expr)) (declarations (table-ref rows (cadr expr) '())))
+               (when (and (pair? declarations) (table-ref nullable name #f) (not (table-ref visited name #f)))
                  (table-set! visited name #t)
-                 (enqueue name row '()
-                          (cons (append (occurrence name '())
-                                        (list (cons 'referenceOrigin (occurrence owner path)))) references))))
+                 (for-each (lambda (row)
+                   (when (nullable? row)
+                     (enqueue name row '()
+                              (cons (append (occurrence name '())
+                                            (list (cons 'referenceOrigin (occurrence owner path)))) references))))
+                   declarations)))
              (loop))
             ((sequence choice)
              (for-each

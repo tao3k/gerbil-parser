@@ -455,4 +455,6 @@
         (map (lambda (name) (read-source-subdefinition "src/compiler/lr.ss" 'lower-rules name))
           '(child-path map-children)))
       (ParserEngine.LoweringBranchSource rootSource
-        (read-source-definition "src/compiler/lr.ss" 'lower-rules))) output))
+        (read-source-definition "src/compiler/lr.ss" 'lower-rules))
+      (ParserEngine.RuleIndexSource definitionSource
+        (read-source-definition "src/compiler/lr.ss" 'rule-index-by-lhs))) output))

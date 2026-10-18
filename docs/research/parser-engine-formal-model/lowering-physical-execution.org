@@ -52,6 +52,63 @@ lists. Its termination measure combines structural size with dispatch phases,
 including unisolated loops passing through isolated helpers. This closes the
 scoped compiler's recursive paths without assuming a finite observed trace.
 
+* Proof-directed implementation audit
+
+The model is a way to find violated implementation obligations, not a second
+parser whose agreement on examples is called a proof. Each admitted source
+fragment needs operational semantics, an invariant, a counterexample search and
+an executable regression against the real parser. The original retained
+LeanPoo construction product remains the shared consumer; adding a separate
+certified wrapper around the same unchecked source would not close a gap.
+
+| Obligation from the unified contract | Native audit result | Evidence and remaining work |
+|-------------------------------------+---------------------+-----------------------------|
+| Keep every authored declaration for a shared lhs | Nullable diagnostic indexing overwrote earlier declarations | Fixed; operational table evaluation and complete bucket theorem cover arbitrary lists |
+| Preserve candidate counter and occupied-name state | Source increments the counter before claim; protocol records retry/claim | Final-state allocation is proved; intermediate source evaluation still needs simulation |
+| Preserve captured operands across recursive calls | Protocol distinguishes binding scope from actual lower-to return | Scoped theorem exists; actual closure/application simulation remains open |
+| Publish rows, recipes and callbacks in one order | Shared publication protocol checks complete retained output | Arbitrary native observer and exceptional execution remain outside the normal-return theorem |
+
+** Discovered declaration-loss defect
+
+Lowering preserves repeated authored declarations for one nonterminal. The
+nullable fixed point therefore sees all alternatives. The native diagnostic
+witness previously used a scalar table entry and replaced every earlier body
+with the last body. For =item -> empty= followed by =item -> "x"=, repetition is
+correctly rejected, but its nullable reference path becomes false. A nullable
+exit beside a cyclic duplicate can disappear in the same way. This defect
+concerns diagnostic completeness; it is not evidence of incorrect acceptance.
+
+The new =rule-index-by-lhs= keeps every body in source order. Witness traversal
+expands all nullable declarations once per referenced name, retaining the
+existing BFS and cycle guard. The nullable fixed point remains authoritative.
+The macro regression reproduces the old missing-path failure, then passes both
+declaration orders and cyclic siblings against the corrected implementation.
+
+** Operational proof and its limits
+
+[[file:../../../formal/ParserEngine/SchemeTableEvaluation.lean][SchemeTableEvaluation]] evaluates actual source Datum expressions, lexical
+bindings, primitive arguments, sequences, lambda bodies in for-each and table
+reads/writes. Its rules do not turn source equality into an invocation of a
+separate index algorithm. [[file:../../../formal/ParserEngine/SchemeEvaluationDeterminism.lean][The mutual determinism proof]] quantifies over all
+returning evaluations of this supported fragment.
+
+[[file:../../../formal/ParserEngine/RuleIndexSource.lean][RuleIndexSource.simulate]] connects the extracted native loop to that relation.
+The complete theorem proves exact original order and multiplicity for arbitrary
+rule lists, plus preservation of every other physical table. The overwrite
+counterexample explains why the old scalar representation cannot meet the
+contract. No finite corpus, successful source digest or supplied row-alignment
+premise replaces these theorems.
+
+Fresh-table allocation, the unshadowed primitive prelude, the reader and
+compiler remain explicit external contracts. Faithful, injective native symbol
+to model-key transport is a separate parser representation obligation; it must
+not be silently declared a proved host property. Source payloads must also stay
+stable during traversal. The theorem starts after allocation with
+the captured table and rule-list environment. It does not certify arbitrary
+closures, the complete lowering dispatcher, all diagnostic BFS behavior or exact
+source locations for duplicate declarations sharing one owner metadata entry.
+Those obligations remain in the unified chain rather than being declared solved.
+
 * Source correspondence and remaining proof obligations
 
 The source-data macro extracts the complete =lower-rules= definition, not only
@@ -64,9 +121,10 @@ adequacy theorem.
 The following boundary remains explicit:
 
 - The physical interpreter denotes the restricted normal-return source protocol.
-  A general small-step Scheme evaluator and a simulation from its actual
-  environments, procedure applications and mutable tables are not provided.
-  That is a parser source-refinement obligation, not an assumed host theorem.
+  The table-building fragment now has operational evaluation and a universal
+  source simulation. The complete recursive dispatcher, closure applications
+  and mutable counter still lack the joint simulation. This is a parser
+  source-refinement obligation, not an assumed host theorem.
 - Native symbol/text normalization must preserve the reserved vocabulary and
   injective candidate encoding. The complete raw physical CFG is checked
   against generated emissions before the retained construction is admitted.
@@ -98,7 +156,7 @@ with =#eval= and fail on an unexpected physical list; they are tests, not
 kernel-derived equality theorems. No =native_decide=, custom axiom or unsafe
 reducibility option is introduced.
 
-The current macOS preparation failure stopped inside GCC's single giant
+The earlier macOS preparation failure stopped inside GCC's single giant
 =clan/poo/type= host function before static-library readiness. Owned static
 objects now use per-procedure C hosts and record their compiler-option identity.
 GCC optimization and the installed SDK's tail-call contract remain in force.
@@ -111,3 +169,31 @@ with four workers and natural exit zero in 57.73 seconds, within the unchanged
 90-second total and five-second idle watchdogs. The source generator check
 passes, and all 19 existing evidence-admission controls pass. These are local
 correctness receipts, not a CPU comparison or exact-new-head remote CI result.
+
+At the next current commit, both preparation jobs failed before native linking:
+the conformance catalog omitted the newly imported source-reader module and
+its prediction-recorder dependency. The catalog now prepares that dependency
+chain before the lowering generator. The regression checks the actual catalog
+order; a warm local import is not evidence of a complete clean build closure.
+
+The extended package passes 220 Lean build jobs and all 19 evidence-admission
+controls. A fresh helper namespace, with no cached fixture interfaces, compiles
+the actual three-module dependency chain in 13.96 seconds under the original
+watchdogs. The native missing-path regression passes both directed matrices.
+
+A broader local run subsequently returned signal 139 inside a compiled parser
+importer. Interface and optimization metadata had different source ages; both
+producer and importer were regenerated together. The following broad run hit
+its unchanged 90-second total fence during module preparation, before tests.
+These remain negative receipts, not passed qualification or a proved root cause.
+A separate library-load check reached its final module-import marker, then hit
+the idle fence during ordinary process teardown. This does not qualify cleanup
+or establish the cause of the earlier signal. The two changed owners pass five
+cases in 15.34 seconds, and the five existing semantic owners pass 100 cases in
+19.82 seconds. Both isolated runs retain the same watchdogs.
+
+The final seven-owner combination passes all 105 cases with four workers in
+19.54 seconds and natural exit zero. The original 90-second total and five-second
+idle fences remain unchanged. Earlier signal and timeout receipts are retained;
+this successful confirmation does not prove their unique cause. No Gambit source,
+compiler binary or SDK library was changed or rebuilt.

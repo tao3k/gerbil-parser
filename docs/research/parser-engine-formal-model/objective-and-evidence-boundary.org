@@ -55,8 +55,10 @@ authored declaration counts, then feeds the same retained LeanPoo factory.
 [[file:lowering-physical-execution.org][Scoped physical execution]] generates helper allocation, call boundaries and
 complete physical realization universally, yielding origin admission in the
 same retained factory. Complete source-schema equality gates the current root.
-General Scheme evaluator adequacy, rejection paths and action metadata remain
-open; neither source admission nor native controls certify arbitrary execution.
+Operational source evaluation exposed a declaration-loss bug in the nullable
+witness index; the corrected fragment now has an all-rule simulation proof.
+Complete recursive Scheme evaluator adequacy, rejection paths and action metadata
+remain open; neither source admission nor native controls certify arbitrary execution.
 
 ** Parser ownership, prepared requests and the macOS timeout
 

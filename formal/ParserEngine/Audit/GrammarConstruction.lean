@@ -445,3 +445,11 @@ import ParserEngine.Components
 #print axioms ParserEngine.LoweringProgramControls.generated_origin
 #print axioms ParserEngine.LoweringCallStack.returns_before_continuation
 #print axioms ParserEngine.LoweringCallStackControls.exact_physical
+
+#print axioms ParserEngine.SchemeTableEvaluation.Eval.deterministic
+#print axioms ParserEngine.RuleIndexEvaluation.source_execution
+#print axioms ParserEngine.RuleIndexEvaluation.complete
+#print axioms ParserEngine.RuleIndexEvaluation.overwrite_loses_first
+#print axioms ParserEngine.RuleIndexSource.source_checked
+#print axioms ParserEngine.RuleIndexSource.simulate
+#print axioms ParserEngine.RuleIndexSource.complete

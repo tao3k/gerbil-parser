@@ -1,6 +1,8 @@
 ;;; Product classification never executes inspected Scheme or touches foreign code.
 (import :gerbil-parser/language-test-support
         (only-in :std/io/tempfile make-temporary-file-name)
+        (only-in :gerbil/expander import-module current-expander-context
+                 current-expander-module-import eval-syntax stx-e)
         (only-in :gerbil-parser/src/build-support/loader-products prepare-library-loader-products!)
         (only-in ./fixtures/module-loading/runtime-files write-program write-datum))
 
@@ -21,8 +23,29 @@
 (def (loader-product? namespace name)
   (file-exists? (path-expand name namespace)))
 
+(def (source-bootstrap-available?)
+  (let (importer (current-expander-module-import))
+    (parameterize
+      ((current-expander-module-import
+        (lambda (request reload?)
+          (let (path (stx-e request))
+            (when (and (symbol? path)
+                       (or (string-prefix? ":gerbil-parser/" (symbol->string path))
+                           (string-prefix? "../" (symbol->string path))
+                           (string-prefix? "./" (symbol->string path))))
+              (error "bootstrap requested an unbuilt package library" path)))
+          (importer request reload?))))
+      ;; Reload the source owner so a previously cached import cannot hide
+      ;; an accidental library dependency in its declaration.
+      (let (context (import-module (path-expand "src/build-support/loader-products.ss") #t #t))
+        (parameterize ((current-expander-context context))
+          (procedure? (eval-syntax 'prepare-library-loader-products!)))))))
+
 (deflanguage-parser-tests loader-products-test "closed loader product ownership"
-  (engine)
+  (engine (exclusive #t))
+  (property "source bootstrap declares files without an ambient parser library"
+    (bindings)
+    (equal (source-bootstrap-available?) #t))
   (scenario "closed wrappers retain interfaces, source and native implementation bytes"
     (using (with-loader-product-root) (root namespace)
       (act (put-loader-wrapper namespace "entry"

@@ -403,3 +403,14 @@ and original complete aggregate, without warmed or split acceptance.
 The timing rows establish deadline closure for these requests. They do not
 establish a complete-parser CPU speedup. Paper/model/source correspondence,
 local native acceptance and CI at the pushed commit remain distinct evidence.
+
+
+The current CI preparation exposed a bootstrap-only dependency error: a relative
+symbol import in the new build helper resolved through the package namespace
+before the package existed. The local source-parent path had masked it. The
+helper now names both source dependencies explicitly. An isolated temporary package
+root, with only read-only foreign dependencies and no parser namespace or
+source-parent fallback, reproduces the original failure. The ordinary test
+macro also reloads the source owner while rejecting ambient parser-library
+imports. This instantiates =AuthorPhase.ambient_masks_missing= at the real
+build boundary; compiler and SDK behavior remain external premises.

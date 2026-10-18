@@ -1,6 +1,6 @@
 ;;; Native implementation bodies remain compiled; closed loader programs use SCM.
-(import (only-in ../modules/loader read-compiled-dependencies)
-        (only-in ./preparation-snapshot preparation-files preparation-snapshot))
+(import (only-in "../modules/loader.ss" read-compiled-dependencies)
+        (only-in "./preparation-snapshot.ss" preparation-files preparation-snapshot))
 (export prepare-library-loader-products!)
 
 (def (dynamic-loader-base path)

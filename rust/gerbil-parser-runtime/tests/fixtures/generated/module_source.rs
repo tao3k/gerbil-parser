@@ -696,7 +696,7 @@ pub static LANGUAGE: LanguageSpec = LanguageSpec {
     language: "module-framing",
     version: "v1",
     contract: "module-framing.v1",
-    grammar_digest: "sha256:07c96670f5167601c9fa6d36d70f85d9da28fedf6fa51958d475274e59ee57e9",
+    grammar_digest: "sha256:38205406479779c3b9535ec0682abd5cb2a7ab1cf90d55c1f857f4660d0922de",
     case_insensitive: false,
     root_kind: 0,
     kinds: KINDS,

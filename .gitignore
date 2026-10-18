@@ -1,4 +1,5 @@
 .gerbil/
+.gerbil.publication.lock
 .data/
 manifest.ss
 target/

@@ -296,7 +296,7 @@ pub static LANGUAGE: LanguageSpec = LanguageSpec {
     language: "structured-lexical",
     version: "v1",
     contract: "structured-lexical.v1",
-    grammar_digest: "sha256:9a75716b88708baf309d7a5bb2821f6579cf31bfb9472aab04abccb9005d8835",
+    grammar_digest: "sha256:d2c698952a029bc3047d29a845663f1a085a05dbb504a7da73b170ddd226f78d",
     case_insensitive: false,
     root_kind: 0,
     kinds: KINDS,

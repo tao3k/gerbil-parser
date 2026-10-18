@@ -38,11 +38,18 @@
          (if (eq? (car entry) 'lr-spec)
            (cons 'lr-spec
                  (map (lambda (row)
-                        (if (eq? (car row) 'productions)
+                        (cond
+                         ((eq? (car row) 'productions)
                           (cons 'productions
                                 (append (cdr row)
-                                        (list (cons (or id (length (cdr row))) tail))))
-                          row))
+                                        (list (cons (or id (length (cdr row))) tail)))))
+                         ((eq? (car row) 'declarations)
+                          ;; Keep the declaration directory well formed even
+                          ;; when the fixture deliberately corrupts the lhs.
+                          (cons 'declarations
+                                (cons (if (symbol? (car tail)) (car tail) 'unused)
+                                      (cdr row))))
+                         (else row)))
                       (cdr entry)))
            entry))
        arithmetic-parser-ir))

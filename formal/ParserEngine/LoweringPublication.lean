@@ -213,11 +213,12 @@ structure Metadata where
   source : Nat
   rules : Lowering.Rules
   decode : Nat → Lowering.Owner
+  declarations : List Nat
 
 def input (metadata : Metadata) (state : State) : ConstructionGrammar.Input :=
   ⟨⟨0, ⟨metadata.augmented, [⟨.nonterminal metadata.root, []⟩], .ordinary 0⟩⟩ ::
     (ordered state).map Entry.record, metadata.augmented, metadata.root, metadata.source,
-    metadata.rules, metadata.decode, (ordered state).map Entry.recipe⟩
+    metadata.rules, metadata.decode, (ordered state).map Entry.recipe, metadata.declarations⟩
 
 def publish (metadata : Metadata) (result : Result) : Option ConstructionGrammar.Input :=
   if result.returned then some (input metadata result.state) else none

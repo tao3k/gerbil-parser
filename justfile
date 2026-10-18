@@ -45,11 +45,11 @@ test-process-admission: build-qualification
     GAMBOPT=max-heap=1G,debug=q gerbil env gxi scripts/tests/process-qualification-test.ss
 
 test-compiler-process:
-    GAMBOPT=max-heap=1G,debug=q gerbil env gxi scripts/tests/compiler-process-test.ss
+    GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/compiler-process-test.ss
 
-# Cache admission controls stay Scheme and share the CI owner.
+# Cache admission uses the same macro owner and shared runtime as CI.
 test-preparation:
-    GAMBOPT=max-heap=1G,debug=q gerbil env gxi scripts/tests/preparation-test.ss
+    GAMBOPT=max-heap=3G,debug=q gerbil env gxi t/fixtures/tla-sany-differential/test-suite.ss --workers 4 t/preparation-cache-test.ss
 
 # Build the shared helper through its compiled module owner before loading source suites.
 test-workers output=".data/worker-controls": build-qualification
@@ -427,6 +427,12 @@ test-all: build-qualification
 test-performance-before-compile: build-qualification
     gerbil env gxi qualify.ss performance
 
+regenerate-language-abi-fixtures: build-qualification
+    GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD/.." gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/regenerate-language-abi-fixtures.log --require LANGUAGE-ABI-FIXTURES-GENERATED -- gxi \
+      -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-test-imports "t/generate-language-abi-alignment.ss")' \
+      -e '(import (only-in :gerbil-parser/t/generate-language-abi-alignment write-language-abi-fixtures!)) (write-language-abi-fixtures! "rust/gerbil-parser-artifact/tests/fixtures/languages.json")' \
+      -e '(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)) (test-child-process-exit! 0)'
+
 test-language-abi-alignment:
     mkdir -p .data
     gerbil compile -O {{if os() == "macos" { "-ld-options '-Wl,-undefined,dynamic_lookup'" } else { "" }}} src/ffi/language-abi-context.ss
@@ -650,7 +656,7 @@ formal-protocol:
 
 # SDK-owned module caching, source changes and initializer failure recovery.
 test-module-loading: build-qualification
-    gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/module-loading-controls.log --require '^MODULE-LOADING-CONTROLS-OK$' -- gxi t/benchmarks/module-loading/controls.ss
+    gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/module-loading-controls.log --require '^TEST-SUITE-OK modules=1$' -- gxi t/fixtures/tla-sany-differential/test-suite.ss --workers 4 t/module-loading-test.ss
 
 benchmark-module-loading mode="generation": build-qualification
     gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/module-loading-{{mode}}.log --require '^MODULE-LOADING-CPU-PROOF-OK {{mode}}$' -- gxi t/benchmarks/module-loading/benchmark.ss {{mode}}

@@ -8,7 +8,7 @@
         (only-in ./lr
                  compute-first compute-completion
                  validate-resolved-start validate-resolved-repetitions
-                 lower-rules current-grammar-source-map lr-spec-ref nonterminal-name nonterminal-symbol?
+                 lower-rules lower-grammar current-grammar-source-map lr-spec-ref nonterminal-name nonterminal-symbol?
                  production-action production-id production-precedence production-table
                  layout-end-action? validate-production-semantics
                  terminal-symbol? union-values)
@@ -344,9 +344,10 @@
                 '(lalr canonical-lr1 partitioned-lr1 follow-partition-lr1))
     (error "unknown LR construction" construction))
   (let* ((started (##current-time-point))
-         (productions
-          (validate-production-semantics
-           (lower-rules rules root (eq? conflict-policy 'selective-glr))))
+         (lowered (call-with-values
+                    (lambda () (lower-grammar rules root (eq? conflict-policy 'selective-glr))) list))
+         (productions (car lowered))
+         (declarations (cadr lowered))
          (table (production-table productions)))
     (trace-lr-phase 'lowered (length productions) started)
     (let-values (((nullable nullable-index productive productive-index)
@@ -390,6 +391,7 @@
                      (cons 'schema "gerbil-parser.lr-spec.v1")
                      (cons 'case-insensitive? case-insensitive?)
                      (cons 'productions productions)
+                     (cons 'declarations declarations)
                      (cons 'nullable nullable)
                      (cons 'first first)
                      (cons 'algorithm

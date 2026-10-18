@@ -57,6 +57,15 @@
           (equal (observe) #t)
           (act (delete-file (path-expand "module.rmeta" directory)))
           (equal (observe) #f))))
+    (scenario "Scheme and C compiler products supply progress only when changed"
+      (each (name) ('("module.scm" "module.c"))
+        (using (with-compiler-outputs) (directory)
+          (act (write-compiler-output directory name "cached"))
+          (scope ((observe (compiler-output-observer directory 0)))
+            (equal (observe) #f)
+            (act (write-compiler-output directory name "generated compiler output"))
+            (equal (observe) #t)
+            (equal (observe) #f)))))
     (scenario "batched receipts preserve regexp line semantics and missing order"
       (sequential ((text "first\nx42\n\nliteral.end\nlast")
              (patterns '("^first$" "^x[0-9]+$" "literal\\.end" "^last$" "^absent$" "first\nx42" "^absent$"))

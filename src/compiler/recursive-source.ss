@@ -1,5 +1,6 @@
 ;;; Generate rollback-capable HCL event actions from the Scheme Grammar IR.
-(import (only-in :clan/poo/object .o .ref)
+(import (only-in ../schema compiler-generator-metadata)
+        (only-in :clan/poo/object .o .ref)
         (only-in ./build-strategy BuildStrategy. declare-build-strategy-provider make-bound-build-strategy)
         (only-in :std/misc/ports read-all-as-string)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-ir language-grammar-machine)
@@ -29,7 +30,7 @@
 ;;; The closed attribute/block event corridor is derived from this Grammar IR.
 ;;; A grammar edit must regenerate and review its field/node event sequence.
 (def +simple-attribute-grammar-digest+
-  "sha256:7fa44a0c1fccad8bfc8c10096afd4b11fd7d945dacb88ebc79f494afee851648")
+  (cdr (assq 'parser-digest (compiler-generator-metadata 'recursive-source))))
 
 ;;; An emitted expression returns the next significant-token index or #f.
 ;;; Zero is a valid position, so even an empty match is distinct from failure.

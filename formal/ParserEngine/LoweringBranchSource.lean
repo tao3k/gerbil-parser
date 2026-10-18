@@ -128,7 +128,7 @@ def authoredCalls : Datum := app "for-each" [app "lambda" [names ["row"],
 /-- Covers the whole lexical declaration, not just selected subdefinitions:
 unknown new effects, changed reservation order and changed call arguments fail. -/
 def root : Datum := l [s "def", l [s "lower-rules", s "rules", s "root", l [s "allow-dynamic?", b false],
-  l [s "observe-origin", b false], l [s "observe-proof", b false]],
+  l [s "observe-origin", b false], l [s "observe-proof", b false], l [s "declare-name", b false]],
   app "let" [LoweringPublication.Source.initializer, LoweringPublication.Source.emitter,
     reserveReferences, claim, fresh, app "table-set!" [s "used-names", s "root", b true], reserveRules,
     childPath, mapChildren, identityDefinition, bodyDefinition, stepDefinition, operandDefinition,

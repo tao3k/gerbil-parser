@@ -2,7 +2,11 @@
 ;;; -*- Gerbil -*-
 ;;; Optional native command product; the library package is built by build.ss.
 
+(import (only-in "./src/build-support/library-publication.ss" publication-build-main)
+        (only-in "./src/build-support/compiler-profile.ss" compiler-build-spec))
 (import (only-in :std/build-script defbuild-script))
 
-(defbuild-script '("src/cli"
-                   (exe: "src/main" bin: "gparse")))
+(defbuild-script (compiler-build-spec '("src/cli"
+                   (exe: "src/main" bin: "gparse"))))
+
+(set! main (publication-build-main main))

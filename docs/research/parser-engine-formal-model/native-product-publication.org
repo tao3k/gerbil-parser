@@ -1,0 +1,490 @@
+#+TITLE: Compiler Granularity and Complete Native Product Publication
+
+* Contract
+
+The standard Gerbil build graph owns dependency ordering, compiler workers and
+in-place compilation. The admission owner holds an exclusive writer lock,
+withdraws the completion receipt before writing, and publishes only a small
+receipt after successful compilation with unchanged inputs. Readers hold a
+shared lock and verify the source catalog and production products before and
+after execution. Newly added sources invalidate admission as well as changed
+or removed sources. Language-support declarations belong to that catalog.
+
+A failed or killed build leaves an unadmitted generation. The next root build
+uses the standard clean operation and removes this package's remaining native
+variants before retrying. There is no directory copy, root exchange, backup
+generation or alternate GERBIL_PATH. Tests and extension owners must start
+from an admitted root generation; failed extensions withdraw admission too.
+
+Standard clean owns its declared outputs. Supplemental cleanup covers only
+=lib/gerbil-parser= loadable products and =lib/static/gerbil-parser__*=.
+Content-addressed grammar artifacts and receipts retain their existing digest
+validation; they are not loadable native module versions. Dependency packages,
+source checkouts and historical diagnostic logs are outside cleanup ownership.
+
+Filesystem locks, receipt rename, compiler semantics and SDK runtime behavior
+are external premises. This is not a theorem about Gambit or machine code.
+No Gambit or SDK source is modified or built.
+
+* Algorithmic cause and code-generation law
+
+The arithmetic LR backend previously emitted the same reduction handler at
+many state/terminal decision sites. Its generated C translation unit measured
+2,436,679 bytes. A per-procedure C host alone does not split a single large
+Scheme procedure, so compiler host flags cannot eliminate that duplication.
+
+The shared decision generator selects an immediate action identifier while
+retaining ordered predicates, then emits each distinct handler once. The Lean
+[[file:../../../formal/ParserEngine/ActionCodeSharing.lean][action-code sharing law]] proves first-match selection, predicate state
+effects, catalog decoding, fallback and arbitrary handler results for arbitrary
+rows. The Scheme test owner compares execution with an independently generated
+unshared decision tree, including false results and action identifier zero.
+This theorem does not prove the complete LR generator or Scheme evaluator.
+
+The original arithmetic generator produces a 27,312-byte Scheme backend after
+sharing, compared with approximately 57 KB before sharing. The isolated cold
+backend compiles with the same GCC and optimization policy in 16.07 seconds,
+with natural exit zero under the unchanged 90-second total and five-second idle
+limits. This is build qualification, not parser-request CPU evidence.
+
+* Publication and transport controls
+
+The parser-test macros exercise failed compilation, successful publication,
+unchanged-input reuse, an actual idle watchdog, source mutation, corrupt output
+and concurrent writers. The process controls preserve arbitrary output bytes,
+partial diagnostics, split UTF-8 and results from eight jobs on four workers.
+The combined initial controls pass twelve cases across three owners in 25.88
+seconds. The earlier private-copy controls passed seventeen cases across four owners
+in 53.52 seconds with natural exit zero, including decision-code execution and
+a relocation control verifying that a private product receipt resolves against
+the activated library root. The earlier three shared build-support modules
+compile in 27.87 seconds with natural exit zero under the same limits.
+
+Byte capture and text forwarding are explicit modes of the shared compiler
+transport. The parser-test harness uses character pipes; forwarding raw bytes
+into those pipes is a port-contract error. Text decoding uses the SDK's
+incremental reader, while binary capture retains invalid UTF-8 bytes unchanged.
+
+* Evidence boundary
+
+The unified Lean build passes 232 jobs. The declaration-vocabulary Quint model
+passes thirteen controls and 1000 bounded traces. These results do not close
+the remaining full lowering-dispatch and Scheme-evaluation obligations in
+[[file:lowering-physical-execution.org][the lowering correspondence ledger]].
+
+The first full private-library attempt exposed an omitted SDK library search
+path and stopped with a module-resolution error; it published nothing. After
+that repair, a cold build with verbose type/source diagnostics reached its
+90-second total fence. Removing those diagnostics exposed a separate idle
+fence during cold dependency discovery, before GCC. Both failures remain
+unqualified. The next preparation avoids cloning invalid project objects and
+records actual completed imports. That full cold build still reaches its total
+fence in 90.49 seconds, after starting 107 module compilations. It publishes
+nothing and remains an open gate. No budget is increased and no historical
+green CI run qualifies uncommitted products.
+
+The standalone preparation-cache control also stops at its five-second idle
+fence before its first control receipt (7.07 seconds including shutdown). An
+experiment delaying publication imports also stops at that fence (6.99
+seconds); it is reverted because it does not establish the cause. A separate
+run records actual import boundaries to locate that startup work. A passing
+traced route would not retrospectively qualify either direct-start failure.
+The traced control finds a separate migration error: the legacy loaded test
+script references =preparation-files= without explicitly importing its new
+shared module. After adding that import, all sixteen cache controls pass in
+21.71 seconds with natural exit zero. Direct startup remains an independent
+open gate; it is not attributed to that missing binding.
+
+* Corrective findings
+
+Changing the cache consumer's source-relative build-support imports to public
+package imports lets the official loader reuse installed native modules. The
+direct, untraced cache control now completes all sixteen controls in 7.28
+seconds under the unchanged limits. No earlier timeout is relabeled.
+
+The publication wrapper incorrectly replaced =clean= with marker removal.
+It now withdraws admission under the writer lock and delegates to the actual
+standard build owner. Running =gerbil clean= completes with exit zero and
+removes 496 declared products. The SDK's =std/make= clean enumerates the
+declared =.ssi= and static =.scm= products; it does not enumerate all dynamic
+=.oN= versions. After this clean the package namespace still contains 7,024
+native variants and 128 interfaces belonging to other preparation owners and
+content caches. Official clean is therefore the first cleanup operation, not
+evidence that every old native variant has disappeared. Dependency packages,
+the SDK and handwritten sources are unaffected.
+
+The generic ownership-pruning model proves ordered selection equivalence for
+arbitrary forests with downward-closed exclusions, and proves that visits
+cannot increase. The unified Lean build passes 233 jobs. Filesystem behavior
+and inventory stability remain external premises. New macro controls and the
+remaining cold-build gate still require validation after the official clean.
+
+* In-place cleanup qualification
+
+The earlier private-copy controls describe the superseded rollback contract;
+they do not qualify the current in-place contract. Seven abandoned private
+build trees have been removed. The directory-exchange helper and copy routine
+have been deleted from the implementation.
+
+After the initial standard clean, scoped cleanup removed 9,858 package files,
+including 7,212 native variants, and 872 package static products. A subsequent
+standard clean delegation under actual import diagnostics completes in 6.57
+seconds with exit zero. Inventory confirms zero remaining package native
+variants and interfaces. Immutable grammar cache receipts are preserved.
+
+Cold dependency planning expands language declarations before GCC starts.
+One attempt stops in TLA+ parser generation at the five-second idle fence.
+The existing LR phase diagnostics identify completed construction work; a
+later attempt reaches 105 module compilation starts but hits the unchanged
+90-second total fence at 90.39 seconds. Neither attempt is a complete build.
+
+Direct startup remains unqualified: the formal gerbil clean command stops at
+its idle fence in 6.59 seconds, and an untraced build stops in dependency
+planning in 14.03 seconds. Reporting completed imports in batches exposes
+planning progress but a further attempt still stops at the idle fence in
+37.26 seconds. These failures are retained; diagnostic-route success is not a
+direct-startup pass. Optimizer-interface completion diagnostics are being
+qualified separately. No budget or optimization level is relaxed.
+
+Build bootstrap imports now explicitly name handwritten =.ss= files. An
+incomplete native generation can otherwise leave a =.scm= without its =.ssi=,
+which library-relative resolution may mistake for module source. This path
+repair does not qualify an incomplete parser library for readers.
+
+The optimizer-interface diagnostic attempt also reaches the total fence at
+90.47 seconds. Recovery then delegates clean successfully in 10.74 seconds.
+The three current build-support modules compile independently in 16.82 seconds
+with exit zero under the unchanged limits; this is not complete-library
+qualification. Sixty-four obsolete package command products are also removed
+by exact owned executable names, including their generated link products.
+
+* Authorized extended build observation
+
+After retaining the failed 90-second attempts, the user explicitly authorizes
+an exploratory 180-second cold build to observe completion and identify the
+remaining build costs. The idle fence remains five seconds. Test limits and
+CI configuration are unchanged. A completed 180-second observation must not
+be reported as passing the former 90-second build gate or as parser CPU gain.
+
+Engine-only macro controls exposed a separate eager dependency: importing the
+language product test helpers also initialized the native language ABI context.
+After removing all package native products this attempts to interpret
+=c-declare=. ABI checks now request their capability through the official
+module loader when actually selected; engine checks retain the same public
+macro and assertion protocol. Native ABI acceptance remains a separate gate.
+
+The authorized observation reaches its total fence at 180.39 seconds. A
+line-anchored count initially reports 198 starts, but compiler streams interleave
+with build messages. Matching module identities against the formal build spec
+finds 238 of 248 module starts; ten are not observed. Starts do not prove
+completion. Completion is not admitted. A read-only process
+tree confirms concurrent GSC and GCC workers. On this twelve-core host, the
+recorded load average is 71.15; 106 background zellij processes account for
+626.2 percent CPU in one snapshot. No unrelated process is stopped. This load
+is a measurement limitation, not proof that all remaining cost is external.
+The module-import diagnostics include elapsed milliseconds for subsequent
+phase analysis. Wall-clock improvement is not claimed.
+
+The current in-place controls pass twenty cases across four owners in 29.92
+seconds with natural exit zero under the unchanged 90-second total and
+five-second idle limits. They cover standard clean delegation, partial-output
+rejection and retry, unchanged-input reuse, foreign dependency preservation,
+source addition/removal, and default producer/reader request agreement. The
+same run exercises ownership-pruned inventory, compiler streams, real GCC
+preprocessing, native fixture loading, and decision-code equivalence. Directory
+identity checks normalize existing paths, including Darwin's symlink aliases
+and trailing separators. Native ABI selection and full-library completion
+remain separate unqualified gates.
+
+* Shared preparation and source evaluation
+
+The remaining preparation-cache assertions now belong to the existing parser
+suite macro: sixteen scenarios use the production
+=src/build-support/preparation-cache.ss= module. The old standalone script is
+removed. The script adapter retains only conformance orchestration. Cache
+corruption, changed inputs, changed dependencies, failed preparation, store
+restoration and mutation during preparation remain explicit controls.
+
+The canonical suite entry passes fifty-four cases across seven owners in
+23.94 seconds with natural exit zero, under the unchanged ninety-second total
+and five-second idle limits. This includes fresh-child evidence that importing
+compiler policy does not initialize worker settings or compiler flags. Actual
+build owners request that initialization explicitly. No complete-library or
+parser CPU claim follows from these controls.
+
+The standard source bootstrap reports real import and declaration boundaries
+on stderr while preserving syntax source locations. Its spec remains a pure
+machine-readable value with 249 module entries and no absolute module names.
+The delegated standard clean completes in 5.76 seconds; supplemental cleanup
+then leaves no owned loadable generation. A separate repeated clean completes
+in 7.47 seconds. This qualifies the project owner, not the outer SDK CLI
+startup before it delegates to the project.
+
+Source-module evaluation has distinct entry and completion boundaries, using
+the official expander evaluator parameter and preserving arbitrary return
+values. These diagnostics expose completed work; they do not emit periodic
+liveness messages or change configured deadlines.
+
+The next authorized cold observation stops at the idle fence after 80.90
+seconds, before the 180-second total fence. It reaches GCC compilation and
+linking; twelve module starts and two native lexer products are observed.
+Neither module starts nor partial native files admit the library. The build
+remains unqualified. Subsequent diagnosis records only this build's process
+subtree and adds source-evaluation boundaries; it does not sample or signal
+other tasks, modify the SDK, or relax the idle fence.
+
+The evaluation-boundary attempt stops at the idle fence after 35.42 seconds.
+Its owned process trace shows the GCC/GSC children already gone while the main
+GXI continues consuming CPU. Thus the last linker command does not identify a
+blocked linker. The root build also hardcoded =verbose: 1=, which overrides the
+SDK's =GERBIL_BUILD_VERBOSE= setting. Removing that override lets the official
+level-nine diagnostics expose active Scheme optimizer work without replacing
+the compiler or generating timer messages.
+
+With that official diagnostic setting, the next cold observation reaches the
+total fence at 180.50 seconds without an idle timeout. It reports 159 distinct
+module starts and produces 51.17 MiB of diagnostic output. This run does not
+isolate diagnostic overhead or host contention, and does not establish a build
+speedup. Complete-library admission remains absent. Standard delegated clean
+then completes in 13.23 seconds with exit zero, leaving zero owned interfaces
+and zero owned native variants. Only focused build-support compilation and
+macro controls may proceed from this state; it is not a qualified parser
+library for ABI generation or complete parsing benchmarks.
+
+Focused support compilation subsequently passes in 19.42 seconds. The canonical
+macro runner then passes fifty-five cases across seven owners in 34.93 seconds,
+including zero-value and multiple-value transparency for compiler evaluation
+diagnostics. Both runs exit naturally with status zero under ninety seconds
+and the unchanged five-second idle fence. No complete-library admission marker
+is created by these focused checks.
+
+* Compiler front-end work and scheduling
+
+The installed SDK protects Scheme optimization with one driver mutex. Its
+std/make worker count therefore does not represent parallel CPU execution of
+all Scheme optimizer passes. External GSC/GCC jobs can execute concurrently.
+The previously captured interval with no external compiler and an active GXI
+identifies a front-end interval, not proof of an idle linker.
+
+The detailed cold log contains 234 optimizer-interface loads with 234 distinct
+paths. The SDK retains optimizer information across batch compilation and
+forces each module evaluation promise. Repeated evaluator entry diagnostics
+therefore do not establish repeated module execution. No replacement module
+cache is introduced.
+
+The concise declaration matcher's shared success graph causes repeated type
+analysis of the same local bindings. The isolated original module emits
+33,644 type declarations, with some bindings revisited 513 times. Merely moving
+normalization into another module leaves CPU unchanged (9.06 versus 9.37
+user-plus-system seconds); that split is withdrawn. Changing private optional
+arguments alone also fails to eliminate the repeated graph traversal.
+
+The implementation instead admits one section at a time, retaining the reader's
+syntax objects, then calls one named elaboration worker. The worker owns the
+per-declaration source maps and publishes through the existing canonical
+compiler. Admission and elaboration have separate physical module bodies;
+large elaboration code is not captured in the matcher's success continuation.
+The same two-module isolated build now passes under the 180-second total and
+five-second idle limits. It emits 12,220 type declarations, with a maximum
+repeat count of seventeen. One observation records 7.64 user-plus-system
+seconds versus the original 9.06. Wall time increases from 18.01 to 30.98
+seconds, so neither a wall-clock speedup nor full-library completion follows.
+
+The compiler, its mutex, module promises and code generation remain external
+premises. This source transformation changes declaration compilation structure;
+it is not a runtime parser CPU optimization or a proof of the host compiler.
+
+* Complete cold build and shared helper qualification
+
+The subsequent complete library builds finish with natural exit zero in 95.73
+and 70.23 seconds. Both retain the 180-second total limit and five-second idle
+limit. The latter follows the final build-owner changes and admits all 250
+module starts through the publication manifest. Cleanup removes the package's
+old native products in place; four immutable grammar-cache directories remain.
+These are native-cold observations, not measurements with every cache empty.
+Host contention and filesystem warmth differ between observations, so their
+wall-clock difference is not an isolated algorithm speedup.
+
+An owned process snapshot confirms overlapping external compilation: ten GSC
+processes, eight GCC drivers and seven =cc1= processes. Scheme optimization
+still follows the SDK driver mutex. Increasing the worker count cannot make
+that protected phase execute simultaneously.
+
+The conformance helper loop previously called =compile-module= synchronously
+with =invoke-gsc: #t=. Its native work now uses the same =std/make= graph as the
+source-test helper owner. Both derive their helper set from the authoritative
+conformance catalog, filter source-only owners with the shared predicate and
+deduplicate paths. Extra source-test helpers remain outside the conformance
+receipt's ownership. The combined helper spec contains 53 unique GXC entries.
+One GXI prepares qualification, the child-exit fixture and these shared helpers
+in 25.05 seconds, with natural exit zero under ninety seconds and the unchanged
+five-second idle limit. No SDK or Gambit source is modified or built.
+
+The unified Lean build passes 233 jobs; the current Quint controls and their
+bounded invariant runs pass. Full recursive Scheme-evaluation correspondence
+remains open in the lowering ledger. Successful compilation does not discharge
+that obligation or establish complete-parser CPU improvement.
+
+* Source-owner regression boundary
+
+Starting four independent GXI consumers concurrently does not qualify: the
+two generator children and two suite gates exhaust their ninety-second total
+budgets during module preparation. Those failures remain negative receipts.
+The suite already shares one interpreter across its owners and executes test
+bodies on four workers; independent interpreters duplicate that preparation.
+
+A subsequent single suite reaches all eight semantic owners. Seven pass 137
+cases. The Rust-emission owner exposes a fixture error: its deliberately
+malformed production lhs is also inserted into the declaration directory,
+so declaration admission rejects before the intended production check. The
+fixture now keeps the directory well formed while independently corrupting
+the production. No validator expectation is weakened. A fresh macro gate
+passes the corrected Rust owner, product ownership, runtime organization and
+qualification output: 25 cases across four owners in 21.08 seconds, exit zero.
+The earlier mixed gate remains failed; its successful owner receipts and the
+corrected gate are distinct observations.
+
+All fifteen Scheme generator routes subsequently produce current artifacts.
+Fourteen pass their two-process batch; arithmetic retains an idle-timeout
+receipt in that batch and passes its original direct entry independently in
+11.47 seconds. The independent traced entry also passes in 11.81 seconds;
+neither passing run retroactively qualifies the failed batch. The direct
+arithmetic output equals the committed target after the normal Rust formatter.
+No handwritten digest replacement is used.
+
+The admitted unchanged library reports =LIBRARY-PUBLICATION-HIT= in 8.92
+seconds, with no new compiler jobs. The optional ABI consumer preparation
+passes in 13.36 seconds under the unchanged ninety/five-second limits. Rust
+workspace tests pass 171 cases with two existing ignored cases, and formatting
+passes. The initial Rust invocation fails because the Nix =cc= environment
+cannot locate =libiconv=; selecting the installed Apple SDK and system link
+driver for that Rust invocation resolves it. Scheme remains compiled by GCC.
+
+* Development catalog ownership correction
+
+The ABI macro gate exposes a classification mismatch in the shared predicate:
+=t/fixtures/language-entries= was present in the old source-only conformance
+selector but absent from the cache selector. Unifying consumers around the
+latter compiled a native wrapper whose language =parser-test= dependencies
+were intentionally source-only. The ABI gate rejects the missing module in
+20.09 seconds; that gate is not a pass.
+
+The common predicate now includes the development catalog. A macro regression
+checks that catalog, language test entries and source generators independently
+from native Bash/production helpers. Official in-place cleaning and a fresh
+complete library build then pass in 106.24 seconds, exit zero, under the same
+180-second total and five-second idle limits. This supersedes the earlier
+library generation. The earlier 53-entry helper observation predates this
+ownership correction and does not qualify the corrected helper products.
+
+The corrected four-owner preparation passes in one GXI in 37.30 seconds under
+the unchanged ninety/five-second limits. The development catalog has no
+loadable interface afterward. The six model-input and repository-layout
+controls pass again.
+
+A thirteen-owner source gate subsequently exhausts its ninety-second total
+budget while preparing its first owner (91.39 seconds including shutdown).
+The machine has no process above fifty percent CPU at the observed instant;
+the suite process reports four percent CPU. A direct admission diagnostic also
+experiences slow native loading. Its one-second sample records 810 of 878 main
+thread samples under =dyld mapSegments/fcntl=, with a smaller image-notification
+stack. This is current diagnostic evidence, not proof of historical causality
+or evidence that instrumentation is neutral. The diagnostic reaches
+=RAW-ADMISSION-OK= but its normal host teardown trips the idle fence at 68.36
+seconds. It remains failed. A marker alone never qualifies a failed child.
+
+Host mapping and teardown remain external behavior. No host security policy,
+SDK code or Gambit source is changed to suppress these observations. The
+following acceptance control uses the existing disposable test-child exit
+protocol and has no sampler attached.
+
+* Source-first admission and canonical fixture closure
+
+The unprofiled thirteen-owner gate still reaches its total fence at 91.02
+seconds after preparing eight owners. Splitting the ABI/ownership responsibility
+into its own unchanged-budget gate exposes a second implementation gap:
+namespace imports without =.ssi= are skipped, whereas relative =.ss= imports
+already traverse their dependencies. The ABI alignment owner then reaches a
+large unobserved source-evaluation phase and trips its idle fence at 23.93
+seconds. This is independent of the sampled host mapping stack.
+
+Both import forms now traverse source dependencies before the SDK evaluates
+the owner. Incomplete native wrappers remain inadmissible. The existing
+source-visit table bounds recursion and clears failed visits, and a macro case
+checks namespace-source failure, retry and recovery. Two intermediate syntax
+errors are rejected by the reader; only the corrected source is qualified.
+
+The next ABI gate reaches real assertions and exposes stale text fixtures.
+The canonical Scheme case iterator now serves both binary alignment and JSON
+publication, using the SDK writer-first API and =JSONWriteOptions= with sorted
+keys and standard indentation. =just regenerate-language-abi-fixtures= owns
+reproduction. Its dry-run resolves the shared qualification preparation.
+The canonical generator completes in 11.92 seconds. All twenty case names,
+sources and statuses are unchanged. Eighteen descriptor grammar digests change;
+every payload byte outside the grammar-digest header is unchanged. No digest
+is substituted by hand. The independent Rust artifact suite passes eight
+cases against the regenerated fixture.
+
+The final source/ABI gate passes 57 cases across six owners in 13.84 seconds,
+exit zero, under ninety seconds and five seconds idle. It includes the five
+official module-loading cases, seventeen cache cases, seventeen ABI cases,
+four static-policy cases, thirteen style cases and the byte-parity case with
+twenty language controls. Earlier failed aggregates remain failed. A successful
+responsibility-scoped gate does not prove a ninety-second bound for the sum of
+all source-owner preparations or close the host's cold-mapping latency.
+
+The final LR/lowering gate passes 149 cases across eight owners in 12.42
+seconds with the same single-GXI/four-worker protocol and unchanged limits.
+The two responsibility-scoped macro gates therefore qualify 206 cases. The
+final unchanged-library build reports =LIBRARY-PUBLICATION-HIT= in 3.55 seconds
+with natural exit zero and no compiler jobs. Formatting, source-currentness
+layout controls and whitespace checks pass. These receipts qualify the current
+parser products and test changes; the remaining full Scheme-evaluation proof
+and cold host-mapping bound are explicitly not claimed closed.
+
+* Derived output invariance at the CI boundary
+
+The prepared-product archive includes the complete library receipt. However,
+the subsequent static-object producer creates foreign dependency translations,
+objects and option records. Treating those outputs as library inputs would
+invalidate admission before the conformance publisher could extend it.
+
+=preparation-native-object?= now belongs to the shared snapshot module and is
+used by both library and conformance input selection. Library traversal first
+enumerates files, then applies the derived-file predicate: directories ending
+in =.c= or =.o= must retain their source interfaces. Actual dependency SCM,
+interfaces and loadable =.o1= modules remain inputs.
+
+=SourceInventory.AddsDerived= describes arbitrary derived-file insertion at any
+position in an existing directory forest. =derived_inputs_exact= preserves the
+ordered selected paths. =derived_snapshot_exact= permits different byte/mode
+observation functions before and after: only retained source observations must
+agree. Derived output contents can change arbitrarily. The unified 233-job Lean
+build and axiom audit pass. The physical source classifier and filesystem
+stability remain explicit correspondence premises.
+
+The publication macro now checks the actual input projector against generated
+=.c=, =.o= and option records, changed dependency SCM, a new loadable module,
+and an interface nested beneath a =.c= directory. The final gates are:
+
+| Responsibility | Cases | Elapsed seconds | Result |
+|----------------+-------+-----------------+--------|
+| Official clean plus complete library build |       | 90.39 | exit zero |
+| Four preparation owners in one GXI |       | 27.39 | exit zero |
+| Publication, cache and test-macro controls | 39 | 54.35 | exit zero |
+| ABI, source loading and static ownership | 27 | 88.97 | exit zero |
+| LR, lowering and generated products | 149 | 18.24 | exit zero |
+| Current unchanged library |       | 2.99 | publication hit |
+
+The macro gates contain 215 distinct cases. Build uses the authorized
+180-second total; preparation and test gates retain ninety seconds; all retain
+five seconds idle. The ABI margin is small. The first new-binary publication
+gate also retains a 91.05-second failed admission before the successful
+unprofiled control. No uniform cold-start bound is established.
+
+The public test macro module currently imports language assertion helpers even
+for engine-only owners. Those imports include parser runtime dependencies;
+selective phase dependency loading remains a design obligation. This receipt
+does not attribute all startup cost to the sampler, prove the complete Scheme
+evaluator, or claim parser-request CPU improvement. Gambit and SDK sources
+remain unchanged.

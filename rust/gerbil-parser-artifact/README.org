@@ -63,6 +63,12 @@ The twenty accepted/rejected language controls are stored as reviewable
 remain text; only the ABI payload uses hexadecimal. A test-only shared loader
 restores the exact wire bytes. Scheme regeneration still checks byte parity.
 
+After preparing the Scheme library and test support, run
+=just regenerate-language-abi-fixtures= to regenerate that text fixture. Binary
+alignment and JSON publication share one Scheme case producer. The SDK JSON
+writer uses sorted keys and standard indentation; no handwritten serializer or
+digest substitution is involved.
+
 Run =just test-language-abi-alignment= from the repository root. It first
 compiles =src/ffi/language-abi-context.ss= with the existing platform FFI
 policy, then its codec and fixture consumers, before running all twenty

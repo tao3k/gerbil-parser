@@ -254,7 +254,7 @@ def algorithm : Datum := app "case" [s "construction",
 def spec : Datum := app "list" [
   field "schema" (.text "gerbil-parser.lr-spec.v1"),
   field "case-insensitive?" (s "case-insensitive?"),
-  field "productions" (s "productions"), field "nullable" (s "nullable"), field "first" (s "first"),
+  field "productions" (s "productions"), field "declarations" (s "declarations"), field "nullable" (s "nullable"), field "first" (s "first"),
   field "algorithm" algorithm, field "state-count" (s "state-count"),
   field "lr0-state-visit-count" (app "and" [app "eq?" [s "construction", quoted "lalr"], s "lr0-state-visit-count"]),
   field "lookahead-item-visit-count" (app "and" [app "eq?" [s "construction", quoted "lalr"], s "lookahead-item-visit-count"]),

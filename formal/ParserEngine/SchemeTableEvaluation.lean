@@ -88,7 +88,7 @@ def loopBindings : List Datum → Option (List String × List Datum)
 
 def callable : Datum → Bool
   | .symbol "quote" | .symbol "lambda" | .symbol "set!" | .symbol "and"
-  | .symbol "or" | .symbol "begin" | .symbol "let" | .symbol "if" | .symbol "cond" => false
+  | .symbol "or" | .symbol "begin" | .symbol "let" | .symbol "if" | .symbol "cond" | .symbol "when" => false
   | _ => true
 
 /-- Primitive globals are unshadowed in this fragment. Local procedure calls
@@ -98,8 +98,10 @@ def primitive (operation : String) (args : List Value) (heap : Heap) : Option (V
   | "car", [.list (head :: _)] => some (head, heap)
   | "cadr", [.list (_ :: head :: _)] => some (head, heap)
   | "cdr", [.list (_ :: rest)] => some (.list rest, heap)
+  | "pair?", [value] => some (.boolean (match value with | .list (_ :: _) => true | _ => false), heap)
+  | "void", [] => some (.unit, heap)
   | "null?", [.list values] => some (.boolean values.isEmpty, heap)
-  | "eq?", [.symbol left, .symbol right] => some (.boolean (left == right), heap)
+  | "eq?", [value, .symbol right] => some (.boolean (match value with | .symbol left => left == right | _ => false), heap)
   | "cons", [head, .list tail] => some (.list (head :: tail), heap)
   | "list", values => some (.list values, heap)
   | "reverse", [.list values] => some (.list values.reverse, heap)
@@ -130,6 +132,7 @@ inductive Eval : Environment → Heap → Datum → Value → Heap → Prop wher
   | natural : Eval env heap (.integer value) (.natural value) heap
   | boolean : Eval env heap (.boolean value) (.boolean value) heap
   | empty : Eval env heap (app "quote" [.list []]) (.list []) heap
+  | quoteSymbol : Eval env heap (app "quote" [.symbol name]) (.symbol name) heap
   | text : Eval env heap (.text value) (.text value) heap
   | lambda : Eval env heap (.list (.symbol "lambda" :: .list parameters :: body)) (.closure parameters body env) heap
   | assignment (target : env name = some (.cell address))
@@ -150,6 +153,11 @@ inductive Eval : Environment → Heap → Datum → Value → Heap → Prop wher
       (branch : Eval env middle no result after) : Eval env before (app "if" [condition, yes, no]) result after
   | cond (expanded : expandCond clauses = some expression) (execution : Eval env before expression result after) :
       Eval env before (app "cond" clauses) result after
+  | whenTrue (test : Eval env before condition value middle) (chosen : truthy value = true)
+      (body : Sequence env middle expressions result after) :
+      Eval env before (app "when" (condition :: expressions)) result after
+  | whenFalse (test : Eval env before condition value after) (chosen : truthy value = false) :
+      Eval env before (app "when" (condition :: expressions)) .unit after
   | call (allowed : callable callee = true) (procedure : Eval env before callee function middle)
       (arguments : Arguments env middle expressions values ready)
       (result : Invoke ready function values value after) :
@@ -170,6 +178,12 @@ inductive Eval : Environment → Heap → Datum → Value → Heap → Prop wher
       (body : Each env name expressions middle values after) (unshadowed : env "for-each" = none) :
       Eval env before (app "for-each" [
         .list (.symbol "lambda" :: .list [.symbol name] :: expressions), input]) .unit after
+  | forEachRecursive (argument : Eval env before input (.list values) middle)
+      (found : resolve env middle procedure = some (.recursive group procedure captured))
+      (definition : group.lookup procedure = some ⟨[.symbol name], expressions⟩)
+      (body : Each (tie group captured) name expressions middle values after)
+      (unshadowed : env "for-each" = none) :
+      Eval env before (app "for-each" [.symbol procedure, input]) .unit after
 inductive Invoke : Heap → Value → List Value → Value → Heap → Prop where
   | closure (bound : bind parameters values captured = some entered)
       (body : Sequence entered before expressions result after) :

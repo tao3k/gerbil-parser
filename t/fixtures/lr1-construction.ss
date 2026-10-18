@@ -382,7 +382,8 @@
                               ((nonterminal-symbol? base) (list 'nonterminal (name-id (nonterminal-name base))))
                               (else (list (cadr base) (table-ref terminal-index base)))))) (production-rhs production)))) productions)
                 (name-id (production-lhs (car productions)))
-                (with-catch (lambda (_) #f) (lambda () (validate-production-semantics productions) #t)) decodable?)
+                (with-catch (lambda (_) #f) (lambda () (validate-production-semantics productions
+                  (cons (production-lhs (car productions)) (append (map car rules) (map car bindings)))) #t)) decodable?)
           (list (map parser-source-symbol-text names)
                 (map (lambda (production) (list (production-id production) (production-lhs production) (production-rhs production))) productions)
                 (production-lhs (car productions)) 'start decodable?)

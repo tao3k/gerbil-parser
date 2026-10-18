@@ -67,8 +67,10 @@
   ;; C FFI dependencies must be admitted before evaluating source suites;
   ;; the interpreter cannot evaluate their C declarations. This shared loader
   ;; cache survives every owner in the single runtime.
-  (preload-test-imports file)
-  (let* ((context (import-test-owner file))
+  (call-with-module-evaluation-trace
+   (lambda ()
+    (preload-test-imports file)
+    (let* ((context (import-test-owner file))
          (exports (module-context-export context))
          (suites '()) (setup void) (cleanup void) (affinity #f) (exclusive? #f))
     (for-each
@@ -101,7 +103,7 @@
     (make-test-owner file
       (TestHarness file (TestConfig verbosity: 6 capture-output?: #f)
                    (list (TestModule file (reverse suites) '() setup cleanup)))
-      0 affinity exclusive?)))
+      0 affinity exclusive?)))))
 
 (def (call-with-owner-budget file emit thunk (budget 90))
   (let-values (((input output) (open-string-pipe '(buffering: #f))))
@@ -292,7 +294,7 @@
                                 (call-with-owner-budget file emit
                                   (lambda () (prepare-test-owner file (covered-suite-names file) seen-suites)))))
                    (test-owner-preparation-seconds-set! owner (- (##current-time-point) started))
-                   (emit "MODULE-PREPARE-OK " file)
+                   (emit "MODULE-PREPARE-OK " file " seconds=" (test-owner-preparation-seconds owner))
                    owner))) files))
       (emit "TEST-SUITE-WORKERS " (min capacity (length files)))
       ;; CPU/wall admission cannot share an execution phase with other owners.

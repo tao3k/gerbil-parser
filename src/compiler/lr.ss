@@ -12,7 +12,7 @@
         compute-productive validate-resolved-start
         validate-resolved-repetitions current-grammar-source-map
         lr-spec-ref
-        lower-rules
+        lower-rules lower-grammar
         base-symbol
         nonterminal-name
         nonterminal-symbol?
@@ -139,45 +139,7 @@
     (_ (unless (canonical-base-symbol? operand)
          (error "invalid canonical LR operand" operand)))))
 
-(def (validate-production-semantics productions)
-  (unless (list? productions)
-    (error "invalid canonical LR production list" productions))
-  (let loop ((rest productions) (index 0))
-    (unless (null? rest)
-      (let (production (car rest))
-        (unless
-            (match production
-              ([id (? symbol?) rhs action precedence]
-               (and (fixnum? id) (fx= id index) (list? rhs)
-                    (or (not precedence)
-                        (match precedence
-                          ([(or 'none 'left 'right 'dynamic) (? integer?)] #t)
-                          (_ #f)))
-                    (cond
-                     ((eq? action 'pass) (and (pair? rhs) (null? (cdr rhs))))
-                     ((eq? action 'concat) #t)
-                     ((canonical-layout-end-action? action) (null? rhs))
-                     (else #f))))
-              (_ #f))
-          (error "invalid canonical LR production" index production))
-        (for-each validate-canonical-operand (production-rhs production)))
-      (loop (cdr rest) (fx+ index 1))))
-  ;; Resolve against the complete declaration set: forward references and
-  ;; recursive unused rules are valid, absent owners are not canonical IR.
-  (let (owners (production-index-by-lhs productions))
-    (for-each
-     (lambda (production)
-       (for-each
-        (lambda (operand)
-          (match (base-symbol operand)
-            (['nonterminal name]
-             (unless (table-ref owners name #f)
-               (error "invalid canonical LR unresolved reference"
-                      (production-id production) operand)))
-            (_ (void))))
-        (production-rhs production)))
-     productions))
-  productions)
+(include "lr-semantics.ssi")
 
 (def (make-production id lhs rhs action precedence)
   (list id lhs rhs action precedence))
@@ -267,7 +229,7 @@
 ;;       ;; => augmented production zero followed by ordered lowered productions
 ;;       ```
 ;;     %
-(def (lower-rules rules root (allow-dynamic? #f) (observe-origin #f) (observe-proof #f))
+(def (lower-rules rules root (allow-dynamic? #f) (observe-origin #f) (observe-proof #f) (declare-name #f))
   (let ((next-id 1)
         (next-synthetic 0)
         (used-names (make-table test: eq?))
@@ -347,6 +309,7 @@
         ((reference) (list 'nonterminal (cadr expression)))
         (else
          (let (name (fresh owner))
+           (when declare-name (declare-name name))
            (when observe-proof (observe-proof 'binding name expression))
            (lower-to name owner expression precedence path #t
                      (and observe-proof (lambda (proof) proof))
@@ -442,6 +405,16 @@
     (cons (make-production 0 (or (claim-name '$accept) (fresh 'accept))
                            (list (list 'nonterminal root)) 'pass #f)
           (reverse productions))))
+
+;;; Publish declarations independently from production rows. Proof recipes are
+;;; diagnostic-only; ordinary compilation collects just allocated helper names.
+(def (lower-grammar rules root (allow-dynamic? #f))
+  (let* ((helpers '())
+         (productions (lower-rules rules root allow-dynamic? #f #f
+                        (lambda (name) (set! helpers (cons name helpers)))))
+         (declarations (cons (production-lhs (car productions))
+                            (append (map car rules) (reverse helpers)))))
+    (values (validate-production-semantics productions declarations) declarations)))
 
 ;;; Freezes ordered productions into the indexed representation shared by
 ;;; fixed-point analysis and runtime reduction; production ids remain offsets.

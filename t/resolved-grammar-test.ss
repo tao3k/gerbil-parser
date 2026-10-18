@@ -725,6 +725,17 @@
 
 (deflanguage-parser-tests resolved-grammar-test "resolved grammar admission and CFG alternatives"
   (engine)
+  (scenario "declared empty languages remain distinct from unresolved references"
+    (each (rules) ('(((start (choice (sequence (choice)) (literal "x"))))
+                    ((start (choice (reference dead) (literal "x"))) (dead (choice)))
+                    ((start (choice (sequence (reference dead)) (literal "x"))) (dead (choice)))))
+      (equal (parse-literals rules "x") 'accepted)
+      (equal (parse-literals rules "") 'rejected)
+      (equal (parse-literals rules "xx") 'rejected))
+    (raises (compile-lr-spec '((start (choice (reference missing) (literal "x")))) 'start) true)
+    (raises (compile-lr-spec
+              '((start (choice (sequence (choice) (reference $start.0)) (literal "x")))) 'start) true))
+
     (scenario "published action pairs survive vector writes and atomic setter failure" (verify published-pair-heap-case))
     (scenario "duplicate CFG rows retain physical IDs and precedence through publication" (verify duplicate-production-identity-case))
     (scenario "native dense item layout refines ordered grammar coordinates and goto" (verify dense-layout-refinement-case))

@@ -24,14 +24,20 @@
 (def +compiler-generator-revision+
   '((entry-root . authored-alias)
     (repetition-owner . exclusive)
+    (nonterminal-vocabulary . declarations)
     (partition-conflict-origin . surviving-member)))
 
 (def (compiler-generator-metadata kind)
   (let (name (case kind
                 ((parser) 'gerbil-parser/lalr-generator)
                 ((declaration) 'gerbil-parser/language-declaration-generator)
+                ((recursive-source) 'gerbil-parser/hcl-attribute-source)
                 (else (error "unknown compiler generator" kind))))
-    (cons (cons 'name name) +compiler-generator-revision+)))
+    (cons (cons 'name name)
+          (if (eq? kind 'recursive-source)
+            (cons '(parser-digest . "sha256:fcfa996f3d859f99e2e9a1c626acd5eb9c2de5ad308ab83db248b67e5dd1efeb")
+                  +compiler-generator-revision+)
+            +compiler-generator-revision+))))
 
 (export +grammar-schema+ +grammar-ir-schema+ +parser-ir-schema+
         +parse-artifact-schema+ +diagnostic-schema+

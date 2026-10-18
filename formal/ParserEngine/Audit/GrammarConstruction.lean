@@ -1,8 +1,16 @@
+import ParserEngine.LoweringReservationEvaluation
+import ParserEngine.LoweringPreprocessingEvaluation
 import ParserEngine.Components
 import ParserEngine.SchemeCells
 import ParserEngine.LoweringAllocationCalls
 import ParserEngine.LoweringRootScope
 import ParserEngine.SchemeNameEncoding
+import ParserEngine.SourceInventory
+
+#print axioms ParserEngine.SourceInventory.selection_exact
+#print axioms ParserEngine.SourceInventory.visits_bound
+#print axioms ParserEngine.SourceInventory.derived_inputs_exact
+#print axioms ParserEngine.SourceInventory.derived_snapshot_exact
 
 #print axioms ParserEngine.Grammar.nullable_iff_derives
 #print axioms ParserEngine.Grammar.nullable_least
@@ -476,4 +484,20 @@ import ParserEngine.SchemeNameEncoding
 #print axioms ParserEngine.SchemeNameEncoding.extracted
 #print axioms ParserEngine.SchemeNameEncoding.every_return
 #print axioms ParserEngine.SchemeNameEncoding.code_preserves_identity
-#print axioms ParserEngine.ConstructionGrammar.missing_owner_rejected
+#print axioms ParserEngine.ConstructionGrammar.undeclared_rejected
+
+#print axioms ParserEngine.ConstructionGrammar.declared_operand
+
+#print axioms ParserEngine.LoweringReservationEvaluation.source_execution
+#print axioms ParserEngine.LoweringReservationEvaluation.every_return
+#print axioms ParserEngine.LoweringReservationEvaluation.frame
+#print axioms ParserEngine.LoweringDeclarationVocabulary.reserved_undeclared
+#print axioms ParserEngine.LoweringProtocol.input_allocated
+#print axioms ParserEngine.LoweringProtocol.input_undeclared
+
+#print axioms ParserEngine.ConstructionGrammar.lhs_declared
+#print axioms ParserEngine.ConstructionGrammar.undeclared_lhs_rejected
+
+#print axioms ParserEngine.LoweringPreprocessingEvaluation.source_execution
+#print axioms ParserEngine.LoweringPreprocessingEvaluation.prefix_execution
+#print axioms ParserEngine.LoweringPreprocessingEvaluation.frame

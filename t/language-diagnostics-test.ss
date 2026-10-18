@@ -221,6 +221,24 @@
   (rules (source-file identifier)))
  (bind-fixture-grammar-release diagnostic-study "diagnostic-study" "v1" "diagnostic-study.v1") )))
 
+;; Section admission must reject malformed policies before elaboration, while
+;; retaining the exact reader-authored section as the offending syntax.
+(defsyntax (invalid-section-error stx)
+  (syntax-case stx ()
+    ((_ clause)
+     #'(declaration-error
+         (deflanguage diagnostic-study
+           (syntax (lexical
+                     (root source-file)
+                     (lex (identifier Identifier (identifier)))
+                     clause))
+           (rules (source-file (node SourceFile identifier))))))))
+
+(def empty-conflicts (invalid-section-error (conflicts)))
+(def extra-conflicts (invalid-section-error (conflicts reject reject)))
+(def empty-case-policy (invalid-section-error (case-insensitive)))
+(def extra-case-policy (invalid-section-error (case-insensitive #f #t)))
+
 (def (source-line location)
   (call-with-input-file (car location)
     (lambda (port)
@@ -239,6 +257,11 @@
 
 (deflanguage-parser-tests language-diagnostics-test "concise declaration author diagnostics"
   (engine)
+    (scenario "section arity errors retain the authored policy and declaration"
+      (verify check-error empty-conflicts "invalid concise language declaration" '(conflicts) "(conflicts)")
+      (verify check-error extra-conflicts "invalid concise language declaration" '(conflicts reject reject) "(conflicts reject reject)")
+      (verify check-error empty-case-policy "invalid concise language declaration" '(case-insensitive) "(case-insensitive)")
+      (verify check-error extra-case-policy "invalid concise language declaration" '(case-insensitive #f #t) "(case-insensitive #f #t)"))
     (scenario "direct unknown targets and constructor retain reader parameters"
       (verify check-error direct-reference "explicit reference names an unknown rule" 'missing-rule "missing-rule")
       (verify check-error direct-token "explicit token names an unknown lexical declaration" 'missing-token "missing-token")

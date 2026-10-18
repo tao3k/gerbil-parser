@@ -10,6 +10,7 @@
                  lr-spec-ref production-table production-lhs production-rhs
                  compute-nullable)
         (only-in :gerbil-parser/src/compiler/fused-reduction fused-production-expression)
+        (only-in :gerbil-parser/src/compiler/decision-code shared-decision-expression)
         (only-in :gerbil-parser/src/runtime/lr-parser
                  lr-prepare lr-runtime-lexical-mode-catalog
                  lr-lexical-mode-terminals))
@@ -109,21 +110,6 @@
      `(and (pair? rest) (eq? (token-kind (car rest)) ',(caddr terminal))))
     (else (error "unsupported terminal" terminal))))
 
-(def (state-expression state)
-  (let* ((row (vector-ref actions state))
-         (literals (filter (lambda (entry)
-                             (eq? (cadr (car entry)) 'literal)) row))
-         (tokens (filter (lambda (entry)
-                           (eq? (cadr (car entry)) 'token)) row))
-         (eof (filter (lambda (entry)
-                        (eq? (cadr (car entry)) 'eof)) row)))
-    `(cond
-       ,@(map (lambda (entry)
-                 `(,(terminal-predicate (car entry))
-                   ,(action-expression entry)))
-               (append literals eof tokens))
-       (else (fallback)))))
-
 (def (stream-action-expression entry)
   (case (cadr entry)
     ((shift)
@@ -152,31 +138,21 @@
           (fallback))))
     (else '(fallback))))
 
-(def (stream-state-expression state)
-  (let* ((row (vector-ref actions state))
-         (literals (filter (lambda (entry)
-                             (eq? (cadr (car entry)) 'literal)) row))
-         (tokens (filter (lambda (entry)
-                           (eq? (cadr (car entry)) 'token)) row))
-         (eof (filter (lambda (entry)
-                        (eq? (cadr (car entry)) 'eof)) row)))
-    `(let (rest
-           (if (null? rest)
-             (let (input-token
-                   (next-input (vector-ref modes ,(state-mode-id state))))
-               (if input-token
-                 (begin
-                   (set! input-end-offset
-                         (max input-end-offset (token-end input-token)))
-                   (list input-token))
-                 '()))
-             rest))
-       (cond
-        ,@(map (lambda (entry)
-                  `(,(terminal-predicate (car entry))
-                    ,(stream-action-expression entry)))
-                (append literals eof tokens))
-        (else (fallback))))))
+(def (decision-expression stream?)
+  (shared-decision-expression '(car states)
+    (map (lambda (state)
+           (let* ((row (vector-ref actions state))
+                  (ordered (apply append
+                             (map (lambda (kind)
+                                    (filter (lambda (entry) (eq? (cadr (car entry)) kind)) row))
+                                  '(literal eof token)))))
+             (cons state
+               (map (lambda (entry)
+                      (list (terminal-predicate (car entry))
+                            ((if stream? stream-action-expression action-expression) entry)))
+                    ordered))))
+         (iota (vector-length actions)))
+    '(fallback)))
 
 (def (stream-drive-expression)
   `(def (direct-drive runtime next-input after-shift)
@@ -185,13 +161,23 @@
        (def (fallback) (values 'fallback #f))
        (let loop ((states '(0)) (semantic-values '()) (rest '())
                   (actions 0) (shifts 0))
-         (case (car states)
-           ,@(let loop ((i 0) (acc '()))
-               (if (= i (vector-length actions))
-                 (reverse acc)
-                 (loop (fx+ i 1)
-                       (cons `((,i) ,(stream-state-expression i)) acc))))
-           (else (fallback)))))))
+         (let (mode-id
+                (case (car states)
+                  ,@(map (lambda (state) `((,state) ,(state-mode-id state)))
+                         (iota (vector-length actions)))
+                  (else #f)))
+           (if mode-id
+             (let (rest
+                    (if (null? rest)
+                      (let (input-token (next-input (vector-ref modes mode-id)))
+                        (if input-token
+                          (begin
+                            (set! input-end-offset (max input-end-offset (token-end input-token)))
+                            (list input-token))
+                          '()))
+                      rest))
+               ,(decision-expression #t))
+             (fallback)))))))
 
 (def (module-expression)
   `(begin
@@ -223,13 +209,7 @@
              (error "generated LR left the deterministic fast path")
              (lr-parse/prepared runtime tokens)))
          (let loop ((states '(0)) (semantic-values '()) (rest tokens))
-           (case (car states)
-             ,@(let loop ((i 0) (acc '()))
-                 (if (= i (vector-length actions))
-                   (reverse acc)
-                   (loop (+ i 1)
-                         (cons `((,i) ,(state-expression i)) acc))))
-             (else (fallback))))))
+           ,(decision-expression #f))))
      ,(stream-drive-expression)))
 
 (def (production-module-expression)

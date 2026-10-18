@@ -113,7 +113,7 @@
       selected))))
 
 (def (lr-prepare spec)
-  (let* ((productions (validate-production-semantics (lr-spec-ref spec 'productions)))
+  (let* ((productions (validate-production-semantics (lr-spec-ref spec 'productions) (lr-spec-ref spec 'declarations)))
          (actions (lr-spec-ref spec 'actions))
          (gotos (lr-spec-ref spec 'gotos))
          (dynamic?

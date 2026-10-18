@@ -1,3 +1,4 @@
+import ParserEngine.LoweringDeclarationVocabulary
 import ParserEngine.LoweringBranchSource
 
 /-! Full admitted lowering source, generated lexical call stack, physical name
@@ -33,7 +34,26 @@ def input (rules : List (Nat × LoweringTraversal.Syntax)) (root : Nat)
     (execution : Execution (Program rules root) (Start rules root)) (raw : ConstructionGrammar.Input) :
     ConstructionGrammar.Input :=
   ⟨raw.records, raw.augmented, root, root, LoweringTraversal.normalized rules,
-    decode execution.after.names, (LoweringTraversal.declarations rules).map LoweringBranches.Emission.recipe⟩
+    decode execution.after.names, (LoweringTraversal.declarations rules).map LoweringBranches.Emission.recipe,
+    LoweringDeclarationVocabulary.directory raw.augmented (LoweringTraversal.normalized rules)
+      execution.after.names.bindings⟩
+
+/-- The complete recursive producer owns helper declarations through its
+allocation history, including calls that emit no production. -/
+theorem input_allocated (rules : List (Nat × LoweringTraversal.Syntax)) (root : Nat)
+    (execution : Execution (Program rules root) (Start rules root)) (raw : ConstructionGrammar.Input)
+    (member : binding ∈ execution.after.names.bindings) :
+    binding.1 ∈ (input rules root execution raw).declarations :=
+  LoweringDeclarationVocabulary.allocated member
+
+/-- References reserved by preprocessing cannot become declarations merely
+because the allocator sees them; arbitrary recursive dispatch retains this. -/
+theorem input_undeclared (rules : List (Nat × LoweringTraversal.Syntax)) (root : Nat)
+    (execution : Execution (Program rules root) (Start rules root)) (raw : ConstructionGrammar.Input)
+    (reservedName : name ∈ LoweringProgram.reserved rules root)
+    (unknown : name ∉ (LoweringTraversal.normalized rules).map Prod.fst)
+    (different : name ≠ raw.augmented) : name ∉ (input rules root execution raw).declarations :=
+  LoweringDeclarationVocabulary.reserved_undeclared execution.history reservedName unknown different
 
 theorem input_origin (rules : List (Nat × LoweringTraversal.Syntax)) (root : Nat)
     (execution : Execution (Program rules root) (Start rules root)) (raw : ConstructionGrammar.Input)

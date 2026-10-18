@@ -47,12 +47,30 @@
               context))))
       (thunk))))
 
+;; Source owners can finish interface expansion before evaluating their
+;; dependency bodies. Observe that official phase too; never replace evaluation
+;; or synthesize progress while a single evaluation is blocked.
+(def (call-with-module-evaluation-trace thunk)
+  (let (evaluate (gx#current-expander-module-eval))
+    (parameterize
+      ((gx#current-expander-module-eval
+        (lambda (module)
+          (let (name (if (or (gx#module-context? module) (gx#prelude-context? module))
+                        (gx#expander-context-id module) module))
+            (displayln "MODULE-EVALUATE " name) (force-output)
+            (call-with-values
+              (lambda () (evaluate module))
+              (lambda results
+                (displayln "MODULE-EVALUATED " name) (force-output)
+                (apply values results)))))))
+      (thunk))))
+
 (def (import-compiled-interface! module)
   (call-with-compiled-interface-trace
    (lambda ()
      (gx#import-module (string->symbol (string-append ":" module)) #f #t))))
 
-(def (preload-compiled-module! module interfaces? (visiting #f))
+(def (preload-runtime-module module (visiting #f))
   ;; SDK states are authoritative, including loading and failed states.
   ;; Inspect wrappers only for a cold module so its dependencies report real
   ;; progress before the SDK initializes the entry. Warm entries never scan.
@@ -63,7 +81,7 @@
         (let (source (compiled-file module ".scm"))
           (when source
             (for-each
-              (lambda (dependency) (preload-compiled-module! dependency interfaces? visiting))
+              (lambda (dependency) (preload-runtime-module dependency visiting))
               (call-with-input-file source
                 (lambda (port)
                   (let loop ((dependencies '()))
@@ -72,19 +90,16 @@
                         (loop (append dependencies (compiled-dependencies value))))))))))))
       (displayln "MODULE-LOAD " module) (force-output)
       (load-module module)
-      (displayln "MODULE-LOADED " module) (force-output)
-      (when (and interfaces? (not (string-contains module "~"))
-                 (compiled-file module ".ssi"))
-        (displayln "MODULE-IMPORT " module) (force-output)
-        (import-compiled-interface! module)
-        (displayln "MODULE-IMPORTED " module) (force-output)))))
+      (displayln "MODULE-LOADED " module) (force-output))))
 
-(def (preload-module module) (preload-compiled-module! module #t))
-
-;;; Compiled benchmark entries execute phase-zero procedures only. Loading
-;;; source expander interfaces would retain unrelated compiler state in their
-;;; runtime heap; dependency initialization still reports actual progress.
-(def (preload-runtime-module module) (preload-compiled-module! module #f))
+(def (preload-module module)
+  ;; Runtime dependencies need native initialization, not an expander import
+  ;; for every leaf. The SDK owns the requested interface's metadata graph.
+  (preload-runtime-module module)
+  (when (compiled-file module ".ssi")
+    (displayln "MODULE-IMPORT " module) (force-output)
+    (import-compiled-interface! module)
+    (displayln "MODULE-IMPORTED " module) (force-output)))
 
 ;; Admit compiled dependencies declared by tests and their source helpers.
 ;; Reading import forms does not evaluate a helper or replace gxtest's owner.
@@ -126,10 +141,11 @@
       (cond
        ((string-prefix? ":" name)
         (let (module (substring name 1 (string-length name)))
-          ;; A runtime wrapper without its interface is an incomplete build
-          ;; product. Let Gerbil import source instead of admitting that wrapper.
-          (when (compiled-file module ".ssi")
-            (preload-module module))))
+          ;; Source-only namespace imports need the same dependency walk as
+          ;; relative source imports. Never admit an interface-less wrapper.
+          (cond
+           ((compiled-file module ".ssi") (preload-module module))
+           ((compiled-file module ".ss") => preload-test-imports))))
        ((or (string-prefix? "./" name) (string-prefix? "../" name))
         (preload-relative-import name source)))))
    ((string? value)

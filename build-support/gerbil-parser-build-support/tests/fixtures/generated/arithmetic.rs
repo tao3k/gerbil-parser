@@ -1299,7 +1299,7 @@ pub static LANGUAGE: LanguageSpec = LanguageSpec {
     language: "arithmetic",
     version: "v1",
     contract: "arithmetic-expression.v1",
-    grammar_digest: "sha256:fed71c7da68ff163c284a2f0e9d3b5e192649ea124862eb20d06961d17712fe0",
+    grammar_digest: "sha256:90e92c8037edd7a4935b2acd8d9f58d6b63260fbc3ed931c2fb83e727fa89a7b",
     case_insensitive: false,
     root_kind: 0,
     kinds: KINDS,

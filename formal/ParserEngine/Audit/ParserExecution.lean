@@ -1,4 +1,9 @@
 import ParserEngine.Components
+import ParserEngine.ActionCodeSharing
+
+#print axioms ParserEngine.ActionCodeSharing.choose_map
+#print axioms ParserEngine.ActionCodeSharing.decode_encode
+#print axioms ParserEngine.ActionCodeSharing.execution_exact
 
 #print axioms ParserEngine.prepared_plan_equivalent
 #print axioms ParserEngine.reverse_reduction_equivalent

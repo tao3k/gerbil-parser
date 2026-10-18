@@ -98,10 +98,12 @@ theorem layout_exact (productions : List Production) : layout productions = true
 def actionKey (productions : List Production) (key : Terminal) : Bool :=
   decide (key ∈ catalogue productions) && (layout productions || !layoutKey key)
 def gotoKey (productions : List Production) (name : Nat) : Bool :=
-  decide (name ∈ productions.map Production.lhs)
+  productions.any fun production => decide (production.lhs = name) ||
+    production.rhs.any (fun operand => decide (operand.base = .nonterminal name))
 
 theorem goto_key_exact (productions : List Production) (name : Nat) : gotoKey productions name = true ↔
-    ∃ production ∈ productions, production.lhs = name := by simp [gotoKey]
+    ∃ production ∈ productions, production.lhs = name ∨
+      ∃ operand ∈ production.rhs, operand.base = .nonterminal name := by simp [gotoKey]
 
 theorem action_key_exact (productions : List Production) (key : Terminal) : actionKey productions key = true ↔
     (key = .eof ∨ key ∈ terminals productions) ∧ (layout productions = true ∨ layoutKey key = false) := by
@@ -262,7 +264,13 @@ def layout : Datum := defn "layout-productions?" ["productions"] [app "any" [
 
 def vocabulary : Datum := defn "production-vocabulary" ["productions"] [
   app "def" [s "nonterminals", app "make-table" [.keyword "test", s "eq?"]],
-  app "for-each" [app "lambda" [names ["production"], app "table-set!" [s "nonterminals", call "production-lhs" ["production"], b true]], s "productions"],
+  app "for-each" [app "lambda" [names ["production"],
+    app "table-set!" [s "nonterminals", call "production-lhs" ["production"], b true],
+    app "for-each" [app "lambda" [names ["operand"],
+      app "let" [l [s "symbol", call "base-symbol" ["operand"]],
+        app "when" [call "nonterminal-symbol?" ["symbol"],
+          app "table-set!" [s "nonterminals", call "nonterminal-name" ["symbol"], b true]]]],
+      call "production-rhs" ["production"]]], s "productions"],
   app "let-values" [l [l [names ["_", "terminals"], call "production-terminal-catalog" ["productions"]]],
     call "values" ["terminals", "nonterminals"]]]
 

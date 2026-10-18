@@ -1,7 +1,10 @@
 (import :gerbil-parser/language-test-support
+        (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
+        (only-in :gerbil-parser/src/compiler/rust-runtime rust-runtime-module-source)
+        (only-in :gerbil-parser/src/runtime/lr-parser lr-prepare)
         (only-in :std/misc/ports read-all-as-string)
         (only-in :gerbil-parser/t/fixtures/lr1-construction write-lowering-traversal-data)
-        (only-in :gerbil-parser/src/compiler/lr lower-rules production-id production-lhs production-rhs base-symbol
+        (only-in :gerbil-parser/src/compiler/lr lower-rules lower-grammar production-id production-lhs production-rhs base-symbol
           validate-production-semantics))
 
 (def (nested-expression kind depth)
@@ -68,7 +71,7 @@
 
 (deflanguage-parser-tests lowering-traversal-test "recursive lowering generation and source alignment"
   (engine)
-  (scenario "an empty-language helper has a binding without an lhs row and exposes the canonical vocabulary gap"
+  (scenario "an empty-language helper is declared independently of lhs rows"
     (scope ((bindings '())
             (rules '((start (choice (sequence (choice)) (literal "x"))))))
       (scope ((rows (lower-rules rules 'start #t #f
@@ -78,9 +81,24 @@
         (equal (map base-symbol (production-rhs (cadr rows)))
           (list (list 'nonterminal (car bindings))))
         (equal (map base-symbol (production-rhs (last rows))) '((terminal literal "x")))
-        ;; Keep this failure visible until the declaration vocabulary is part
-        ;; of the canonical producer/consumer contract, not inferred from lhs.
-        (raises (validate-production-semantics rows) true))))
+        (scope-values (((compiled declarations) (lower-grammar rules 'start)))
+          (equal compiled rows)
+          (equal (not (not (memq (car bindings) declarations))) #t)
+          (equal (validate-production-semantics compiled declarations) rows)
+          (raises (validate-production-semantics compiled '(start $accept)) true)))))
+  (scenario "Scheme preparation and Rust emission consume the same declaration directory"
+    (scope ((spec (compile-lr-spec '((start (choice (sequence (choice)) (literal "x")))) 'start)))
+      (scope ((ir (list '(schema . "gerbil-parser.parser-ir.v1") '(root-kind . Root)
+                       '(syntax-kinds (Root node)) '(terminals) '(lexical-rules) '(extras)
+                       (cons 'lr-spec spec))))
+        (equal (not (not (lr-prepare spec))) #t)
+        (equal (not (not (string-contains
+          (rust-runtime-module-source "declaration-probe" "test" "test" "test" ir)
+          "Symbol::Nonterminal(\"$start.0\")"))) #t)
+        (scope ((missing (filter (lambda (row) (not (eq? (car row) 'declarations))) spec)))
+          (raises (lr-prepare missing) true)
+          (raises (rust-runtime-module-source "declaration-probe" "test" "test" "test"
+                    (cons (cons 'lr-spec missing) (filter (lambda (row) (not (eq? (car row) 'lr-spec))) ir))) true)))))
   (scenario "the shared renderer reproduces the complete native traversal proof input"
     (equal (call-with-output-string write-lowering-traversal-data)
       (call-with-input-file "formal/ParserEngine/LoweringTraversalData.lean" read-all-as-string)))

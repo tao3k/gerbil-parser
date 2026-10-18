@@ -2055,7 +2055,7 @@ pub static LANGUAGE: LanguageSpec = LanguageSpec {
     language: "hl7v2",
     version: "2.5.1",
     contract: "hl7v2-er7.v1",
-    grammar_digest: "sha256:adaee8fca79e880bcde40625e79278722af4520c7fc5b5fdca3d7dba3b972cc7",
+    grammar_digest: "sha256:099017605b228e1749380dd8e967d663694b94980e6d017b43b859106be31e6f",
     case_insensitive: false,
     root_kind: 0,
     kinds: KINDS,

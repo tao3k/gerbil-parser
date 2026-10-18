@@ -13,7 +13,7 @@
           (when (file-exists? path)
             (if (eq? (file-type path) 'directory)
               (for-each (lambda (name) (walk (path-expand name path))) (directory-files path))
-              (when (member (path-extension path) '(".rmeta" ".rlib" ".o" ".a"))
+              (when (member (path-extension path) '(".rmeta" ".rlib" ".o" ".a" ".scm" ".c"))
                 (let* ((info (file-info path))
                        (identity (cons (file-info-device info) (file-info-inode info)))
                        (state (list (file-info-size info)

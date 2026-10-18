@@ -57,6 +57,7 @@ structure Input where
   rules : Lowering.Rules
   decode : Nat → Lowering.Owner
   recipes : List Names.Recipe
+  declarations : List Nat
 
 def readName : Datum → Option String
   | .text name => some name | _ => none
@@ -71,7 +72,7 @@ def read (value : Datum) (origins : ConstructionGrammar.Input) : Option Input :=
   match value with
   | .list [.list names, .list records, .symbol augmented, .symbol root, .boolean _] =>
     (names.mapM readName).bind fun names => (records.mapM readRecord).map fun records =>
-      ⟨names, records, augmented, root, origins.rules, origins.decode, origins.recipes⟩
+      ⟨names, records, augmented, root, origins.rules, origins.decode, origins.recipes, origins.declarations⟩
   | _ => none
 
 def terminals (input : Input) : List Terminal :=
@@ -195,7 +196,7 @@ def normalize (input : Input) : Option ConstructionGrammar.Input :=
   (lookup input.names input.augmented).bind fun augmented =>
     (lookup input.names input.root).bind fun root =>
       (input.records.mapM (normalizeRow input)).map fun records =>
-        ⟨records, augmented, root, root, input.rules, input.decode, input.recipes⟩
+        ⟨records, augmented, root, root, input.rules, input.decode, input.recipes, input.declarations⟩
 
 theorem normalization_fields (input : Input) (normalized : ConstructionGrammar.Input)
     (success : normalize input = some normalized) :
@@ -205,7 +206,7 @@ theorem normalization_fields (input : Input) (normalized : ConstructionGrammar.I
   change (lookup input.names input.augmented).bind (fun augmented =>
     (lookup input.names input.root).bind (fun root =>
       (input.records.mapM (normalizeRow input)).map (fun records =>
-        (⟨records, augmented, root, root, input.rules, input.decode, input.recipes⟩ : ConstructionGrammar.Input)))) = some normalized at success
+        (⟨records, augmented, root, root, input.rules, input.decode, input.recipes, input.declarations⟩ : ConstructionGrammar.Input)))) = some normalized at success
   obtain ⟨augmented, augRead, rest⟩ := Option.bind_eq_some_iff.mp success
   obtain ⟨root, rootRead, rest⟩ := Option.bind_eq_some_iff.mp rest
   obtain ⟨records, rowsRead, equal⟩ := Option.map_eq_some_iff.mp rest

@@ -161,7 +161,7 @@ pub static LANGUAGE: LanguageSpec = LanguageSpec {
     language: "event-lines",
     version: "v1",
     contract: "event-lines.v1",
-    grammar_digest: "sha256:aec70367661a61688da821a945661893e3254de02059656eef7b28b22b5a9dda",
+    grammar_digest: "sha256:54a802afed52a5ff5f5675f4b3e5c5b8acbe2e83b62a18c18c6d7f1d19216bfa",
     case_insensitive: false,
     root_kind: 0,
     kinds: KINDS,

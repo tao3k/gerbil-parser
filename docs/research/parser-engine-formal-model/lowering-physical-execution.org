@@ -13,6 +13,8 @@ protocol, rather than an input assumption or a finite corpus comparison.
 |-------+----------------------+----------------|
 | Source admission | Complete root and recursive helper schemas equal extracted source | LoweringBranchSource, LoweringNamesSource |
 | Root storage | Execute actual initializer forms; allocate separate mutable cells and table identities; preserve prior storage | SchemeStorage, LoweringRootStorage |
+| Reservation | Actual recursive Scheme body simulates arbitrary finite reservation traces and preserves disjoint storage | LoweringReservationEvaluation |
+| Declaration authority | Source owners plus allocated bindings; reserved references cannot become declarations; zero-row helpers remain declared | LoweringDeclarationVocabulary, LoweringProtocol.input_allocated, input_undeclared |
 | Lexical module | Construct the allocation interface from every directly nested source procedure and initialized root bindings | LoweringRootScope |
 | Recursive dispatch | All branches compile to scoped code with exact logical erasure | LoweringProgram, LoweringProgramBuilder |
 | Fresh names | Recursive source evaluation generates complete allocation and cross-call histories | LoweringNames, LoweringFreshEvaluation, LoweringAllocationCalls |
@@ -201,16 +203,61 @@ the separately observed helper binding, raising =missing grammar name= for
 The new native fixture retains the allocation even when no helper row exists;
 the complete origin/recipe comparison now covers 24 generated fixtures.
 
-This repair also exposes an independent canonical-IR boundary. The native
-validator and =ConstructionGrammar.operandAllowed= both require every referenced
-nonterminal to occur as an lhs row. =missing_owner_rejected= proves rejection
-for arbitrary records with such a missing owner, independent of a finite
-fixture. The new native control records that current rejection while retaining
-the productive literal alternative. No validation guard has been weakened.
-Closing this gap requires a declaration vocabulary distinct from production
-rows throughout the producer/consumer contract, or a proved grammar-wide
-elimination of empty-language branches. It is not solved by the encoder fix,
-and whole-engine model closure remains open until that obligation is discharged.
+The paper-level CFG has a nonterminal vocabulary N and productions P. In
+general N is not equal to lhs(P): an empty-language nonterminal may have no
+productions. Closure over that nonterminal predicts an empty set; it does not
+make the nonterminal undeclared. This distinction supplies the implementation
+contract rather than treating the failing fixture as a special case.
+
+The engine now publishes =declarations= separately from production rows.
+=lower-grammar= collects authored owners, allocated helpers and the augmented
+owner. Its helper sink runs before recursive lowering, including empty choices;
+it does not enable diagnostic proof recipe generation. References reserve names
+for collision avoidance but do not declare them. All production lhs values and
+nonterminal operands must belong to this directory. Scheme preparation, fused
+reductions and Rust emission consume the same canonical metadata.
+
+The first complete-parser regression exposed a second occurrence of the same
+defect: table admission constructed goto vocabulary from lhs values only. Table
+keys now use all nonterminal occurrences in admitted productions, including
+RHS-only names. This represented table vocabulary is distinct from declaration
+authority: canonical production admission must succeed first. The arbitrary-list
+=goto_key_exact= theorem and extracted vocabulary schema use the same distinction.
+
+The retained LeanPoo construction input carries the declaration directory.
+The complete scoped producer derives its directory from source owners and its
+allocation history, rather than trusting a caller-supplied directory.
+=input_allocated= proves that every allocated binding is declared regardless of
+its row count. =input_undeclared= proves that a reserved, unauthored reference
+cannot be captured and promoted by arbitrary subsequent helper allocation.
+=ConstructionGrammar.undeclared_rejected= retains rejection for arbitrary
+unknown operands, and =declared_operand= does not require any lhs row.
+
+A source run also exposed a cache dependency: unchanged generator identity
+reused parser artifacts without the new directory. The existing shared
+=compiler-generator-metadata= now records
+=(nonterminal-vocabulary . declarations)=. Both compiler cache layers therefore
+invalidate together. No schema identity, namespace or filename was renumbered.
+
+** Recursive reservation evaluation
+
+[[file:../../../formal/ParserEngine/LoweringReservationEvaluation.lean][LoweringReservationEvaluation]]
+executes the extracted =reserve-references= body using the source evaluator.
+The evaluator now includes quoted interned symbols, =when= and recursive
+procedure traversal. Its generic determinism proof covers these rules as well.
+The source theorem covers arbitrary finite recursive trees, repeated names and
+nonempty initial heaps; the actual root module supplies its recursive group and
+used-name table identity. A frame theorem preserves every disjoint table or
+cell. Source data exclude internal mutable-cell handles, which belong to the
+evaluator's environment representation rather than the grammar datum domain.
+
+The joint preprocessing theorem now executes root reservation, authored owner
+writes, repeated-owner occurrence counts and recursive reference walks in source
+order. Its heap trace retains both actual table identities and frames disjoint
+emitter storage. The extracted root supplies the lexical recursive group and
+argument bindings; evaluating that declaration group and composing the whole
+dispatcher with emission remain open. A supplied normal-return trace is still
+required; this theorem does not prove totality of arbitrary Scheme programs.
 
 * Source correspondence and remaining proof obligations
 
@@ -334,3 +381,97 @@ macro-owned cases across seven owners, with four workers and natural exit zero
 in 44.19 seconds. The 19 evidence-admission controls pass. The failing zero-row
 helper serialization receipt is retained separately from the corrected
 generation. No parser watchdog, proof resource limit or SDK component changed.
+
+** Declaration-contract qualification boundary
+
+The changed source schemas and reader data are generated through the existing
+Scheme source-data macros. The original zero-row missing-name and canonical
+rejection receipts remain historical negative evidence. Current controls must
+accept declared empty languages through complete parsing while rejecting
+unknown references, removed directories and attempts to capture reserved names.
+Quint exercises admission protocol transitions; Lean proves arbitrary histories.
+Neither is a substitute for current-source Scheme execution or exact-head CI.
+
+Local optimized project compilation initially failed under the unchanged
+90-second total and five-second idle limits. Real Scheme/C intermediate files
+were produced; the compiler-product observer previously ignored those formats.
+It now recognizes changed nonempty intermediate files, with controls for cached
+files, repeated observations and ordinary log files. Enabling actual installed
+GSC/GCC phase diagnostics then qualified the eight changed project modules in
+46.76 seconds with natural exit zero and unchanged compiler optimization flags.
+The earlier failed routes remain negative evidence. No Gambit or SDK build was
+performed.
+
+The focused native-engine/source-Suite run passes eight owners and 144 cases,
+including complete parsing, Rust generation, removed-directory rejection,
+source publication replay and output observation. The four existing Scheme
+backend generators were run and their exact-currentness checks pass. Backend
+identity changes are not silently accepted: the retained reviewed HCL artifact
+and the new artifact have verified content identities, and an actual Scheme
+comparison proves their complete IR differs only by the declaration directory.
+Their identities are respectively
+=sha256:7fa44a0c1fccad8bfc8c10096afd4b11fd7d945dacb88ebc79f494afee851648=
+and =sha256:fcfa996f3d859f99e2e9a1c626acd5eb9c2de5ad308ab83db248b67e5dd1efeb=.
+The reviewed recursive-source capability now reads its guard from the existing
+=compiler-generator-metadata= entry in =src/schema.ss=. The lexical contract and
+exact-parser identity guards remain mandatory; generated files are regenerated
+through their original generators, not patched by digest substitution.
+
+The unified Lean graph contains 231 successful jobs, including the joint
+preprocessing theorem and its axiom audit. Quint passes thirteen admission
+controls and 1000 bounded invariant traces. These protocol checks do not close
+the remaining declaration-group and full Scheme-dispatch obligations listed
+above. No parser CPU improvement is claimed.
+
+The additional source-prefix regression uses the existing parser-test macros.
+Its owner passes ten cases through the repository's standard dependency
+preloader in 81.43 seconds with natural exit zero. Both the 90-second total and
+five-second idle limits remain unchanged. The earlier temporary source runner
+disabled dependency preloading and timed out; that route is not accepted as
+evidence against the standard runner. A full local package build also reached
+the total fence and remains unqualified. This is a different preparation scope
+from the focused eight-module compile above. Other workspaces were compiling
+concurrently, so these elapsed times establish budget compliance only, not a
+performance comparison or a complete diagnosis of the package-build timeout.
+
+Two original Rust generators now complete through the standard preloader in
+42.53 and 52.43 seconds with the same limits. Broader regeneration is not yet
+qualified: the module-framing route reports a missing declaration directory
+while loading the native TLA+ core grammar, and the contextual route rejects
+another retained native artifact. The TLA+ intermediate source was regenerated
+while its latest native object predates the directory change. Interrupted
+package preparation therefore left a mixed generation of interfaces,
+intermediate sources and native objects. These failures require coherent
+product regeneration; neither a compatibility fallback nor a larger timeout
+admits those old artifacts. The structured-lexical route also retains a
+separate idle-timeout receipt. Successful parent-commit CI does not qualify
+these uncommitted local products.
+
+A focused repair regenerated three grammar owners and the structured lexical
+fixture in 36.23 seconds with natural exit zero. Subsequent checks exposed more
+old dependent products: the TLA+ layout grammar, the arithmetic backend's
+embedded digest guard, and the compiled qualification observer. The artifact
+owner independently passes twenty cases, but the combined run fails because
+that old observer does not recognize the new C-output control. This is not a
+passing receipt for the combined run. Pure Rust runtime tests pass 146 cases.
+
+The remaining dependent-product repair stops after 24.59 seconds at the
+five-second idle fence during GCC assembly of the arithmetic backend. Its
+generated C unit is 2,436,679 bytes. A diagnostic retaining actual GCC assembly
+files also stops at the same fence after 32.11 seconds: the assembly file grows
+to 648 bytes and then supplies no further observed progress before termination.
+That experiment does not establish a fix; assembly observation is not added to
+the production observer. Neither timeout reached the 90-second total fence.
+The outstanding gate is coherent native backend preparation under the existing
+limits, not a qualified parser-request regression or permission to widen them.
+
+Subsequent action-code sharing qualifies the isolated cold arithmetic backend
+in 16.07 seconds. Later complete native-cold library builds qualify in 95.73
+and 70.23 seconds with the unchanged five-second idle fence and the authorized
+180-second total budget. These observations retain immutable grammar caches;
+they do not establish complete-parser CPU improvement. See
+[[file:native-product-publication.org][compiler granularity and complete native product publication]] for the generic
+sharing proof, macro controls, transport contract and retained full-build
+failures. Partial native products are never admitted as a complete generation;
+successful full builds publish a source-bound product manifest. The full
+recursive Scheme-evaluation correspondence remains a separate open obligation.

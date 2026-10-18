@@ -426,7 +426,7 @@ pub static LANGUAGE: LanguageSpec = LanguageSpec {
     language: "record-assignments",
     version: "v1",
     contract: "record-assignments.v1",
-    grammar_digest: "sha256:9c7e8b0f807fb1bf13198c417ce5b74b90f65d67f054b48188cf5268dba4d1d4",
+    grammar_digest: "sha256:a47aec7313b36ac2a3267737a92cee14c51854304d1492507451740e63b29bbd",
     case_insensitive: false,
     root_kind: 0,
     kinds: KINDS,
@@ -445,9 +445,9 @@ pub mod contextual_scanner {
     };
     pub static SCANNER: ScannerSpec = ScannerSpec {
         opcode_contract: "gerbil-parser.contextual-scanner-opcodes.v1",
-        digest: "sha256:9a7cfe03fd1afef9b234dd6f18c4cc7df302da8f16a3eb6f5b9aae993145b374",
+        digest: "sha256:26f726be1e2f160c2819aa155897464df457e3832a9c500a67f4d89b7c50b6e6",
         base_grammar_digest: Some(
-            "sha256:9c7e8b0f807fb1bf13198c417ce5b74b90f65d67f054b48188cf5268dba4d1d4",
+            "sha256:a47aec7313b36ac2a3267737a92cee14c51854304d1492507451740e63b29bbd",
         ),
         initial_mode: "main",
         modes: &["main"],
@@ -582,7 +582,7 @@ pub static CONTEXTUAL: gerbil_parser_runtime::ContextualParserSpec =
     gerbil_parser_runtime::ContextualParserSpec {
         language: &LANGUAGE,
         scanner: &contextual_scanner::SCANNER,
-        parser_digest: "sha256:f6c100c0b9a67933dce8203000d9759545bf049588e28493ece5666660bf5159",
+        parser_digest: "sha256:a6ec5c6e5be32d8c8aa2eeaafd7fd3e8487c235fc3fe1a4d33fb1cd0128312fb",
         state_positions: &[
             "name", "value", "name", "name", "value", "name", "name", "name", "name", "name",
             "name", "name", "name",

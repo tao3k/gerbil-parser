@@ -4,7 +4,7 @@
         (prefix-in :std/struct/queue stdq-)
         (only-in ./lr +lr-eof+ canonical-base-symbol?
                  production-action production-lhs production-rhs base-symbol layout-end-action?
-                 production-terminal-catalog))
+                 production-terminal-catalog nonterminal-symbol? nonterminal-name))
 (export validate-lr-tables layout-productions?)
 
 ;;; Derive capability from admitted declarations, never from an author flag.
@@ -77,13 +77,20 @@
        row)))
   rows)
 
-;;; Tables name only the vocabulary of their admitted production IR. Operand
+;;; Table keys name the vocabulary occurring anywhere in admitted production IR.
+;;; RHS-only nonterminals include declared empty languages without lhs rows. Operand
 ;;; annotations are semantic metadata; membership uses the canonical base.
 (def (production-vocabulary productions)
   (def nonterminals (make-table test: eq?))
   (for-each
    (lambda (production)
-     (table-set! nonterminals (production-lhs production) #t))
+     (table-set! nonterminals (production-lhs production) #t)
+     (for-each
+      (lambda (operand)
+        (let (symbol (base-symbol operand))
+          (when (nonterminal-symbol? symbol)
+            (table-set! nonterminals (nonterminal-name symbol) #t))))
+      (production-rhs production)))
    productions)
   (let-values (((_ terminals) (production-terminal-catalog productions)))
     (values terminals nonterminals)))

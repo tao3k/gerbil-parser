@@ -56,6 +56,7 @@
 (def (production-spec productions)
   ;; Isolate production admission with an already accepting table graph.
   (list (cons 'productions productions)
+        (cons 'declarations '(root source-file later unused other))
         (cons 'actions (vector '(((terminal eof) accept)))) (cons 'gotos (vector '()))
         (cons 'case-insensitive? #f)))
 
@@ -296,7 +297,7 @@
          (0 root ((nonterminal root) (terminal literal "+")) concat (none 0))
          (0 root ((terminal layout-start "|>") (terminal layout-next "|>")) concat (right 2))))
          (scope ((productions (list production)))
-           (equal (eq? productions (validate-production-semantics productions))  #t)
+           (equal (eq? productions (validate-production-semantics productions '(root source-file later unused other)))  #t)
            (equal (not (not (lr-prepare (production-spec productions))))  #t))))
     (scenario "malformed canonical productions fail before backend preparation"
       (each (productions) ('(#f #() ((0 root () concat #f) . invalid)
@@ -325,7 +326,7 @@
           (1 later ((terminal token word)) pass #f)
           (2 unused ((nonterminal unused)) pass #f))))
 
-      (equal (eq? productions (validate-production-semantics productions))  #t)
+      (equal (eq? productions (validate-production-semantics productions '(root source-file later unused other)))  #t)
       (each (events?) ('(#f #t))
          (parameters ((current-lr-event-program-enabled? events?))
            (equal (not (not (lr-prepare (production-spec productions))))  #t)

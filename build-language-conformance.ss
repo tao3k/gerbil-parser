@@ -1,5 +1,9 @@
 #!/usr/bin/env gxi
 ;;; Closed native conformance and source gxtest have distinct artifact owners.
+(import (only-in "./src/build-support/library-publication.ss" publication-build-main)
+        (only-in "./src/build-support/compiler-profile.ss" compiler-build-spec initialize-compiler-build!)
+        (only-in "./src/build-support/preparation-cache.ss" conformance-source-only?)
+        (only-in "./build-test-support.ss" shared-test-build-spec))
 (import (only-in :std/build-script defbuild-script)
         (only-in :std/make make make-clean)
         (only-in :std/source this-source-file)
@@ -84,10 +88,7 @@
     "t/fixtures/runtime-record-assignments/languages/records/parser-test"
     "t/test-style-contract-test"
     "t/conformance-main"))
-(def (shared-test-module? name)
-  (or (string-suffix? "-test" name)
-      (member name '("t/fixtures/language-entries" "t/conformance-main"
-                     "t/benchmarks/versioned-languages/all-languages"))))
+(def shared-test-module? conformance-source-only?)
 (def (compiled-spec modules)
   (map (lambda (module)
          `(gxc: ,module "-cc-options" "-v -Q")) modules))
@@ -118,20 +119,17 @@
                        (module-context-export context)))))))
    (filter shared-test-module? conformance-modules)))
 (def (compile-static-conformance!)
-  ;; Helpers serve both the closed executable and source-mode generators.
-  ;; Publish complete loadable products; the link owner also consumes static SCM.
-  (for-each
-   (lambda (module)
-     (displayln "STATIC-HELPER-SCHEME " module) (force-output)
-     (compile-module (string-append module ".ss")
-       [output-dir: (path-expand "lib" (getenv "GERBIL_PATH"))
-        optimize: #t generate-ssxi: #t static: #t keep-scm: #t
-        invoke-gsc: #t
-        gsc-options: ["-verbose" "-cc-options" "-v -Q -ftrack-macro-expansion=0"] verbose: #f]))
-   (filter (lambda (name) (not (shared-test-module? name))) conformance-modules))
+  ;; The shared native graph is scheduled once by std/make. Only catalog
+  ;; helpers belong to this preparation receipt; extra source-test helpers
+  ;; remain the sibling build-test-support owner's products.
+  (initialize-compiler-build!)
+  (make (shared-test-build-spec #f)
+        srcdir: (path-directory (this-source-file))
+        libdir: (path-expand "lib" (gerbil-path))
+        optimize: #t)
   ;; Test bodies remain source-only here; their native objects belong to the link owner.
   (compile-static-tests!))
-(def (prepare-gxtest!)
+(def (prepare-gxtest-content!)
   ;; gxtest owns source test evaluation. The closed executable already owns
   ;; native conformance bodies; production parser modules remain native.
   ;; Remove only source-only test interfaces, using std/make's own output map,
@@ -142,5 +140,13 @@
              (map (lambda (module) `(copy: ,(string-append module ".scm"))) modules))
      libdir: (path-expand "lib" (getenv "GERBIL_PATH"))
      srcdir: (path-directory (this-source-file)))))
+(import (only-in "./src/build-support/library-publication.ss"
+                 call-with-library-publication library-publication-inputs))
+(def (prepare-gxtest!)
+  (call-with-library-publication (gerbil-path)
+    (lambda (_stage) (prepare-gxtest-content!))
+    (lambda (root) (list '("compile") (library-publication-inputs root))) #f))
 ;; Developer multicall build retains the standard native shared-module owner.
-(defbuild-script (compiled-spec conformance-modules) optimize: #t)
+(defbuild-script (compiler-build-spec (compiled-spec conformance-modules)) optimize: #t)
+
+(set! main (publication-build-main main))

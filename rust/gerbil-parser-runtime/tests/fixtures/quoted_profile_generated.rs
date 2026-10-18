@@ -156,7 +156,7 @@ pub static LANGUAGE: LanguageSpec = LanguageSpec {
     language: "quoted-profile",
     version: "v1",
     contract: "quoted-profile.v1",
-    grammar_digest: "sha256:6cb81d1784076aa0915de79ea9f37088227324a5c9191f3f2dbf5add1935733c",
+    grammar_digest: "sha256:908a27683c2532ac6702094bea51032a7c07f9e060e46ffca399d99d79f40ccb",
     case_insensitive: false,
     root_kind: 0,
     kinds: KINDS,

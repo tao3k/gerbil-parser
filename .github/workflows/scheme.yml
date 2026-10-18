@@ -92,7 +92,7 @@ jobs:
         run: gerbil env gxi build-qualification.ss compile
       - name: Compile reusable Scheme library objects
         run: |
-          gerbil env gxi qualify.ss run --timeout 240 --idle-timeout 5 \
+          gerbil env gxi qualify.ss run --library-write --timeout 240 --idle-timeout 5 \
             --log .data/native-library-objects.log --require COMPILED-LIBRARY-OBJECTS-READY \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!)' \
             -e '(call-with-compiled-interface-trace (lambda () (load "build-language-conformance-link.ss") (eval (quote (main "library-objects"))))) (exit 0)'
@@ -107,7 +107,7 @@ jobs:
       - name: Compile language conformance modules
         run: |
           GERBIL_BUILD_VERBOSE=1 GERBIL_PARSER_LR_TRACE=1 \
-            gerbil env gxi qualify.ss run --timeout 240 --idle-timeout 5 \
+            gerbil env gxi qualify.ss run --library-write --timeout 240 --idle-timeout 5 \
               --log .data/language-conformance-build.log \
               -- gxi build-conformance.ss
       - name: Save admitted conformance preparation
@@ -117,33 +117,10 @@ jobs:
           path: .gerbil/conformance-store
           key: parser-conformance-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.release-sha256 }}-${{ hashFiles('gerbil.pkg') }}-${{ github.sha }}
       - name: Compile Scheme test support
-        run: |
-          gerbil env gxc t/fixtures/tla-sany-differential/worker-control.ss \
-            t/abi-datum-support.ss \
-            t/line-structure-assertions.ss \
-            t/benchmarks/lr-request-stack/derivation.ss \
-            t/benchmarks/lr-request-stack/lookahead.ss \
-            t/scenarios/performance/selective-glr/scenario.ss \
-            t/benchmarks/lr-request-stack/benchmark.ss \
-            t/benchmarks/gql/runtime/actors.ss \
-            t/benchmarks/lr-request-stack/capture-reference.ss \
-            t/benchmarks/capture-prefix/controls.ss \
-            t/support/qualification/benchmark-qos.ss
-          if [ "$RUNNER_OS" = macOS ]; then
-            gerbil env gxc -ld-options "-Wl,-undefined,dynamic_lookup" \
-              t/benchmarks/gql/runtime/compiled-timing.ss
-          else
-            gerbil env gxc t/benchmarks/gql/runtime/compiled-timing.ss
-          fi
-          gerbil env gxc t/header-delimiter-test.ss \
-            t/structured-lexical-cases.ss \
-            t/structured-lexical-test.ss \
-            t/module-source-cases.ss \
-            t/module-source-test.ss \
-            t/fixtures/shared-scanner/bash.ss
+        run: GERBIL_BUILD_VERBOSE=1 gerbil env gxi build-test-support.ss compile
       - name: Prepare gxtest source owners
         run: |
-          gerbil env gxi qualify.ss run --timeout 240 --idle-timeout 5 \
+          gerbil env gxi qualify.ss run --library-write --timeout 240 --idle-timeout 5 \
             --log .data/gxtest-source-prepare.log \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!)' \
             -e '(call-with-compiled-interface-trace (lambda () (load "build-language-conformance.ss") (eval (quote (prepare-gxtest!))))) (exit 0)'
@@ -229,12 +206,6 @@ jobs:
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/history-commit-controls.log --require HISTORY-COMMIT-CONTROLS-OK \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-test-imports "scripts/tests/history-commit-test.ss")' scripts/tests/history-commit-test.ss
-      - name: Verify official module loading and source invalidation
-        run: |
-          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
-            --log .data/module-loading-controls.log \
-            --require '^MODULE-LOADING-CONTROLS-OK$' \
-            -- gxi t/benchmarks/module-loading/controls.ss
       - name: Verify Scheme source proof input is current
         run: gerbil env gxi t/generate-walk-source-witness.ss check formal/ParserEngine/SourceData.lean
       - name: Verify generated arithmetic Scheme LR is current
@@ -245,11 +216,9 @@ jobs:
           gerbil env gxi scripts/generate-reductions.ss check :gerbil-parser/languages/arithmetic/grammar t/fixtures/arithmetic-reductions.ss
       - name: Verify generated HCL recursive parser is current
         run: gerbil env gxi scripts/generate-source-parser.ss check :gerbil-parser/languages/hcl/grammar src/compiler/hcl-source.ss
-      - name: Verify Scheme preparation and test ownership controls
+      - name: Verify process and test ownership controls
         run: |
           gerbil env gxi scripts/tests/process-qualification-test.ss
-          gerbil env gxi scripts/tests/compiler-process-test.ss
-          gerbil env gxi scripts/tests/preparation-test.ss
           gerbil env gxi scripts/tests/test-plan-test.ss
           gerbil env gxi test-processes.ss conformance
       - name: Verify Scheme DSL and POO declaration closure
@@ -553,7 +522,7 @@ jobs:
             --log .data/rust-native-build.log --compiler-outputs "$PWD/target/debug" \
             -- cargo build --locked --manifest-path t/fixtures/rust-language-abi/Cargo.toml
           GERBIL_PARSER_RUST_NATIVE_ARCHIVE="$PWD/target/debug/librust_language_abi_fixture.a" \
-            GERBIL_BUILD_VERBOSE=1 gerbil env gxi qualify.ss run \
+            GERBIL_BUILD_VERBOSE=1 gerbil env gxi qualify.ss run --library-write \
             --timeout 90 --idle-timeout 30 --log .data/rust-native-link.log \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-test-imports "build-rust-ffi-tests.ss")' \
             -e '(call-with-compiled-interface-trace (lambda () (load "build-rust-ffi-tests.ss") (eval (quote (main "compile")))))'

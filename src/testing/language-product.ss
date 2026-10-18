@@ -6,8 +6,6 @@
         (only-in :clan/poo/object .ref)
         (only-in ../language/entry parse-language-source)
         (only-in ../language/tlc qualify-language-tlc-model tla-plus-model-receipt->alist)
-        (only-in ../ffi/language-artifact-codec bind-language-abi abi-parse-binary-payload/bytes)
-        (only-in ../ffi/rust-runtime-aot rust-runtime-source)
         (only-in :std/vector/u8vector little u8vector-u32-ref))
 (export language-model-test-receipt check-language-abi-entry check-language-portable-rejection)
 
@@ -48,11 +46,22 @@
           workers: workers))))))
 
 (def (check-language-abi-entry loader source artifact accepted?)
-  (let* ((descriptor (.ref loader 'descriptor)) (native (bind-language-abi descriptor)))
-    (check artifact => (parse-language-source descriptor source))
-    (check (u8vector-u32-ref (abi-parse-binary-payload/bytes native (string->utf8 source)) 8 little)
-           => (if accepted? 0 1))))
+  ;; Engine-only scenarios do not require native ABI preparation. Load this
+  ;; capability through the official module cache only when it is selected.
+  (let-values (((bind-language-abi abi-parse-binary-payload/bytes)
+                (eval '(begin
+                         (import (only-in :gerbil-parser/src/ffi/language-artifact-codec
+                                          bind-language-abi abi-parse-binary-payload/bytes))
+                         (values bind-language-abi abi-parse-binary-payload/bytes)))))
+    (let* ((descriptor (.ref loader 'descriptor)) (native (bind-language-abi descriptor)))
+      (check artifact => (parse-language-source descriptor source))
+      (check (u8vector-u32-ref (abi-parse-binary-payload/bytes native (string->utf8 source)) 8 little)
+             => (if accepted? 0 1)))))
 
 (def (check-language-portable-rejection module-path message)
-  (check-exception (rust-runtime-source module-path)
-                   (lambda (exception) (equal? (error-message exception) message))))
+  (let (rust-runtime-source
+        (eval '(begin
+                 (import (only-in :gerbil-parser/src/ffi/rust-runtime-aot rust-runtime-source))
+                 rust-runtime-source)))
+    (check-exception (rust-runtime-source module-path)
+                     (lambda (exception) (equal? (error-message exception) message)))))

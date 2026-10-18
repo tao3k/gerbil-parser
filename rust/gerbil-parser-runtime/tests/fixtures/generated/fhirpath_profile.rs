@@ -19678,7 +19678,7 @@ pub static LANGUAGE: LanguageSpec = LanguageSpec {
     language: "fhirpath",
     version: "2.0.0",
     contract: "fhirpath-normative-2.0.0-syntax.v1",
-    grammar_digest: "sha256:4cf0e808878f324196c3d4f6b3f2ea1fb05d5afd2a6fe8acc806369408c6a0ab",
+    grammar_digest: "sha256:d7809a7954c6c78c3319b192ae773ad57945be4d402415fbcfd9ff3d8ef85559",
     case_insensitive: false,
     root_kind: 0,
     kinds: KINDS,

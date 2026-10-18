@@ -182,7 +182,7 @@ pub static LANGUAGE: LanguageSpec = LanguageSpec {
     language: "header-record",
     version: "v1",
     contract: "header-record.v1",
-    grammar_digest: "sha256:873cd15f92b782d853532bed6c962a766b2de258026e42b5ed7055b678a62536",
+    grammar_digest: "sha256:80cfbd4cd33cd25488264bdea81ba3021d69d861c279dc2c413698fed38ac6dd",
     case_insensitive: false,
     root_kind: 0,
     kinds: KINDS,

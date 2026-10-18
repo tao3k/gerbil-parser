@@ -63,7 +63,7 @@
                      (map (lambda (name) (list name #f))
                           '(states lookaheads lookahead-offsets transitions table terminal-values
                             layout core-symbols conflict-policy rules root started
-                            case-insensitive? productions nullable first lr0-state-visit-count lookahead-item-visit-count))
+                            case-insensitive? productions declarations nullable first lr0-state-visit-count lookahead-item-visit-count))
                      tail))))
          (events '()) (actions (make-vector state-count '())) (gotos (make-vector state-count '()))
          (spec (procedure construction state-count
@@ -179,7 +179,7 @@
       (append (case construction ((lalr) '())
                 ((follow-partition-lr1) '(follow-block-count output-item-count))
                 (else '(canonical-state-count output-item-count)))
-              '(schema case-insensitive? productions nullable first algorithm state-count
+              '(schema case-insensitive? productions declarations nullable first algorithm state-count
                 lr0-state-visit-count lookahead-item-visit-count actions gotos))))
   (matrix "publication count or validator failure prevents a spec"
     (setup)

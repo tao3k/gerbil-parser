@@ -20,6 +20,7 @@ structure Input where
   rules : Lowering.Rules
   decode : Nat → Lowering.Owner
   recipes : List Names.Recipe
+  declarations : List Nat
 
 def productions (input : Input) := input.records.map Record.value
 
@@ -35,16 +36,17 @@ def grammar (input : Input) : Grammar.CFG := input.records.map (row input)
 
 def operandAllowed (input : Input) (operand : ProducerAdmission.Operand) : Bool :=
   match operand.base with
-  | .nonterminal name => decide (name ∈ input.records.tail.map (fun record => record.value.lhs))
+  | .nonterminal name => decide (name ∈ input.declarations ∧ name ≠ input.augmented)
   | .terminal key => (keyCode (productions input) key).isSome
 
 def checks (input : Input) : Bool :=
-  decide (input.records.map Record.id = List.range input.records.length) &&
+  input.records.all (fun record => decide (record.value.lhs ∈ input.declarations)) &&
+  (decide (input.records.map Record.id = List.range input.records.length) &&
   decide ((grammar input).head? = some ⟨input.augmented, [.nonterminal input.root]⟩) &&
   input.records.all (fun record => record.value.rhs.all (operandAllowed input)) &&
   input.records.tail.all (fun record => record.value.lhs != input.augmented) &&
   decide (input.decode input.root = .named input.source) &&
-  Names.admitNative input.rules input.decode (grammar input).tail input.recipes
+  Names.admitNative input.rules input.decode (grammar input).tail input.recipes)
 
 structure Admitted (input : Input) : Prop where
   accepted : checks input = true
@@ -60,7 +62,22 @@ theorem admitted_fields (input : Input) (receipt : Admitted input) :
     input.decode input.root = .named input.source ∧
     Names.admitNative input.rules input.decode (grammar input).tail input.recipes = true := by
   have accepted := receipt.accepted
-  simpa only [checks, Bool.and_eq_true, decide_eq_true_eq, and_assoc] using accepted
+  simp only [checks, Bool.and_eq_true] at accepted
+  simpa only [decide_eq_true_eq, and_assoc] using accepted.2
+
+/-- Every lhs must also be declared; a forged physical owner cannot acquire
+its authority from the mere presence of a production row. -/
+theorem lhs_declared (input : Input) (receipt : Admitted input) (record : Record)
+    (member : record ∈ input.records) : record.value.lhs ∈ input.declarations := by
+  have owners := receipt.accepted
+  simp only [checks, Bool.and_eq_true] at owners
+  exact of_decide_eq_true (List.all_eq_true.mp owners.1 record member)
+
+theorem undeclared_lhs_rejected (input : Input) (record : Record)
+    (member : record ∈ input.records) (unknown : record.value.lhs ∉ input.declarations) : checks input = false := by
+  cases accepted : checks input with
+  | false => rfl
+  | true => exact False.elim (unknown (lhs_declared input ⟨accepted⟩ record member))
 
 theorem nonempty (input : Input) (receipt : Admitted input) : grammar input ≠ [] := by
   intro empty
@@ -86,7 +103,7 @@ theorem id_index (input : Input) (receipt : Admitted input) (index : Nat) (recor
 theorem operand_exact (input : Input) (receipt : Admitted input) (record : Record)
     (member : record ∈ input.records) (operand : ProducerAdmission.Operand) (present : operand ∈ record.value.rhs) :
     match operand.base with
-    | .nonterminal name => name ∈ input.records.tail.map (fun record => record.value.lhs)
+    | .nonterminal name => name ∈ input.declarations ∧ name ≠ input.augmented
     | .terminal key => ∃ code, keyCode (productions input) key = some code ∧ symbol input operand = .terminal code := by
   have allowed := List.all_eq_true.mp (List.all_eq_true.mp (admitted_fields input receipt).2.2.1 record member) operand present
   cases base : operand.base with
@@ -97,20 +114,24 @@ theorem operand_exact (input : Input) (receipt : Admitted input) (record : Recor
     | none => simp [found] at allowed
     | some ordinal => exact ⟨ordinal, found, by simp [symbol, base, found]⟩
 
-/-- The current canonical vocabulary is reconstructed from lhs rows. This
-rejects every allocated zero-row helper used on an RHS, even when lowering
-origin admission succeeds. A declared-name vocabulary is a separate obligation;
-this theorem deliberately does not weaken unresolved-reference validation. -/
-theorem missing_owner_rejected (input : Input) (record : Record)
+/-- A referenced name must be declared independently of the production rows.
+A zero-row declaration is legal; an unknown reference is still rejected. -/
+theorem undeclared_rejected (input : Input) (record : Record)
     (member : record ∈ input.records) (operand : ProducerAdmission.Operand)
     (present : operand ∈ record.value.rhs) (base : operand.base = .nonterminal name)
-    (missing : name ∉ input.records.tail.map (fun row => row.value.lhs)) : checks input = false := by
+    (missing : name ∉ input.declarations) : checks input = false := by
   cases accepted : checks input with
   | false => rfl
   | true =>
     have required := operand_exact input ⟨accepted⟩ record member operand present
     rw [base] at required
-    exact False.elim (missing required)
+    exact False.elim (missing required.1)
+
+/-- The operand contract cannot depend on whether a declared name has rows. -/
+theorem declared_operand (input : Input) (operand : ProducerAdmission.Operand)
+    (base : operand.base = .nonterminal name) (declared : name ∈ input.declarations)
+    (ordinary : name ≠ input.augmented) :
+    operandAllowed input operand = true := by simp [operandAllowed, base, declared, ordinary]
 
 theorem origins (input : Input) (receipt : Admitted input) :
     ∀ production ∈ (grammar input).tail, Names.OriginSupported input.rules input.decode production :=

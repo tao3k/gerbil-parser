@@ -68,7 +68,7 @@ just benchmark-module-loading generation
 just benchmark-module-loading preload
 #+end_src
 
-[[file:../../t/benchmarks/module-loading/controls.ss][Scheme controls]] exercise unchanged descriptor identity, content edits,
+[[file:../../t/module-loading-test.ss][Scheme controls]] exercise unchanged descriptor identity, content edits,
 real DSL edits with changed generated Rust, explicit/automatic generation parity,
 missing files/exports, failing initializers, repeated failure propagation,
 official runtime reload recovery and malformed-source retry. CI executes them

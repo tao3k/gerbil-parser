@@ -365,7 +365,7 @@
          (lexical-rules (alist-ref ir 'lexical-rules))
          (extras (map car (alist-ref ir 'extras)))
          (lr (alist-ref ir 'lr-spec))
-         (productions (validate-production-semantics (alist-ref lr 'productions)))
+         (productions (validate-production-semantics (alist-ref lr 'productions) (alist-ref lr 'declarations)))
          (actions (alist-ref lr 'actions))
          (gotos (alist-ref lr 'gotos)))
     (validate-lr-tables productions actions gotos)

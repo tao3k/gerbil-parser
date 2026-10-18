@@ -19,6 +19,7 @@
   (raises
    (lr-prepare
     (list (cons 'productions '((0 root ((terminal token word)) concat #f)))
+          (cons 'declarations '(root))
           (cons 'actions actions) (cons 'gotos gotos)
           (cons 'case-insensitive? #f)))
    (lambda (condition) (string-prefix? "invalid LR table" (error-message condition)))))

@@ -52,10 +52,11 @@ It derives dense IDs, paired values/recipes and failure-before-commit for
 arbitrary finite emission trajectories. [[file:lowering-traversal.org][Recursive lowering generation]] now derives
 the ordered emission/recipe list for arbitrary syntax depth, n-ary width and
 authored declaration counts, then feeds the same retained LeanPoo factory.
-Its complete physical realization yields grammar-language soundness. Native
-mutable helper allocation and complete recursive source-control extraction must
-still generate that realization universally; source admission of the common
-spine and 23 native trace controls do not certify arbitrary Scheme execution.
+[[file:lowering-physical-execution.org][Scoped physical execution]] generates helper allocation, call boundaries and
+complete physical realization universally, yielding origin admission in the
+same retained factory. Complete source-schema equality gates the current root.
+General Scheme evaluator adequacy, rejection paths and action metadata remain
+open; neither source admission nor native controls certify arbitrary execution.
 
 ** Parser ownership, prepared requests and the macOS timeout
 

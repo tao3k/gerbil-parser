@@ -54,12 +54,12 @@
   ;; generated-code options before it; expressions must never become filenames.
   [gsc "-verbose" "-c" "-o" target initialization ...
        "-e" compiler-progress-expression source])
-(def (test-object-options source options)
-  ;; Keep the SDK's optimizer and trusted tail-host contract. Split large test
-  ;; modules into Gambit's per-procedure C hosts instead of one giant function;
-  ;; -O0 would invalidate tail-call elimination on older GCC.
-  (if (test-object-source? source)
-    (string-append options " -U___SINGLE_HOST -D___MULTIPLE_HOSTS") options))
+(def (static-object-options options)
+  ;; The owned static closure includes dependencies as well as test modules.
+  ;; Keep GCC optimization and the SDK's tail-call contract while compiling
+  ;; each generated procedure as a separate C host. A single module host (for
+  ;; example clan/poo/type) can spend the entire silence window in one GCC pass.
+  (string-append options " -U___SINGLE_HOST -D___MULTIPLE_HOSTS"))
 (def (newer? source target)
   (or (not (file-exists? target))
       (> (time->seconds (file-info-last-modification-time (file-info source)))
@@ -182,13 +182,11 @@
                     (lambda (port) (write translation-identity port))))
                 (displayln "STATIC-TRANSLATED " source) (force-output))
 
-              (let* ((options (test-object-options source cc-options))
-                     (stamp (and (not (equal? options cc-options))
-                                 (string-append target ".options.sexp")))
+              (let* ((options (static-object-options cc-options))
+                     (stamp (string-append target ".options.sexp"))
                      (identity (list gsc options)))
-                ;; A changed test-host policy needs explicit option admission.
-                ;; Production policy is unchanged: preserve its existing reuse;
-                ;; the preparation owner already proves source/SDK/environment.
+                ;; Every owned object admits its actual host policy, including
+                ;; dependencies restored from older preparation artifacts.
                 ;; Publish an option identity only after successful compilation.
                 (when (or (newer? c-file target)
                           (and stamp

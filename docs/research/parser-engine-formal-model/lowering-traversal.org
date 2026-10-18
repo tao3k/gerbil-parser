@@ -53,13 +53,11 @@ physical native counterpart; there is no zip-based truncation. Each occurrence
 can have a different fresh name decoding to the same expression owner.
 =realized_native= derives the existing whole-list =Names.admitNative= gate.
 
-[[file:../../../formal/ParserEngine/LoweringTraversalPublication.lean][LoweringTraversalPublication]] sends the generated list into the existing
-callback/publication executor. Materialization supplies physical values only;
-recipes and grammar rules come from recursive generation. =published_recipes=
-preserves the complete recipe order. =complete= retains the exact dependent
-construction product and the original =ConstructionConsumer.certified= LeanPoo
-factory, physical FIFO execution, actions and readiness. It creates no second
-factory or independently validated automaton.
+[[file:lowering-physical-execution.org][Physical execution]] now generates that realization from a scoped call program,
+mutable name search and physical operands. [[file:../../../formal/ParserEngine/LoweringProtocol.lean][LoweringProtocol]] retains the existing
+=ConstructionGrammar= gate and original =ConstructionConsumer.certified=
+LeanPoo factory, physical FIFO execution, actions and readiness. The former
+caller-materialization adapter has been removed.
 
 * Native controls and rejection controls
 
@@ -84,13 +82,11 @@ This is a universal theorem about the recursive producer model, with actual
 native controls. It is not yet a universal operational theorem about arbitrary
 Scheme evaluation. In particular:
 
-- Native mutable fresh-name allocation, binding callbacks, raw syntax extraction
-  and the complete Scheme call stack must still generate =RealizedRows= for all
-  admitted inputs. The 23 comparisons establish that fact only for their inputs.
-- The source correspondence for the shared emitter remains source-schema checked;
-  it does not automatically admit the recursive bodies of =lower-to=,
-  =lower-symbol= and =lower-operand=. Their complete operational extraction is
-  still a parser-model obligation, not a host assumption.
+- The scoped physical program now generates =RealizedRows= universally. Complete
+  source schemas admit the current recursive bodies and root control order.
+  This is a source-admitted protocol denotation; a general Scheme evaluator
+  adequacy theorem is still absent. Source-schema equality and finite controls
+  must not be promoted into that theorem.
 - AST actions, field/alias labels, layout effects and precedence policy are not
   certified by recognition erasure. The traversal retains their dispatch shape,
   while this source adapter projects labels and precedence payloads away.
@@ -105,12 +101,5 @@ optimization remains gated on the remaining construction/request obligations.
 
 * Qualification
 
-The complete Lean package passes 206 build jobs. The axiom audit reports only
-the standard Lean logical axioms; no =sorry=, =native_decide= or host axiom is
-introduced. The 23 native comparisons include all existing origin fixtures and
-five additional recursive/barrier/declaration-collision controls.
-
-Five Scheme owners pass 99 cases with four workers and natural exit zero under
-the existing 90-second total and 5-second idle watchdogs. Matrix combinations
-are exercised within those cases, not counted as additional suites. The shared
-generator's check mode independently reproduces the complete typed proof input.
+See [[file:lowering-physical-execution.org][physical execution qualification]] for the current integrated gates. The
+23 native comparisons remain finite controls, not the arbitrary-input proof.

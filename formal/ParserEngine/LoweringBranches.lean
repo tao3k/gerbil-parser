@@ -105,32 +105,4 @@ theorem realized_native {rules decode} {rows : List (Emission rules)} {native : 
   | @cons row native rows rest first later ih =>
       simp only [List.map_cons, admitNative, realized_checked row native first, ih, Bool.true_and]
 
-def physical {rules} (encode : Owner → Nat) (row : Emission rules) : Grammar.Production :=
-  ⟨encode row.owner, row.rhs.map fun symbol => match symbol with
-      | .terminal token => .terminal token
-      | .nonterminal owner => .nonterminal (encode owner)⟩
-
-theorem physical_supported {rules} (encode : Owner → Nat) (decode : Nat → Owner)
-    (roundtrip : ∀ owner, decode (encode owner) = owner) (row : Emission rules) :
-    admitOrigin rules decode (physical encode row) row.recipe = true := by
-  obtain ⟨checked, checkedEq, endpoints⟩ := every_emission_checked row
-  simp only [admitOrigin, checkedEq]
-  have symbols : ((physical encode row).rhs.map (nativeSymbol decode)) = row.rhs := by
-    change (row.rhs.map _).map _ = _
-    rw [List.map_map]
-    have point : ∀ symbol : Lowering.Symbol,
-        nativeSymbol decode (match symbol with
-          | .terminal token => .terminal token
-          | .nonterminal owner => .nonterminal (encode owner)) = symbol := by
-      intro symbol
-      cases symbol <;> simp [nativeSymbol, roundtrip]
-    simp only [Function.comp_def, point]
-    induction row.rhs with
-    | nil => rfl
-    | cons head tail ih => exact congrArg (List.cons head) ih
-  change decide (checked.val.1 = [.nonterminal (decode (encode row.owner))] ∧
-    checked.val.2 = (physical encode row).rhs.map (nativeSymbol decode)) = true
-  simp only [endpoints, roundtrip, symbols]
-  rfl
-
 end ParserEngine.LoweringBranches

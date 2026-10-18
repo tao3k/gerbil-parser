@@ -62,6 +62,8 @@ failure and paired ordered publication through the same retained factory.
 [[file:lowering-traversal.org][Recursive branch-to-emission generation]] now constructs valid contexts and
 recipes for arbitrary depth, n-ary width and authored declaration counts. Its
 per-occurrence physical realization derives the complete existing origin gate.
+[[file:lowering-physical-execution.org][The physical protocol]] generates that realization rather than accepting it
+as an arbitrary caller premise; general Scheme evaluator adequacy remains open.
 The remaining native responsibility is universally generating that realization
 from Scheme control flow, mutable helper allocation and raw syntax extraction.
 =ConstructionGrammar.Input= still receives rules, decoding and recipes; their

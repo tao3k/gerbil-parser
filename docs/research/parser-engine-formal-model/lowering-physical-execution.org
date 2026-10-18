@@ -1,0 +1,113 @@
+#+title: Scoped physical lowering execution
+
+* One construction contract
+
+This extension connects the derivational grammar semantics in
+[[file:../../../formal/ParserEngine/Lowering.lean][Lowering]], the recursive native-shaped producer in
+[[file:../../../formal/ParserEngine/LoweringTraversal.lean][LoweringTraversal]], and the retained LeanPoo construction described by
+[[file:construction-vocabulary.org][the construction vocabulary]]. It removes the former caller-materialization
+adapter. Physical row alignment is now a generated theorem for the supported
+protocol, rather than an input assumption or a finite corpus comparison.
+
+| Stage | Generated obligation | Implementation |
+|-------+----------------------+----------------|
+| Source admission | Complete root and recursive helper schemas equal extracted source | LoweringBranchSource, LoweringNamesSource |
+| Recursive dispatch | All branches compile to scoped code with exact logical erasure | LoweringProgram, LoweringProgramBuilder |
+| Fresh names | Collision retries terminate and produce the source retry/claim relation | LoweringNames |
+| Mutable storage | Occupied names retain their meanings across subsequent claims | LoweringNameStore |
+| Lexical references | Captured operands preserve their physical names across scope extension | LoweringScope |
+| Call/return | Every lower-to call returns before its caller continuation; frames balance | LoweringCallStack |
+| Physical emission | Final packets derive complete RealizedRows and origin admission | LoweringProgram.physical_realized, LoweringProtocol.generated_origin |
+| Construction | Complete physical input check retains the original dependent LeanPoo product | LoweringProtocol.construct, complete |
+
+The paper target is still grammar derivation, not just equality of event lists.
+=declarations_language_sound= composes origin admission with the paper semantics.
+Recognition erasure alone does not prove AST semantics or language completeness.
+
+* Names, scopes and actual invocation boundaries
+
+The source has one mutable candidate counter and an occupied-name set. The
+model searches candidates in exactly increasing counter order. For an injective
+candidate encoding, at most =used.length + 1= probes are needed to find a free
+name. The bound is derived from occupancy; it is not a runtime timeout or
+user-supplied fuel. =search_trace= generates all retries and the final claim.
+
+Authored names and references are reserved before recursive execution. Physical
+handles carry their logical meaning. Store extension preserves every existing
+handle, including outer operands captured before an inner helper allocation.
+Two different names may decode to the same expression; the model never replaces
+per-occurrence names with one global expression-to-name map.
+
+Lexical binding lifetime and the native lower-to invocation are distinct.
+The CPS compiler retains a helper reference while constructing the caller's
+remaining operands. That lexical lifetime must not extend the recorded callee
+execution across the caller continuation. Separate =bind= and =call=
+instructions enforce this: allocation extends scope; =call= emits enter, body,
+return, then caller continuation. Every execution generates a balanced-frame
+proof for any starting stack. Empty choices still allocate a helper even when
+they emit no production, so allocation cannot be reconstructed from rows alone.
+
+The compiler covers arbitrary finite syntax depth, n-ary width and declaration
+lists. Its termination measure combines structural size with dispatch phases,
+including unisolated loops passing through isolated helpers. This closes the
+scoped compiler's recursive paths without assuming a finite observed trace.
+
+* Source correspondence and remaining proof obligations
+
+The source-data macro extracts the complete =lower-rules= definition, not only
+the shared emitter. Independent schemas include reserve prepasses, fresh and
+claim mutations, recursive dispatch, recipes, declaration order and finalizer.
+The source gate rejects any different root. This prevents unnoticed changes to
+admitted source control order, but schema equality is not a general evaluator
+adequacy theorem.
+
+The following boundary remains explicit:
+
+- The physical interpreter denotes the restricted normal-return source protocol.
+  A general small-step Scheme evaluator and a simulation from its actual
+  environments, procedure applications and mutable tables are not provided.
+  That is a parser source-refinement obligation, not an assumed host theorem.
+- Native symbol/text normalization must preserve the reserved vocabulary and
+  injective candidate encoding. The complete raw physical CFG is checked
+  against generated emissions before the retained construction is admitted.
+- The source can reject dynamic precedence and malformed DSL inputs. Arbitrary
+  exceptional exits, mutating observers and continuation reentry are outside
+  this normal-return proof. Existing publication failure proofs remain separate.
+- Actions, field/alias labels, layout capabilities and precedence policy require
+  their semantic/request correspondence beyond recognition erasure.
+- Primitive allocation, storage, arithmetic, symbol identity, compiler and GC
+  behavior are external contracts. Gambit and the installed SDK are neither
+  modified nor built.
+
+Thus universal scoped generation is proved; arbitrary actual Scheme evaluation
+and whole-engine model closure are not claimed. Local parser performance
+optimization remains gated on the remaining model obligations.
+
+* Qualification
+
+The shared =parser-source-data= renderer retains 23 native origin/recipe
+comparisons and extracts the complete source schema. Scheme controls use the
+existing =deflanguage-parser-tests= and =defparser-check= macros. The new
+collision matrix covers authored and reference-only reserved names, distinct
+helpers for identical bodies, augmentation collisions and dense publication.
+
+Lean's kernel checks generic generation, erasure, allocation, stability, stack
+and admission theorems. Concrete stack controls additionally check exact rows,
+return order and counters. Two generated-program regression controls execute
+with =#eval= and fail on an unexpected physical list; they are tests, not
+kernel-derived equality theorems. No =native_decide=, custom axiom or unsafe
+reducibility option is introduced.
+
+The current macOS preparation failure stopped inside GCC's single giant
+=clan/poo/type= host function before static-library readiness. Owned static
+objects now use per-procedure C hosts and record their compiler-option identity.
+GCC optimization and the installed SDK's tail-call contract remain in force.
+The offending object completed locally in 4.02 seconds under the original
+five-second idle watchdog. This one-object result is not full remote CI proof.
+
+The complete Lean package passes 216 build jobs. The axiom audit reports only
+standard Lean logical axioms. Six Scheme owners pass 101 macro-owned cases
+with four workers and natural exit zero in 57.73 seconds, within the unchanged
+90-second total and five-second idle watchdogs. The source generator check
+passes, and all 19 existing evidence-admission controls pass. These are local
+correctness receipts, not a CPU comparison or exact-new-head remote CI result.

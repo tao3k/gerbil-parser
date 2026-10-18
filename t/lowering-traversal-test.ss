@@ -1,7 +1,7 @@
 (import :gerbil-parser/language-test-support
         (only-in :std/misc/ports read-all-as-string)
         (only-in :gerbil-parser/t/fixtures/lr1-construction write-lowering-traversal-data)
-        (only-in :gerbil-parser/src/compiler/lr lower-rules production-id production-lhs production-rhs))
+        (only-in :gerbil-parser/src/compiler/lr lower-rules production-id production-lhs production-rhs base-symbol))
 
 (def (nested-expression kind depth)
   (if (= depth 0) '(literal "x")
@@ -38,6 +38,33 @@
       (equal (length (production-rhs (last rows))) width)
       (equal (map production-id rows) (iota (length rows))))))
 
+(defparser-check (name-collision-case count references?)
+  (scope ((reserved (map (lambda (index) (string->symbol (string-append "$start." (number->string index)))) (iota count)))
+          (bindings '()) (events '()))
+    (scope ((rules
+      (append
+        (list (list 'start (cons 'sequence
+          (append (if references? (map (lambda (name) (list 'reference name)) reserved) '())
+                  '((optional (literal "x")) (optional (literal "x")))))))
+        (if references? '() (map (lambda (name) (list name '(empty))) reserved))
+        (list (list '$accept '(empty))
+              (list (string->symbol (string-append "$accept." (number->string (+ count 2)))) '(empty))))))
+      (scope ((rows (lower-rules rules 'start #t #f
+        (lambda (kind value expression)
+          (set! events (cons kind events))
+          (when (eq? kind 'binding) (set! bindings (cons (cons value expression) bindings)))))))
+        (equal (map car (reverse bindings))
+          (map (lambda (index) (string->symbol (string-append "$start." (number->string index))))
+               (list count (+ count 1))))
+        (equal (map cdr bindings) '((optional (literal "x")) (optional (literal "x"))))
+        (equal (car (reverse events)) 'binding)
+        (equal (production-lhs (car rows))
+          (string->symbol (string-append "$accept." (number->string (+ count 3)))))
+        (equal (map base-symbol (production-rhs (list-ref rows 5)))
+          (append (if references? (map (lambda (name) (list 'nonterminal name)) reserved) '())
+                  (map (lambda (binding) (list 'nonterminal (car binding))) (reverse bindings))))
+        (equal (map production-id rows) (iota (length rows)))))))
+
 (deflanguage-parser-tests lowering-traversal-test "recursive lowering generation and source alignment"
   (engine)
   (scenario "the shared renderer reproduces the complete native traversal proof input"
@@ -48,4 +75,7 @@
     (equal (parser-check-result nested-traversal-case kind depth) (void)))
   (matrix "n-ary operands publish all helper rows before the parent row"
     (setup) ((width '(0 1 2 8 32))) (bindings)
-    (equal (parser-check-result wide-traversal-case width) (void))))
+    (equal (parser-check-result wide-traversal-case width) (void)))
+  (matrix "fresh allocation skips authored and undefined reference names before helper use"
+    (setup) ((count '(0 1 2 8 32)) (references? '(#f #t))) (bindings)
+    (equal (parser-check-result name-collision-case count references?) (void))))

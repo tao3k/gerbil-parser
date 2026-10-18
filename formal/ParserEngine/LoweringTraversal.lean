@@ -171,11 +171,14 @@ theorem single_declaration {rules : List (Nat × Syntax)} {row : Nat × Syntax}
   subst candidate
   exact (congrArg (fun pair : Nat × Expr => pair.2) equal).symm
 
-def declarations (rules : List (Nat × Syntax)) : List (Emission (normalized rules)) :=
-  rules.attach.flatMap fun entry =>
+def entryTrace (rules : List (Nat × Syntax)) (entry : { row // row ∈ rules }) :
+    List (Emission (normalized rules)) :=
     if single : (rules.filter (fun other => other.1 == entry.val.1)).length = 1 then
       declaration (single_declaration entry.property single)
     else sharedDeclaration (List.mem_map.mpr ⟨entry.val, entry.property, rfl⟩)
+
+def declarations (rules : List (Nat × Syntax)) : List (Emission (normalized rules)) :=
+  rules.attach.flatMap (entryTrace rules)
 
 /-- Arbitrary recursive depth and n-ary width; neither caller-supplied recipes
 nor a per-emission verifier-success premise occurs in this statement. -/
@@ -184,14 +187,6 @@ theorem declaration_checked {rules name expression}
     (row : Emission rules) (_member : row ∈ declaration unique) :
     ∃ checked, verify rules row.recipe = some checked ∧
       checked.val = ([.nonterminal row.owner], row.rhs) := every_emission_checked row
-
-theorem physical_declaration_supported {rules name expression}
-    (unique : UniqueBody rules name (meaning expression))
-    (encode : Owner → Nat) (decode : Nat → Owner)
-    (roundtrip : ∀ owner, decode (encode owner) = owner) :
-    ∀ row ∈ declaration unique, admitOrigin rules decode (physical encode row) row.recipe = true := by
-  intro row _
-  exact physical_supported encode decode roundtrip row
 
 theorem declarations_admitted (rules : List (Nat × Syntax)) (decode : Nat → Owner)
     (native : Grammar.CFG)

@@ -6,6 +6,7 @@
                  base-symbol nonterminal-symbol? nonterminal-name terminal-symbol?
                  production-terminal-catalog production-id canonical-base-symbol? validate-production-semantics compute-completion compute-first)
         (only-in :gerbil-parser/src/testing/source-witness parser-source-data write-parser-source-data parser-source-symbol-text))
+(import (only-in :gerbil-parser/t/fixtures/event-walk-source read-source-definition read-source-subdefinition))
 (export grammar-model-rules native-fact-rules write-native-grammar-facts write-construction-raw-data
         write-lowering-traversal-data
         lr1-not-lalr-rules shared-lookahead-rules
@@ -436,4 +437,22 @@
   (write-parser-source-data
     (parser-source-data
       (ParserEngine.LoweringTraversalWitness corpus
-        (map traversal-data (traversal-rule-corpus)))) output))
+        (map traversal-data (traversal-rule-corpus)))
+      (ParserEngine.LoweringNamesSource freshSource
+        (read-source-subdefinition "src/compiler/lr.ss" 'lower-rules 'fresh))
+      (ParserEngine.LoweringNamesSource claimSource
+        (read-source-subdefinition "src/compiler/lr.ss" 'lower-rules 'claim-name))
+      (ParserEngine.LoweringNamesSource symbolSource
+        (read-source-subdefinition "src/compiler/lr.ss" 'lower-rules 'lower-symbol))
+      (ParserEngine.LoweringNamesSource operandSource
+        (read-source-subdefinition "src/compiler/lr.ss" 'lower-rules 'lower-operand))
+      (ParserEngine.LoweringBranchSource lowerToSource
+        (read-source-subdefinition "src/compiler/lr.ss" 'lower-rules 'lower-to))
+      (ParserEngine.LoweringBranchSource recipeSources
+        (map (lambda (name) (read-source-subdefinition "src/compiler/lr.ss" 'lower-rules name))
+          '(identity body step operand-proof sequence-proof choice-proof)))
+      (ParserEngine.LoweringBranchSource pathSources
+        (map (lambda (name) (read-source-subdefinition "src/compiler/lr.ss" 'lower-rules name))
+          '(child-path map-children)))
+      (ParserEngine.LoweringBranchSource rootSource
+        (read-source-definition "src/compiler/lr.ss" 'lower-rules))) output))

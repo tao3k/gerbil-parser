@@ -63,9 +63,9 @@ this common protocol by a complete source-control refinement.
 [[file:lowering-traversal.org][The recursive producer]] now generates contexts, recurrences and complete
 emission lists for arbitrary native-shaped syntax and declaration counts. Its
 recipes feed this executor directly and compose with physical realization into
-the existing origin gate. Universal generation of that physical realization by
-the actual Scheme call stack, helper allocation and rejection paths remains
-open; finite native trace comparisons do not replace that proof.
+the existing origin gate. [[file:lowering-physical-execution.org][Scoped physical execution]] now generates names and realization for arbitrary
+admitted syntax. General Scheme evaluator adequacy and exceptional/reentrant
+callbacks remain open; finite native comparisons do not replace those proofs.
 
 Observer outcomes assume termination and preservation of borrowed production
 contents. Callbacks receive the real mutable production objects; arbitrary

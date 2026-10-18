@@ -45,6 +45,13 @@
     (try (setenv "GERBIL_PATH" root) (procedure)
          (finally (if before (setenv "GERBIL_PATH" before) (setenv "GERBIL_PATH"))))))
 
+(def (with-publication-path path procedure)
+  (let (before (getenv "PATH"))
+    (try (setenv "PATH" path) (procedure)
+         (finally (setenv "PATH" before)))))
+(def (publication-path-identity _root)
+  (list '("compile") (getenv "PATH")))
+
 (def (invoke-standard-clean procedure)
   ((publication-build-main procedure #f) "clean"))
 (def (with-publication-directory root procedure)
@@ -59,6 +66,15 @@
 
 (deflanguage-parser-tests library-publication-test "complete build publication"
   (engine (exclusive #t))
+  (scenario "extension writers require the same compiler environment"
+    (using (with-publication-root) (root)
+      (act (call-with-library-publication root build-products publication-path-identity))
+      (using (with-publication-path (string-append root "/bin:" (getenv "PATH"))) ()
+        (raises (call-with-library-publication root build-products publication-path-identity #f)
+                true))
+      (equal (file-exists? (path-expand "library-publication.sexp" root)) #t)
+      (act (call-with-library-publication root build-products publication-path-identity #f))
+      (equal (get-product root "module.ssi") "new-interface")))
   (scenario "foreign static build outputs do not invalidate source inputs"
     (using (with-publication-root) (root)
       (act (put-library-input root "static/foreign__helper.scm" "dependency source"))

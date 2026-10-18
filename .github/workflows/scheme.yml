@@ -78,7 +78,9 @@ jobs:
       - name: Build parser and language packs
         run: |
           gerbil clean
-          GERBIL_BUILD_VERBOSE=1 gerbil build
+          # The official env command prepends the package bin directory to PATH.
+          # Use it for the base writer as well as every extension writer.
+          GERBIL_BUILD_VERBOSE=1 gerbil env gxi build.ss compile
           "${GERBIL_GCC:-gcc}" -std=c11 -Wall -Wextra -Werror \
             -fsyntax-only \
             -Iinclude t/ffi-header-smoke.c
@@ -241,6 +243,13 @@ jobs:
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/source-callback-gc.log --require SOURCE-CALLBACK-GC-OK \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (call-with-compiled-interface-trace (lambda () (eval (quote (import :gerbil-parser/t/benchmarks/source-edits/benchmark))) (eval (quote (verify-callback-gc)))))'
+      - name: Verify isolated test macro phase ownership
+        run: |
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
+            --log .data/test-macro-phase.log --require TEST-SUITE-OK \
+            -- gxi t/fixtures/tla-sany-differential/test-suite.ss \
+              t/fixtures/test-macro-phase/controls.ss \
+              t/fixtures/test-macro-phase/loader-controls.ss
       - name: Verify shared-runtime Worker controls
         run: gerbil env gxi test-processes.ss workers
       - name: Run Scheme tests

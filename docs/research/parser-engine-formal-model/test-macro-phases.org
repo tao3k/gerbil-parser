@@ -1,0 +1,147 @@
+#+TITLE: Test Macro Phase Ownership
+
+* Unified contract
+
+Test declarations select capabilities before constructing a Suite. Generic
+engine and fixture declarations require constrained assertions. Basic loader
+clauses additionally require source assertions; development clauses require
+their fixture, strategy or product services. Missing capabilities and invalid
+declarations must not become empty successful suites.
+
+This is a preparation contract within [[file:native-product-publication.org][native publication]], not a parser
+algorithm optimization. [[file:lowering-physical-execution.org][The lowering ledger]] remains authoritative for complete
+Scheme-evaluation obligations.
+
+| Obligation | General model | Scheme owner | Real controls |
+|------------+---------------+--------------+---------------|
+| Ordered demand for arbitrary declaration batches | TestPhase.requests, generic_requests | deflanguage-parser-tests | generic fixture and matrix |
+| Unrequested providers cannot affect preparation | batch_independent, source_independent | engine/source/development branches | captured module-registry observations |
+| Requested failure remains an error | loader_missing | selected helper import | loading failure and retry |
+| Retained capabilities preserve context and order | build_order | checked loader and dispatcher | real accepted/rejected parses |
+| Generated names and single loader evaluation | external syntax premise | fresh caller-context aliases | caller binding collision and evaluation count |
+| Selected imports have admitted runtime ownership | selected_import_owned | resolved SDK import records | all record forms, phase and physical-root matrix |
+| Reverse directory storage restores declaration order | stored_import_order | module-evaluation-runtime-imports | ordered native selection |
+
+The model reuses LeanPoo Requirements.prepare, prepare_congr and build. It does
+not add a provider resolver. Repeated case demands remain ordered; SDK module
+initialization deduplication is a separate contract.
+
+=import_absence= requires the transitive closure of each requested capability.
+=generic_effect_counterexample= proves that provider independence alone does
+not imply module isolation: the assertion provider could itself import
+development services. =caller_import_survives= retains the caller's explicit
+parser imports. These laws prevent a framework selection theorem from being
+misreported as a bound on the entire parser startup.
+
+* Source boundary
+
+The public entry remains =language-test-support.ss=.
+
+| Implementation | Responsibility |
+|----------------+----------------|
+| src/testing/language-parser.ss | Constrained syntax and generic assertions |
+| src/testing/language-source-assertions.ss | Source parsing, artifact and AST checks |
+| src/testing/language-assertions.ss | Development clauses; delegates source checks to the same implementation |
+
+Only an admitted loader branch emits a language-helper import. Common AST
+syntax still shares artifact/CST support; generic tests do not have zero
+parser dependencies. Basic parsing declarations no longer import every
+fixture, strategy, model-tool and incremental/recovery service.
+
+Original export names and fresh aliases use the caller's syntax context.
+Definition-context names inside rename-in failed the import-set check; the
+collision control verifies the corrected binding. The loader expression stays
+inside a single let, and is evaluated once. Helper preparation does not invoke
+that expression. No compatibility branch or public schema bump is introduced.
+
+* SDK-selected evaluation
+
+The former raw-source walk missed imports emitted by test macros. A concrete
+failure reached evaluation of the arithmetic test owner: its expanded helper
+import was present, but the runtime dependency batch produced no module
+progress and crossed the five-second idle fence. The installed SDK's runtime
+import path calls core-eval-module directly; observing only the public module
+evaluation parameter for compiled contexts cannot cover this path.
+
+The suite now reads the SDK's resolved import directory, including generated
+imports, before constructing that source owner. It restores declaration order
+from the reverse directory and prepares the supported zero-phase runtime
+subset. A wrapper is admitted only when its canonical interface and sibling
+SCM match the selected context. Source overlays, foreign interfaces, missing
+wrappers and other phases remain with the SDK. Positive-phase recursive import
+semantics are not reimplemented.
+
+The duplicate raw-source graph walk is removed from the suite-owner path.
+Explicit source-generator entry points retain their separate preloading API.
+The SDK still owns source expansion, module promises, failed states and owner
+evaluation. The observer delegates the prelude first, then selected admission,
+then the original evaluator, preserving its returned values and exception.
+It does not replace runtime bindings or rewrite compiler output.
+
+This is the test preparation policy, not an equivalence theorem for arbitrary
+interleaved, effectful Scheme module initializers. Complete source evaluation
+and the extraction of SDK fields remain explicit obligations. General laws
+cover arbitrary import lists and integer phases; actual controls additionally
+exercise source/foreign rejection, zero/multiple values and exact exception
+identity from prelude, admission and body.
+
+The phase fixtures run in an explicitly ordered fresh suite process. The
+first owner captures Boolean registry observations before preparing the loader
+owner. Later admission cannot mutate that captured value. Both share the same
+SDK expander and runtime. They stay outside recursive test discovery because
+arbitrary aggregate ordering would invalidate the absence observation.
+
+* Current CI preparation repair
+
+At the parent commit both platform preparation jobs rejected the first
+optional command extension as an outdated generation. Official tools/gxpkg.ss
+shows why: env-exec calls setup-local-path!, which prepends the package bin
+directory, while build-pkgs does not. The base writer used plain gerbil build;
+extensions used gerbil env gxi. PATH is an admitted compiler input.
+
+The base now uses =gerbil env gxi build.ss compile=, matching extension owners
+and avoiding a redundant nested package CLI. Standard clean and the canonical
+build script remain authoritative. PATH stays checked; publication is not
+bypassed. A regression rejects a changed PATH before extension and accepts an
+extension under the unchanged environment.
+
+* Qualification
+
+| Final qualification | Cases/jobs | Seconds | Result |
+|---------------------+------------+---------+--------|
+| Standard clean and GCC native library build | | 150.86 | exit zero, 180/five budget |
+| Four shared helper preparation owners | | 34.08 | exit zero, ninety/five |
+| Ordered phase contract, one GXI/four Workers | 11 | 19.20 | exit zero, ninety/five |
+| Engine/loading/ABI regression, one GXI/four Workers | 199 | 68.11 | exit zero, ninety/five |
+| Unified Lean package and axiom audits | 234 | | pass |
+| Existing model-input glue controls | 6 | | pass |
+
+The 210 Scheme cases include lowering, LR, AST, events, source changes,
+initializer failures, publication policy and 17 C ABI cases. The phase contract
+also creates unique SDK wrapper identities with two genuine three-second
+initializers. Only actual module boundaries report progress; there is no timer
+heartbeat. This regression completes under the existing five-second idle fence
+without modifying or building Gambit.
+
+The qualifications are distinct scopes, not a successful ninety-second cold
+aggregate. A first all-16-owner process after rebuilding stopped at 90.98
+seconds; a subsequent aggregate stopped at 91.75 seconds during preparation.
+Both failures remain failures. The functional gates used previously accessed
+native pages and do not prove a universal first-physical-load bound or parser
+CPU speedup. Earlier syntax/import failures and writer-lock conflicts are not
+relabelled as passes. Budget values remain unchanged.
+
+* Remaining construction boundary
+
+| Gap | Evidence | Required next model |
+|-----+----------+---------------------|
+| Compiled author grammar interfaces | Importing the arithmetic grammar still evaluates parser-ir and bound-ir at expansion phase | Phase-indexed interface extraction and public-observation preservation before dependency pruning |
+| Complete cold parser admission | Whole rebuilt-library aggregation still exceeds ninety seconds | Separate framework effects, caller compiler imports and external loader latency |
+| Source evaluation | Prelude/value/error controls pass; arbitrary initializer interleavings are not proved equivalent | Complete recursive Scheme evaluation, closures and mutable-store composition |
+| Lowering emission | Existing reservation, counter and publication fragments remain available | Complete arbitrary recursive evaluation-to-emission composition in the lowering ledger |
+
+Import-trace nodes can be phase/module pairs; name-only projection is
+insufficient for the observed expansion loads. No source-interface pruning or
+local parser runtime optimization is admitted by this capability proof.
+Host/compiler behavior stays external, and all handwritten modules remain
+below the repository's thousand-line limit.

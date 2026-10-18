@@ -1,299 +1,9 @@
-;;; -*- Gerbil -*-
-;;; Language test declarations share the admitted POO loader and invariants.
+;;; Declarative test syntax; language execution dependencies belong to loader declarations.
 (import (for-syntax (only-in ./contracts parser-test-form-admitted?))
         (only-in :std/test check check-exception test-case test-suite)
-        (only-in :clan/poo/object .ref .cc)
         (only-in :core/observability/testing-case poo-flow-test-case)
-        (only-in :clan/poo/mop validate)
-        (only-in ../../language-support/entry LanguageLoaderContract)
-        (only-in ../../language-support/development language-parser-entry-ref run-language-test language-loader-fixtures language-loader-fixture-count
-                 +language-parser-entry-schema+)
-        (only-in ../runtime/artifact parse-artifact-valid? parse-artifact-success?
-                 parse-artifact-ref parse-artifact-roundtrip parse-artifact-events
-                 token-event? token-event-token-kind event-kind)
-        (only-in ../runtime/identity sha256-text)
-        (only-in ../../language-support/fixture syntax-fixture-source syntax-fixture-source-digest syntax-fixture-expected-status)
-        (only-in ./parser-ast check-parser-ast check-accepted-parse)
-        (only-in ./language-product language-model-test-receipt
-                 check-language-abi-entry check-language-portable-rejection)
-        (only-in ../compiler/normalize grammar-ir-ref)
-        (only-in ./language-strategy check-language-strategies check-language-installed
-                 check-language-fixture-strategies)
-        (only-in ../runtime/cst parse-artifact->cst syntax-node? syntax-node-kind
-                 syntax-field-name
-                 syntax-node-children syntax-field? syntax-field-children)
-        (only-in ../runtime/token token? token-lexeme)
-        (only-in ../compiler/bound-ir bound-grammar-ir-ref bound-grammar-ir-binding)
-        (only-in ../compiler/parser-ir parser-ir-ref)
-        (only-in ../compiler/lr lr-spec-ref production-lhs production-rhs)
-        (only-in ../compiler/machine parser-machine-ir)
-        (only-in ../runtime/lexer lex-source)
-        (only-in ../runtime/significant parser-significant-tokens)
-        (only-in ../runtime/lr-parser lr-parse/receipt)
-        (only-in ../language/descriptor language-grammar? language-grammar-machine language-grammar-grammar)
-        (only-in ../runtime/incremental make-edit parse-source/incremental)
-        (only-in ../runtime/recovery parse-source/recover)
-        (only-in ../runtime/region-scanner source-prefix-at?)
-        (only-in :std/string/utf8 string-utf8-length)
-        (only-in :std/sync/barrier make-barrier barrier-post! barrier-wait!))
+        (only-in ./parser-ast check-parser-ast check-accepted-parse))
 (export deflanguage-parser-tests defparser-check parser-check parser-check-result parser-check-procedure parser-test-datum-writer)
-
-(def (checked-test-loader loader)
-  (validate LanguageLoaderContract loader)
-  loader)
-
-(def (checked-language-source loader source accepted?)
-  (unless (and (equal? (language-parser-entry-ref loader 'schema)
-                      +language-parser-entry-schema+) (string? source))
-    (error "language test requires an admitted loader and string source" source))
-  (let (artifact ((.ref loader '.parse) source))
-    (check (parse-artifact-valid? artifact) => #t)
-    (check (parse-artifact-success? artifact) => accepted?)
-    (check (parse-artifact-roundtrip artifact) => source)
-    (check (parse-artifact-ref artifact 'sourceDigest) => (sha256-text source))
-    artifact))
-
-(def (checked-language-fixtures loader (expected-status #f))
-  (let ((artifacts (run-language-test loader 'fixtures)) (fixtures (language-loader-fixtures loader)))
-    (check (pair? artifacts) => #t)
-    (check (length artifacts) => (length fixtures))
-    (when expected-status
-      (check (map syntax-fixture-expected-status fixtures)
-             => (make-list (length fixtures) expected-status)))
-    (for-each (lambda (artifact fixture)
-                (check (parse-artifact-valid? artifact) => #t)
-                (check (parse-artifact-roundtrip artifact) => (syntax-fixture-source fixture))
-                (check (parse-artifact-ref artifact 'sourceDigest) => (syntax-fixture-source-digest fixture)))
-              artifacts fixtures)
-    artifacts))
-
-(def (checked-fixture-group loader status)
-  (let (fixtures (language-loader-fixtures loader status))
-    (checked-language-fixtures (checked-test-loader (.cc loader 'fixtures fixtures)) status)))
-
-(def (test-fixture-catalog loader key)
-  (case key
-    ((total) (language-loader-fixture-count loader))
-    ((accepted rejected) (language-loader-fixture-count loader key))
-    ((first-digest) (let (fixtures (language-loader-fixtures loader))
-                      (and (pair? fixtures) (syntax-fixture-source-digest (car fixtures)))))))
-
-(def (artifact-field-names artifact kind)
-  (let loop ((pending (list (parse-artifact->cst artifact))) (names '()))
-    (if (null? pending) names
-      (let (value (car pending))
-        (cond
-         ((syntax-node? value)
-          (loop (append (syntax-node-children value) (cdr pending))
-                (if (eq? (syntax-node-kind value) kind)
-                  (append (map syntax-field-name (filter syntax-field? (syntax-node-children value))) names) names)))
-         ((syntax-field? value) (loop (append (syntax-field-children value) (cdr pending)) names))
-         (else (loop (cdr pending) names)))))))
-
-(def (nonempty-language-sources sources)
-  (unless (and (list? sources) (pair? sources) (andmap string? sources))
-    (error "language test source collection must be nonempty strings" sources))
-  sources)
-
-(def (artifact-node-kinds artifact)
-  (map (lambda (event) (vector-ref event 2))
-       (filter (lambda (event) (eq? (event-kind event) 'start-node))
-               (parse-artifact-events artifact))))
-
-(def (cst-direct-nodes value)
-  (cond ((syntax-node? value) (list value))
-        ((syntax-field? value) (apply append (map cst-direct-nodes (syntax-field-children value))))
-        (else '())))
-
-(def (cst-lexemes value)
-  (cond ((token? value) (list (token-lexeme value)))
-        ((syntax-node? value) (apply append (map cst-lexemes (syntax-node-children value))))
-        ((syntax-field? value) (apply append (map cst-lexemes (syntax-field-children value))))
-        (else '())))
-
-;;; Child rows select the declared node kinds through transparent fields, then
-;;; require exact count/order. Other direct node kinds are not selected.
-(def (cst-node-matches? value pattern)
-  (and (syntax-node? value) (eq? (syntax-node-kind value) (cadr pattern))
-       (andmap
-        (lambda (condition)
-          (case (car condition)
-            ((lexemes) (andmap (lambda (text) (member text (cst-lexemes value))) (cdr condition)))
-            ((children)
-             (let* ((patterns (cdr condition)) (kinds (map cadr patterns))
-                    (selected (filter (lambda (child) (memq (syntax-node-kind child) kinds))
-                                      (apply append (map cst-direct-nodes (syntax-node-children value))))))
-               (and (= (length selected) (length patterns))
-                    (andmap values (map cst-node-matches? selected patterns)))))
-            (else (error "unknown CST test condition" condition))))
-        (cddr pattern))))
-
-(def (artifact-subtree-matches? artifact pattern)
-  (def (visit value)
-    (cond ((syntax-node? value)
-           (or (cst-node-matches? value pattern) (ormap visit (syntax-node-children value))))
-          ((syntax-field? value) (ormap visit (syntax-field-children value)))
-          (else #f)))
-  (and (visit (parse-artifact->cst artifact)) #t))
-
-(def (artifact-field-counts artifact kind field)
-  (let loop ((pending (list (parse-artifact->cst artifact))) (counts '()))
-    (if (null? pending) (reverse counts)
-      (let (value (car pending))
-        (cond
-         ((syntax-node? value)
-          (loop (append (syntax-node-children value) (cdr pending))
-                (if (eq? (syntax-node-kind value) kind)
-                  (cons (length (filter (lambda (child)
-                                         (and (syntax-field? child) (eq? (syntax-field-name child) field)))
-                                       (syntax-node-children value))) counts)
-                  counts)))
-         ((syntax-field? value) (loop (append (syntax-field-children value) (cdr pending)) counts))
-         (else (loop (cdr pending) counts)))))))
-
-(def (test-grammar-machine loader)
-  (let (descriptor (.ref loader 'descriptor))
-    (unless (language-grammar? descriptor) (error "grammar test requires a Grammar IR loader"))
-    (language-grammar-machine descriptor)))
-
-(def (check-parallel-language loader workers sources)
-  (let* ((inputs (nonempty-language-sources sources))
-         (expected (map (lambda (source) (checked-language-source loader source #t)) inputs))
-         (barrier (make-barrier workers))
-         (threads (map (lambda (index)
-                         (spawn (lambda ()
-                                  (barrier-post! barrier) (barrier-wait! barrier)
-                                  (with-catch (lambda (condition) (cons 'failed condition))
-                                    (lambda () (cons 'parsed ((.ref loader '.parse)
-                                                             (list-ref inputs (modulo index (length inputs))))))))))
-                       (iota workers)))
-         (results (map thread-join! threads)))
-    ;; Join all workers before propagating a parser exception.
-    (for-each (lambda (result) (when (eq? (car result) 'failed) (raise (cdr result)))) results)
-    (check (map cdr results)
-           => (map (lambda (index) (list-ref expected (modulo index (length inputs)))) (iota workers)))))
-
-(def (test-incremental-receipt loader source old new)
-  (let* ((offset (let find ((at 0))
-                    (cond ((source-prefix-at? source at old) at)
-                          ((>= at (string-length source)) (error "incremental test replacement not found" old))
-                          (else (find (+ at 1))))))
-         (prefix (substring source 0 offset))
-         (edited (string-append prefix new (substring source (+ offset (string-length old)) (string-length source))))
-         (base (checked-language-source loader source #t)))
-    (let-values (((artifact receipt)
-                  (parse-source/incremental (test-grammar-machine loader) source base
-                                            (make-edit (string-utf8-length prefix) (string-utf8-length old) new))))
-      (check artifact => (checked-language-source loader edited #t))
-      receipt)))
-
-(def (test-recovery-rejection loader source)
-  (let-values (((artifact receipt) (parse-source/recover (test-grammar-machine loader) source)))
-    (check (parse-artifact-success? artifact) => #f)
-    (check (parse-artifact-valid? artifact) => #t)
-    (check (parse-artifact-roundtrip artifact) => source)
-    receipt))
-
-(def (test-parser-ir-ref ir key)
-  (case key
-    ((rule-count) (length (parser-ir-ref ir 'rules)))
-    (else (parser-ir-ref ir key))))
-
-(def (test-lr-value ir key)
-  (let (spec (parser-ir-ref ir 'lr-spec))
-    (case key
-      ((state-count) (lr-spec-ref spec 'state-count))
-      ((fork-count)
-       (apply + (map (lambda (row) (length (filter (lambda (entry) (eq? (cadr entry) 'fork)) row)))
-                     (vector->list (lr-spec-ref spec 'actions)))))
-      (else (error "unknown LR test value" key)))))
-
-(def (nullable-prefix-productions ir prefixes)
-  (filter (lambda (production)
-            (and (null? (production-rhs production))
-                 (ormap (lambda (prefix)
-                          (string-prefix? prefix (symbol->string (production-lhs production)))) prefixes)))
-          (lr-spec-ref (parser-ir-ref ir 'lr-spec) 'productions)))
-
-(def (initial-shifts? ir literals)
-  (let (actions (vector-ref (lr-spec-ref (parser-ir-ref ir 'lr-spec) 'actions) 0))
-    (and (andmap (lambda (literal)
-                   (let (entry (assoc (list 'terminal 'literal literal) actions))
-                     (and entry (eq? (cadr entry) 'shift)))) literals) #t)))
-
-(def (test-bound-rule ir name)
-  (or (bound-grammar-ir-binding ir 'rule name) (error "missing bound test rule" name)))
-
-(def (test-bound-source binding key)
-  (bound-grammar-ir-ref (bound-grammar-ir-ref binding 'source) key))
-
-(def (test-bound-source-prefix? binding key prefix)
-  (let (value (test-bound-source binding key))
-    (and (string? value) (string-prefix? prefix value))))
-
-(def (test-lr-receipt machine source budget)
-  (let ((spec (parser-ir-ref (parser-machine-ir machine) 'lr-spec))
-        (tokens (parser-significant-tokens machine (lex-source machine source))))
-    (let-values (((_root rest receipt) (lr-parse/receipt spec tokens budget)))
-      (cons (cons 'rest rest) receipt))))
-
-(defrules language-bound-expectation (source source-prefix references reference-names binding-id)
-  ((_ binding (source key expected)) (check (test-bound-source binding 'key) => expected))
-  ((_ binding (source-prefix key prefix)) (check (test-bound-source-prefix? binding 'key prefix) => #t))
-  ((_ binding (references expected)) (check (bound-grammar-ir-ref binding 'references) => expected))
-  ((_ binding (reference-names expected))
-   (check (map (lambda (row) (bound-grammar-ir-ref row 'name))
-               (bound-grammar-ir-ref binding 'references)) => expected))
-  ((_ binding (binding-id expected)) (check (bound-grammar-ir-ref binding 'bindingId) => expected)))
-
-(defrules language-bound-row ()
-  ((_ ir (name expectation ...))
-   (let (binding (test-bound-rule ir 'name))
-     (language-bound-expectation binding expectation) ...)))
-
-(defrules language-lr-expectation (state-count fork-count empty-nullable-prefixes initial-shifts)
-  ((_ ir (state-count expected)) (check (test-lr-value ir 'state-count) => expected))
-  ((_ ir (fork-count expected)) (check (test-lr-value ir 'fork-count) => expected))
-  ((_ ir (empty-nullable-prefixes prefix ...))
-   (check (nullable-prefix-productions ir '(prefix ...)) => '()))
-  ((_ ir (initial-shifts literal ...)) (check (initial-shifts? ir '(literal ...)) => #t)))
-
-(defrules language-artifact-expectation (nodes tokens counts without-nodes diagnostics artifact-ref projection root subtree without-subtree field-counts fields token-counts)
-  ((_ artifact (nodes kind ...))
-   (begin (check (and (memq 'kind (artifact-node-kinds artifact)) #t) => #t) ...))
-  ((_ artifact (without-nodes kind ...))
-   (begin (check (and (memq 'kind (artifact-node-kinds artifact)) #t) => #f) ...))
-  ((_ artifact (counts (kind count) ...))
-   (begin (check (length (filter (lambda (value) (eq? value 'kind))
-                                (artifact-node-kinds artifact))) => count) ...))
-  ((_ artifact (fields kind name ...))
-   (let (names (artifact-field-names artifact 'kind))
-     (check (and (memq 'name names) #t) => #t) ...))
-  ((_ artifact (token-counts (kind count) ...))
-   (let (kinds (map token-event-token-kind (filter token-event? (parse-artifact-events artifact))))
-     (check (length (filter (lambda (value) (eq? value 'kind)) kinds)) => count) ...))
-  ((_ artifact (tokens kind ...))
-   (let (kinds (map token-event-token-kind (filter token-event? (parse-artifact-events artifact))))
-     (check (and (memq 'kind kinds) #t) => #t) ...))
-  ((_ artifact (root kind)) (check (car (artifact-node-kinds artifact)) => 'kind))
-  ((_ artifact (field-counts kind field (count ...)))
-   (check (artifact-field-counts artifact 'kind 'field) => '(count ...)))
-  ((_ artifact (without-subtree pattern)) (check (artifact-subtree-matches? artifact 'pattern) => #f))
-  ((_ artifact (subtree pattern)) (check (artifact-subtree-matches? artifact 'pattern) => #t))
-  ((_ artifact (diagnostics count)) (check (length (parse-artifact-ref artifact 'diagnostics)) => count))
-  ((_ artifact (diagnostics))
-   (check (pair? (parse-artifact-ref artifact 'diagnostics)) => #t))
-  ((_ artifact (artifact-ref key expected))
-   (check (parse-artifact-ref artifact 'key) => expected))
-  ((_ artifact (projection project (key expected) ...))
-   (let (value (project artifact))
-     (check (cdr (assq 'key value)) => expected) ...)))
-
-(defrules language-model-expectation (nonzero)
-  ((_ receipt (nonzero key))
-   (check (let (value (bound-grammar-ir-ref receipt 'key))
-            (and (number? value) (not (zero? value)))) => #t))
-  ((_ receipt (key expected)) (check (bound-grammar-ir-ref receipt 'key) => expected)))
 
 ;;; Finite engine matrices use the same closed property/equality clauses as
 ;;; language fixtures. Empty axes are rejected rather than silently skipping.
@@ -457,97 +167,11 @@
       (else (raise-syntax-error #f "unsupported parser test step" node))))
   (syntax-case stx () ((_ node) (compile #'node))))
 
-(defrules language-loader-test-clause (accepted rejected accepted-many rejected-many identity fixtures ast property bindings equal parser-ir bound-ir bound-rules lr lr-receipt parallel incremental replace recovery-rejected status installed strategy-parity fixture-parity fixture-group accepted-fixture fixture-catalog syntax-kind distinct-contract model-receipt native-entry portable-rejected matrix scenario profiled)
-  ((_ loader (accepted label source expectation ...))
-   (test-case label
-     (let (artifact (checked-language-source loader source #t))
-       (language-artifact-expectation artifact expectation) ... (void))))
-  ((_ loader (rejected label source expectation ...))
-   (test-case label
-     (let (artifact (checked-language-source loader source #f))
-       (language-artifact-expectation artifact expectation) ... (void))))
-  ((_ loader (accepted-many label sources expectation ...))
-   (test-case label
-     (for-each (lambda (source)
-                 (let (artifact (checked-language-source loader source #t))
-                   (language-artifact-expectation artifact expectation) ... (void))) (nonempty-language-sources sources))))
-  ((_ loader (rejected-many label sources expectation ...))
-   (test-case label
-     (for-each (lambda (source)
-                 (let (artifact (checked-language-source loader source #f))
-                   (language-artifact-expectation artifact expectation) ... (void))) (nonempty-language-sources sources))))
-  ((_ loader (identity label (key expected) ...))
-   (test-case label (check (language-parser-entry-ref loader 'key) => expected) ...))
-  ((_ loader (fixtures label (status expected)))
-   (test-case label (checked-language-fixtures loader 'expected)))
-  ((_ loader (fixtures label))
-   (test-case label
-     (checked-language-fixtures loader)))
-  ((_ loader (ast label source pattern))
-   (test-case label
-     (let* ((text source) (artifact (checked-language-source loader text #t)))
-       (check-parser-ast artifact text pattern))))
-  ((_ loader (parallel label workers sources))
-   (test-case label (check-parallel-language loader workers sources)))
-  ((_ loader (incremental label source (replace old new) (key expected) ...))
-   (test-case label (let (receipt (test-incremental-receipt loader source old new))
-                      (check (bound-grammar-ir-ref receipt 'key) => expected) ...)))
-  ((_ loader (recovery-rejected label source (key expected) ...))
-   (test-case label (let (receipt (test-recovery-rejection loader source))
-                      (check (bound-grammar-ir-ref receipt 'key) => expected) ...)))
-  ((_ loader (parser-ir label value (key expected) ...))
-   (test-case label (let (ir value) (check (test-parser-ir-ref ir 'key) => expected) ...)))
-  ((_ loader (bound-ir label value (binding-count expected)))
-   (test-case label (check (bound-grammar-ir-ref value 'bindingCount) => expected)))
-  ((_ loader (bound-rules label value row ...))
-   (test-case label (let (ir value) (language-bound-row ir row) ...)))
-  ((_ loader (lr label value expectation ...))
-   (test-case label (let (ir value) (language-lr-expectation ir expectation) ...)))
-  ((_ loader (lr-receipt label machine source budget (key expected) ...))
-   (test-case label (let (receipt (test-lr-receipt machine source budget))
-                      (check (bound-grammar-ir-ref receipt 'key) => expected) ...)))
-  ((_ loader (installed label route))
-   (test-case label (check-language-installed loader 'route)))
-  ((_ loader (strategy-parity label specification option ...))
-   (test-case label (check-language-strategies loader 'specification '(option ...))))
-  ((_ loader (fixture-parity label expected-status option ...))
-   (test-case label
-     (checked-language-fixtures loader)
-     (check-language-fixture-strategies loader 'expected-status '(option ...))))
-  ((_ loader (fixture-group label expected-status expectation ...))
-   (test-case label
-     (for-each (lambda (artifact) (language-artifact-expectation artifact expectation) ... (void))
-               (checked-fixture-group loader 'expected-status))))
-  ((_ loader (accepted-fixture label index expectation ...))
-   (test-case label
-     (let (artifact (checked-language-source loader (syntax-fixture-source (list-ref (.ref loader 'fixtures) index)) #t))
-       (language-artifact-expectation artifact expectation) ... (void))))
-  ((_ loader (fixture-catalog label (key expected) ...))
-   (test-case label (check (test-fixture-catalog loader 'key) => expected) ...))
-  ((_ loader (syntax-kind label kind category (name ...)))
-   (test-case label
-     (check (assq 'kind (grammar-ir-ref (language-grammar-grammar (.ref loader 'descriptor)) 'syntax-kinds))
-            => '(kind category (name ...)))))
-  ((_ loader (distinct-contract label other))
-   (test-case label (check (equal? (.ref loader 'contract) (.ref (checked-test-loader other) 'contract)) => #f)))
-  ((_ loader (model-receipt label model source config tool workers (key expected) ...))
-   (test-case label
-     (let (receipt (language-model-test-receipt loader model source config 'tool workers))
-       (language-model-expectation receipt (key expected)) ...)))
-  ((_ loader (native-entry label source accepted-status))
-   (test-case label
-     (let* ((text source) (accepted? (eq? 'accepted-status 'accepted))
-            (artifact (checked-language-source loader text accepted?)))
-       (check-language-abi-entry loader text artifact accepted?))))
-  ((_ loader (portable-rejected label module-path message))
-   (test-case label (check-language-portable-rejection module-path message)))
-)
-
 ;;; Engine clause tags are datum keywords. Subject bindings such as `bindings`
 ;;; or `equal` must not alter declaration dispatch or capture emitted checks.
 (defsyntax (language-test-clause stx)
   (syntax-case stx ()
-    ((_ loader clause)
+    ((_ loader dispatch clause)
      (case (stx-e (stx-car #'clause))
        ((suite)
         (syntax-case #'clause ()
@@ -573,7 +197,7 @@
           ((_ label (_ (name value) ...) (_ actual expected) ...)
            #'(test-case label
                (let* ((name value) ...) (check actual => expected) ...)))))
-       (else #'(language-loader-test-clause loader clause))))))
+       (else #'(dispatch loader clause))))))
 
 ;;; The loader expression is evaluated once. No free-form test-case body is
 ;;; accepted: each row and artifact expectation must match the closed syntax.
@@ -912,7 +536,7 @@
      (begin
        (admit-rows! (syntax->datum #'(clause ...)) #t)
        #'(def name (make-parser-test-fixture-owner
-                    (lambda () (language-test-clause #f clause) ...)))))
+                    (lambda () (language-test-clause #f #f clause) ...)))))
     ((_ name title (profile option ...) clause ...)
      (and (identifier? #'name) (stx-string? #'title)
           (eq? (stx-e #'profile) 'engine))
@@ -921,14 +545,32 @@
        (with-syntax (((declaration ...)
                       (execution-declarations #'name (syntax->list #'(option ...)))))
          #'(begin declaration ...
-             (def name (test-suite title (language-test-clause #f clause) ...))
+             (def name (test-suite title (language-test-clause #f #f clause) ...))
              (export name)))))
     ((_ name title (loader entry) clause ...)
      (and (identifier? #'name) (stx-string? #'title))
      (let (rows (syntax->datum #'(clause ...)))
        (admit-rows! rows #f)
-       #'(begin
-           (def name (let (owner (checked-test-loader entry))
-                       (test-suite title (language-test-clause owner clause) ...)))
-           (export name))))
+       ;; Imports and references share the caller context. The selected branch
+       ;; admits the language capability; engine/fixture declarations never do.
+       (with-syntax ((loader-export (datum->syntax #'name 'checked-test-loader))
+                     (clause-export (datum->syntax #'name 'language-loader-test-clause))
+                     (checked-loader (datum->syntax #'name (stx-e (genident 'checked-loader))))
+                     (dispatch (datum->syntax #'name (stx-e (genident 'language-clause))))
+                     (assertion-module
+                       (datum->syntax #'name
+                         (if (andmap (lambda (row)
+                                       (memq (car row) '(accepted rejected accepted-many rejected-many
+                                                        identity ast property matrix scenario profiled suite))) rows)
+                           ':gerbil-parser/src/testing/language-source-assertions
+                           ':gerbil-parser/src/testing/language-assertions))))
+         #'(begin
+             (import (rename-in
+                       (only-in assertion-module
+                                loader-export clause-export)
+                       (loader-export checked-loader)
+                       (clause-export dispatch)))
+             (def name (let (owner (checked-loader entry))
+                         (test-suite title (language-test-clause owner dispatch clause) ...)))
+             (export name)))))
     (_ (raise-syntax-error #f "parser tests require a name, title and loader or engine profile" stx))))

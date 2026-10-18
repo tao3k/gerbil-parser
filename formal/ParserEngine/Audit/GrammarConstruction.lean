@@ -1,3 +1,4 @@
+import ParserEngine.TestPhase
 import ParserEngine.LoweringReservationEvaluation
 import ParserEngine.LoweringPreprocessingEvaluation
 import ParserEngine.Components
@@ -6,6 +7,21 @@ import ParserEngine.LoweringAllocationCalls
 import ParserEngine.LoweringRootScope
 import ParserEngine.SchemeNameEncoding
 import ParserEngine.SourceInventory
+
+#print axioms ParserEngine.TestPhase.generic_requests
+#print axioms ParserEngine.TestPhase.batch_independent
+#print axioms ParserEngine.TestPhase.generic_independent
+#print axioms ParserEngine.TestPhase.source_independent
+#print axioms ParserEngine.TestPhase.loader_missing
+#print axioms ParserEngine.TestPhase.build_order
+#print axioms ParserEngine.TestPhase.import_absence
+#print axioms ParserEngine.TestPhase.caller_import_survives
+#print axioms ParserEngine.TestPhase.generic_effect_counterexample
+#print axioms ParserEngine.TestPhase.requested_phases
+#print axioms ParserEngine.TestPhase.selected_import_owned
+#print axioms ParserEngine.TestPhase.stored_import_order
+#print axioms ParserEngine.TestPhase.source_overlay_excluded
+#print axioms ParserEngine.TestPhase.nonzero_phase_excluded
 
 #print axioms ParserEngine.SourceInventory.selection_exact
 #print axioms ParserEngine.SourceInventory.visits_bound

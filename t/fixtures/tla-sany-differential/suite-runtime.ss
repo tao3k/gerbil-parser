@@ -69,7 +69,8 @@
   ;; cache survives every owner in the single runtime.
   (call-with-module-evaluation-trace
    (lambda ()
-    (preload-test-imports file)
+    ;; The SDK resolves author and macro-generated imports once. Evaluation
+    ;; observes that selected context; no second source import graph is walked.
     (let* ((context (import-test-owner file))
          (exports (module-context-export context))
          (suites '()) (setup void) (cleanup void) (affinity #f) (exclusive? #f))

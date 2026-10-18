@@ -482,9 +482,10 @@ five seconds idle. The ABI margin is small. The first new-binary publication
 gate also retains a 91.05-second failed admission before the successful
 unprofiled control. No uniform cold-start bound is established.
 
-The public test macro module currently imports language assertion helpers even
+At the receipt above, the public test macro module imported language assertion helpers even
 for engine-only owners. Those imports include parser runtime dependencies;
-selective phase dependency loading remains a design obligation. This receipt
+selective phase dependency loading was still a design obligation. See
+[[file:test-macro-phases.org][test macro phase ownership]] for the subsequent source correction and controls. This receipt
 does not attribute all startup cost to the sampler, prove the complete Scheme
 evaluator, or claim parser-request CPU improvement. Gambit and SDK sources
 remain unchanged.

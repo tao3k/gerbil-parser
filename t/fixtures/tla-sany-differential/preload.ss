@@ -50,19 +50,71 @@
 ;; Source owners can finish interface expansion before evaluating their
 ;; dependency bodies. Observe that official phase too; never replace evaluation
 ;; or synthesize progress while a single evaluation is blocked.
+;;; A macro-generated import is not present in the author's raw import forms.
+;;; Admit only the compiled context the SDK is actually about to evaluate.
+(def (module-evaluation-runtime-name module)
+  (and (gx#module-context? module)
+       (let ((path (gx#module-context-path module))
+             (id (gx#expander-context-id module)))
+         (and (string? path) (string-suffix? ".ssi" path)
+              (let (name (cond ((symbol? id) (symbol->string id))
+                              ((string? id) id) (else #f)))
+                (and name
+                     (let ((interface (compiled-file name ".ssi"))
+                           (wrapper (compiled-file name ".scm")))
+                       (and interface wrapper
+                            (equal? (path-normalize path) (path-normalize interface))
+                            (equal? (path-normalize wrapper)
+                                    (path-normalize
+                                      (string-append (path-strip-extension interface) ".scm")))
+                            name))))))))
+
+;;; Read the SDK's expanded imports, including imports emitted by macros.
+;;; The context stores them in reverse declaration order. Source overlays and
+;;; nonzero-phase exports remain under the SDK's own evaluation protocol.
+(def (module-evaluation-runtime-imports module)
+  (let (runtime (module-evaluation-runtime-name module))
+    (cond
+      (runtime (list runtime))
+      ((gx#module-context? module)
+       (filter-map
+         (lambda (entry)
+           (let (context
+                  (cond
+                    ((and (gx#import-set? entry) (zero? (gx#import-set-phi entry)))
+                     (gx#import-set-source entry))
+                    ((and (gx#module-import? entry) (zero? (gx#module-import-phi entry))
+                          (zero? (gx#module-export-phi (gx#module-import-source entry))))
+                     (gx#module-export-context (gx#module-import-source entry)))
+                    ((gx#module-context? entry) entry)
+                    (else #f)))
+             (and context (module-evaluation-runtime-name context))))
+         (reverse (gx#module-context-import module))))
+      (else '()))))
+
+(def (evaluate-observed-module module evaluate (admit preload-runtime-module))
+  (let ((name (if (or (gx#module-context? module) (gx#prelude-context? module))
+                  (gx#expander-context-id module) module))
+        (runtimes (module-evaluation-runtime-imports module)))
+    (displayln "MODULE-EVALUATE " name) (force-output)
+    (when (pair? runtimes)
+      ;; core-eval-module forces the prelude before the runtime body. Delegate
+      ;; that same promise first; the SDK owns memoization and failed states.
+      (let (prelude (gx#core-context-prelude module))
+        (when prelude
+          (call-with-values (lambda () (evaluate prelude)) (lambda _ (void)))))
+      (for-each admit runtimes))
+    (call-with-values
+      (lambda () (evaluate module))
+      (lambda results
+        (displayln "MODULE-EVALUATED " name) (force-output)
+        (apply values results)))))
+
 (def (call-with-module-evaluation-trace thunk)
   (let (evaluate (gx#current-expander-module-eval))
     (parameterize
       ((gx#current-expander-module-eval
-        (lambda (module)
-          (let (name (if (or (gx#module-context? module) (gx#prelude-context? module))
-                        (gx#expander-context-id module) module))
-            (displayln "MODULE-EVALUATE " name) (force-output)
-            (call-with-values
-              (lambda () (evaluate module))
-              (lambda results
-                (displayln "MODULE-EVALUATED " name) (force-output)
-                (apply values results)))))))
+        (lambda (module) (evaluate-observed-module module evaluate))))
       (thunk))))
 
 (def (import-compiled-interface! module)

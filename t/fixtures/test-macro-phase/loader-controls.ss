@@ -6,7 +6,10 @@
        '("gerbil-parser/src/testing/language-assertions"
          "gerbil-parser/language-support/development"
          "gerbil-parser/src/testing/language-strategy"
-         "gerbil-parser/src/testing/language-product")))
+         "gerbil-parser/src/testing/language-product"
+         "gerbil-parser/src/compiler/parser-ir"
+         "gerbil-parser/src/compiler/bound-ir"
+         "gerbil-parser/src/compiler/language-declaration")))
 (def checked-test-loader 'caller-loader)
 (def language-loader-test-clause 'caller-clause)
 (def loader-evaluations 0)
@@ -19,4 +22,4 @@
     (equal checked-test-loader 'caller-loader)
     (equal language-loader-test-clause 'caller-clause)
     (equal loader-evaluations 1)
-    (equal +development-loaded+ '(#f #f #f #f))))
+    (equal +development-loaded+ '(#f #f #f #f #f #f #f))))

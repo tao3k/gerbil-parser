@@ -1,6 +1,16 @@
 ;;; Thin conformance preparation owner; reusable cache logic lives in the engine.
 (import (only-in :gerbil-parser/src/build-support/preparation-cache call-with-preparation-cache preparation-store-file conformance-source-only? conformance-module-product-matcher conformance-module-product? conformance-generated-cache?)
-        (only-in :gerbil-parser/src/build-support/preparation-snapshot preparation-files preparation-native-object?))
+        (only-in :gerbil-parser/src/build-support/preparation-snapshot
+                 preparation-files preparation-native-object? preparation-file-digest))
+
+(def (conformance-compiler-identity)
+  (let* ((compiler (getenv "GERBIL_GCC" "gcc"))
+         (path (if (string-contains compiler "/") compiler
+                 (find file-exists?
+                   (map (lambda (root) (path-expand compiler root))
+                        (string-split (getenv "PATH") #\:))))))
+    (unless path (error "C compiler identity is missing" compiler))
+    (list path (preparation-file-digest path))))
 
 (def (conformance-owned-modules)
   ;; Read the build owner's literal catalog; do not duplicate its module list.
@@ -49,13 +59,7 @@
           (write (map (lambda (name) (cons name (getenv name #f)))
                       '("GERBIL_GCC" "GERBIL_GSC" "GERBIL_BUILD_PREFIX" "CC" "CFLAGS" "LDFLAGS"
                         "MACOSX_DEPLOYMENT_TARGET" "GERBIL_LOADPATH" "LIBRARY_PATH" "CPPFLAGS" "SDKROOT" "PATH")) port)
-          (let* ((compiler (getenv "GERBIL_GCC" "gcc"))
-                 (path (if (string-contains compiler "/") compiler
-                         (find file-exists?
-                           (map (lambda (root) (path-expand compiler root))
-                                (string-split (getenv "PATH") #\:))))))
-            (unless path (error "C compiler identity is missing" compiler))
-            (write (list path (preparation-file-digest path)) port))))
+          (write (conformance-compiler-identity) port)))
       (call-with-preparation-cache
         (path-expand "conformance-cache.sexp" (getenv "GERBIL_PATH"))
         (lambda () (cons toolchain (inputs)))

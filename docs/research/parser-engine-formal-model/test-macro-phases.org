@@ -21,6 +21,8 @@ Scheme-evaluation obligations.
 | Generated names and single loader evaluation | external syntax premise | fresh caller-context aliases | caller binding collision and evaluation count |
 | Selected imports have admitted runtime ownership | selected_import_owned | resolved SDK import records | all record forms, phase and physical-root matrix |
 | Reverse directory storage restores declaration order | stored_import_order | module-evaluation-runtime-imports | ordered native selection |
+| Compiled interfaces do not request author-time execution | AuthorPhase.interface_independent, template_service_dormant | grammar frontend, phase-minus-one service import | loader registry snapshot |
+| Authoring requires the compiler and retains its operands | declaration_requires_compiler, expansion_context | language-declaration expansion service | real source DSL, macro composition and invalid declaration |
 
 The model reuses LeanPoo Requirements.prepare, prepare_congr and build. It does
 not add a provider resolver. Repeated case demands remain ordered; SDK module
@@ -53,6 +55,40 @@ Definition-context names inside rename-in failed the import-set check; the
 collision control verifies the corrected binding. The loader expression stays
 inside a single let, and is evaluated once. Helper preparation does not invoke
 that expression. No compatibility branch or public schema bump is introduced.
+
+* Author-time service boundary
+
+The previous grammar frontend imported parser-ir, bound-ir and concise-language
+at phase plus one. Reading a compiled grammar's interface therefore initialized
+the author compiler even when the caller only wanted its runtime parser.
+
+The frontend now retains an explicit for-template dependency on
+src/compiler/language-declaration.ss. This preserves the ordinary build graph
+without requesting the service runtime at interface phase. An actual lexical
+declaration calls the SDK import-module with evaluation enabled, resolves its
+export using the SDK and obtains the original expansion procedure. No private
+module-state cache, generated-interface rewrite or runtime-binding replacement
+is introduced. The service invokes the existing compiler with the same syntax
+and hygienic runtime operands; lowering and parser algorithms are unchanged.
+
+AuthorPhase reuses LeanPoo Requirements. Its counterexample shows why eager
+compiler admission can fail an interface that does not need that capability.
+The general laws preserve the expansion context and required-service failure.
+Quint AuthorPhase exercises the ordered interface/request/resolve/expand
+protocol, including missing services, invalid input and negative eager-admission
+controls. Seven controls and one thousand sampled traces pass. These finite
+controls complement the arbitrary-context Lean laws; they are not a general
+Scheme execution proof.
+
+SDK export extraction, Scheme evaluation and transitive metadata effects remain
+explicit premises. In particular, a dormant runtime dependency does not mean
+that no compiler metadata is read.
+
+The loader fixture captures absence of the three compiler runtimes before any
+development owner is prepared. The separate source author fixture expands a
+real declaration with defgrammar-syntax, checks acceptance and rejection, and
+requires an invalid declaration to fail. This is a phase contract, not a claim
+of parser-request CPU improvement or a complete Scheme simulation.
 
 * SDK-selected evaluation
 
@@ -99,6 +135,14 @@ shows why: env-exec calls setup-local-path!, which prepends the package bin
 directory, while build-pkgs does not. The base writer used plain gerbil build;
 extensions used gerbil env gxi. PATH is an admitted compiler input.
 
+The next exact-head run exposed another explicit dependency defect on both
+platforms: the conformance source owner called preparation-file-digest without
+importing it. The owner now imports that binding from preparation-snapshot.
+Its compiler-identity operation is exercised by the SDK syntax reader and
+top-level evaluator in a fresh context in an independent macro test, before
+the CI conformance build. The SHA-256
+identity remains the same 32-byte value; no admission rule or budget is relaxed.
+
 The base now uses =gerbil env gxi build.ss compile=, matching extension owners
 and avoiding a redundant nested package CLI. Standard clean and the canonical
 build script remain authoritative. PATH stays checked; publication is not
@@ -107,7 +151,7 @@ extension under the unchanged environment.
 
 * Qualification
 
-| Final qualification | Cases/jobs | Seconds | Result |
+| Earlier phase qualification | Cases/jobs | Seconds | Result |
 |---------------------+------------+---------+--------|
 | Standard clean and GCC native library build | | 150.86 | exit zero, 180/five budget |
 | Four shared helper preparation owners | | 34.08 | exit zero, ninety/five |
@@ -131,12 +175,30 @@ native pages and do not prove a universal first-physical-load bound or parser
 CPU speedup. Earlier syntax/import failures and writer-lock conflicts are not
 relabelled as passes. Budget values remain unchanged.
 
+The author-time boundary subsequently passes an official clean GCC library
+build in 91.27 seconds and the four helper preparations in 34.22 seconds.
+The unchanged parent implementation first failed the sixteen-owner aggregate
+again at 92.04 seconds. With the new boundary, the first aggregate still fails
+at 92.78 seconds while preparing the loader owner. Moving the compiler demand
+therefore does not establish a cold startup improvement. A later functional
+attempt also fails at 90.96 seconds; subsequent fixture errors remain rejected
+observations. No split gate replaces these failures.
+
+The updated unified Lean package passes 235 jobs, and the six existing input
+controls pass. The conformance source-import regression passes independently
+in 4.90 seconds with exit zero. The final single-GXI/four-worker functional
+aggregate passes 219 cases across nineteen owners in 21.77 seconds, exit zero,
+under the same ninety/five budget. Its native pages were previously accessed.
+Functional aggregation and first-physical-load admission remain distinct receipts.
+
 * Remaining construction boundary
 
 | Gap | Evidence | Required next model |
 |-----+----------+---------------------|
-| Compiled author grammar interfaces | Importing the arithmetic grammar still evaluates parser-ir and bound-ir at expansion phase | Phase-indexed interface extraction and public-observation preservation before dependency pruning |
+| Compiled author grammar interfaces | Native registry control excludes parser-ir, bound-ir and the declaration service; metadata traversal remains | Complete phase-indexed source extraction beyond the declared SDK premise |
 | Complete cold parser admission | Whole rebuilt-library aggregation still exceeds ninety seconds | Separate framework effects, caller compiler imports and external loader latency |
+| Generic assertion closure | The shared AST module still imports artifact/CST execution | Preserve expression-level parser-check, hygiene and standalone/native consumers before changing admission |
+| Runtime source descriptor closure | source and source-strategy import contextual-program accessors from a compiler owner, which imports profile compilation | Separate runtime data/operations from admission and prove their shared ownership before migration |
 | Source evaluation | Prelude/value/error controls pass; arbitrary initializer interleavings are not proved equivalent | Complete recursive Scheme evaluation, closures and mutable-store composition |
 | Lowering emission | Existing reservation, counter and publication fragments remain available | Complete arbitrary recursive evaluation-to-emission composition in the lowering ledger |
 

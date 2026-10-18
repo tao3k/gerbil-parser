@@ -92,6 +92,12 @@ jobs:
         run: gerbil env gxi build-test-driver.ss compile
       - name: Compile qualification boundary
         run: gerbil env gxi build-qualification.ss compile
+      - name: Verify conformance preparation imports
+        run: |
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
+            --log .data/conformance-preparation-imports.log --require TEST-SUITE-OK \
+            -- gxi t/fixtures/tla-sany-differential/test-suite.ss \
+              t/conformance-preparation-test.ss
       - name: Compile reusable Scheme library objects
         run: |
           gerbil env gxi qualify.ss run --library-write --timeout 240 --idle-timeout 5 \
@@ -249,7 +255,8 @@ jobs:
             --log .data/test-macro-phase.log --require TEST-SUITE-OK \
             -- gxi t/fixtures/tla-sany-differential/test-suite.ss \
               t/fixtures/test-macro-phase/controls.ss \
-              t/fixtures/test-macro-phase/loader-controls.ss
+              t/fixtures/test-macro-phase/loader-controls.ss \
+              t/fixtures/test-macro-phase/author-controls.ss
       - name: Verify shared-runtime Worker controls
         run: gerbil env gxi test-processes.ss workers
       - name: Run Scheme tests

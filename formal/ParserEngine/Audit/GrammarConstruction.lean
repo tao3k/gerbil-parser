@@ -1,4 +1,5 @@
 import ParserEngine.TestPhase
+import ParserEngine.AuthorPhase
 import ParserEngine.LoweringReservationEvaluation
 import ParserEngine.LoweringPreprocessingEvaluation
 import ParserEngine.Components
@@ -17,6 +18,11 @@ import ParserEngine.SourceInventory
 #print axioms ParserEngine.TestPhase.import_absence
 #print axioms ParserEngine.TestPhase.caller_import_survives
 #print axioms ParserEngine.TestPhase.generic_effect_counterexample
+#print axioms ParserEngine.AuthorPhase.interface_independent
+#print axioms ParserEngine.AuthorPhase.declaration_requires_compiler
+#print axioms ParserEngine.AuthorPhase.expansion_context
+#print axioms ParserEngine.AuthorPhase.template_service_dormant
+#print axioms ParserEngine.AuthorPhase.eager_admission_counterexample
 #print axioms ParserEngine.TestPhase.requested_phases
 #print axioms ParserEngine.TestPhase.selected_import_owned
 #print axioms ParserEngine.TestPhase.stored_import_order

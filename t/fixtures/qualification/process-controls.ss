@@ -2,6 +2,40 @@
 (import :gerbil-parser/t/support/qualification/process :gerbil-parser/t/support/qualification/ownership :std/io/tempfile :std/misc/ports)
 (def (check condition label . details)
   (unless condition (apply error "process control failed" label details)))
+;;; Drain initialization output before applying pressure to the executed child.
+;;; Otherwise library admission can fill the pipe before it creates ready.
+(def (backpressure-output pipe ready)
+ (let* ((started (##current-time-point)) (paused? #f)
+        (capture (open-output-u8vector))
+        (reader
+          (spawn
+            (lambda ()
+              (let (buffer (make-u8vector 65536))
+                (let loop ()
+                  (let (count (read-subu8vector buffer 0 65536 pipe 1))
+                    (unless (zero? count)
+                      (write-subu8vector buffer 0 count capture)
+                      (when (and (not paused?) (file-exists? ready))
+                        (set! paused? #t)
+                        ;; Deliberately exceed the unchanged 0.8s idle fence.
+                        (thread-sleep! 1.2))
+                      (loop)))))
+              (get-output-u8vector capture)))))
+  (try
+    (let loop ()
+      (unless (file-exists? ready)
+        (when (> (- (##current-time-point) started) 4)
+          (error "flood child did not start" (process-status pipe 0 #f)
+                 (thread-join! reader 0 'pending)
+                 (u8vector-length (get-output-u8vector capture))))
+        (thread-sleep! 0.05) (loop)))
+    ;; This is the target's one-time real acknowledgement, not a heartbeat.
+    (displayln "PROCESS-CONTROL-READY unicode-backpressure") (force-output)
+    (let (bytes (thread-join! reader (max 0.001 (- 6 (- (##current-time-point) started))) 'incomplete))
+      (check (u8vector? bytes) 'backpressure-completion)
+      (check paused? 'backpressure-exercised)
+      bytes)
+    (finally (thread-terminate! reader) (close-port capture)))))
 (def (main fixture)
  (let (directory (make-temporary-file-name "parser-process-controls-"))
   (create-directory directory)
@@ -74,32 +108,34 @@
      (check (not (file-exists? escaped)) 'escaped-stopped)
      (finally (close-port other)))
     (displayln "PROCESS-CONTROL-OK escaped-session-stopped unrelated-survived") (force-output))
-   (let* ((ready (path-expand "flood-ready" directory))
-          (log (path-expand "flood.log" directory))
-          (pipe (open-process [path: "gxi" arguments:
-                  ["qualify.ss" "run" "--timeout" "6" "--idle-timeout" "0.8"
-                   "--log" log "--require" "^OK$" "--" fixture "flood" ready]
-                  stderr-redirection: #t])))
-    (close-output-port pipe)
-    (try
-     (let (started (##current-time-point))
-      (let loop ()
-       (unless (file-exists? ready)
-        (when (> (- (##current-time-point) started) 4)
-         (let (status (process-status pipe 0 #f))
-          (error "flood child did not start" status (and status (utf8->string (read-all-as-u8vector pipe))))))
-        (thread-sleep! 0.05) (loop))))
-     ;; No reads while the consumer applies more pressure than the idle fence.
-     (thread-sleep! 1.2)
-     (let* ((bytes (read-all-as-u8vector pipe)) (text (utf8->string bytes))
-            (saved (call-with-input-file log read-all-as-u8vector)))
-      (check (= (process-status pipe 2 -1) 0) 'backpressure-exit)
-      (check (= (length (filter (lambda (line) (string-prefix? "PIPE-PROGRESS " line))
-                               (string-split text #\newline))) 2000) 'console-byte-completeness)
-      (check (= (u8vector-length saved) (+ (* 2000 (+ 15 2000)) 3)) 'logged-byte-completeness)
-      (check (receipt-present? "^OK$" text) 'flood-final-receipt))
-     (finally (close-port pipe)))
-    (displayln "PROCESS-CONTROL-OK unicode-backpressure blocking-native-descriptors") (force-output))
+   (for-each
+    (lambda (padded?)
+     (let* ((label (if padded? "padded-flood" "flood"))
+            (ready (path-expand (string-append label "-ready") directory))
+            (log (path-expand (string-append label ".log") directory))
+            ;; More than a Darwin pipe's capacity, before qualification starts.
+            ;; This is fixture data, not progress manufactured by the watchdog.
+            (prelude (if padded?
+                       ["-e" "(write-string (make-string 65536 #\\p)) (newline) (force-output)"] '()))
+            (pipe (open-process [path: "gxi" arguments:
+                    (append prelude
+                     ["qualify.ss" "run" "--timeout" "6" "--idle-timeout" "0.8"
+                      "--log" log "--require" "^OK$" "--" fixture "flood" ready])
+                    stderr-redirection: #t])))
+      (close-output-port pipe)
+      (try
+       (let* ((bytes (backpressure-output pipe ready)) (text (utf8->string bytes))
+              (saved (call-with-input-file log read-all-as-u8vector)))
+        (check (= (process-status pipe 2 -1) 0) 'backpressure-exit)
+        (check (= (length (filter (lambda (line) (string-prefix? "PIPE-PROGRESS " line))
+                                 (string-split text #\newline))) 2000) 'console-byte-completeness)
+        (check (= (u8vector-length saved) (+ (* 2000 (+ 15 2000)) 3)) 'logged-byte-completeness)
+        (when padded?
+          (check (string-prefix? (make-string 65536 #\p) text) 'startup-byte-completeness))
+        (check (receipt-present? "^OK$" text) 'flood-final-receipt))
+       (finally (close-port pipe)))
+      (displayln "PROCESS-CONTROL-OK unicode-backpressure " label) (force-output)))
+    '(#f #t))
    (let (result (run "early-error" 3 1.5))
     (check (eq? (process-result-reason result) 'error-output) 'early-error)
     (check (< (process-result-elapsed result) 2.5) 'early-error-stopped)

@@ -144,7 +144,8 @@
    productions layout-end-action? production-action base-symbol production-rhs))
 (def (native-vocabulary productions)
   ((source-procedure "src/compiler/lr-table.ss" 'production-vocabulary
-     '(production-lhs production-terminal-catalog)) productions production-lhs native-catalog))
+     '(production-lhs production-rhs base-symbol nonterminal-symbol? nonterminal-name production-terminal-catalog))
+   productions production-lhs production-rhs base-symbol nonterminal-symbol? nonterminal-name native-catalog))
 (def (native-core-symbols productions)
   (let* ((table (list->vector productions)) (layout (make-item-layout table '#((terminal eof)))))
     ((source-procedure "src/compiler/lr-automaton.ss" 'make-core-symbol-catalog
@@ -306,6 +307,28 @@
              (table-ref nonterminals 'root #f) (table-ref nonterminals 'unused #f)
              (not (table-ref nonterminals 'title #f))
              (not (table-ref terminals '(field title) #f)))) #t))
+  (property "source vocabulary includes referenced names without declaring annotation names"
+    (bindings (productions '((0 root ((marked (nonterminal missing) ((field title)))
+                                      (nonterminal root)) concat #f))))
+    (equal (let-values (((terminals nonterminals) (native-vocabulary productions)))
+             (list (table-ref nonterminals 'root #f)
+                   (table-ref nonterminals 'missing #f)
+                   (table-ref nonterminals 'title #f)
+                   (table-ref terminals '(terminal eof) #f)))
+           '(#t #t #f 0)))
+  (scenario "retained source procedure reads the current lexical callback state"
+    (sequential ((name 'before)
+              (lhs (lambda (_) name))
+              (reader (source-procedure "src/compiler/lr-table.ss" 'production-vocabulary
+                        '(production-lhs production-rhs base-symbol nonterminal-symbol? nonterminal-name production-terminal-catalog)))
+              (productions '((0 ignored () concat #f)))
+              (observe (lambda ()
+                         (let-values (((_ names) (reader productions lhs production-rhs base-symbol
+                                                   nonterminal-symbol? nonterminal-name native-catalog)))
+                           (list (table-ref names 'before #f) (table-ref names 'after #f))))))
+    (equal (observe) '(#t #f))
+    (act (set! name 'after))
+    (equal (observe) '(#f #t))))
   (property "layout capability derives from base tags and action tags rather than annotations"
     (bindings)
     (equal (native-layout '((0 root ((marked (terminal token word) ((layout-end)))) concat #f))) #f)

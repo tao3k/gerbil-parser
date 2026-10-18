@@ -5,6 +5,7 @@ import ParserEngine.ModuleEvaluation
 import ParserEngine.BuildEnvironment
 import ParserEngine.LanguagePhase
 import ParserEngine.PhaseDemand
+import ParserEngine.SourceEnvironment
 import ParserEngine.LoweringReservationEvaluation
 import ParserEngine.LoweringPreprocessingEvaluation
 import ParserEngine.Components
@@ -576,3 +577,9 @@ import ParserEngine.SourceInventory
 #print axioms ParserEngine.PhaseDemand.recorded_constructor_absent
 
 #print axioms ParserEngine.PhaseDemand.prepared_provider_identity
+
+#print axioms ParserEngine.SourceEnvironment.selected_resolves
+#print axioms ParserEngine.SourceEnvironment.missing_rejects
+#print axioms ParserEngine.SourceEnvironment.variable_evaluates
+#print axioms ParserEngine.SourceEnvironment.bound_cell_can_be_uninitialized
+#print axioms ParserEngine.SourceEnvironment.retained_cell_reads_write

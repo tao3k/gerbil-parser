@@ -511,3 +511,79 @@ matches byte for byte. Metadata controls additionally ensure that phased owners
 retain one ordinary SDK =meta= response and that clean/metadata do not require
 native link resolution. The compiler selection remains GCC; SDK/Gambit sources
 and installed objects are read-only throughout qualification.
+
+** Extracted lexical dependencies and runtime cells
+
+The current-head semantics job exposed a source/model correspondence gap in
+=production-vocabulary=. The implementation traverses RHS nonterminal references
+as well as production LHS names. Its extracted test procedure retained only the
+older LHS and terminal-catalog dependencies, leaving =production-rhs= unbound.
+The test now supplies the complete explicit environment, including base-symbol
+unwrapping, nonterminal classification and name extraction. A referenced but
+undeclared nonterminal and an annotation name distinguish these operations;
+neither an LHS-only model nor terminal-directory equality proves this behavior.
+
+=SourceEnvironment= composes LeanPoo's typed =Requirements.factoryAt= selection
+with the existing Scheme =resolve= and =Eval.variable= semantics. For arbitrary
+requested names, caller order, repeated keys and heaps, it proves:
+
+- Every retained lexical factory resolves against the invocation heap.
+- A requested missing binding prevents successful preparation.
+- A successful retained read supplies the actual variable-evaluation rule.
+- A bound cell may still be uninitialized; name admission alone is insufficient.
+- A later write to that cell is visible through the retained factory.
+
+The real source test additionally retains an extracted vocabulary procedure and
+a callback closure across a lexical assignment, then checks both observations.
+This guards against freezing callback state while preparing source witnesses.
+The theorem does not establish completeness of arbitrary Scheme free-variable
+extraction, closure conversion or host primitives. Those remain explicit
+premises; they are not discharged by successful finite source controls. The
+unified construction audit imports the module and reports each theorem's axioms.
+
+** Startup output and consumer backpressure
+
+The macOS process-control failure occurred before the flood target created its
+ready marker. The old control waited for that marker without reading stdout;
+qualification admission can write more than the pipe capacity before launching
+the target. Thus the test's own consumer could stop initialization. An unchanged
+local run passed, but the old consumer with a fixed 64 KiB startup prelude failed
+at the existing four-second readiness fence. This provides a causal control
+without attributing every historical startup timeout to the same cause. An
+earlier revised control also missed the readiness fence without a captured
+startup trace; that failure remains unattributed. The retained failure diagnostic
+now reports reader completion, process status and captured byte count.
+
+The control now drains initialization output immediately. After the real target
+creates its marker, the reader pauses for the existing 1.2 seconds to exercise
+backpressure beyond the unchanged 0.8-second idle fence. Both ordinary and padded
+startup cases retain all 2,000 Unicode lines, the exact child-log byte count,
+exit status and final receipt. Startup padding is fixture data before process
+qualification, not a production heartbeat. The six-second completion bound and
+four-second readiness bound are unchanged. No SDK or Gambit behavior is changed.
+
+Generated Rust remains byte-identical to the pinned IR compiler's output. Its
+helper's forced-inlining directive is allowed only in the two modules containing
+that generated code; handwritten code retains the workspace lint policy.
+
+The outer 90/5 control wrapper also exposed a missing observation boundary: the
+inner consumer captured real startup bytes but reported nothing until the whole
+probe returned. It now reports the existing target-ready marker exactly once
+when observed. An earlier outer-idle failure is retained separately; no periodic
+output, timer relaxation or fabricated progress was introduced.
+
+| Current local qualification | Result | Existing budget |
+|-----------------------------+--------+-----------------|
+| Standard clean and complete package build | 115.46 s, exit 0 | 180/5 |
+| Original four preparation owners | 41.74 s, exit 0 | 90/5 |
+| Original 16-owner first cold aggregate | 141.80 s end to end, 16 owners, exit 0 | 180/5 |
+| LR source and qualification-output macros | 32 cases, 8.55 s, exit 0 | 90/5 |
+| Complete process controls, ordinary and padded startup | 27.21 s, exit 0 | 90/5 |
+| Lean construction model and axiom audit | 241 jobs passed | unchanged |
+| Workspace Clippy and formatting | passed | unchanged |
+| Rust runtime event controls | 9 tests passed | unchanged |
+
+These are qualification receipts, not parser CPU improvement claims. The
+complete cold aggregate retains its original owner list and four workers. The
+source-graph completeness and initialized-cell premises above remain open;
+passing source tests do not silently turn them into universal extraction proofs.

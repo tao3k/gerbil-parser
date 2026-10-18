@@ -2,11 +2,14 @@
 
 use super::event_strategy_aot_tests::grammar;
 
+// The pinned IR compiler controls helper inlining in these generated modules.
+#[allow(clippy::inline_always)]
 mod generated {
     use gerbil_parser_runtime::TreeEvent;
     include!("event_fold_generated.rs");
 }
 
+#[allow(clippy::inline_always)]
 mod outline {
     use gerbil_parser_runtime::TreeEvent;
     include!("outline_fold_generated.rs");

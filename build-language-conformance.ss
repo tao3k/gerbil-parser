@@ -10,7 +10,7 @@
         (only-in :gerbil/compiler compile-module)
         (only-in :gerbil/expander import-module module-context-export
                  module-export-name module-export-phi))
-(load "scripts/test-plan.ss")
+(include "scripts/test-plan.ss")
 (def conformance-modules
   '("t/fixtures/fixture-release"
     "t/fixtures/tla-sany-differential/worker-control"

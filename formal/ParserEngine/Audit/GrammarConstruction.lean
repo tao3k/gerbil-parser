@@ -23,6 +23,10 @@ import ParserEngine.SourceInventory
 #print axioms ParserEngine.AuthorPhase.expansion_context
 #print axioms ParserEngine.AuthorPhase.template_service_dormant
 #print axioms ParserEngine.AuthorPhase.eager_admission_counterexample
+#print axioms ParserEngine.AuthorPhase.ambient_masks_missing
+#print axioms ParserEngine.AuthorPhase.retained_operands
+#print axioms ParserEngine.AuthorPhase.literal_transport
+#print axioms ParserEngine.AuthorPhase.literal_context_counterexample
 #print axioms ParserEngine.TestPhase.requested_phases
 #print axioms ParserEngine.TestPhase.selected_import_owned
 #print axioms ParserEngine.TestPhase.stored_import_order

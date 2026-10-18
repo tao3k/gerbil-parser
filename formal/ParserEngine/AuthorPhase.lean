@@ -52,4 +52,56 @@ theorem eager_admission_counterexample :
       (fun (_ : Capability) => none) (demand .declaration) = .error .compiler := by
   simp [demand, Requirements.prepare]
 
+/-- A shared interpreter's ambient bindings are not evidence that each source
+owner declares its own requirements. This combines provider selection with
+the concrete missing-source-binding failure found in independent CI imports. -/
+def inherit (owned ambient : Provider Context Capability Value) : Provider Context Capability Value :=
+  fun key => match owned key with
+    | some factory => some factory
+    | none => ambient key
+
+theorem ambient_masks_missing
+    (owned ambient : Provider Context Capability Value)
+    (missing : owned .compiler = none) (available : ambient .compiler = some factory) :
+    Requirements.prepare owned (demand .declaration) = .error .compiler ∧
+    Requirements.prepare (inherit owned ambient) (demand .declaration) =
+      .ok (factory, PUnit.unit) := by
+  simp [demand, Requirements.prepare, inherit, missing, available]
+
+/-- A retained factory receives the entire caller context, including arbitrary
+syntax and runtime binding operands. Factoring the service adds no projection
+or reconstruction of that context. -/
+theorem retained_operands
+    (factory : Factory Context (fun context => Value context Capability.compiler)) :
+    Factory.map (fun _ value => value) factory = factory := Factory.map_identity factory
+
+/-- Matchers compare transported literal identities, not just their spelling.
+The SDK identifier relation is an explicit operand, not reimplemented here. -/
+def literalMatch (same : Identifier → Identifier → Bool) : List Identifier → List Identifier → Bool
+  | [], [] => true
+  | actual :: rest, expected :: tail => same actual expected && literalMatch same rest tail
+  | _, _ => false
+
+theorem literal_transport
+    (same : Identifier → Identifier → Bool) (other : Target → Target → Bool)
+    (move : Identifier → Target)
+    (preserved : ∀ actual expected, other (move actual) (move expected) = same actual expected)
+    (actual expected : List Identifier) :
+    literalMatch other (actual.map move) (expected.map move) = literalMatch same actual expected := by
+  induction actual generalizing expected with
+  | nil => cases expected <;> rfl
+  | cons value rest ih =>
+    cases expected with
+    | nil => rfl
+    | cons wanted tail => simp [literalMatch, preserved, ih]
+
+/-- Recreating an expected keyword in a service namespace can reject the same
+spelling that was accepted in the facade. Dropping binding identity would also
+admit a keyword captured by the caller. Both are real phase-transport defects. -/
+theorem literal_context_counterexample :
+    literalMatch (fun (a b : String × Nat) => a == b) [("syntax", 0)] [("syntax", 0)] = true ∧
+    literalMatch (fun (a b : String × Nat) => a == b) [("syntax", 0)] [("syntax", 1)] = false ∧
+    literalMatch (fun (a b : String × Nat) => a.1 == b.1) [("syntax", 0)] [("syntax", 1)] = true := by
+  decide
+
 end ParserEngine.AuthorPhase

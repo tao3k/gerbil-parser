@@ -2,6 +2,7 @@
 ;;; Single declarative grammar-to-parser generation boundary.
 
 (import (only-in ../grammar/lexical-algebra expand-text-lexical-rows)
+        (for-syntax (only-in ./expansion-service resolve-language-expansion))
         ;; Retain the ordinary build dependency without executing its runtime
         ;; at interface-import phase. Invocation below requests that phase.
         (for-template (only-in ../compiler/language-declaration expand-language-declaration))
@@ -9,21 +10,6 @@
         (only-in ./assembly assemble-language-parser))
 (export deflanguage
         defgrammar-syntax)
-
-;; Reading an already compiled grammar must not initialize the compiler.
-;; Resolve the service only when an author declaration actually expands. The
-;; SDK owns context caching, initialization and failure propagation; the
-;; returned syntax uses the runtime bindings supplied below, not service globals.
-(begin-syntax
-  (def (language-expansion-service)
-    (let* ((context (import-module ':gerbil-parser/src/compiler/language-declaration #f #t))
-           (entry (find (lambda (entry)
-                          (and (zero? (module-export-phi entry))
-                               (eq? (module-export-name entry) 'expand-language-declaration)))
-                        (module-context-export context))))
-      (unless entry
-        (error "language compiler lacks its declaration expansion service"))
-      (eval (binding-id (core-resolve-module-export entry))))))
 
 ;;; Defines an ordinary hygienic Gerbil macro whose expansion is consumed only
 ;;; by deflanguage's compile-time grammar-expression resolver.
@@ -52,7 +38,8 @@
   (syntax-case stx (syntax rules lexical)
     ((_ prefix (syntax (lexical clause ...)) (rules rule ...))
      (identifier? #'prefix)
-     ((language-expansion-service)
+     ((resolve-language-expansion ':gerbil-parser/src/compiler/language-declaration
+                                  'expand-language-declaration)
       stx expand-text-lexical-rows
       #'assemble-language-parser #'make-language-grammar
       #'deflanguage #'begin #'def))

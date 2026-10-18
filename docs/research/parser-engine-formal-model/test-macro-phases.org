@@ -22,7 +22,9 @@ Scheme-evaluation obligations.
 | Selected imports have admitted runtime ownership | selected_import_owned | resolved SDK import records | all record forms, phase and physical-root matrix |
 | Reverse directory storage restores declaration order | stored_import_order | module-evaluation-runtime-imports | ordered native selection |
 | Compiled interfaces do not request author-time execution | AuthorPhase.interface_independent, template_service_dormant | grammar frontend, phase-minus-one service import | loader registry snapshot |
-| Authoring requires the compiler and retains its operands | declaration_requires_compiler, expansion_context | language-declaration expansion service | real source DSL, macro composition and invalid declaration |
+| Authoring requires the compiler and retains its operands | declaration_requires_compiler, expansion_context, retained_operands | shared SDK service resolver | real source DSL, macro composition and invalid declaration |
+| Literal matching retains lexical binding identity | literal_transport, literal_context_counterexample | language-expansion-tags? | same spelling with a locally shadowed binding |
+| Each build owner declares its own dependencies | ambient_masks_missing | explicit this-source-file imports | independent SDK module contexts for all build owners |
 
 The model reuses LeanPoo Requirements.prepare, prepare_congr and build. It does
 not add a provider resolver. Repeated case demands remain ordered; SDK module
@@ -70,6 +72,21 @@ export using the SDK and obtains the original expansion procedure. No private
 module-state cache, generated-interface rewrite or runtime-binding replacement
 is introduced. The service invokes the existing compiler with the same syntax
 and hygienic runtime operands; lowering and parser algorithms are unchanged.
+
+The same boundary now covers canonical, ANTLR4, ISO BNF and shell author
+entries. A shared expansion-service resolves their selected SDK export;
+compiled consumers retain the build dependency without initializing those
+author services. Existing compiler algorithms and artifact schemas remain.
+Runtime scanning and parsing operations are still requested normally.
+
+Moving the two source-vocabulary matchers exposed a genuine hygiene defect:
+a runtime service's syntax-case literals have a different definition context.
+A clean build rejected the real GQL declaration. The corrected service receives
+literal identifiers from the facade as operands and compares them with the
+SDK free-identifier=? relation. Spelling-only matching would accept a captured
+keyword and is rejected by both the model counterexample and Scheme control.
+The arbitrary-list transport theorem assumes preservation of the SDK binding
+relation; it does not prove the SDK expander itself.
 
 AuthorPhase reuses LeanPoo Requirements. Its counterexample shows why eager
 compiler admission can fail an interface that does not need that capability.
@@ -143,6 +160,17 @@ top-level evaluator in a fresh context in an independent macro test, before
 the CI conformance build. The SHA-256
 identity remains the same 32-byte value; no admission rule or budget is relaxed.
 
+The current-head preparation run then exposed a separate missing binding:
+defbuild-script expands this-source-file in the caller context. Five owners
+relied on earlier CLI imports instead of declaring that binding. They now
+import it explicitly. The conformance owner's test-plan definitions are
+included lexically rather than installed through ambient top-level load.
+An independent-import matrix and a Rust-link scenario expand all eight build
+owners and resolve main without invoking it. The Rust owner receives its
+required archive-path operand under the existing protect/act macros; the
+previous environment is restored and no archive is linked. This preserves the shared preparation process while
+preventing ambient bindings from masking missing source requirements.
+
 The base now uses =gerbil env gxi build.ss compile=, matching extension owners
 and avoiding a redundant nested package CLI. Standard clean and the canonical
 build script remain authoritative. PATH stays checked; publication is not
@@ -190,6 +218,29 @@ in 4.90 seconds with exit zero. The final single-GXI/four-worker functional
 aggregate passes 219 cases across nineteen owners in 21.77 seconds, exit zero,
 under the same ninety/five budget. Its native pages were previously accessed.
 Functional aggregation and first-physical-load admission remain distinct receipts.
+
+The shared resolver and source-vocabulary migration passes another standard
+clean GCC build in 80.96 seconds and four shared helper preparations in
+29.03 seconds. The first unchanged sixteen-owner aggregate still fails at
+93.43 seconds during loader preparation, before any test cases. Generic owner
+preparation alone takes 20.32 seconds. Later expanded aggregates also fail at
+92.83 and 90.96 seconds while reaching additional native dependencies; these
+are failures, not qualification by successive warming.
+
+The final focused correctness gate passes fifteen cases across six owners in
+9.73 seconds with exit zero, under the unchanged ninety/five budget. It covers
+all eight independent build owners, three complete vocabulary requests,
+service absence, source authoring and binding identity. Native pages were
+previously accessed. This focused gate validates the changes, not the cold
+aggregate. A mistaken rejection of raw symbols was corrected: the SDK accepts
+symbols as identifiers; the non-identifier control now uses a number. The
+shadowed-binding rejection remains. An initially omitted Rust archive operand
+was also a rejected test observation, not a successful link.
+
+The updated Lean package passes 235 jobs and its axiom audits. The existing
+Quint protocol passes seven controls and one thousand sampled traces; six
+model-input checks pass. No parser CPU benefit, complete Scheme lowering
+simulation or ninety-second first aggregate is established by these results.
 
 * Remaining construction boundary
 

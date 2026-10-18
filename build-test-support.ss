@@ -1,6 +1,7 @@
 #!/usr/bin/env gxi
 ;;; Standard currentness and scheduling for reusable Scheme test helpers.
 (import (only-in :std/build-script defbuild-script)
+        (only-in :std/source this-source-file)
         (only-in :std/list/list delete-duplicates/hash)
         (only-in "./src/build-support/preparation-cache.ss" conformance-source-only?)
         (only-in "./src/build-support/compiler-profile.ss" compiler-build-spec)

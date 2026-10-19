@@ -31,7 +31,7 @@ inductive Notification : Callback → Heap → List Value → Value → Heap →
 /-- The native when/call path executes the actual callback exactly once. -/
 theorem Notification.evaluates (run : Notification cb before argv result after)
     (condition : resolve env before name = some cb.value)
-    (arguments : Arguments env before expressions argv before)
+    (arguments : truthy cb.value = true → Arguments env before expressions argv before)
     (allowed : callable (s name) = true) :
     Eval env before (app "when" [s name, app name expressions]) result after := by
   cases run with
@@ -39,7 +39,7 @@ theorem Notification.evaluates (run : Notification cb before argv result after)
   | @returned cb before argv result after enabled execution =>
       apply Eval.whenTrue (.variable condition) enabled
       apply Sequence.single
-      exact .call allowed (.variable condition) arguments execution
+      exact .call allowed (.variable condition) (arguments enabled) execution
 
 structure Observers where
   origin : Callback
@@ -53,14 +53,44 @@ def root (env : Environment) (base : Nat) (observers : Observers) : Environment 
   tie LoweringRootScope.group (LoweringRootStorage.environment (globals env observers) base)
 
 def arguments (env : Environment) (base : Nat) (observers : Observers)
-    (owner : String) (path : List Datum) (expression proof : Datum) (value : Payload) : Environment :=
+    (owner : String) (path : Datum) (expression proof : Datum) (value : Payload) : Environment :=
   extend (extend (extend (extend (extend (extend (extend (extend (root env base observers)
     "lhs" (.symbol value.lhs)) "rhs" (.list value.rhs)) "action" (datumValue value.action))
-    "precedence" (datumValue value.precedence)) "owner" (.symbol owner)) "path" (datumValue (.list path)))
+    "precedence" (datumValue value.precedence)) "owner" (.symbol owner)) "path" (datumValue path))
     "expression" (datumValue expression)) "proof" (datumValue proof)
 
 def originValues (id : Nat) (owner : String) (path : List Datum) (expression : Datum) (value : Payload) : List Value :=
   [record id value, .symbol owner, .list (datumValues path).reverse, datumValue expression]
+
+/-- Disabled origin observation does not evaluate reverse, so a proof-only
+caller may carry the native false path instead of a list. -/
+inductive Origin (id : Nat) (owner : String) (expression : Datum) (value : Payload) :
+    Callback → Datum → Heap → Value → Heap → Prop where
+  | disabled : Origin id owner expression value .disabled path heap .unit heap
+  | returned (enabled : truthy cb.value = true)
+      (execution : Invoke before cb.value (originValues id owner path expression value) result after) :
+      Origin id owner expression value cb (.list path) before result after
+
+theorem Origin.evaluates (id : Nat) (run : Origin id owner expression value cb path before result after)
+    (cbRead : resolve env before "observe-origin" = some cb.value)
+    (recordRead : resolve env before "production" = some (record id value))
+    (ownerRead : resolve env before "owner" = some (.symbol owner))
+    (pathRead : resolve env before "path" = some (datumValue path))
+    (expressionRead : resolve env before "expression" = some (datumValue expression))
+    (reversePrimitive : truthy cb.value = true → env "reverse" = none) :
+    Eval env before (app "when" [s "observe-origin", app "observe-origin"
+      [s "production", s "owner", app "reverse" [s "path"], s "expression"]]) result after := by
+  cases run with
+  | disabled => exact .whenFalse (.variable cbRead) rfl
+  | returned enabled execution =>
+      apply Eval.whenTrue (.variable cbRead) enabled
+      apply Sequence.single
+      apply Eval.call (values := originValues id owner _ expression value) rfl (.variable cbRead) _ execution
+      refine .cons (.variable recordRead) (.cons (.variable ownerRead) (.cons ?_ (.cons (.variable expressionRead) .nil)))
+      apply Eval.apply (values := [.list (datumValues _)])
+      · exact .cons (.variable pathRead) .nil
+      · rfl
+      · exact reversePrimitive enabled
 
 def proofValues (id : Nat) (proof : Datum) (value : Payload) : List Value :=
   [.symbol "production", record id value, datumValue proof]
@@ -74,10 +104,10 @@ counter and prefix are read where the actual source reads them. -/
 set_option maxRecDepth 16384 in
 theorem body_eval (observers : Observers) (id next : Nat)
     (listPrimitive : env "list" = none) (consPrimitive : env "cons" = none)
-    (plusPrimitive : env "+" = none) (reversePrimitive : env "reverse" = none)
+    (plusPrimitive : env "+" = none) (reversePrimitive : truthy observers.origin.value = true → env "reverse" = none)
     (count : before base 0 = some (.natural id))
-    (owner : String) (path : List Datum) (expression proof : Datum) (value : Payload)
-    (origin : Notification observers.origin before (originValues id owner path expression value) originResult middle)
+    (owner : String) (path : Datum) (expression proof : Datum) (value : Payload)
+    (origin : Origin id owner expression value observers.origin path before originResult middle)
     (observed : Notification observers.proof middle (proofValues id proof value) proofResult ready)
     (liveCount : ready base 0 = some (.natural next))
     (liveRecords : ready (base + 4) 0 = some (.list previous)) :
@@ -103,15 +133,12 @@ theorem body_eval (observers : Observers) (id next : Nat)
     apply Callback.resolves; rfl
   have proofRead : resolve named middle "observe-proof" = some observers.proof.value := by
     apply Callback.resolves; rfl
-  have originArgs : Arguments named before
-      [s "production", s "owner", app "reverse" [s "path"], s "expression"]
-      (originValues id owner path expression value) before := by
-    refine .cons (.variable (by rfl)) (.cons (.variable (by rfl)) (.cons ?_ (.cons (.variable ?_) .nil)))
-    · apply Eval.apply (values := [.list (datumValues path)])
-      · exact .cons (.variable (by rfl)) .nil
-      · rfl
-      · change env "reverse" = none; exact reversePrimitive
+  have originExecution : Eval named before (app "when" [s "observe-origin", app "observe-origin"
+      [s "production", s "owner", app "reverse" [s "path"], s "expression"]]) originResult middle := by
+    apply Origin.evaluates id origin originRead (by rfl) (by rfl)
     · apply resolve_datum; rfl
+    · apply resolve_datum; rfl
+    · intro enabled; change env "reverse" = none; exact reversePrimitive enabled
   have proofArgs : Arguments named middle [quoted "production", s "production", s "proof"]
       (proofValues id proof value) middle := by
     refine .cons .quoteSymbol (.cons (.variable (by rfl)) (.cons (.variable ?_) .nil))
@@ -135,24 +162,24 @@ theorem body_eval (observers : Observers) (id next : Nat)
     · rfl
     · change env "cons" = none; exact consPrimitive
   apply SchemeTableEvaluation.Sequence.single
-  exact .letBody made (.cons (origin.evaluates originRead originArgs rfl)
-    (.cons (observed.evaluates proofRead proofArgs rfl) (.cons increment (.single store))))
+  exact .letBody made (.cons originExecution
+    (.cons (observed.evaluates proofRead (fun _ => proofArgs) rfl) (.cons increment (.single store))))
 
 /-- Real root lookup and eight-argument binding; no source body execution
 premise is supplied for the emitter itself. -/
 theorem invoke (observers : Observers) (id next : Nat)
     (listPrimitive : env "list" = none) (consPrimitive : env "cons" = none)
-    (plusPrimitive : env "+" = none) (reversePrimitive : env "reverse" = none)
+    (plusPrimitive : env "+" = none) (reversePrimitive : truthy observers.origin.value = true → env "reverse" = none)
     (count : before base 0 = some (.natural id))
-    (owner : String) (path : List Datum) (expression proof : Datum) (value : Payload)
-    (origin : Notification observers.origin before (originValues id owner path expression value) originResult middle)
+    (owner : String) (path : Datum) (expression proof : Datum) (value : Payload)
+    (origin : Origin id owner expression value observers.origin path before originResult middle)
     (observed : Notification observers.proof middle (proofValues id proof value) proofResult ready)
     (liveCount : ready base 0 = some (.natural next))
     (liveRecords : ready (base + 4) 0 = some (.list previous)) :
     Invoke before (.recursive LoweringRootScope.group "emit-production"
         (LoweringRootStorage.environment (globals env observers) base))
       [.symbol value.lhs, .list value.rhs, datumValue value.action, datumValue value.precedence,
-        .symbol owner, datumValue (.list path), datumValue expression, datumValue proof]
+        .symbol owner, datumValue path, datumValue expression, datumValue proof]
       .unit (published ready base next (record id value) previous) :=
   .recursive LoweringEmitterEvaluation.root_lookup rfl
     (body_eval observers id next listPrimitive consPrimitive plusPrimitive reversePrimitive count

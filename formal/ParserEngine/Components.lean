@@ -69,3 +69,6 @@ import ParserEngine.SignedSourceMetadata
 import ParserEngine.LoweringObserverEvaluation
 import ParserEngine.SchemeMutationTrace
 import ParserEngine.LoweringObservedClosure
+import ParserEngine.PreparationScratch
+import ParserEngine.LoweringObservationProfiles
+import ParserEngine.LoweringPrecedenceEvaluation

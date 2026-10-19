@@ -129,6 +129,8 @@ def primitive (operation : String) (args : List Value) (heap : Heap) : Option (V
   match operation, args with
   | "car", [.list (head :: _)] => some (head, heap)
   | "cadr", [.list (_ :: head :: _)] => some (head, heap)
+  | "caddr", [.list (_ :: _ :: head :: _)] => some (head, heap)
+  | "cadddr", [.list (_ :: _ :: _ :: head :: _)] => some (head, heap)
   | "cdr", [.list (_ :: rest)] => some (.list rest, heap)
   | "cddr", [.list (_ :: _ :: rest)] => some (.list rest, heap)
   | "append", [.list left, .list right] => some (.list (left ++ right), heap)
@@ -214,6 +216,12 @@ inductive Eval : Environment → Heap → Datum → Value → Heap → Prop wher
       (arguments : Arguments env middle expressions values ready)
       (result : Invoke ready function values value after) :
       Eval env before (.list (callee :: expressions)) value after
+  | parallelLet (shape : loopBindings bindings = some (names, initial))
+      (distinct : names.Nodup)
+      (arguments : Arguments env before initial values middle)
+      (bound : bind (names.map Datum.symbol) values env = some entered)
+      (execution : Sequence entered middle body result after) :
+      Eval env before (.list (.symbol "let" :: .list bindings :: body)) result after
   | namedLoop (shape : loopBindings bindings = some (names, initial))
       (arguments : Arguments env before initial values middle)
       (bound : bind (names.map Datum.symbol) values (tie [(name, ⟨names.map Datum.symbol, body⟩)] env) = some entered)

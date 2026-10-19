@@ -79,7 +79,7 @@ macro "source_determinism_cases" : tactic => `(tactic|
    rename_i second
    cases second <;> grind [app, callable_quote, callable_lambda, callable_assignment,
      callable_conjunction, callable_disjunction, callable_begin, callable_let, callable_conditional, callable_cond, callable_when, callable_case, callable_unless, callable_def,
-     Sequence.nonempty, Eval.no_unbound_call, Eval.no_definition, primitive_callable, primitive_forEach, primitive_map]))
+     Sequence.nonempty, Eval.no_unbound_call, Eval.no_definition, primitive_callable, primitive_forEach, primitive_map, loopBindings]))
 
 theorem conditional_true_unique
     (_test : Eval env before condition value middle) (chosen : truthy value = true)
@@ -110,6 +110,17 @@ theorem case_symbol_unique
     (testUnique : EvalClaim env before selectorExpression (.symbol key) middle)
     (bodyUnique : SeqClaim env middle expressions result after) :
     EvalClaim env before (app "case" (selectorExpression :: clauses)) result after := by
+  source_determinism_cases
+
+theorem parallel_let_unique
+    (shape : loopBindings bindings = some (names, initial))
+    (_distinct : names.Nodup)
+    (_arguments : Arguments env before initial values middle)
+    (bound : bind (names.map Datum.symbol) values env = some entered)
+    (_execution : Sequence entered middle body result after)
+    (argumentsUnique : ArgsClaim env before initial values middle)
+    (bodyUnique : SeqClaim entered middle body result after) :
+    EvalClaim env before (.list (.symbol "let" :: .list bindings :: body)) result after := by
   source_determinism_cases
 
 theorem variable_unique
@@ -295,6 +306,7 @@ theorem Eval.unique (first : Eval env before expression value after) : EvalClaim
     | apply mapping_nil_unique <;> assumption
     | apply mapping_cons_unique <;> assumption
     | apply sequence_local_unique <;> assumption
+    | apply parallel_let_unique <;> assumption
     | apply variable_unique <;> assumption
     | apply natural_unique <;> assumption
     | apply negative_unique <;> assumption

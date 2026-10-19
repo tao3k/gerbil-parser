@@ -799,3 +799,17 @@ import ParserEngine.ConstructionDeclarationEncoding
 #print axioms ParserEngine.LoweringObservedClosure.caller_bound
 #print axioms ParserEngine.LoweringObservedClosure.invoke
 #print axioms ParserEngine.LoweringObservedClosure.effects
+
+#print axioms ParserEngine.PreparationScratch.read_prefix
+#print axioms ParserEngine.PreparationScratch.stream_digest
+#print axioms ParserEngine.PreparationScratch.stream_capacity
+#print axioms ParserEngine.PreparationScratch.batch_digests
+
+#print axioms ParserEngine.LoweringObserverEvaluation.Origin.evaluates
+
+#print axioms ParserEngine.SchemeTableEvaluation.parallel_let_unique
+
+#print axioms ParserEngine.LoweringObservationProfiles.helper_proof_only
+
+#print axioms ParserEngine.LoweringPrecedenceEvaluation.initializers
+#print axioms ParserEngine.LoweringPrecedenceEvaluation.branch

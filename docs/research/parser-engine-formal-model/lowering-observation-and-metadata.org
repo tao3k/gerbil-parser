@@ -59,6 +59,23 @@ its agreement theorem states exactly when they coincide. Proving that admitted
 callbacks cannot affect protected stores remains a parser capability obligation,
 not a new host assumption or a demonstrated native counter-access bug.
 
+* Lazy observation and the native false path
+
+The native =child-path= allocates a list only when origin observation is enabled.
+Proof-only lowering therefore passes =#f= as its path. The former source theorem
+required a list even for disabled origin observation and excluded this valid
+execution. =Origin= now indexes the raw path datum: its disabled case accepts
+any datum; its enabled case requires the proper list consumed by =reverse=.
+=Notification.evaluates= requires argument evaluation only when the callback is
+enabled. Disabled observation cannot accidentally evaluate callback arguments.
+
+=LoweringObservationProfiles.helper_proof_only= derives the real identity
+context and a returning diagnostic callback from their closure bodies. For any
+payload, signed metadata, counter and retained record prefix, the actual
+local/root emitter accepts the native false path and commits the expected
+record. The proof supplies neither callback post-state nor frame oracle. This
+profile does not establish authority for arbitrary callbacks or mutable lists.
+
 * Generic recursive store simulation
 
 =SchemeMutationTrace.eval_generated= uses the mutual induction of the existing
@@ -83,7 +100,9 @@ The existing paper derivation and LeanPoo admission gates remain necessary.
 * Unified remaining obligations
 
 - Prove returning lowering evaluation for every supported recursive constructor,
-  including parallel precedence bindings and native field/alias actions.
+  including the remaining field/alias actions and recursive proof recipes.
+  [[file:lowering-scheme-dispatch.org][Parallel precedence initialization and admission]] now execute from source;
+  its recursive child invocation remains an induction hypothesis.
 - Relate that execution to the typed mixed protocol and its source locations,
   including observed map paths, choice contexts and recurrence proof recipes.
 - Establish callback authority and preservation of borrowed production objects.
@@ -100,14 +119,14 @@ local parser performance optimization.
 
 | Gate | Local receipt |
 |------+---------------|
-| Current-package standard clean/cold build | Exit zero, 105.22 seconds, unchanged 180 total / 5 idle |
-| Original four preparation owners | Exit zero, 45.65 seconds, unchanged 90 total / 5 idle |
-| Real grammar/source witness generation | Exit zero, 11.03 seconds, unchanged 90 total / 5 idle |
-| Original sixteen-owner first complete cold aggregate, four workers | Exit zero, 141.17 seconds wall, unchanged 180 total / 5 idle |
-| Complete Lean build and explicit axiom audit | 270 jobs passed; no added axioms or placeholders |
+| Current-package standard clean/cold build | Exit zero, 132.62 seconds, unchanged 180 total / 5 idle |
+| Original four preparation owners | Exit zero, 47.11 seconds, unchanged 90 total / 5 idle |
+| Real grammar/source witness generation | Exit zero, 11.69 seconds, unchanged 90 total / 5 idle |
+| Original sixteen-owner first complete cold aggregate, four workers | Exit zero, 147.95 seconds wall, unchanged 180 total / 5 idle |
+| Complete Lean build and explicit axiom audit | 273 jobs passed; no added axioms or placeholders |
 | Publication Quint controls | Sixteen directed controls and 1000 forty-step histories, seed one, passed |
 
-The original publication owner has twelve scenarios/matrices. Its new matrix
+The original lowering-publication owner has twelve scenarios/matrices. Its matrix
 uses negative, zero and positive ranks beyond machine-word range through real
 recursive lowering. The original event-source owner has fifteen cases and
 checks actual macro rendering of signed arbitrary-precision scalars. Neither
@@ -115,6 +134,9 @@ owner is replaced by a new harness. The bounded publication model adds negative
 rank transport and rejection of sign loss and observer counter interference;
 it is not a proof that all native callback effects satisfy the invariant.
 
-Remote CI for the parent =898b569= completed successfully, including macOS and
-Ubuntu semantics. New-commit remote qualification is checked separately after
-publication. Local timings are acceptance receipts, not CPU-gain claims.
+Current-head =dd5ee6a= CI passed Ubuntu but failed macOS conformance preparation
+at its existing total budget, after native linking. The diagnosis and
+[[file:preparation-scratch-ownership.org][snapshot scratch correction]] retain complete content admission. The additional
+local CI-stage exit failure is recorded there separately. New-commit remote
+qualification is checked after publication. Local timings are acceptance
+receipts, not CPU-gain claims.

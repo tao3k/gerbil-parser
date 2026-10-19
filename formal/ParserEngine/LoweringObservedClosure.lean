@@ -26,20 +26,20 @@ theorem Application.evaluates (run : Application observer context recipe before 
       exact .call rfl (.variable contextRead) (.cons (.variable recipeRead) .nil) execution
 
 def caller (env : Environment) (base : Nat) (observers : Observers) (context : Callback)
-    (owner : String) (path : List Datum) (expression : Datum) (value : Payload) : Environment :=
+    (owner : String) (path : Datum) (expression : Datum) (value : Payload) : Environment :=
   extend (extend (extend (extend (extend (extend (extend (extend
     (LoweringObserverEvaluation.root env base observers) "lhs" (.symbol value.lhs)) "owner" (.symbol owner))
     "expression" (datumValue expression)) "precedence" (datumValue value.precedence))
-    "path" (datumValue (.list path))) "isolated?" (.boolean false)) "context" context.value) "recurrence" (.boolean false)
+    "path" (datumValue path)) "isolated?" (.boolean false)) "context" context.value) "recurrence" (.boolean false)
 
 def localGroup := [("emit", LoweringEntryEvaluation.emitter)]
 
 def function (env : Environment) (base : Nat) (observers : Observers) (context : Callback)
-    (owner : String) (path : List Datum) (expression : Datum) (value : Payload) : Value :=
+    (owner : String) (path : Datum) (expression : Datum) (value : Payload) : Value :=
   .recursive localGroup "emit" (caller env base observers context owner path expression value)
 
 def arguments (env : Environment) (base : Nat) (observers : Observers) (context : Callback)
-    (owner : String) (path : List Datum) (expression recipe : Datum) (value : Payload) : Environment :=
+    (owner : String) (path : Datum) (expression recipe : Datum) (value : Payload) : Environment :=
   extend (extend (extend (extend (extend
     (tie localGroup (caller env base observers context owner path expression value))
     "lhs" (.symbol value.lhs)) "rhs" (.list value.rhs)) "action" (datumValue value.action))
@@ -48,7 +48,7 @@ def arguments (env : Environment) (base : Nat) (observers : Observers) (context 
 set_option maxRecDepth 16384 in
 theorem caller_bound : bind LoweringEntryEvaluation.definition.parameters
     [.symbol value.lhs, .symbol owner, datumValue expression, datumValue value.precedence,
-      datumValue (.list path), .boolean false, context.value, .boolean false]
+      datumValue path, .boolean false, context.value, .boolean false]
     (LoweringObserverEvaluation.root env base observers) =
     some (caller env base observers context owner path expression value) := rfl
 
@@ -56,11 +56,11 @@ theorem caller_bound : bind LoweringEntryEvaluation.definition.parameters
 then the two publication writes. No unchanged-context-heap premise is required. -/
 theorem invoke (observers : Observers) (context : Callback) (id next : Nat)
     (listPrimitive : env "list" = none) (consPrimitive : env "cons" = none)
-    (plusPrimitive : env "+" = none) (reversePrimitive : env "reverse" = none)
-    (owner : String) (path : List Datum) (expression recipe proof : Datum) (value : Payload)
+    (plusPrimitive : env "+" = none) (reversePrimitive : truthy observers.origin.value = true → env "reverse" = none)
+    (owner : String) (path : Datum) (expression recipe proof : Datum) (value : Payload)
     (applied : Application observers.proof context recipe before proof initialized)
     (count : initialized base 0 = some (.natural id))
-    (origin : Notification observers.origin initialized (originValues id owner path expression value) originResult middle)
+    (origin : Origin id owner expression value observers.origin path initialized originResult middle)
     (observed : Notification observers.proof middle (proofValues id proof value) proofResult ready)
     (liveCount : ready base 0 = some (.natural next))
     (liveRecords : ready (base + 4) 0 = some (.list previous)) :
@@ -80,7 +80,7 @@ theorem invoke (observers : Observers) (context : Callback) (id next : Nat)
       (LoweringRootStorage.environment (LoweringObserverEvaluation.globals env observers) base))
     (middle := before) (ready := initialized)
     (values := [.symbol value.lhs, .list value.rhs, datumValue value.action, datumValue value.precedence,
-      .symbol owner, datumValue (.list path), datumValue expression, datumValue proof]) rfl
+      .symbol owner, datumValue path, datumValue expression, datumValue proof]) rfl
   · exact .variable (by rfl)
   · refine .cons (.variable (by rfl)) (.cons (.variable (by rfl))
       (.cons (.variable ?_) (.cons (.variable ?_) (.cons (.variable (by rfl))

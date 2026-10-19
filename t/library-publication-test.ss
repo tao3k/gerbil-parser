@@ -1,4 +1,6 @@
 (import :gerbil-parser/language-test-support
+        (only-in :std/crypto/digest Digest::sha256 digest-update! digest-final! sha256)
+        (only-in :gerbil-parser/t/fixtures/event-walk-source source-procedure)
         (only-in :gerbil-parser/src/build-support/build-environment canonical-build-search-path)
         (only-in :std/io/tempfile make-temporary-file-name)
         (only-in :std/misc/ports read-all-as-string)
@@ -9,7 +11,7 @@
                  call-with-library-publication publication-build-main call-with-library-reader
                  library-publication-inputs))
  (import (only-in :gerbil-parser/src/build-support/preparation-snapshot
-                  preparation-snapshot preparation-resolve))
+                  preparation-snapshot preparation-resolve preparation-file-digest))
 
 (def (put-product root name text)
   (let (path (path-expand (string-append "lib/gerbil-parser/" name) root))
@@ -68,8 +70,47 @@
 ;; These controls deliberately change GERBIL_PATH while executing a private
 ;; builder. Other owners must not observe that process-global setting.
 
+(def (source-snapshot-with-buffer-count allocate)
+  (let* ((factory (source-procedure "src/build-support/preparation-snapshot.ss"
+                    'make-preparation-file-digester
+                    '(make-u8vector Digest::sha256 digest-update! digest-final!)))
+         (snapshot (source-procedure "src/build-support/preparation-snapshot.ss"
+                     'preparation-snapshot '(make-preparation-file-digester preparation-reference))))
+    (lambda (files)
+      (snapshot files
+        (lambda () (factory allocate (lambda () (Digest::sha256)) digest-update! digest-final!))
+        identity))))
+
 (deflanguage-parser-tests library-publication-test "complete build publication"
   (engine (exclusive #t))
+  (scenario "a complete snapshot allocates one scratch buffer and hashes every byte"
+    (using (with-publication-root) (root)
+      (scope ((allocations '()) (files '()) (expected '()))
+        (each (size index) ('(131073 0 1 65535 65536 65537 0) '(0 1 2 3 4 5 6))
+          (scope ((path (path-expand (number->string index) root))
+                  (bytes (make-u8vector size (modulo (+ size index) 256))))
+            (act (call-with-output-file path
+                   (lambda (port) (write-subu8vector bytes 0 size port))))
+            (act (set! files (cons path files)))
+            (act (set! expected (cons (sha256 bytes) expected)))))
+        (scope ((snapshot (source-snapshot-with-buffer-count
+                           (lambda (size) (set! allocations (cons size allocations)) (make-u8vector size)))))
+          (scope ((rows (snapshot files)))
+            (equal allocations '(65536))
+            (equal (map car rows) files)
+            (equal (map cadr rows) expected))
+          (act (snapshot files))
+          (equal allocations '(65536 65536))))))
+  (scenario "separate snapshots rehash same-size edits and failed reads do not publish"
+    (using (with-publication-root) (root)
+      (scope ((path (path-expand "mutable" root)))
+        (act (call-with-output-file path (lambda (port) (write-string "first" port))))
+        (scope ((before (preparation-snapshot (list path))))
+          (act (delete-file path))
+          (act (call-with-output-file path (lambda (port) (write-string "other" port))))
+          (equal (equal? before (preparation-snapshot (list path))) #f)
+          (equal (cadar (preparation-snapshot (list path))) (sha256 (string->utf8 "other")))
+          (raises (preparation-snapshot (list path (path-expand "missing" root))) true)))))
   (scenario "extension writers require the same compiler environment"
     (using (with-publication-root) (root)
       (act (call-with-library-publication root build-products publication-path-identity))

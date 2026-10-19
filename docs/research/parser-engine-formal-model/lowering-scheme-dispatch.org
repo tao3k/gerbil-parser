@@ -49,6 +49,22 @@ its head expression can run. =sequence_cons_unique= now requires the actual head
 evaluation. The existing mutual determinism proof supplies this witness from
 execution rather than inventing it.
 
+* Source-executed precedence prefix
+
+=Eval.parallelLet= evaluates every initializer in the original environment,
+then binds distinct local names together. It does not use sequential =let*=
+visibility or allocate mutable cells for immutable locals. The mutual evaluator
+determinism and physical-store trace induction cover this rule.
+
+=LoweringPrecedenceEvaluation.initializers= executes the real =cadr=/=caddr=
+field reads with arbitrary metadata, including either numeric sign.
+=branch= composes those reads, the parallel binding, the actual dynamic
+precedence guard and the recursive =lower-to= call. Static directions are
+admitted directly; dynamic direction requires the caller's capability. The
+recursive call's evaluation is the induction premise, rather than an execution
+oracle for the complete selected branch. Unsupported dynamic execution is not
+silently admitted by this theorem.
+
 * Parser obligations still open
 
 The complete recursive Scheme-to-protocol simulation is not yet proved.
@@ -56,8 +72,8 @@ The following are parser obligations, not newly declared host premises:
 
 - Generate selected-branch Sequence derivations from the mutual recursive
   lowering induction, instead of accepting them as composition hypotheses.
-- Evaluate parallel =let= bindings in precedence dispatch and the actual
-  field/alias operand-action operations.
+- Execute the remaining field/alias operand-action operations and derive
+  recursive child executions and proof contexts for every constructor.
 - Generate complete recursive branch traces against the now source-executed
   constructor and emitter in [[file:lowering-emitter-source.org][the shared-heap emission contract]]. Enabled
   observation closures still require their own operational simulation.

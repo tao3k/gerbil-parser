@@ -37,6 +37,7 @@ empty table consumes a fresh identity even though all of its entries are absent.
 def evaluateInitializer (expression : Datum) (store : Store) : Option (Value × Store) :=
   match expression with
   | .integer value => some (.natural value, store)
+  | .negative magnitude => some (.negative magnitude, store)
   | .boolean value => some (.boolean value, store)
   | .text value => some (.text value, store)
   | .list [.symbol "quote", value] => (literal value).map (fun value => (value, store))

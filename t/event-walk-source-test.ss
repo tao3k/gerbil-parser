@@ -127,6 +127,13 @@
     (raises (source-procedure '(def (producer) 'first (unbound-source-tail))) true))
   (property "unsupported reader data cannot disappear"
     (bindings) (equal (unsupported-datum?) #t))
+  (scenario "signed source metadata keeps negative ranks and arbitrary precision"
+    (using (call-with-output-string) (port)
+      (act (write-parser-source-data
+        (parser-source-data
+          (ParserEngine.SignedMetadataWitness values '(0 -1 -2 -18446744073709551617))) port))
+      (equal (and (string-contains (get-output-string port)
+                "(l [(n 0), (.negative 0), (.negative 1), (.negative 18446744073709551616)])") #t) #t)))
   (scenario "uninterned names fail before source data publication"
     (scope ((name (##string->uninterned-symbol "root")))
       (using (call-with-output-string) (port)

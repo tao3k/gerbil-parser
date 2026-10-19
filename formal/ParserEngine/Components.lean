@@ -64,3 +64,8 @@ import ParserEngine.Examples
 import ParserEngine.Fold
 import ParserEngine.OwnedStack
 import ParserEngine.Execution
+
+import ParserEngine.SignedSourceMetadata
+import ParserEngine.LoweringObserverEvaluation
+import ParserEngine.SchemeMutationTrace
+import ParserEngine.LoweringObservedClosure

@@ -76,8 +76,10 @@ The constructor still uses the same LeanPoo retained factory. These source laws
 strengthen its representation boundary; they do not prove AST actions or a CPU
 improvement. Local performance optimization remains deferred.
 
-The signed precedence witness limitation is tracked in the same emission
-audit. Concrete metadata must not be silently replaced by recognition IDs.
+[[file:lowering-observation-and-metadata.org][Observed source execution and metadata]] now transport all signed ranks,
+execute the real local proof context/root callbacks, and derive finite physical
+store histories from recursive evaluation. Source-dispatch totality and typed
+emission-event correspondence remain separate parser obligations.
 
 * Qualification
 

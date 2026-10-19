@@ -2,15 +2,15 @@
 module LoweringPublication {
   type State={next:int,rows:List[int],origins:List[int],proofs:List[int],stage:str,
     origin:bool,proof:bool,failAt:int,failStage:str,published:bool,
-    synthetic:int,names:List[int],callerNext:int}
+    synthetic:int,names:List[int],callerNext:int,rank:int,ranks:List[int]}
   var q:State
-  action start(origin:bool,proof:bool,failAt:int,failStage:str):bool =
+  action start(origin:bool,proof:bool,failAt:int,failStage:str,rank:int):bool =
     q'={next:1,rows:List(),origins:List(),proofs:List(),stage:"ready",
       origin:origin,proof:proof,failAt:failAt,failStage:failStage,published:false,
-      synthetic:0,names:List(),callerNext:-100}
+      synthetic:0,names:List(),callerNext:-100,rank:rank,ranks:List()}
   action init={nondet origin=Set(false,true).oneOf(); nondet proof=Set(false,true).oneOf();
     nondet failAt=Set(1,2,3,4).oneOf(); nondet failStage=Set("origin","proof").oneOf();
-    start(origin,proof,failAt,failStage)}
+    nondet rank=Set(-1,0,1).oneOf(); start(origin,proof,failAt,failStage,rank)}
   action allocate=all {q.stage=="ready",q.rows.length()<3,q'={...q,stage:"origin"}}
   action observeOrigin=all {q.stage=="origin",q'={...q,
     origins:if(q.origin) q.origins.append(q.next) else q.origins,
@@ -19,52 +19,62 @@ module LoweringPublication {
     proofs:if(q.proof) q.proofs.append(q.next) else q.proofs,
     stage:if(q.proof and q.failStage=="proof" and q.next==q.failAt) "failed" else "increment"}}
   action increment=all {q.stage=="increment",q'={...q,next:q.next+1,stage:"store"}}
-  action store=all {q.stage=="store",q'={...q,rows:q.rows.append(q.next-1),stage:"ready"}}
+  action store=all {q.stage=="store",q'={...q,rows:q.rows.append(q.next-1),ranks:q.ranks.append(q.rank),stage:"ready"}}
   action finish=all {q.stage=="ready",q.rows.length()==3,q'={...q,stage:"done",published:true}}
   action allocateName=all {q.stage=="ready",q.synthetic<4,
     q'={...q,synthetic:q.synthetic+1,names:q.names.append(q.synthetic)}}
   action step=any {allocateName,allocate,observeOrigin,observeProof,increment,store,finish,q'=q}
   val PublicationSafety=all {
     q.synthetic==q.names.length(),q.names==range(0,q.names.length()),q.callerNext== -100,
-    q.rows==range(1,q.rows.length()+1),
+    q.rows==range(1,q.rows.length()+1),q.ranks.length()==q.rows.length(),
+    q.ranks.indices().forall(index=>q.ranks.nth(index)==q.rank),
     q.next==q.rows.length()+(if(q.stage=="store") 2 else 1),
     q.origin or q.origins==List(),q.proof or q.proofs==List(),
     (q.origin and q.proof) implies q.proofs.length()<=q.origins.length(),
     q.stage=="failed" implies (not(q.published) and q.next==q.failAt),
     q.published implies (q.stage=="done" and q.rows==List(1,2,3)) }
-  run originFailureBeforeProofTest=start(true,true,1,"origin").then(allocate).then(observeOrigin)
+  run originFailureBeforeProofTest=start(true,true,1,"origin",0).then(allocate).then(observeOrigin)
     .expect(PublicationSafety and q.stage=="failed" and q.rows==List() and q.proofs==List())
-  run proofFailureBeforeCommitTest=start(true,true,1,"proof").then(allocate).then(observeOrigin).then(observeProof)
+  run proofFailureBeforeCommitTest=start(true,true,1,"proof",0).then(allocate).then(observeOrigin).then(observeProof)
     .expect(PublicationSafety and q.stage=="failed" and q.next==1 and q.rows==List())
-  run lateFailurePreservesPrefixTest=start(true,true,2,"origin").then(allocate).then(observeOrigin).then(observeProof)
+  run lateFailurePreservesPrefixTest=start(true,true,2,"origin",0).then(allocate).then(observeOrigin).then(observeProof)
     .then(increment).then(store).then(allocate).then(observeOrigin)
     .expect(PublicationSafety and q.rows==List(1) and q.next==2)
-  run disabledCallbacksDoNotRunTest=start(false,false,1,"origin").then(allocate).then(observeOrigin).then(observeProof)
+  run disabledCallbacksDoNotRunTest=start(false,false,1,"origin",0).then(allocate).then(observeOrigin).then(observeProof)
     .then(increment).then(store).expect(PublicationSafety and q.rows==List(1) and q.origins==List() and q.proofs==List())
-  run incrementIsNotPublicationTest=start(true,true,4,"origin").then(allocate).then(observeOrigin).then(observeProof)
+  run incrementIsNotPublicationTest=start(true,true,4,"origin",0).then(allocate).then(observeOrigin).then(observeProof)
     .then(increment).expect(PublicationSafety and q.rows==List() and q.next==2 and not(q.published))
-  run completePublicationTest=start(false,false,4,"origin")
+  run completePublicationTest=start(false,false,4,"origin",0)
     .then(allocate).then(observeOrigin).then(observeProof).then(increment).then(store)
     .then(allocate).then(observeOrigin).then(observeProof).then(increment).then(store)
     .then(allocate).then(observeOrigin).then(observeProof).then(increment).then(store).then(finish)
     .expect(PublicationSafety and q.published and q.rows==List(1,2,3) and q.next==4)
-  run earlyIncrementRejectedTest=start(true,true,1,"origin").then(allocate)
+  run earlyIncrementRejectedTest=start(true,true,1,"origin",0).then(allocate)
     .then(q'={...q,next:2}).expect(not(PublicationSafety))
-  run proofBeforeOriginRejectedTest=start(true,true,4,"origin").then(allocate)
+  run proofBeforeOriginRejectedTest=start(true,true,4,"origin",0).then(allocate)
     .then(q'={...q,proofs:List(1)}).expect(not(PublicationSafety))
-  run failedPrefixCannotPublishTest=start(true,true,1,"proof").then(allocate).then(observeOrigin).then(observeProof)
+  run failedPrefixCannotPublishTest=start(true,true,1,"proof",0).then(allocate).then(observeOrigin).then(observeProof)
     .then(q'={...q,published:true}).expect(not(PublicationSafety))
-  run interleavedNamesAndEmissionsTest=start(false,false,4,"origin").then(allocateName)
+  run interleavedNamesAndEmissionsTest=start(false,false,4,"origin",0).then(allocateName)
     .then(allocate).then(observeOrigin).then(observeProof).then(increment).then(store).then(allocateName)
     .then(allocate).then(observeOrigin).then(observeProof).then(increment).then(store)
     .expect(PublicationSafety and q.rows==List(1,2) and q.next==3 and q.synthetic==2)
-  run existingPrefixTest=start(false,false,4,"origin")
-    .then(q'={...q,rows:List(1,2),next:3,synthetic:2,names:List(0,1)})
+  run existingPrefixTest=start(false,false,4,"origin",0)
+    .then(q'={...q,rows:List(1,2),ranks:List(0,0),next:3,synthetic:2,names:List(0,1)})
     .then(allocate).then(observeOrigin).then(observeProof).then(increment).then(store).then(finish)
     .expect(PublicationSafety and q.rows==List(1,2,3) and q.synthetic==2 and q.callerNext== -100)
-  run wrongNameCounterRejectedTest=start(false,false,4,"origin").then(allocate)
+  run wrongNameCounterRejectedTest=start(false,false,4,"origin",0).then(allocate)
     .then(q'={...q,synthetic:1}).expect(not(PublicationSafety))
-  run callerCounterMutationRejectedTest=start(false,false,4,"origin").then(allocate)
+  run callerCounterMutationRejectedTest=start(false,false,4,"origin",0).then(allocate)
     .then(q'={...q,callerNext:-99}).expect(not(PublicationSafety))
 
+  run negativeMetadataTest=start(false,false,4,"origin",-1)
+    .then(allocate).then(observeOrigin).then(observeProof).then(increment).then(store)
+    .expect(PublicationSafety and q.ranks==List(-1) and q.rows==List(1))
+  run observerCounterWriteRejectedTest=start(true,true,4,"origin",-1)
+    .then(allocate).then(observeOrigin).then(q'={...q,next:2})
+    .expect(not(PublicationSafety))
+  run metadataSignLossRejectedTest=start(false,false,4,"origin",-1)
+    .then(allocate).then(observeOrigin).then(observeProof).then(increment).then(store)
+    .then(q'={...q,ranks:List(1)}).expect(not(PublicationSafety))
 }

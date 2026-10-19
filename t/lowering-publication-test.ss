@@ -199,6 +199,13 @@
           (equal (table-ref (list-ref snapshot 5) '$start.0 0) 0)
           (equal (fresh 'start) '$start.1)
           (equal (take (inspect) 3) '(1 2 ()))))))
+  (matrix "recursive lowering preserves signed precedence metadata"
+    (setup) ((rank '(-18446744073709551617 -2 -1 0 1 18446744073709551617)))
+    (bindings (rules (list (list 'start (list 'precedence 'left rank
+                                   '(optional (sequence (literal "x") (literal "y")))))))
+              (rows (lower-rules rules 'start #t)))
+    (equal (map (lambda (row) (list-ref row 4)) (cdr rows))
+           (make-list (length (cdr rows)) (list 'left rank))))
   (matrix "recursive dispatch preserves an existing emission prefix and independent name counter"
     (setup) ((prefix-count '(0 1 3 8)) (width '(0 1 2 8 16))) (bindings)
     (equal (parser-check-result source-emitter-interleave-case prefix-count width) (void)))

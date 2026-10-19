@@ -38,7 +38,7 @@ theorem ordered (selected : Datum → Bool) (form : Datum) :
     collect selected form = (preorder form).filter selected := by
   induction form using Datum.rec
       (motive_2 := fun forms => children selected forms = (preorderChildren forms).filter selected) with
-  | symbol | keyword | text | integer | boolean => simp [collect, preorder]
+  | symbol | keyword | text | integer | negative | boolean => simp [collect, preorder]
   | list items ih =>
     cases empty : items.isEmpty <;> cases blocked : quoted (.list items) <;>
       cases chosen : selected (.list items) <;> simp_all [collect, preorder]
@@ -63,7 +63,7 @@ theorem complete (selected : Datum → Bool) (target form : Datum) :
     target ∈ collect selected form ↔ Visible selected target form := by
   induction form using Datum.rec
       (motive_2 := fun forms => target ∈ children selected forms ↔ Below selected target forms) with
-  | symbol | keyword | text | integer | boolean => simp [collect, Visible]
+  | symbol | keyword | text | integer | negative | boolean => simp [collect, Visible]
   | list items ih =>
     cases empty : items.isEmpty <;> cases blocked : quoted (.list items) <;>
       cases matched : selected (.list items) <;> simp_all [collect, Visible]

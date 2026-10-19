@@ -22,6 +22,7 @@ instance (n : Nat) : OfNat Key n := ⟨.index n⟩
 
 inductive Value where
   | natural (value : Nat)
+  | negative (magnitude : Nat)
   | boolean (value : Bool)
   | list (values : List Value)
   | table (address : Nat)
@@ -57,6 +58,7 @@ def truthy : Value → Bool
 mutual
   def literal : Datum → Option Value
     | .integer value => some (.natural value)
+    | .negative magnitude => some (.negative magnitude)
     | .boolean value => some (.boolean value)
     | .text value => some (.text value)
     | .symbol name => some (.symbol name)
@@ -73,6 +75,7 @@ from symbols instead of making the complete declaration unrepresentable. -/
 mutual
   def datumValue : Datum → Value
     | .integer value => .natural value
+    | .negative magnitude => .negative magnitude
     | .boolean value => .boolean value
     | .text value => .text value
     | .keyword name => .keyword name
@@ -171,6 +174,7 @@ mutual
 inductive Eval : Environment → Heap → Datum → Value → Heap → Prop where
   | variable (found : resolve env heap name = some value) : Eval env heap (.symbol name) value heap
   | natural : Eval env heap (.integer value) (.natural value) heap
+  | negative : Eval env heap (.negative magnitude) (.negative magnitude) heap
   | boolean : Eval env heap (.boolean value) (.boolean value) heap
   | empty : Eval env heap (app "quote" [.list []]) (.list []) heap
   | quoteSymbol : Eval env heap (app "quote" [.symbol name]) (.symbol name) heap

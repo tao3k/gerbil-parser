@@ -10,6 +10,8 @@ inductive Datum where
   | keyword (name : String)
   | text (value : String)
   | integer (value : Nat)
+  /-- Canonical negative scalar: magnitude zero denotes minus one. -/
+  | negative (magnitude : Nat)
   | boolean (value : Bool)
   | list (items : List Datum)
   deriving Repr
@@ -19,11 +21,16 @@ mutual
     | .keyword x, .keyword y => decidable_of_iff (x = y) (by simp)
     | .symbol x, .symbol y => decidable_of_iff (x = y) (by simp)
     | .text x, .text y => decidable_of_iff (x = y) (by simp)
+    | .negative x, .negative y => decidable_of_iff (x = y) (by simp)
     | .integer x, .integer y => decidable_of_iff (x = y) (by simp)
     | .boolean x, .boolean y => decidable_of_iff (x = y) (by simp)
     | .list x, .list y =>
       letI := datumListEq x y
       decidable_of_iff (x = y) (by simp)
+    | .negative _, .symbol _ | .negative _, .keyword _ | .negative _, .text _
+    | .negative _, .integer _ | .negative _, .boolean _ | .negative _, .list _
+    | .symbol _, .negative _ | .keyword _, .negative _ | .text _, .negative _
+    | .integer _, .negative _ | .boolean _, .negative _ | .list _, .negative _
     | .keyword _, .symbol _ | .keyword _, .text _ | .keyword _, .integer _ | .keyword _, .boolean _ | .keyword _, .list _
     | .symbol _, .keyword _ | .text _, .keyword _ | .integer _, .keyword _ | .boolean _, .keyword _ | .list _, .keyword _
     | .symbol _, .text _ | .symbol _, .integer _ | .symbol _, .boolean _ | .symbol _, .list _

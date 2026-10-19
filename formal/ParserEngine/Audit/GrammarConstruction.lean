@@ -778,3 +778,24 @@ import ParserEngine.ConstructionDeclarationEncoding
 #print axioms ParserEngine.LoweringMixedEmission.collector_owned
 #print axioms ParserEngine.LoweringMixedEmission.collector_root_frame
 #print axioms ParserEngine.LoweringEmissionConstruction.retained_trace_ids
+
+#print axioms ParserEngine.SignedSourceMetadata.roundtrip
+#print axioms ParserEngine.SignedSourceMetadata.injective
+#print axioms ParserEngine.SignedSourceMetadata.renderer_magnitude
+#print axioms ParserEngine.SignedSourceMetadata.constructor
+
+#print axioms ParserEngine.LoweringObserverEvaluation.Notification.evaluates
+#print axioms ParserEngine.LoweringObserverEvaluation.body_eval
+#print axioms ParserEngine.LoweringObserverEvaluation.counter_agreement_iff
+
+#print axioms ParserEngine.SchemeMutationTrace.eval_generated
+#print axioms ParserEngine.SchemeMutationTrace.Writes.frame
+#print axioms ParserEngine.SchemeMutationTrace.evaluation_frame
+
+#print axioms ParserEngine.LoweringObserverEvaluation.invoke
+#print axioms ParserEngine.SchemeMutationTrace.invoke_generated
+
+#print axioms ParserEngine.LoweringObservedClosure.Application.evaluates
+#print axioms ParserEngine.LoweringObservedClosure.caller_bound
+#print axioms ParserEngine.LoweringObservedClosure.invoke
+#print axioms ParserEngine.LoweringObservedClosure.effects

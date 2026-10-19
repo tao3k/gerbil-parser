@@ -54,23 +54,21 @@ The arbitrary mixed-trace theorem prevents silently resetting the production
 counter between helper and parent emissions, or confusing it with the helper
 name counter. Native controls exercise existing prefixes and caller shadowing.
 
-A separate representation gap remains: =WalkSource.Datum.integer= carries a
-natural number and the source-data renderer rejects negative integers. The
-actual grammar validator admits negative precedence ranks; the existing layout
-boundary test already uses one. Thus complete signed metadata extraction is a
-parser-model obligation. It cannot be delegated to the host or hidden behind
-recognition-only rank normalization. No native parsing bug is inferred from
-this witness limitation.
+The signed scalar extraction defect is addressed in
+[[file:lowering-observation-and-metadata.org][recursive effects, observation and metadata]]. That audit also executes the
+observed local context/root emitter chain and records its remaining callback
+capability and full recursive-dispatch obligations.
 
 * Remaining simulation obligations
 
 - Generate the mixed operational trace from every complete recursive Scheme
   branch, including recursive procedure calls, instead of assuming that trace.
 - Derive parallel precedence bindings and native field/alias action execution.
-- Prove observed path/proof closures and their callback outcomes against the
-  same source evaluation, including their interaction with publication.
-- Connect arbitrary admitted raw grammar payloads, signed precedence metadata
-  and the full concrete record encoding to the retained product.
+- Generate observed paths, choice/recurrence proof recipes and admitted
+  callback authority against the source-executed context/emitter chain.
+- Connect arbitrary admitted raw grammar payloads and the full concrete record
+  encoding to the retained product; signed scalar transport now has its own
+  universal encoding and constructor laws.
 
 The proofs here concern normal returns with both observers disabled. They do
 not establish rollback on allocation failure, exceptions, continuation reentry

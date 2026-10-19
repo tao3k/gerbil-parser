@@ -58,6 +58,8 @@
         ((boolean? value) (list (if value "(b true)" "(b false)")))
         ((and (integer? value) (exact? value) (>= value 0))
          (list "(n " (number->string value) ")"))
+        ((and (integer? value) (exact? value) (< value 0))
+         (list "(.negative " (number->string (- -1 value)) ")"))
         ((list? value)
          (cons "(l ["
            (let loop ((rest value))

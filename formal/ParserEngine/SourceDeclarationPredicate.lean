@@ -85,7 +85,7 @@ quoted declarations and nonmatching or malformed outer envelopes. -/
 theorem predicate_corresponds (name : String) (datum : Datum) :
     evaluate name datum matcher = selects name datum := by
   cases datum with
-  | symbol _ | keyword _ | text _ | integer _ | boolean _ => rfl
+  | symbol _ | keyword _ | text _ | integer _ | negative _ | boolean _ => rfl
   | list items =>
     cases items with
     | nil => rfl
@@ -105,9 +105,9 @@ theorem predicate_corresponds (name : String) (datum : Datum) :
               | list parts => cases parts with
                 | nil => simp [evaluate, evaluateAll, matcher, selects, view, isSymbol]
                 | cons owner rest => cases owner <;> simp [evaluate, evaluateAll, matcher, selects, view, isSymbol]
-              | keyword _ | text _ | integer _ | boolean _ => rfl
+              | keyword _ | text _ | integer _ | negative _ | boolean _ => rfl
             · simp [evaluate, evaluateAll, matcher, selects, definition]
-          | keyword _ | text _ | integer _ | boolean _ | list _ => rfl
+          | keyword _ | text _ | integer _ | negative _ | boolean _ | list _ => rfl
 
 /-- The actual compiled predicate's arbitrary read trace admits precisely one
 complete declaration; its meaning is no longer supplied as an input premise. -/

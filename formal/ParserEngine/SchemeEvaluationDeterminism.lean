@@ -116,6 +116,9 @@ theorem variable_unique
     (found : resolve env heap name = some value) : EvalClaim env heap (.symbol name) value heap := by
   source_determinism_cases
 
+theorem negative_unique : EvalClaim env heap (.negative magnitude) (.negative magnitude) heap := by
+  source_determinism_cases
+
 theorem natural_unique
     : EvalClaim env heap (.integer value) (.natural value) heap := by
   source_determinism_cases
@@ -294,6 +297,7 @@ theorem Eval.unique (first : Eval env before expression value after) : EvalClaim
     | apply sequence_local_unique <;> assumption
     | apply variable_unique <;> assumption
     | apply natural_unique <;> assumption
+    | apply negative_unique <;> assumption
     | apply boolean_unique <;> assumption
     | apply empty_unique <;> assumption
     | apply text_unique <;> assumption

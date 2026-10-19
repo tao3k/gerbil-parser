@@ -43,7 +43,7 @@ def candidateHeader : Datum → Option Datum
 theorem original_test_corresponds (datum : Datum) :
     evaluate "" datum originalTest = (interface datum).isSome := by
   cases datum with
-  | symbol _ | keyword _ | text _ | integer _ | boolean _ => rfl
+  | symbol _ | keyword _ | text _ | integer _ | negative _ | boolean _ => rfl
   | list items =>
     cases items with
     | nil => rfl
@@ -62,14 +62,14 @@ theorem original_test_corresponds (datum : Datum) :
               | list parts => cases parts with
                 | nil => rfl
                 | cons owner parameters => cases owner <;> simp [evaluate, evaluateAll, originalTest, interface, view]
-              | symbol _ | keyword _ | text _ | integer _ | boolean _ => rfl
+              | symbol _ | keyword _ | text _ | integer _ | negative _ | boolean _ => rfl
             · simp [evaluate, evaluateAll, originalTest, interface, definition]
-          | keyword _ | text _ | integer _ | boolean _ | list _ => rfl
+          | keyword _ | text _ | integer _ | negative _ | boolean _ | list _ => rfl
 
 theorem result_test_corresponds (datum header : Datum) :
     evaluate "" datum (resultTest header) = decide (candidateHeader datum = some header) := by
   cases datum with
-  | symbol _ | keyword _ | text _ | integer _ | boolean _ => rfl
+  | symbol _ | keyword _ | text _ | integer _ | negative _ | boolean _ => rfl
   | list items =>
     cases items with
     | nil => rfl
@@ -85,7 +85,7 @@ theorem result_test_corresponds (datum header : Datum) :
             by_cases definition : tag = "def"
             · subst tag; simp [evaluate, evaluateAll, resultTest, candidateHeader, view]
             · simp [evaluate, evaluateAll, resultTest, candidateHeader, definition]
-          | keyword _ | text _ | integer _ | boolean _ | list _ => rfl
+          | keyword _ | text _ | integer _ | negative _ | boolean _ | list _ => rfl
 
 theorem interface_projection (found : interface datum = some header) :
     view .header datum = some header ∧ candidateHeader datum = some header ∧

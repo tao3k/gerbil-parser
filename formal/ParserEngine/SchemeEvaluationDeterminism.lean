@@ -20,6 +20,10 @@ def EachClaim (env : Environment) (name : String) (expressions : List Datum) (be
     (values : List Value) (after : Heap) : Prop :=
   ∀ last, Each env name expressions before values last → after = last
 
+def MapClaim (env : Environment) (name : String) (expressions : List Datum) (before : Heap)
+    (values results : List Value) (after : Heap) : Prop :=
+  ∀ others last, Mapping env name expressions before values others last → results = others ∧ after = last
+
 theorem Sequence.nonempty (evaluated : Sequence env before expressions value after) : expressions ≠ [] := by
   cases evaluated <;> simp
 
@@ -41,6 +45,8 @@ theorem primitive_callable (result : primitive operation values heap = some outc
   unfold primitive at result
   split at result <;> first | rfl | cases result
 
+theorem primitive_map : primitive "map" values heap = none := rfl
+
 theorem primitive_forEach : primitive "for-each" values heap = none := rfl
 
 theorem callable_quote : callable (s "quote") = false := rfl
@@ -53,15 +59,27 @@ theorem callable_let : callable (s "let") = false := rfl
 theorem callable_conditional : callable (s "if") = false := rfl
 theorem callable_when : callable (s "when") = false := rfl
 
+theorem callable_def : callable (s "def") = false := rfl
+
+theorem callable_unless : callable (s "unless") = false := rfl
+
+theorem callable_case : callable (s "case") = false := rfl
+
 theorem callable_cond : callable (s "cond") = false := rfl
 
+/-- Procedure declarations are sequence bindings, never value expressions. -/
+theorem Eval.no_definition
+    (actual : Eval env before (.list (.symbol "def" :: definition)) result after) : False := by
+  generalize codeEq : Datum.list (.symbol "def" :: definition) = code at actual
+  cases actual <;> grind [app, callable, primitive_callable]
+
 macro "source_determinism_cases" : tactic => `(tactic|
-  (dsimp only [EvalClaim, InvokeClaim, ArgsClaim, SeqClaim, EachClaim] at *
+  (dsimp only [EvalClaim, InvokeClaim, ArgsClaim, SeqClaim, EachClaim, MapClaim] at *
    intros
    rename_i second
    cases second <;> grind [app, callable_quote, callable_lambda, callable_assignment,
-     callable_conjunction, callable_disjunction, callable_begin, callable_let, callable_conditional, callable_cond, callable_when,
-     Sequence.nonempty, Eval.no_unbound_call, primitive_callable, primitive_forEach]))
+     callable_conjunction, callable_disjunction, callable_begin, callable_let, callable_conditional, callable_cond, callable_when, callable_case, callable_unless, callable_def,
+     Sequence.nonempty, Eval.no_unbound_call, Eval.no_definition, primitive_callable, primitive_forEach, primitive_map]))
 
 theorem conditional_true_unique
     (_test : Eval env before condition value middle) (chosen : truthy value = true)
@@ -83,6 +101,15 @@ theorem cond_unique (expanded : expandCond clauses = some expression)
     (_execution : Eval env before expression result after)
     (unique : EvalClaim env before expression result after) :
     EvalClaim env before (app "cond" clauses) result after := by
+  source_determinism_cases
+
+theorem case_symbol_unique
+    (_test : Eval env before selectorExpression (.symbol key) middle)
+    (selected : selectCase key clauses = some expressions)
+    (_body : Sequence env middle expressions result after)
+    (testUnique : EvalClaim env before selectorExpression (.symbol key) middle)
+    (bodyUnique : SeqClaim env middle expressions result after) :
+    EvalClaim env before (app "case" (selectorExpression :: clauses)) result after := by
   source_determinism_cases
 
 theorem variable_unique
@@ -175,6 +202,7 @@ theorem sequence_single_unique
   source_determinism_cases
 
 theorem sequence_cons_unique
+    (_started : Eval env before expression value middle)
     (continued : Sequence env middle expressions result after)
     (head : EvalClaim env before expression value middle) (tail : SeqClaim env middle expressions result after) : SeqClaim env before (expression :: expressions) result after := by
   source_determinism_cases
@@ -213,12 +241,43 @@ theorem for_each_recursive_unique
     EvalClaim env before (app "for-each" [.symbol procedure, input]) .unit after := by
   source_determinism_cases
 
+theorem unless_unique
+    (_execution : Eval env before (app "if" [condition, app "void" [], app "begin" expressions]) result after)
+    (unique : EvalClaim env before (app "if" [condition, app "void" [], app "begin" expressions]) result after) :
+    EvalClaim env before (app "unless" (condition :: expressions)) result after := by
+  source_determinism_cases
+
+theorem map_lambda_unique (_argument : Eval env before input (.list values) middle)
+    (_body : Mapping env name expressions middle values results after) (unshadowed : env "map" = none)
+    (argumentUnique : EvalClaim env before input (.list values) middle)
+    (bodyUnique : MapClaim env name expressions middle values results after) :
+    EvalClaim env before (app "map" [
+      .list (.symbol "lambda" :: .list [.symbol name] :: expressions), input]) (.list results) after := by
+  source_determinism_cases
+
+theorem mapping_nil_unique : MapClaim env name expressions heap [] [] heap := by
+  source_determinism_cases
+
+theorem mapping_cons_unique
+    (head : SeqClaim (extend env name value) before expressions result middle)
+    (tail : MapClaim env name expressions middle values results after) :
+    MapClaim env name expressions before (value :: values) (result :: results) after := by
+  source_determinism_cases
+
+theorem sequence_local_unique
+    (_execution : Sequence (tie [(name, ⟨parameters, expressions⟩)] env) before rest result after)
+    (unique : SeqClaim (tie [(name, ⟨parameters, expressions⟩)] env) before rest result after) :
+    SeqClaim env before
+      (.list (.symbol "def" :: .list (.symbol name :: parameters) :: expressions) :: rest) result after := by
+  source_determinism_cases
+
 theorem Eval.unique (first : Eval env before expression value after) : EvalClaim env before expression value after := by
   induction first using Eval.rec
       (motive_2 := fun before procedure values value after _ => InvokeClaim before procedure values value after)
       (motive_3 := fun env before expressions values after _ => ArgsClaim env before expressions values after)
       (motive_4 := fun env before expressions value after _ => SeqClaim env before expressions value after)
-      (motive_5 := fun env name expressions before values after _ => EachClaim env name expressions before values after) <;>
+      (motive_5 := fun env name expressions before values after _ => EachClaim env name expressions before values after)
+      (motive_6 := fun env name expressions before values results after _ => MapClaim env name expressions before values results after) <;>
     first
     | apply quote_symbol_unique <;> assumption
     | apply when_true_unique <;> assumption
@@ -227,6 +286,12 @@ theorem Eval.unique (first : Eval env before expression value after) : EvalClaim
     | apply conditional_true_unique <;> assumption
     | apply conditional_false_unique <;> assumption
     | apply cond_unique <;> assumption
+    | apply case_symbol_unique <;> assumption
+    | apply unless_unique <;> assumption
+    | apply map_lambda_unique <;> assumption
+    | apply mapping_nil_unique <;> assumption
+    | apply mapping_cons_unique <;> assumption
+    | apply sequence_local_unique <;> assumption
     | apply variable_unique <;> assumption
     | apply natural_unique <;> assumption
     | apply boolean_unique <;> assumption

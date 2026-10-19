@@ -55,7 +55,8 @@ This closes callback projection and collector evaluation for the generated
 normal-return protocol. It does not prove the entire actual Scheme dispatcher
 simulates that protocol: =case= dispatch, operand mapping, optional proof
 closures, arbitrary callback effects and interleaving with production emission
-still require a combined source evaluation derivation. In particular, source
+are tracked by the [[file:lowering-scheme-dispatch.org][Scheme dispatch composition]] audit. Its case, map and local closure laws
+are now operational; full recursive branch derivation remains open. In particular, source
 schema equality alone is not that derivation. Exceptional and nonterminating
 callbacks are not claimed to satisfy a returning-execution theorem.
 

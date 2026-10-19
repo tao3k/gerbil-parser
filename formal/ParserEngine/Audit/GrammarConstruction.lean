@@ -722,3 +722,34 @@ import ParserEngine.ConstructionDeclarationEncoding
 
 #print axioms ParserEngine.LoweringDeclarationCalls.generated_history
 #print axioms ParserEngine.LoweringCallStackControls.authored_requests
+
+#print axioms ParserEngine.SchemeTableEvaluation.Eval.case_inversion
+#print axioms ParserEngine.SchemeTableEvaluation.Eval.selected_sequence
+#print axioms ParserEngine.SchemeTableEvaluation.first_match
+#print axioms ParserEngine.LoweringDispatchSyntax.tagged
+#print axioms ParserEngine.LoweringDispatchSyntax.selector_eval
+#print axioms ParserEngine.LoweringDispatchSyntax.tag_not_recoverable
+#print axioms ParserEngine.LoweringDispatch.lower_selected
+#print axioms ParserEngine.LoweringDispatch.operand_selected
+#print axioms ParserEngine.LoweringDispatch.symbol_selected
+#print axioms ParserEngine.LoweringDispatch.lower_eval
+#print axioms ParserEngine.LoweringDispatch.operand_eval
+#print axioms ParserEngine.LoweringDispatch.symbol_eval
+#print axioms ParserEngine.LoweringDispatch.lower_unique
+#print axioms ParserEngine.LoweringSymbolEvaluation.terminal
+#print axioms ParserEngine.LoweringSymbolEvaluation.reference
+#print axioms ParserEngine.LoweringSymbolEvaluation.terminal_unique
+
+#print axioms ParserEngine.LoweringSymbolEvaluation.retained_terminal
+
+#print axioms ParserEngine.LoweringMapEvaluation.append
+#print axioms ParserEngine.LoweringMapEvaluation.length
+#print axioms ParserEngine.LoweringMapEvaluation.deterministic
+#print axioms ParserEngine.LoweringMapEvaluation.fast_eval
+#print axioms ParserEngine.LoweringMapEvaluation.complete_list
+
+#print axioms ParserEngine.SchemeTableEvaluation.Eval.no_definition
+#print axioms ParserEngine.LoweringEntryEvaluation.root_lookup
+#print axioms ParserEngine.LoweringEntryEvaluation.captures
+#print axioms ParserEngine.LoweringEntryEvaluation.body_eval
+#print axioms ParserEngine.LoweringEntryEvaluation.root_invoke

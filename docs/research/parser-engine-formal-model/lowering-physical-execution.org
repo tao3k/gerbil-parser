@@ -483,3 +483,11 @@ completeness and uniqueness, and actual captured-cell Scheme collector
 evaluation. The constructor consumes the event stream instead of reconstructing
 its order from the reversed allocation store. The full native dispatcher
 simulation remains a distinct parser obligation; this is not global closure.
+
+* Scheme dispatcher composition
+
+[[file:lowering-scheme-dispatch.org][Scheme dispatch]] supplies actual case evaluation, stateful operand-map
+composition, concrete tag encoding and root/local-closure entry laws. It also
+lists the remaining recursive branch and native emitter obligations explicitly.
+The retained LeanPoo constructor remains the same consumer; global source
+simulation closure is not inferred from branch selection or finite tests.

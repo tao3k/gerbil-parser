@@ -116,7 +116,8 @@ def loopBindings : List Datum → Option (List String × List Datum)
 
 def callable : Datum → Bool
   | .symbol "quote" | .symbol "lambda" | .symbol "set!" | .symbol "and"
-  | .symbol "or" | .symbol "begin" | .symbol "let" | .symbol "if" | .symbol "cond" | .symbol "when" => false
+  | .symbol "or" | .symbol "begin" | .symbol "let" | .symbol "if" | .symbol "cond" | .symbol "when"
+  | .symbol "case" | .symbol "unless" | .symbol "def" => false
   | _ => true
 
 /-- Primitive globals are unshadowed in this fragment. Local procedure calls
@@ -156,6 +157,16 @@ def expandCond : List Datum → Option Datum
       return app "if" [test, app "begin" (first :: body), fallback]
   | _ => none
 
+/-- Lowering dispatches on interned symbolic tags. The selector is evaluated
+once by Eval; clause selection neither reads nor mutates the runtime heap.
+Unsupported clause envelopes fail closed. -/
+def selectCase (key : String) : List Datum → Option (List Datum)
+  | [.list (.symbol "else" :: first :: body)] => some (first :: body)
+  | .list (.list keys :: first :: body) :: rest =>
+      if keys.any (fun value => match value with | .symbol name => name == key | _ => false) then some (first :: body)
+      else selectCase key rest
+  | _ => none
+
 mutual
 inductive Eval : Environment → Heap → Datum → Value → Heap → Prop where
   | variable (found : resolve env heap name = some value) : Eval env heap (.symbol name) value heap
@@ -183,6 +194,13 @@ inductive Eval : Environment → Heap → Datum → Value → Heap → Prop wher
       (branch : Eval env middle no result after) : Eval env before (app "if" [condition, yes, no]) result after
   | cond (expanded : expandCond clauses = some expression) (execution : Eval env before expression result after) :
       Eval env before (app "cond" clauses) result after
+  | caseSymbol (test : Eval env before selectorExpression (.symbol key) middle)
+      (selected : selectCase key clauses = some expressions)
+      (body : Sequence env middle expressions result after) :
+      Eval env before (app "case" (selectorExpression :: clauses)) result after
+  | unless (execution : Eval env before
+      (app "if" [condition, app "void" [], app "begin" expressions]) result after) :
+      Eval env before (app "unless" (condition :: expressions)) result after
   | whenTrue (test : Eval env before condition value middle) (chosen : truthy value = true)
       (body : Sequence env middle expressions result after) :
       Eval env before (app "when" (condition :: expressions)) result after
@@ -204,6 +222,10 @@ inductive Eval : Environment → Heap → Datum → Value → Heap → Prop wher
   | letBody (bound : Eval env before expression value middle)
       (body : Sequence (extend env name value) middle expressions result after) :
       Eval env before (.list (.symbol "let" :: .list [.symbol name, expression] :: expressions)) result after
+  | mapLambda (argument : Eval env before input (.list values) middle)
+      (body : Mapping env name expressions middle values results after) (unshadowed : env "map" = none) :
+      Eval env before (app "map" [
+        .list (.symbol "lambda" :: .list [.symbol name] :: expressions), input]) (.list results) after
   | forEach (argument : Eval env before input (.list values) middle)
       (body : Each env name expressions middle values after) (unshadowed : env "for-each" = none) :
       Eval env before (app "for-each" [
@@ -232,11 +254,22 @@ inductive Sequence : Environment → Heap → List Datum → Value → Heap → 
   | cons (head : Eval env before expression value middle)
       (tail : Sequence env middle expressions result after) :
       Sequence env before (expression :: expressions) result after
+  | localProcedure (execution : Sequence (tie [(name, ⟨parameters, expressions⟩)] env) before rest result after) :
+      Sequence env before
+        (.list (.symbol "def" :: .list (.symbol name :: parameters) :: expressions) :: rest) result after
 inductive Each : Environment → String → List Datum → Heap → List Value → Heap → Prop where
   | nil : Each env name expressions heap [] heap
   | cons (head : Sequence (extend env name value) before expressions result middle)
       (tail : Each env name expressions middle values after) :
       Each env name expressions before (value :: values) after
+/-- The installed map primitive's ordered callback contract. Lambda creation
+is pure; every application consumes its predecessor's resulting heap. -/
+inductive Mapping : Environment → String → List Datum → Heap → List Value → List Value → Heap → Prop where
+  | nil : Mapping env name expressions heap [] [] heap
+  | cons (head : Sequence (extend env name value) before expressions result middle)
+      (tail : Mapping env name expressions middle values results after) :
+      Mapping env name expressions before (value :: values) (result :: results) after
+
 end
 
 end ParserEngine.SchemeTableEvaluation

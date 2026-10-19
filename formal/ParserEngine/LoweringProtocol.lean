@@ -35,8 +35,34 @@ def input (rules : List (Nat × LoweringTraversal.Syntax)) (root : Nat)
     ConstructionGrammar.Input :=
   ⟨raw.records, raw.augmented, root, root, LoweringTraversal.normalized rules,
     decode execution.after.names, (LoweringTraversal.declarations rules).map LoweringBranches.Emission.recipe,
-    LoweringDeclarationVocabulary.directory raw.augmented (LoweringTraversal.normalized rules)
-      execution.after.names.bindings⟩
+    raw.augmented :: ((LoweringTraversal.normalized rules).map Prod.fst ++
+      (LoweringCallStack.declarations execution.events).map Prod.fst)⟩
+
+/-- The callback projection is derived by recursion through every call and
+continuation. It is not reconstructed from production lhs rows. -/
+theorem callback_bindings (execution : Execution (Program rules root) (Start rules root)) :
+    LoweringCallStack.declarations execution.events = execution.after.names.bindings.reverse := by
+  simpa [Start, initial, Names.initial] using execution.storage.symm
+
+theorem callbacks_unique (execution : Execution (Program rules root) (Start rules root)) :
+    ((LoweringCallStack.declarations execution.events).map Prod.fst).Nodup := by
+  rw [callback_bindings, List.map_reverse]
+  exact (List.reverse_perm _).symm.nodup (Names.unique_names execution.history)
+
+theorem input_callback_order (execution : Execution (Program rules root) (Start rules root))
+    (raw : ConstructionGrammar.Input) :
+    (input rules root execution raw).declarations =
+      LoweringDeclarationVocabulary.directory raw.augmented (LoweringTraversal.normalized rules)
+        execution.after.names.bindings.reverse := by
+  simp only [input, callback_bindings, LoweringDeclarationVocabulary.directory]
+
+theorem input_membership (execution : Execution (Program rules root) (Start rules root))
+    (raw : ConstructionGrammar.Input) :
+    name ∈ (input rules root execution raw).declarations ↔
+      name ∈ LoweringDeclarationVocabulary.directory raw.augmented (LoweringTraversal.normalized rules)
+        execution.after.names.bindings := by
+  rw [input_callback_order]
+  simp [LoweringDeclarationVocabulary.directory]
 
 /-- The complete recursive producer owns helper declarations through its
 allocation history, including calls that emit no production. -/
@@ -44,7 +70,7 @@ theorem input_allocated (rules : List (Nat × LoweringTraversal.Syntax)) (root :
     (execution : Execution (Program rules root) (Start rules root)) (raw : ConstructionGrammar.Input)
     (member : binding ∈ execution.after.names.bindings) :
     binding.1 ∈ (input rules root execution raw).declarations :=
-  LoweringDeclarationVocabulary.allocated member
+  (input_membership execution raw).mpr (LoweringDeclarationVocabulary.allocated member)
 
 /-- References reserved by preprocessing cannot become declarations merely
 because the allocator sees them; arbitrary recursive dispatch retains this. -/
@@ -52,8 +78,9 @@ theorem input_undeclared (rules : List (Nat × LoweringTraversal.Syntax)) (root 
     (execution : Execution (Program rules root) (Start rules root)) (raw : ConstructionGrammar.Input)
     (reservedName : name ∈ LoweringProgram.reserved rules root)
     (unknown : name ∉ (LoweringTraversal.normalized rules).map Prod.fst)
-    (different : name ≠ raw.augmented) : name ∉ (input rules root execution raw).declarations :=
-  LoweringDeclarationVocabulary.reserved_undeclared execution.history reservedName unknown different
+    (different : name ≠ raw.augmented) : name ∉ (input rules root execution raw).declarations := by
+  rw [input_membership]
+  exact LoweringDeclarationVocabulary.reserved_undeclared execution.history reservedName unknown different
 
 theorem input_origin (rules : List (Nat × LoweringTraversal.Syntax)) (root : Nat)
     (execution : Execution (Program rules root) (Start rules root)) (raw : ConstructionGrammar.Input)

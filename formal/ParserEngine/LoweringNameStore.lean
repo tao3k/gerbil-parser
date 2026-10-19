@@ -54,6 +54,7 @@ structure Allocation {reserved} (before : Store reserved) (owner : Owner) where
   handle : Handle after owner
   index : Nat
   counter : after.names.attempt = index + 1
+  bindings : after.names.bindings = (handle.name, owner) :: before.names.bindings
 
 def allocate {reserved} (candidate : Nat → Nat)
     (injective : ∀ a b, candidate a = candidate b → a = b)
@@ -69,6 +70,9 @@ def allocate {reserved} (candidate : Nat → Nat)
       rw [result.property.2.2.1]; simp [LoweringNames.claimed],
       by change decode result.val.2 _ = owner
          rw [result.property.2.2.1]
-         simp [decode, LoweringNames.claimed]⟩ }
+         simp [decode, LoweringNames.claimed]⟩
+    bindings := by
+      change result.val.2.bindings = (candidate result.val.1, owner) :: before.names.bindings
+      exact congrArg Names.State.bindings result.property.2.2.1 }
 
 end ParserEngine.LoweringNameStore

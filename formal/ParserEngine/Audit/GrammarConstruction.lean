@@ -705,3 +705,20 @@ import ParserEngine.ConstructionDeclarationEncoding
 
 #print axioms ParserEngine.ConstructionDeclarationEncoding.reader_declarations
 #print axioms ParserEngine.ConstructionEncodingWitness.declaration_mismatch_rejected
+
+#print axioms ParserEngine.LoweringProtocol.callback_bindings
+#print axioms ParserEngine.LoweringProtocol.input_callback_order
+#print axioms ParserEngine.LoweringDeclarationEvaluation.extracted
+#print axioms ParserEngine.LoweringDeclarationEvaluation.slot_eval
+#print axioms ParserEngine.LoweringDeclarationEvaluation.collect
+#print axioms ParserEngine.LoweringDeclarationEvaluation.unique
+#print axioms ParserEngine.LoweringDeclarationEvaluation.generated_collector
+#print axioms ParserEngine.LoweringCallStackControls.ordered_callbacks
+
+#print axioms ParserEngine.LoweringProtocol.callbacks_unique
+
+#print axioms ParserEngine.LoweringDeclarationCalls.source_history
+#print axioms ParserEngine.LoweringDeclarationCalls.every_return
+
+#print axioms ParserEngine.LoweringDeclarationCalls.generated_history
+#print axioms ParserEngine.LoweringCallStackControls.authored_requests

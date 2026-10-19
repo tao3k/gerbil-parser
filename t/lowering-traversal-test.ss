@@ -12,18 +12,26 @@
     (list kind (nested-expression kind (- depth 1)))))
 
 (defparser-check (nested-traversal-case kind depth)
-  (scope ((origins '()) (bindings '()) (recipes '())
+  (scope ((origins '()) (bindings '()) (recipes '()) (declared '()) (callback-order? #t)
           (rules (list (list 'start (nested-expression kind depth)))))
     (scope ((rows (lower-rules rules 'start #t
       (lambda (row owner path expression)
         (set! origins (cons (list row owner path expression) origins)))
       (lambda (tag value recipe)
         (case tag
-          ((binding) (set! bindings (cons (cons value recipe) bindings)))
-          ((production) (set! recipes (cons recipe recipes))))))))
+          ((binding)
+            (set! callback-order? (and callback-order? (pair? declared) (eq? value (car declared))))
+            (set! bindings (cons (cons value recipe) bindings)))
+          ((production) (set! recipes (cons recipe recipes)))))
+      (lambda (name) (set! declared (cons name declared))))))
       (equal rows (lower-rules rules 'start #t))
       (equal (length (cdr rows)) (* 2 depth))
       (equal (map production-id rows) (iota (+ 1 (* 2 depth))))
+      (equal callback-order? #t)
+      (equal declared (map car bindings))
+      (scope-values (((compiled declarations) (lower-grammar rules 'start #t)))
+        (equal compiled rows)
+        (equal declarations (append '($accept start) (reverse declared))))
       (equal (length bindings) (- depth 1))
       (equal (length recipes) (* 2 depth))
       (equal (map caddr (reverse origins))
@@ -44,7 +52,7 @@
 
 (defparser-check (name-collision-case count references?)
   (scope ((reserved (map (lambda (index) (string->symbol (string-append "$start." (number->string index)))) (iota count)))
-          (bindings '()) (events '()))
+          (bindings '()) (events '()) (declared '()))
     (scope ((rules
       (append
         (list (list 'start (cons 'sequence
@@ -56,7 +64,9 @@
       (scope ((rows (lower-rules rules 'start #t #f
         (lambda (kind value expression)
           (set! events (cons kind events))
-          (when (eq? kind 'binding) (set! bindings (cons (cons value expression) bindings)))))))
+          (when (eq? kind 'binding) (set! bindings (cons (cons value expression) bindings))))
+        (lambda (name) (set! declared (cons name declared))))))
+        (equal declared (map car bindings))
         (equal (map car (reverse bindings))
           (map (lambda (index) (string->symbol (string-append "$start." (number->string index))))
                (list count (+ count 1))))
@@ -86,6 +96,23 @@
           (equal (not (not (memq (car bindings) declarations))) #t)
           (equal (validate-production-semantics compiled declarations) rows)
           (raises (validate-production-semantics compiled '(start $accept)) true)))))
+  (scenario "a failing declaration callback aborts before proof, recursion and publication"
+    (scope ((declared '()) (proofs '()) (emitted '()) (returned? #f)
+            (rules '((start (sequence (optional (literal "x")))))))
+      (raises
+        (begin
+          (lower-rules rules 'start #t
+            (lambda arguments (set! emitted (cons arguments emitted)))
+            (lambda arguments (set! proofs (cons arguments proofs)))
+            (lambda (name) (set! declared (cons name declared)) (error "declaration rejected" name)))
+          (set! returned? #t)) true)
+      (equal declared '($start.0))
+      (equal proofs '())
+      (equal emitted '())
+      (equal returned? #f)
+      (scope-values (((rows declarations) (lower-grammar rules 'start)))
+        (equal declarations '($accept start $start.0))
+        (equal (length rows) 4))))
   (scenario "Scheme preparation and Rust emission consume the same declaration directory"
     (scope ((spec (compile-lr-spec '((start (choice (sequence (choice)) (literal "x")))) 'start)))
       (scope ((ir (list '(schema . "gerbil-parser.parser-ir.v1") '(root-kind . Root)

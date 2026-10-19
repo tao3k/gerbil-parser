@@ -78,10 +78,11 @@ versioned module name is introduced.
 | Retained constructor owner | =factory_owner_declared= consumes the same LeanPoo-backed construction product and traces its physical lhs back to the raw declaration stream. |
 | Real witness comparison | =declaration_mismatch_rejected= proves that the actual frame checker rejects a different declaration field; source corpus comparisons include order and multiplicity. |
 
-These are arbitrary-input encoding/consumer theorems. They do not prove that
-every possible Scheme lowering run emits a complete declaration callback
-history, or derive source rules, decode functions and recipes from arbitrary
-runtime heaps. Those producer-control obligations remain explicit below.
+These are arbitrary-input encoding/consumer theorems.
+[[file:lowering-declaration-callbacks.org][Declaration callback composition]] now connects arbitrary generated lowering
+call trees and actual collector closure evaluation to the same constructor.
+The complete native dispatcher simulation, source rules, decode functions and
+recipes from arbitrary runtime heaps remain explicit producer obligations.
 Installed reader, symbol interning and scalar extraction also remain external.
 
 The existing parser-test owner exercises an undefined reserved reference,

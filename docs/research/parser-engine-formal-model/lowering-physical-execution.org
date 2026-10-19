@@ -475,3 +475,11 @@ sharing proof, macro controls, transport contract and retained full-build
 failures. Partial native products are never admitted as a complete generation;
 successful full builds publish a source-bound product manifest. The full
 recursive Scheme-evaluation correspondence remains a separate open obligation.
+
+* Declaration callback composition
+
+[[file:lowering-declaration-callbacks.org][Declaration callbacks]] now have explicit ordered events, arbitrary-call-tree
+completeness and uniqueness, and actual captured-cell Scheme collector
+evaluation. The constructor consumes the event stream instead of reconstructing
+its order from the reversed allocation store. The full native dispatcher
+simulation remains a distinct parser obligation; this is not global closure.

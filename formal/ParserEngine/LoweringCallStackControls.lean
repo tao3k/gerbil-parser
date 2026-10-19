@@ -37,13 +37,19 @@ theorem same_owner_distinct_names : decode execution.after.names 2 = .expression
     decode execution.after.names 3 = .expression .empty := by decide_cbv
 
 def eventKind : Event → String
-  | .claim _ _ _ => "claim"
+  | .claim _ _ _ _ => "claim"
+  | .declare _ _ => "declare"
   | .enter _ => "enter"
   | .leave _ => "return"
   | .emit _ => "emit"
 
 theorem returns_before_parent : execution.events.map eventKind =
-    ["claim", "enter", "emit", "return", "claim", "enter", "emit", "return", "emit", "emit"] := by decide_cbv
+    ["claim", "declare", "enter", "emit", "return", "claim", "declare", "enter", "emit", "return", "emit", "emit"] := by decide_cbv
+
+theorem authored_requests : allocationRequests execution.events =
+    [(0, .expression .empty), (0, .expression .empty)] := by decide_cbv
+
+theorem ordered_callbacks : (declarations execution.events).map Prod.fst = [2, 3] := by decide_cbv
 
 theorem origin_admitted : Names.admitNative rules (decode execution.after.names)
     (emissions execution.events) ((erase code).map LoweringBranches.Emission.recipe) = true :=

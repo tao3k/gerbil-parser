@@ -5,6 +5,8 @@ import ParserEngine.ConstructionVocabulary
 import ParserEngine.LoweringPublicationWitness
 import ParserEngine.LoweringTraversalWitness
 import ParserEngine.LoweringProtocol
+import ParserEngine.LoweringDeclarationEvaluation
+import ParserEngine.LoweringDeclarationCalls
 import ParserEngine.RuleIndexSource
 import ParserEngine.LoweringProgramControls
 import ParserEngine.LoweringCallStackControls

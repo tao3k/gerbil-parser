@@ -160,11 +160,15 @@ guards around exactly one transform invocation, and is covered by the generated
 source witness.
 
 =read_transform_prepare= combines unique whole-source selection, retained real
-Scheme call execution, interface preservation, explicit expansion of that same
-transformed declaration, and LeanPoo's typed factory preparation. It supplies
-every required capability of that expansion. The installed SDK is responsible
-for expansion semantics; an unrelated tree cannot silently replace the
-transformed declaration in this contract.
+Scheme call execution, interface preservation and explicit expansion of the
+project-normalized lambda. It now consumes the complete computed preparation
+result, deriving the literal guard, absence of residual obligations, evaluation
+of that same core and final procedure-result classification. The former theorem
+expanded a raw declaration and assumed independent successful dependency
+preparation; that weaker composition has been replaced. LeanPoo's typed supply
+and publication factories remain the capability boundary described below.
+Installed compiler semantics still relates this exact lambda input to its
+expanded syntax and visitor tree.
 
 The mutable-data audit also found that comparing two aliases after a callback
 is insufficient: an in-place header mutation can change both sides.
@@ -248,6 +252,50 @@ inspection; retained-callback mutation controls run both before and after the
 guard while preserving the detached published value. They complement the arbitrary-stream and closure proofs;
 they do not replace them.
 
+* Complete preparation audit
+
+The remaining-premise audit found a composition error in the model:
+=SourceDependencies.admit= accepts a closed data tree, whereas the real
+=prepare-source-procedure= rejects any expanded core that is not a lambda or
+case-lambda literal. Dependency closure is an intermediate obligation, not a
+complete procedure-admission certificate. The Scheme implementation already
+contains the missing guard; no parser runtime repair is inferred from this
+model counterexample.
+
+[[file:../../../formal/ParserEngine/SourceProcedureAdmission.lean][SourceProcedureAdmission]] now models the complete guard boundary.
+=check_iff= derives acceptance from both the literal classification and the
+complete visitor result for arbitrary representable core forms and trees.
+=checked_closed= produces lexical closure from those checks, rather than
+requiring it as an input certificate. =checked_supplied_coverage= reuses the
+exact LeanPoo factories to connect native residual closure to every required
+supplied capability. =execution_checked= retains the same checked core through
+evaluation and derives the final procedure-result check; =execution_ready=
+provides the converse success rule. =nonprocedure_result_rejected= covers the
+last rejection branch even if an external evaluator violates its expected
+literal-result behavior. The concrete preparation source witness binds this
+protocol to its native guards, traversal order and same-core evaluation.
+
+Native macro controls verify the decisive counterexample: dependency-free
+numbers, quoted data and computed procedure expressions fail procedure
+preparation; a case-lambda literal succeeds with both arities. The Quint
+lifecycle distinguishes quoted data inside a literal from a nonliteral core,
+and rejects omission of either the literal or final-result guard.
+
+| Remaining premise | Classification and discharge boundary |
+|-------------------+---------------------------------------|
+| Whole-file declaration selection and header acceptance | Derived by the reader transcript and native predicate proofs; no caller matcher or guard certificate. |
+| Transform body execution and normal return | Existing Scheme closure/heap semantics covers a supplied complete execution derivation; totality of arbitrary user callbacks is not asserted. |
+| Published data graph isolation | Project codec composition and logical frame theorem; physical codec round-trip, graph allocation and stable inputs remain host premises. |
+| Complete lexical closure and procedure admission | Derived by the visitor, computed native guard model and exact LeanPoo capability selection; closed data alone is rejected. |
+| Core syntax to visitor tree, binding classification and evaluator result | Installed compiler semantics and stable retained syntax remain external; arbitrary mismatched trees are not admissible compiler observations. |
+| Physical records, semantic origins and construction inputs | The unified construction contract validates its supported encodings; arbitrary metadata extraction and unrestricted Scheme execution are not covered by this source-witness contract. |
+
+This table is a maintained boundary audit, not a claim that every parser-owned
+source obligation or arbitrary Scheme program has been proved. The actual
+construction lifecycle continues to consume its retained producer, storage,
+FIFO and paper-target proofs separately. Model coverage and native qualification
+are distinct evidence; no CPU optimization follows from this change.
+
 * Real source and execution controls
 
 [[file:../../../t/source-dependency-test.ss][The source dependency suite]] uses the existing constrained test macros for reads,
@@ -285,7 +333,7 @@ existing contracts. No SDK/Gambit code or installed object is modified or built.
 
 * Qualification runtime dependency boundary
 
-The current macOS semantics job failed in the Unicode backpressure control's
+A previous macOS semantics job failed in the Unicode backpressure control's
 completion wait, after the real target-ready acknowledgement. Its four-second
 readiness, six-second completion, 0.8-second child idle fence and 1.2-second
 intentional consumer pause remain unchanged.
@@ -328,14 +376,13 @@ unchanged. No timing above is interpreted as a CPU optimization result.
 
 | Gate | Result | Existing limit |
 |------+--------+----------------|
-| Standard clean and complete package build | 179.35 s, exit 0 | 180/5 |
-| Original four preparation owners | 53.55 s, exit 0 | 90/5 |
-| Original 16-owner first cold aggregate | 150.88 s end to end, exit 0 | 180/5 |
-| Dependency, LR source and real compiler controls | 52 cases, 18.56 s, exit 0 | 90/5 |
-| New source witness freshness | passed | 90/5 |
-| Existing complete source witness freshness | passed | 90/5 |
-| Lean model and unified axiom audit | 249 jobs passed | unchanged |
-| Quint lifecycle controls | 18 tests; 1000 traces per model passed | unchanged |
+| Standard clean and complete package build | 134.91 s, exit 0 | 180/5 |
+| Original four preparation owners | 47.14 s, exit 0 | 90/5 |
+| Original 16-owner first cold aggregate | 155.57 s end to end, exit 0 | 180/5 |
+| Dependency, LR source and real compiler controls | 53 cases, 12.53 s, exit 0 | 90/5 |
+| Source dependency witness freshness | 2.71 s, exit 0 | 90/5 |
+| Lean model and unified axiom audit | 250 jobs passed | unchanged |
+| Quint lifecycle controls | 22 tests; 1000 traces per model passed | unchanged |
 
 The cold aggregate uses the original owner list and four workers. The broader
 controls include verified and missing kernel primitives, an ordinary ambient

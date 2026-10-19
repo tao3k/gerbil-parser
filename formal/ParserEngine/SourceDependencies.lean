@@ -162,7 +162,9 @@ theorem prepared_covers_source {Context : Type v} {Value : Context → Key → T
   exact Requirements.Selected.available provider names factories
     ((Requirements.prepare_ok_iff _ _ _).mp ready) name ((complete tree accepted).mpr required)
 
-/-- The admission token retains the exact checked expanded tree. -/
+/-- Dependency-only admission retains the checked tree. Complete procedure
+admission additionally checks the literal and evaluator result in
+SourceProcedureAdmission; closed data alone is not a procedure capability. -/
 def admit (tree : Tree Key) : Option (Tree Key) := do
   let names ← dependencies tree
   if names.isEmpty then some tree else none

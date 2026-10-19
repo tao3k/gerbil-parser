@@ -560,6 +560,7 @@ No engine optimization is justified by this composition alone.
 | Initial and complete source execution | =ConstructionFIFO.build= -> LeanPoo retained factory -> =source_complete= | Special initial writes and index replay; source-generated actions; per-step safety; complete FIFO termination; same physical row/goto meaning |
 | Independent source installation | =TemplateCapabilities.produce= -> =ConstructionInstallation.append= and =ConstructionInitialization.initial= -> same FIFO factory | Certified value production preserves the heap; source frames generate physical writes and logical views; abstract initial/intern constructors are comparison targets only |
 | Interning, FIFO and final rows | =construct_exact= and returned =Product= | Hash equality and queue primitives |
+| Complete source-witness admission | Reader/transform/storage proofs -> =SourceProcedureAdmission.check_iff= and =execution_checked=; exact LeanPoo supplied capabilities | Compiler expansion/binding/visitor correspondence, retained syntax stability and host graph codec remain external; dependency-free data is not procedure admission |
 | Source authority | Named parameter extraction, =extracted_sources=, executable recipes and fresh reader witnesses | Restricted construction idioms, not a general Scheme execution theorem |
 | Compiler, GC and host memory | Explicit external premises | No Gambit modification or build; no native compiler correctness claim |
 

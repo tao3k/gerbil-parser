@@ -10,6 +10,7 @@ import ParserEngine.SourceDependencies
 import ParserEngine.SourceDependencyExecution
 import ParserEngine.SourceDependencyAdapter
 import ParserEngine.SourceDeclarationStorage
+import ParserEngine.SourceProcedureAdmission
 import ParserEngine.LoweringReservationEvaluation
 import ParserEngine.LoweringPreprocessingEvaluation
 import ParserEngine.Components
@@ -670,3 +671,12 @@ import ParserEngine.SourceInventory
 #print axioms ParserEngine.SourceDependencyAdapter.lambda_data_evaluates
 
 #print axioms ParserEngine.SourceDeclarationTransformation.accepted_lambda_shape
+
+#print axioms ParserEngine.SourceProcedureAdmission.check_iff
+#print axioms ParserEngine.SourceProcedureAdmission.checked_closed
+#print axioms ParserEngine.SourceProcedureAdmission.execution_checked
+#print axioms ParserEngine.SourceProcedureAdmission.checked_supplied_coverage
+#print axioms ParserEngine.SourceProcedureAdmission.closed_data_is_not_a_procedure
+
+#print axioms ParserEngine.SourceProcedureAdmission.execution_ready
+#print axioms ParserEngine.SourceProcedureAdmission.nonprocedure_result_rejected

@@ -141,6 +141,14 @@
     (raises (source-expression-procedure '(lambda () 'first (unbound-source-tail))) true))
   (scenario "a checked macro expands exactly once and the retained syntax executes"
     (equal (single-expansion-observation) '(1 42)))
+  (scenario "closed data and computed procedures do not bypass the literal guard"
+    (each (expression) ('(42 'closed (if #t (lambda () 42) (lambda () 0))))
+      (equal (source-expression-dependencies expression) '())
+      (raises (source-expression-procedure expression) true))
+    (sequential ((procedure (source-expression-procedure
+                             '(case-lambda (() 42) ((x) x)))))
+      (equal (procedure) 42)
+      (equal (procedure 7) 7)))
   (scenario "nonliteral setup cannot execute while preparing a source procedure"
     (equal (with-catch error-message
              (lambda () (source-expression-procedure

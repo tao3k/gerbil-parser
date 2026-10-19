@@ -1,6 +1,7 @@
 import ParserEngine.SourceDeclarationPredicate
 import ParserEngine.SourceDependencyAdapter
 import ParserEngine.SourceDependencies
+import ParserEngine.SourceProcedureAdmission
 
 /-! A transform is an actual Scheme closure call with a threaded heap, not an
 uninterpreted declaration value. Interface preservation and complete dependency
@@ -259,26 +260,31 @@ def checked_closure (env captured entered : Environment) (before after : Heap)
         transformRead sourceRead bound bodyExecution, (guards_accept_iff original transformed).mp validated⟩
   else none
 
-/-- Compose the entire read-selection and transformed-output admission path
-with LeanPoo's typed factory preparation. The source is selected by the reader
-trace, rather than being an admitted input declaration. Expansion of the retained
-transformed value into tree remains an installed-SDK semantic premise. -/
-theorem read_transform_prepare {Context : Type} {Value : Context → String → Type}
-    (provider : Provider Context String Value) (name : String) (forms : List Datum)
+/-- Complete native request composition: whole-source selection, actual
+closure execution, project-owned lambda construction, one external expansion,
+and the complete computed preparation checks. There is no independent caller
+certificate claiming that the expanded tree was already admitted. -/
+theorem read_transform_prepare {Result : Type}
+    (name : String) (forms : List Datum) (dependencies : List String)
     (original transformed : Datum) (selected : SourceDeclarationReading.readDeclaration name forms = some original)
     (env : Environment) (before after : Heap)
     (called : GuardedCall env before after original transformed)
-    (expand : Datum → Option (SourceDependencies.Tree String)) (tree : SourceDependencies.Tree String)
-    (expanded : expand transformed = some tree)
-    (collected : SourceDependencies.dependencies tree = some names)
-    {factories : Requirements.Factories Context Value names}
-    (ready : Requirements.prepare provider names = .ok factories) :
+    (expand : Datum → Option SourceProcedureAdmission.Core) (core : SourceProcedureAdmission.Core)
+    (expanded : expand (SourceDependencyAdapter.lambdaData transformed dependencies) = some core)
+    (evaluate : SourceProcedureAdmission.Core → Option Result) (isProcedure : Result → Bool)
+    (result : Result)
+    (completed : SourceProcedureAdmission.executeChecked evaluate isProcedure core = some result) :
     (original ∈ forms ∧ SourceDeclarationReading.selects name original = true) ∧
     (∃ header, interface original = some header ∧ interface transformed = some header) ∧
     Eval env before invocation called.transformedValue after ∧
-    expand transformed = some tree ∧
-    (∀ key, SourceDependencies.Requires key tree → ∃ factory, provider key = some factory) := by
-  exact ⟨SourceDeclarationReading.selected_occurs selected, accepted_interface called.accepted, called.execution, expanded,
-    fun _ required => SourceDependencies.prepared_covers_source provider tree collected ready required⟩
+    expand (SourceDependencyAdapter.lambdaData transformed dependencies) = some core ∧
+    SourceProcedureAdmission.procedureLiteral core.form = true ∧
+    (∀ key, ¬ SourceDependencies.Requires key core.references) ∧
+    evaluate core = some result ∧ isProcedure result = true := by
+  obtain ⟨checked, evaluated, procedure⟩ :=
+    SourceProcedureAdmission.execution_checked evaluate isProcedure core result completed
+  have closed := SourceProcedureAdmission.checked_closed checked
+  exact ⟨SourceDeclarationReading.selected_occurs selected, accepted_interface called.accepted,
+    called.execution, expanded, closed.2.1, closed.2.2, evaluated, procedure⟩
 
 end ParserEngine.SourceDeclarationTransformation

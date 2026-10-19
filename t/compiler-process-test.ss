@@ -77,6 +77,10 @@
                     list)))))
           "COMPILER-EVALUATE probe\nCOMPILER-EVALUATED probe\n")
         (equal actual expected))))
+  (scenario "compiler children inherit the active SDK logical bin mapping"
+    (equal (capture-build-text
+             (list (getenv "GERBIL_GSC" "gsc") "-e" "(write (path-expand \"~~bin\"))"))
+           (object->string (path-expand "~~bin"))))
   (scenario "SDK compilation without per-job C options loads and executes its native result"
     (using (with-compiler-directory) (root)
       (act (initialize-compiler-build!))

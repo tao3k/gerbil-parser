@@ -3,14 +3,11 @@
         (prefix-in :std/struct/queue stdq-)
         :std/io/tempfile
         (only-in :std/misc/ports read-all-as-string)
-        (only-in :gerbil-parser/t/fixtures/event-walk-source read-source-definition write-event-walk-source-data)
+        (only-in :gerbil-parser/t/fixtures/event-walk-source read-source-definition source-expression-procedure write-event-walk-source-data source-procedure)
         (only-in :gerbil-parser/src/compiler/lr production-precedence union-values production-rhs production-lhs production-action base-symbol terminal-symbol? layout-end-action? production-id production-index-by-lhs nonterminal-name nonterminal-symbol?)
         (only-in :gerbil-parser/src/compiler/lr-automaton make-item-layout make-core-item core-item-count)
         (only-in :gerbil-parser/src/compiler/funcs compiler-index-set-add compiler-index-set-for-each compiler-index-set-difference compiler-index-set-empty? compiler-index-set-singleton compiler-index-set-union))
 
-(def (source-procedure path name extras)
-  (let (declaration (read-source-definition path name))
-    (eval (cons 'lambda (cons (append (cdr (cadr declaration)) extras) (cddr declaration))))))
 (def (rejected? thunk)
   (with-catch (lambda (_) #t) (lambda () (thunk) #f)))
 (def (native-conflicts)
@@ -65,7 +62,7 @@
   (let* ((declaration (read-source-definition "src/compiler/lr-compiler.ss" 'build-actions))
          (walk (foldl (lambda (index form) (list-ref form index)) declaration '(2 4 2 3 4)))
          (procedure
-           (eval (list 'lambda
+           (source-expression-procedure (list 'lambda
                    '(core-item-production-id layout core-symbols core-terminal-ids shift-targets table
                      state-id lookaheads install! compiler-index-set-for-each production-precedence state-items initial-node)
                    (list 'let '((processed-items 0) (lookahead-node initial-node))
@@ -85,7 +82,7 @@
 (def (generation-preserves-input?)
   (let* ((path (make-temporary-file-name "parser-source-generation-"))
          (declaration (read-source-definition "t/generate-walk-source-witness.ss" 'main))
-         (factory (eval (list 'lambda
+         (factory (source-expression-procedure (list 'lambda
                          '(read-event-walk-source write-event-walk-source-data event-walk-data-current?)
                          declaration 'main)))
          (generate (factory (lambda ignored '(#\x)) write-event-walk-source-data (lambda ignored #f))))
@@ -98,7 +95,7 @@
 (def (queue-observation actions gotos)
   (let* ((definitions (map (lambda (name) (read-source-definition "src/compiler/lr-table.ss" name))
                           '(for-each-shift-target accepting-action? validate-accept-reachability)))
-         (factory (eval (append '(lambda (stdq-make-Queue stdq-enqueue! stdq-dequeue! stdq-queue-empty?))
+         (factory (source-expression-procedure (append '(lambda (stdq-make-Queue stdq-enqueue! stdq-dequeue! stdq-queue-empty?))
                                 definitions '(validate-accept-reachability))))
          (enqueued '()) (dequeued '())
          (validate (factory stdq-make-Queue
@@ -122,7 +119,7 @@
 (def (install-observation events layout? policy)
   (let* ((declaration (read-source-definition "src/compiler/lr-compiler.ss" 'build-actions))
          (install (foldl (lambda (index form) (list-ref form index)) declaration '(2 4 2 3 2)))
-         (factory (eval (list 'lambda
+         (factory (source-expression-procedure (list 'lambda
                          '(state-actions raw-reductions terminal-values layout? resolve-action/diagnosed table
                            conflict-policy reject-conflict state-items state-id events)
                          (list 'let '((terminal-order '()) (failed? #f)) install
@@ -154,7 +151,7 @@
 (def (native-canonical-pack states)
   (let* ((declaration (read-source-definition "src/compiler/lr-lookahead.ss" 'build-states-via-canonical-lr1))
          (block (foldl (lambda (index form) (list-ref form index)) declaration '(2 1 2 2 2 4 5)))
-         (factory (eval (list 'lambda
+         (factory (source-expression-procedure (list 'lambda
            '(state-count states state-transitions terminal-values layout core-symbols
              ExtensibleVector-ref ExtensibleVector->vector materialize-transitions) block))))
     (factory (vector-length states) states '#() '#((terminal eof)) #f '#()

@@ -2,21 +2,21 @@ set shell := ["sh", "-eu", "-c"]
 
 # Same native gxtest suite values, linked before the bounded runtime gate.
 test-runtime-organization:
-    GAMBOPT=max-heap=1G,debug=q gxi build-qualification.ss compile --optimized
-    ASP_GERBIL_SCHEME_POLICY=1 GAMBOPT=max-heap=1G,debug=q gxi t/build-runtime-organization-tests.ss
-    GAMBOPT=max-heap=1G,debug=q gxi t/check-runtime-organization.ss
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gxi build-qualification.ss compile --optimized
+    ASP_GERBIL_SCHEME_POLICY=1 GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gxi t/build-runtime-organization-tests.ss
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gxi t/check-runtime-organization.ss
 
 # Public native declaration lowering; test-all discovers this suite once.
 test-line-events output load_path:
     mkdir -p "{{output}}"
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/modules/parser/line-structure-objects.ss src/modules/parser/source-event-scope-types.ss src/modules/parser/source-event-scope-objects.ss src/modules/parser/source-event-scope-funs.ss src/modules/parser/line-event-funs.ss src/modules/parser/list-event-funs.ss src/modules/parser/inline-link-event-funs.ss src/modules/parser/source-boundary-types.ss src/modules/parser/source-boundary-objects.ss src/modules/parser/source-boundary-funs.ss src/modules/parser/interface.ss t/line-event-test.ss t/inline-link-event-test.ss t/source-boundary-test.ss t/source-event-scope-test.ss t/list-event-test.ss
-    GAMBOPT=max-heap=1G,debug=q GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/line-event-test.ss t/inline-link-event-test.ss t/source-boundary-test.ss t/source-event-scope-test.ss t/list-event-test.ss 2>&1 | tee "{{output}}/line-events-test.log"
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/line-event-test.ss t/inline-link-event-test.ss t/source-boundary-test.ss t/source-event-scope-test.ss t/list-event-test.ss 2>&1 | tee "{{output}}/line-events-test.log"
     rg --quiet '^HARNESS-OK' "{{output}}/line-events-test.log"
     rg --quiet '^OK$' "{{output}}/line-events-test.log"
     ! rg --quiet 'ERROR|FAILED|FAILURE' "{{output}}/line-events-test.log"
 
 test-source-priority:
-    GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/source-priority-test.ss
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil test -v 3 t/source-priority-test.ss
 
 build-source-priority output load_path:
     mkdir -p "{{output}}"
@@ -38,18 +38,18 @@ build-qualification:
 
 # Focused native suites; test-all discovers the same suites once.
 test-qualification-suites: build-qualification
-    GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/qualification-plans-test.ss t/bootstrap-test.ss
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil test -v 3 t/qualification-plans-test.ss t/bootstrap-test.ss
 
 # Exercise the downstream admission caller after support-module relocation.
 test-process-admission: build-qualification
-    GAMBOPT=max-heap=1G,debug=q gerbil env gxi scripts/tests/process-qualification-test.ss
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil env gxi scripts/tests/process-qualification-test.ss
 
 test-compiler-process:
-    GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/compiler-process-test.ss
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil test -v 3 t/compiler-process-test.ss
 
 # Cache admission uses the same macro owner and shared runtime as CI.
 test-preparation:
-    GAMBOPT=max-heap=3G,debug=q gerbil env gxi t/fixtures/tla-sany-differential/test-suite.ss --workers 4 t/preparation-cache-test.ss
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=3G,debug=q" gerbil env gxi t/fixtures/tla-sany-differential/test-suite.ss --workers 4 t/preparation-cache-test.ss
 
 # Build the shared helper through its compiled module owner before loading source suites.
 test-workers output=".data/worker-controls": build-qualification
@@ -327,7 +327,7 @@ generate-event-fold-executable output load_path:
 test-fold-source-controls output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/compiler/event-fold-scheme-modules.ss
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/event-strategy-fixture.ss t/event-fold-scheme-test.ss
-    GAMBOPT=max-heap=1G,debug=q GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/event-fold-scheme-test.ss > "{{output}}/fold-source-controls.log" 2>&1
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/event-fold-scheme-test.ss > "{{output}}/fold-source-controls.log" 2>&1
     rg '^CASE-OK |^OK$' "{{output}}/fold-source-controls.log"
     test "$(rg --count '^CASE-OK ' '{{output}}/fold-source-controls.log')" = 6
     rg --quiet '^HARNESS-OK' "{{output}}/fold-source-controls.log"
@@ -360,7 +360,7 @@ build-parser-throughput output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O -exe -o "{{output}}/parser-throughput" "{{output}}/parser-throughput.ss"
 
 test-parser-throughput-protocol output load_path:
-    GAMBOPT=max-heap=1G,debug=q GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/parser-throughput-test.ss > "{{output}}/parser-throughput-test.log" 2>&1
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/parser-throughput-test.ss > "{{output}}/parser-throughput-test.log" 2>&1
     rg '^CASE-OK |^OK$' "{{output}}/parser-throughput-test.log"
     test "$(rg --count '^CASE-OK ' '{{output}}/parser-throughput-test.log')" = 4
     rg --quiet '^HARNESS-OK' "{{output}}/parser-throughput-test.log"
@@ -410,18 +410,18 @@ test-event-fold-compiled binary output: build-qualification
 
 # Fast lexical algorithm loop; keep the POO Flow Case heap fence pre-import.
 test-lexer:
-    GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/ranked-regular-scanner-test.ss
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil test -v 3 t/ranked-regular-scanner-test.ss
 
 # LR mode admission is checked separately from the inner scanner transition.
 test-lexical-mode:
-    GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/grammar-composition-contract-test.ss t/grammar-composition-execution-test.ss t/grammar-composition-lowering-test.ss
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil test -v 3 t/grammar-composition-contract-test.ss t/grammar-composition-execution-test.ss t/grammar-composition-lowering-test.ss
 
 # Full qualification after the focused algorithm loop.
 test-build-product-contract output load_path:
-    GAMBOPT=max-heap=1G,debug=q GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 3 t/build-product-contract-test.ss
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 3 t/build-product-contract-test.ss
 
 test-all: build-qualification
-    GAMBOPT=max-heap=1G,debug=q gerbil test -v 3 t/... languages/...
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil test -v 3 t/... languages/...
 
 # All contracts execute from current source; every suite has a hard deadline.
 test-performance-before-compile: build-qualification
@@ -526,18 +526,18 @@ benchmark-lr-grammar-construction contexts="256" samples="3":
 
 # Complete immutable Examples syntax and lossless artifact receipt.
 tla-sany-corpus corpus: build-qualification
-    GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 gerbil env gxi qualify.ss run --timeout 600 --idle-timeout 5 --log .data/tla-source.log -- gerbil env gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/languages/tla-plus/sany-candidate")' t/fixtures/tla-sany-differential/corpus.ss {{quote(corpus)}}
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" GERBIL_PARSER_LR_TRACE=1 gerbil env gxi qualify.ss run --timeout 600 --idle-timeout 5 --log .data/tla-source.log -- gerbil env gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/languages/tla-plus/sany-candidate")' t/fixtures/tla-sany-differential/corpus.ss {{quote(corpus)}}
 # Current-source scanner execution; plan-batch includes one plan and requests bindings.
 benchmark-contextual-scanner axes="16" samples="20" words="128" literals="0" phase="scan" requests="1": build-qualification
-    GERBIL_LOADPATH=.. GERBIL_PATH=$PWD/.gerbil GAMBOPT=max-heap=1G,debug=q gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 --log /private/tmp/parser-contextual-scanner-scale.log --require SCANNER-SCALE-OK -- gxi t/benchmarks/contextual-scanner/matched-scale.ss {{axes}} {{samples}} {{words}} {{literals}} {{quote(phase)}} {{requests}}
+    GERBIL_LOADPATH=.. GERBIL_PATH=$PWD/.gerbil GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 --log /private/tmp/parser-contextual-scanner-scale.log --require SCANNER-SCALE-OK -- gxi t/benchmarks/contextual-scanner/matched-scale.ss {{axes}} {{samples}} {{words}} {{literals}} {{quote(phase)}} {{requests}}
 
 # Complete contextual ParseArtifact pairs; plan creation is included per batch.
 benchmark-contextual-parser requests="16" samples="5": build-qualification
-    GERBIL_LOADPATH=.. GERBIL_PATH=$PWD/.gerbil GERBIL_PARSER_LR_TRACE=1 GAMBOPT=max-heap=1G,debug=q gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 --log /private/tmp/parser-contextual-parser-scale.log --require CONTEXTUAL-PARSER-SCALE-OK -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil/tools/gxtest")' t/benchmarks/contextual-scanner/matched-parser.ss {{requests}} {{samples}}
+    GERBIL_LOADPATH=.. GERBIL_PATH=$PWD/.gerbil GERBIL_PARSER_LR_TRACE=1 GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 --log /private/tmp/parser-contextual-parser-scale.log --require CONTEXTUAL-PARSER-SCALE-OK -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil/tools/gxtest")' t/benchmarks/contextual-scanner/matched-parser.ss {{requests}} {{samples}}
 
 # Complete deferred batches; each sample reports real token and byte coverage.
 benchmark-contextual-deferred delimiters="512" samples="5": build-qualification
-    GERBIL_LOADPATH=.. GERBIL_PATH=$PWD/.gerbil GAMBOPT=max-heap=1G,debug=q gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 --log /private/tmp/parser-contextual-deferred-scale.log --require DEFERRED-SCALE-OK -- gxi t/benchmarks/contextual-scanner/deferred-scale.ss {{delimiters}} {{samples}}
+    GERBIL_LOADPATH=.. GERBIL_PATH=$PWD/.gerbil GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 --log /private/tmp/parser-contextual-deferred-scale.log --require DEFERRED-SCALE-OK -- gxi t/benchmarks/contextual-scanner/deferred-scale.ss {{delimiters}} {{samples}}
 
 # Host-native toolchain; compiler admission and real test progress stay separate.
 test-local suite="rust" gerbil_path=".gerbil": build-qualification

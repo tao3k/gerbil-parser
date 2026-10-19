@@ -587,3 +587,16 @@ These are qualification receipts, not parser CPU improvement claims. The
 complete cold aggregate retains its original owner list and four workers. The
 source-graph completeness and initialized-cell premises above remain open;
 passing source tests do not silently turn them into universal extraction proofs.
+
+The project-owned lexical recording/admission gap above is now addressed by the
+[[file:source-dependency-admission.org][complete source dependency contract]], relative to the stated SDK premises.
+Dynamic module-effect graph completeness remains a separate obligation.
+
+The current CI compiler-process failure had a separate configuration cause:
+SDK tool launches replaced =GAMBOPT= with heap/debug options, discarding the
+activated SDK's =~~bin= relocation. The relocated compiler then failed in
+=##gambuild= while resolving that directory. SDK recipes and CI launches now
+retain the inherited option prefix and append the same resource settings.
+Standalone-product isolation controls keep their existing independent settings.
+A real =gsc= child checks its logical bin mapping before compiling the fixture;
+no SDK file or compiler object is changed.

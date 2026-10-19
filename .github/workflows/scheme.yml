@@ -216,6 +216,12 @@ jobs:
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-test-imports "scripts/tests/history-commit-test.ss")' scripts/tests/history-commit-test.ss
       - name: Verify Scheme source proof input is current
         run: gerbil env gxi t/generate-walk-source-witness.ss check formal/ParserEngine/SourceData.lean
+      - name: Verify source dependency proof input is current
+        run: |
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
+            --log .data/source-dependency-proof-input.log \
+            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-test-imports "t/generate-source-dependency-witness.ss")' \
+              t/generate-source-dependency-witness.ss check formal/ParserEngine/SourceDependencyWitness.lean
       - name: Verify generated arithmetic Scheme LR is current
         run: gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss check src/compiler/arithmetic-drive.ss
       - name: Verify generic POO Scheme reductions are current
@@ -264,7 +270,7 @@ jobs:
         timeout-minutes: 15
         run: |
           GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
-            GAMBOPT=max-heap=3G,debug=q GERBIL_PARSER_LR_TRACE=1 \
+            GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=3G,debug=q" GERBIL_PARSER_LR_TRACE=1 \
             gerbil env gxi t/fixtures/tla-sany-differential/test-suite.ss --remaining-conformance t languages
       - name: Verify native command
         run: |
@@ -602,7 +608,7 @@ jobs:
             --output "$jar" \
             https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
           GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
-            GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 \
+            GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" GERBIL_PARSER_LR_TRACE=1 \
             gerbil env gxi qualify.ss run --timeout 600 --idle-timeout 5 --log .data/tla-source.log -- \
               gerbil env gxi \
               -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/languages/tla-plus/parser")' \
@@ -615,7 +621,7 @@ jobs:
           git -C "$corpus" fetch --depth=1 origin ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10
           git -C "$corpus" checkout --detach FETCH_HEAD
           GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
-            GAMBOPT=max-heap=1G,debug=q GERBIL_PARSER_LR_TRACE=1 \
+            GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" GERBIL_PARSER_LR_TRACE=1 \
             gerbil env gxi qualify.ss run --timeout 600 --idle-timeout 5 --log .data/tla-source.log -- \
               gerbil env gxi \
               -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/languages/tla-plus/parser")' \

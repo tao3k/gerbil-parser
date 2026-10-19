@@ -98,6 +98,8 @@ def primitive (operation : String) (args : List Value) (heap : Heap) : Option (V
   | "car", [.list (head :: _)] => some (head, heap)
   | "cadr", [.list (_ :: head :: _)] => some (head, heap)
   | "cdr", [.list (_ :: rest)] => some (.list rest, heap)
+  | "cddr", [.list (_ :: _ :: rest)] => some (.list rest, heap)
+  | "append", [.list left, .list right] => some (.list (left ++ right), heap)
   | "pair?", [value] => some (.boolean (match value with | .list (_ :: _) => true | _ => false), heap)
   | "void", [] => some (.unit, heap)
   | "null?", [.list values] => some (.boolean values.isEmpty, heap)

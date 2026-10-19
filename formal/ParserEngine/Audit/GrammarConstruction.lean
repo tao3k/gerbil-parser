@@ -6,6 +6,9 @@ import ParserEngine.BuildEnvironment
 import ParserEngine.LanguagePhase
 import ParserEngine.PhaseDemand
 import ParserEngine.SourceEnvironment
+import ParserEngine.SourceDependencies
+import ParserEngine.SourceDependencyExecution
+import ParserEngine.SourceDependencyAdapter
 import ParserEngine.LoweringReservationEvaluation
 import ParserEngine.LoweringPreprocessingEvaluation
 import ParserEngine.Components
@@ -583,3 +586,44 @@ import ParserEngine.SourceInventory
 #print axioms ParserEngine.SourceEnvironment.variable_evaluates
 #print axioms ParserEngine.SourceEnvironment.bound_cell_can_be_uninitialized
 #print axioms ParserEngine.SourceEnvironment.retained_cell_reads_write
+
+#print axioms ParserEngine.SourceDependencies.complete
+#print axioms ParserEngine.SourceDependencies.record_exact
+#print axioms ParserEngine.SourceDependencies.recorded_complete
+#print axioms ParserEngine.SourceDependencies.supplied_requires
+#print axioms ParserEngine.SourceDependencies.prepared_covers_source
+#print axioms ParserEngine.SourceDependencies.admitted_closed
+#print axioms ParserEngine.SourceDependencies.deferred_omission
+#print axioms ParserEngine.SourceDependencies.rhs_omission
+
+#print axioms ParserEngine.SourceDependencies.supplied_complete
+
+#print axioms ParserEngine.SourceDependencyExecution.extracted_record
+#print axioms ParserEngine.SourceDependencyExecution.extracted_readback
+#print axioms ParserEngine.SourceDependencyExecution.callback_step
+#print axioms ParserEngine.SourceDependencyExecution.callback_sequence
+#print axioms ParserEngine.SourceDependencyExecution.complete_readback
+
+#print axioms ParserEngine.SourceDependencyExecution.extracted_reference_method
+#print axioms ParserEngine.SourceDependencyExecution.extracted_assignment_method
+
+#print axioms ParserEngine.SourceDependencyExecution.extracted_collector
+
+#print axioms ParserEngine.SourceDependencies.kernel_prefix_is_insufficient
+#print axioms ParserEngine.SourceDependencies.host_primitive_is_resolved
+#print axioms ParserEngine.SourceDependencies.absent_capability_is_recorded
+
+#print axioms ParserEngine.SourceDependencyExecution.extracted_resolution
+
+#print axioms ParserEngine.SourceDependencyExecution.callback_invocation
+#print axioms ParserEngine.SourceDependencyExecution.each_is_closure_calls
+#print axioms ParserEngine.SourceDependencyExecution.closure_complete_readback
+
+#print axioms ParserEngine.SourceDependencyAdapter.extracted_shared
+#print axioms ParserEngine.SourceDependencyAdapter.extracted_event
+#print axioms ParserEngine.SourceDependencyAdapter.pieces
+#print axioms ParserEngine.SourceDependencyAdapter.shared_keeps_whole_body
+#print axioms ParserEngine.SourceDependencyAdapter.event_keeps_whole_body
+#print axioms ParserEngine.SourceDependencyAdapter.first_body_projection_loses_tail
+
+#print axioms ParserEngine.SourceDependencyExecution.extracted_preparation

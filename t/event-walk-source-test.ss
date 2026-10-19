@@ -4,7 +4,7 @@
         (only-in :gerbil-parser/t/fixtures/event-walk-source
                  read-event-walk-source read-event-walk-source-port
                  write-event-walk-source-data event-walk-data-current?
-                 read-event-iterative-source read-source-definition source-mutation-sites)
+                 read-event-iterative-source read-source-definition source-expression-procedure source-mutation-sites)
         (only-in :gerbil-parser/src/compiler/lr production-rhs)
         (only-in :gerbil-parser/src/compiler/lr-automaton make-item-layout make-core-item
                  core-item-count core-item-production-id core-item-dot))
@@ -30,7 +30,7 @@
       (append (list (car syntax-case) (cadr syntax-case) (caddr syntax-case))
         (list (list (car clause) (list 'syntax (append body '((unexpected-effect))))))))))
 (def (source-procedure declaration)
-  (eval (list 'lambda (cdr (cadr declaration)) (caddr declaration))))
+  (source-expression-procedure (cons 'lambda (cons (cdr (cadr declaration)) (cddr declaration)))))
 (def (row-fixture count width)
   (let loop ((i 0) (rows '()))
     (if (= i width) (reverse rows)
@@ -44,11 +44,11 @@
 (def (site-procedure kind parameters)
   (let* ((sites (source-mutation-sites (read-event-iterative-source "src/runtime/event-program.ss")))
          (site (find (lambda (site) (eq? (car site) kind)) sites)))
-    (eval (list 'lambda parameters site))))
+    (source-expression-procedure (list 'lambda parameters site))))
 (def (assignment-procedure)
   (let* ((sites (source-mutation-sites (read-event-iterative-source "src/runtime/event-program.ss")))
          (site (find (lambda (site) (eq? (car site) 'set!)) sites)))
-    (eval (list 'lambda '(block delta moved? initial) (list 'let '((frames initial)) site 'frames)))))
+    (source-expression-procedure (list 'lambda '(block delta moved? initial) (list 'let '((frames initial)) site 'frames)))))
 (def (unsupported-datum?)
   (rejected? (lambda () (call-with-output-string
                          (lambda (port) (write-event-walk-source-data '(#\x) port))))))
@@ -57,8 +57,8 @@
   (let* ((source (read-source-definition "src/compiler/lr-compiler.ss" 'compile-lr-spec/selected))
          (tail (foldl (lambda (index form) (list-ref form index)) source '(3 3 6 3 3)))
          (procedure
-           (eval (list 'lambda
-                   '(construction state-count build-actions build-gotos validate-lr-tables trace-lr-phase)
+           (source-expression-procedure (list 'lambda
+                   '(construction state-count build-actions build-gotos validate-lr-tables trace-lr-phase reject-lr-conflict)
                    (list 'let
                      (map (lambda (name) (list name #f))
                           '(states lookaheads lookahead-offsets transitions table terminal-values
@@ -72,7 +72,8 @@
                  (lambda (productions actual-actions actual-gotos)
                    (set! events (cons (list 'validate (eq? actual-actions actions) (eq? actual-gotos gotos)) events))
                    (unless valid? (error "publication validation rejected")))
-                 (lambda ignored (void)))))
+                 (lambda ignored (void))
+                 (lambda ignored (error "unexpected publication conflict callback")))))
     (list spec (reverse events) actions gotos)))
 
 (deflanguage-parser-tests event-walk-source-test "actual Scheme source witness admission"
@@ -122,6 +123,8 @@
     (bindings (index-rows (source-procedure (read-source-definition "src/compiler/lr-compiler.ss" 'index-state-rows))))
     (equal (index-rows '() 0 cadr caddr) '#())
     (equal (rejected? (lambda () (index-rows '((1 key value)) 1 cadr caddr))) #t))
+  (scenario "declaration extraction cannot drop an unresolved trailing body form"
+    (raises (source-procedure '(def (producer) 'first (unbound-source-tail))) true))
   (property "unsupported reader data cannot disappear"
     (bindings) (equal (unsupported-datum?) #t))
   (scenario "uninterned names fail before source data publication"
@@ -132,9 +135,9 @@
         (equal (get-output-string port) ""))))
   (matrix "complete extracted layout agrees with native coordinates and physical slots"
     (setup (declaration (read-source-definition "src/compiler/lr-automaton.ss" 'make-item-layout))
-           (construct (eval (list 'lambda
-                              (append (cdr (cadr declaration)) '(production-rhs make-lr-item-layout))
-                              (caddr declaration)))))
+           (construct (source-expression-procedure (cons 'lambda
+                              (cons (append (cdr (cadr declaration)) '(production-rhs make-lr-item-layout))
+                                    (cddr declaration))))))
     ((widths '(() (0) (0 0) (1 3 0 1) (65 0 1) (0 129)))
      (terminal-count '(0 1 3)))
     (bindings (table (list->vector

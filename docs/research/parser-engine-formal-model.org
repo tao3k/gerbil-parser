@@ -8,6 +8,7 @@ Host and compiler behavior remain external premises; no host build is required.
 
 - [[file:parser-engine-formal-model/objective-and-evidence-boundary.org][Objective and evidence boundary]]
 - [[file:parser-engine-formal-model/reader-tree-witnesses-and-native-source-admission.org][Reader-tree witnesses and native source admission]]
+- [[file:parser-engine-formal-model/source-dependency-admission.org][Complete source dependency admission]]
 - [[file:parser-engine-formal-model/unified-representation-correspondence.org][Unified representation correspondence]]
 - [[file:parser-engine-formal-model/physical-placement-and-acquire-composition.org][Physical placement and acquire composition]]
 - [[file:parser-engine-formal-model/first-connected-kernel-retained-terminal-flow.org][First connected kernel: retained terminal flow]]

@@ -1,9 +1,10 @@
 ;;; Reader adapter only: preserve source syntax for the Lean admission kernel.
-(import (only-in "./prediction-witness.ss"
+(import (only-in "../../src/modules/loader.ss" load-parser-module)
+        (only-in "./prediction-witness.ss"
                  prediction-observation prediction-dependencies prediction-fixtures)
         (only-in "../../src/testing/source-witness.ss"
                  parser-source-data write-parser-source-data source-data-current?))
-(export read-event-walk-source read-event-walk-source-port read-event-iterative-source read-source-definition source-procedure read-source-subdefinition source-mutation-sites write-event-walk-source-data event-walk-data-current?)
+(export read-event-walk-source read-event-walk-source-port read-event-iterative-source read-source-definition source-procedure source-expression-procedure source-expression-dependencies read-source-subdefinition source-mutation-sites write-event-walk-source-data event-walk-data-current?)
 
 (def (read-event-walk-source path)
   (call-with-input-file path read-event-walk-source-port))
@@ -67,11 +68,22 @@
     (unless (= (length found) 1) (error "expected one source declaration" path name))
     (car found)))
 
-;;; Execute a complete producer declaration with explicitly supplied imports.
+(def (source-execution-binding name)
+  (load-parser-module "gerbil-parser/src/testing/source-execution")
+  (eval name))
+
+(def (source-expression-procedure expression)
+  ((source-execution-binding 'gerbil-parser/src/testing/source-execution#prepare-source-procedure) expression))
+
+(def (source-expression-dependencies expression)
+  ((source-execution-binding 'gerbil-parser/src/testing/source-execution#source-expression-dependencies) expression))
+
+;;; Keep every body form and reject omissions before the procedure is created.
 (def (source-procedure path name dependencies (transform identity))
   (let (declaration (transform (read-source-definition path name)))
-    (eval (cons 'lambda
-            (cons (append (cdr (cadr declaration)) dependencies) (cddr declaration))))))
+    (source-expression-procedure
+      (cons 'lambda
+        (cons (append (cdr (cadr declaration)) dependencies) (cddr declaration))))))
 
 ;;; Select a named nested declaration without positional AST paths. Quoted
 ;;; data is excluded; duplicates and missing definitions fail closed.

@@ -60,6 +60,18 @@
   (equal (call-with-output-string write-construction-raw-data)
          (call-with-input-file "formal/ParserEngine/RawGrammarData.lean" read-all-as-string)))
 
+(defparser-check (raw-declaration-case)
+  (sequential ((frame (construction-raw-frame '((start (reference undefined)))))
+               (names (car frame)) (declarations (list-ref frame 4)))
+    (equal (member "undefined" names) '("undefined" "$accept"))
+    (equal declarations '($accept start))
+    (equal (memq 'undefined declarations) #f))
+  (sequential ((frame (construction-raw-frame '((start (sequence (choice)))))))
+    (equal (list-ref frame 4) '($accept start $start.0))
+    (equal (map cadr (cadr frame)) '($accept start)))
+  (sequential ((frame (construction-raw-frame '((start (empty)) (start (empty))))))
+    (equal (list-ref frame 4) '($accept start start))))
+
 ;; Independent append-based reference, distinct from native cons/reverse and
 ;; its equal?-keyed seen table. Tags are part of the key, annotations are not.
 (def (reference-terminal-vocabulary productions)

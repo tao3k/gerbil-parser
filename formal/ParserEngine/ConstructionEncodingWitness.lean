@@ -11,14 +11,30 @@ open ConstructionEncoding
 def expected : List ConstructionGrammar.Input := NativeFacts.origins.map GrammarWitnessDecoder.Origin.input
 
 def fields (input : ConstructionGrammar.Input) :=
-  (input.records, input.augmented, input.root, input.source)
+  (input.records, input.augmented, input.root, input.source, input.declarations)
+
+/-- The real witness compares declaration order and multiplicity as well as
+rows and roots; a declaration mismatch cannot hide in ignored metadata. -/
+theorem fields_declarations (left right : ConstructionGrammar.Input)
+    (same : fields left = fields right) : left.declarations = right.declarations :=
+  congrArg (fun value => value.2.2.2.2) same
 
 def frameCheck (frame : WalkSource.Datum) (target : ConstructionGrammar.Input) : Bool :=
   match frame, ConstructionEncoding.read frame target with
-  | .list [_, _, _, _, .boolean valid], some raw =>
+  | .list [_, _, _, _, _, .boolean valid], some raw =>
     let observed := (normalize raw).map fields
     if valid then decide (observed = some (fields target)) else observed.isNone
   | _, _ => false
+
+theorem declaration_mismatch_rejected (names rows augmented root declarations : WalkSource.Datum)
+    (target normalized : ConstructionGrammar.Input) (raw : Input)
+    (parsed : ConstructionEncoding.read
+      (.list [names, rows, augmented, root, declarations, .boolean true]) target = some raw)
+    (converted : normalize raw = some normalized)
+    (different : normalized.declarations ≠ target.declarations) :
+    frameCheck (.list [names, rows, augmented, root, declarations, .boolean true]) target = false := by
+  have unequal : fields normalized ≠ fields target := fun same => different (fields_declarations _ _ same)
+  simp [frameCheck, parsed, converted, unequal]
 
 def check (frames : List WalkSource.Datum) (targets : List ConstructionGrammar.Input) : Bool :=
   decide (frames.length = targets.length) && (frames.zip targets).all fun pair => frameCheck pair.1 pair.2

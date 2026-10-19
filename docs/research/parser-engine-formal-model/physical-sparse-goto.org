@@ -562,6 +562,7 @@ No engine optimization is justified by this composition alone.
 | Interning, FIFO and final rows | =construct_exact= and returned =Product= | Hash equality and queue primitives |
 | Complete source-witness admission | Reader/transform/storage proofs -> =SourceProcedureAdmission.check_iff= and =execution_checked=; exact LeanPoo supplied capabilities | Compiler expansion/binding/visitor correspondence, retained syntax stability and host graph codec remain external; dependency-free data is not procedure admission |
 | Nested producer provenance | =SourceSiteExtraction.complete=, =ordered= and =factory_visible=; real declaration/mutation adapters share the engine traversal | Direct quotation forms are barriers; exact source schemas and host list operations remain explicit; not arbitrary hygienic Scheme extraction |
+| Declaration authority | Explicit raw declaration symbols -> =reader_declarations= -> =declared_iff= -> =factory_owner_declared=; real witness compares order and multiplicity | Side metadata cannot inject declaration names; arbitrary native callback completeness and semantic recipe extraction remain separate producer obligations |
 | Source authority | Named parameter extraction, =extracted_sources=, executable recipes and fresh reader witnesses | Restricted construction idioms, not a general Scheme execution theorem |
 | Compiler, GC and host memory | Explicit external premises | No Gambit modification or build; no native compiler correctness claim |
 
@@ -736,7 +737,7 @@ an input obligation; a native fixture alone cannot discharge a universal law.
 
 | Premise class | Status and owner | Required boundary |
 |---------------+------------------+-------------------|
-| Reader contents and native records to CFG | =ConstructionEncoding= proves directory/tag roundtrip; =ConstructionVocabulary= transports catalogue order and ordinals to physical paper targets; =ConstructionGrammar.prepare= derives the nonempty CFG and feeds the same LeanPoo factory | Host reader, scalar extraction, interning and semantic metadata validation remain explicit; no independent caller CFG/nonempty proof. |
+| Reader contents and native records to CFG | =ConstructionEncoding= and =ConstructionDeclarationEncoding= prove source declaration authority and directory/tag roundtrip; =ConstructionVocabulary= transports catalogue order and ordinals to physical paper targets; =ConstructionGrammar.prepare= derives the nonempty CFG and feeds the same LeanPoo factory | Host reader, scalar extraction, interning and semantic metadata validation remain explicit; no independent caller CFG/nonempty proof. |
 | Supported source schemas and positive capacity | Derived from =prepare= and =extracted_sources= | Unsupported declarations reject admission; arbitrary Scheme is outside the protocol. |
 | Queue validity, plan availability, vector bounds and shared template identity | Derived at every reachable source-order prefix by =ConstructionReadiness=; consumed by LeanPoo | These are parser obligations, not host premises or caller certificates. |
 | Sort behavior, arithmetic, vectors, hash and queue primitives | Explicit ordinary host contracts, including sortedness and permutation | No correctness proof of the host implementation is claimed. |

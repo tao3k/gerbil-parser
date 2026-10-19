@@ -28,7 +28,7 @@
                  recognition-node-children recognition-child-field recognition-child-value
                  recognition-value-start recognition-value-end))
 (import (only-in :gerbil-parser/t/fixtures/lr1-construction
-                 grammar-model-rules native-fact-rules write-native-grammar-facts write-construction-raw-data
+                 grammar-model-rules native-fact-rules write-native-grammar-facts write-construction-raw-data construction-raw-frame
                  lr1-not-lalr-rules shared-lookahead-rules precedence-expression-rules
                  mixed-context-rules lr1-context-family-rules
                  state-local-candidate-family-rules mixed-context-family-rules
@@ -747,6 +747,7 @@
     (scenario "one raw token selects different grammar terminals across LR states" (verify state-sensitive-terminal-case))
     (scenario "repetition recursion is isolated from sibling alternatives" (verify repetition-owner-case))
     (scenario "authored DSL agrees with lowered CFG derivations" (verify source-lowering-correspondence-case))
+    (scenario "raw declarations preserve source authority independently from production rows" (verify raw-declaration-case))
     (scenario "native completion facts match kernel-checked Lean certificates" (verify native-fact-certificate-case))
     (scenario "native LR lookaheads equal independent global closure" (verify lookahead-provenance-case))
     (scenario "constructed LR graphs preserve item origins and start separation" (verify graph-provenance-case))

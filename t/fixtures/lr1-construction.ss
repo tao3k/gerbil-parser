@@ -7,7 +7,7 @@
                  production-terminal-catalog production-id canonical-base-symbol? validate-production-semantics compute-completion compute-first)
         (only-in :gerbil-parser/src/testing/source-witness parser-source-data write-parser-source-data parser-source-symbol-text))
 (import (only-in :gerbil-parser/t/fixtures/event-walk-source read-source-definition read-source-subdefinition))
-(export grammar-model-rules native-fact-rules write-native-grammar-facts write-construction-raw-data
+(export grammar-model-rules native-fact-rules write-native-grammar-facts write-construction-raw-data construction-raw-frame
         write-lowering-traversal-data
         lr1-not-lalr-rules shared-lookahead-rules
         state-local-candidate-family-rules
@@ -297,17 +297,20 @@
 
 ;;; Collect actual lowering publications once; the shared macro owns all text.
 (def (origin-data rules)
-  (let* ((bindings '()) (recipes '()) (observed '())
+  (let* ((bindings '()) (recipes '()) (observed '()) (helpers '())
          (productions (lower-rules rules 'start #t #f
            (lambda (kind value proof)
              (case kind
                ((binding) (set! bindings (cons (cons value proof) bindings)))
-               ((production) (set! observed (cons value observed)) (set! recipes (cons proof recipes)))))))
+               ((production) (set! observed (cons value observed)) (set! recipes (cons proof recipes)))))
+           (lambda (name) (set! helpers (cons name helpers)))))
          (names (map car rules)))
     (unless (equal? productions (lower-rules rules 'start #t))
       (error "proof replay changed canonical productions" rules))
     (unless (every eq? (cdr productions) (reverse observed))
       (error "proof replay lost native production identity" rules))
+    (unless (equal? helpers (map car bindings))
+      (error "declaration and proof helper publication diverged" rules))
     (def (intern name) (unless (memq name names) (set! names (append names (list name)))))
     (def (reserve expression)
       (when (pair? expression)
@@ -386,7 +389,9 @@
                   (cons (production-lhs (car productions)) (append (map car rules) (map car bindings)))) #t)) decodable?)
           (list (map parser-source-symbol-text names)
                 (map (lambda (production) (list (production-id production) (production-lhs production) (production-rhs production))) productions)
-                (production-lhs (car productions)) 'start decodable?)
+                (production-lhs (car productions)) 'start
+                (cons (production-lhs (car productions)) (append (map car rules) (reverse helpers)))
+                decodable?)
           (map (lambda (row) (list (name-id (car row)) (syntax (cadr row)))) rules))))))
 
 (def (origin-rule-corpus)
@@ -414,10 +419,12 @@
       (ParserEngine.NativeGrammarData completion (map completion-data native-fact-rules))
       (ParserEngine.NativeGrammarData origins (map (lambda (rules) (car (origin-data rules))) (origin-rule-corpus)))) output))
 
+(def (construction-raw-frame rules) (cadr (origin-data rules)))
+
 (def (write-construction-raw-data output)
   (write-parser-source-data
     (parser-source-data
-      (ParserEngine.RawGrammarData corpus (map (lambda (rules) (cadr (origin-data rules))) (origin-rule-corpus)))) output))
+      (ParserEngine.RawGrammarData corpus (map construction-raw-frame (origin-rule-corpus)))) output))
 
 (def (traversal-rule-corpus)
   (append (origin-rule-corpus)

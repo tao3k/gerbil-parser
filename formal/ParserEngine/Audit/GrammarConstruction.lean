@@ -20,6 +20,7 @@ import ParserEngine.LoweringAllocationCalls
 import ParserEngine.LoweringRootScope
 import ParserEngine.SchemeNameEncoding
 import ParserEngine.SourceInventory
+import ParserEngine.ConstructionDeclarationEncoding
 
 #print axioms ParserEngine.TestPhase.generic_requests
 #print axioms ParserEngine.TestPhase.batch_independent
@@ -694,3 +695,13 @@ import ParserEngine.SourceInventory
 #print axioms ParserEngine.SourceSiteExtraction.ordered
 
 #print axioms ParserEngine.SourceSiteExtraction.read_nested_sound
+
+#print axioms ParserEngine.ConstructionDeclarationEncoding.metadata_independent
+#print axioms ParserEngine.ConstructionDeclarationEncoding.declaration_positions
+#print axioms ParserEngine.ConstructionDeclarationEncoding.declared_iff
+#print axioms ParserEngine.ConstructionDeclarationEncoding.missing_name_rejected
+#print axioms ParserEngine.ConstructionDeclarationEncoding.undeclared_operand
+#print axioms ParserEngine.ConstructionDeclarationEncoding.factory_owner_declared
+
+#print axioms ParserEngine.ConstructionDeclarationEncoding.reader_declarations
+#print axioms ParserEngine.ConstructionEncodingWitness.declaration_mismatch_rejected

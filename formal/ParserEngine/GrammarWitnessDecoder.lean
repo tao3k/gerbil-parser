@@ -128,7 +128,7 @@ def Origin.decode (value : Origin) (name : Nat) : Lowering.Owner :=
 def Origin.input (value : Origin) : ConstructionGrammar.Input :=
   ⟨value.records, value.augmented, 0, 0, value.rules, value.decode, value.recipes,
     LoweringDeclarationVocabulary.directory value.augmented value.rules
-      (value.bindings.map (fun pair => (pair.1, Lowering.Owner.expression pair.2)))⟩
+      (value.bindings.reverse.map (fun pair => (pair.1, Lowering.Owner.expression pair.2)))⟩
 
 /-- Whole-list decoding retains every source position; failures cannot be
 silently dropped and duplicate records cannot collapse. -/

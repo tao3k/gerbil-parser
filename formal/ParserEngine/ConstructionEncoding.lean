@@ -57,10 +57,13 @@ structure Input where
   rules : Lowering.Rules
   decode : Nat → Lowering.Owner
   recipes : List Names.Recipe
-  declarations : List Nat
+  declarations : List String
 
 def readName : Datum → Option String
   | .text name => some name | _ => none
+
+def readDeclaration : Datum → Option String
+  | .symbol name => some name | _ => none
 
 def readRecord : Datum → Option Record
   | .list [.integer id, .symbol lhs, .list rhs] => some ⟨id, lhs, rhs⟩
@@ -70,9 +73,11 @@ def readRecord : Datum → Option Record
 metadata is retained; all structural names and records come from raw data. -/
 def read (value : Datum) (origins : ConstructionGrammar.Input) : Option Input :=
   match value with
-  | .list [.list names, .list records, .symbol augmented, .symbol root, .boolean _] =>
-    (names.mapM readName).bind fun names => (records.mapM readRecord).map fun records =>
-      ⟨names, records, augmented, root, origins.rules, origins.decode, origins.recipes, origins.declarations⟩
+  | .list [.list names, .list records, .symbol augmented, .symbol root, .list declarations, .boolean _] => do
+    let names ← names.mapM readName
+    let records ← records.mapM readRecord
+    let declarations ← declarations.mapM readDeclaration
+    return ⟨names, records, augmented, root, origins.rules, origins.decode, origins.recipes, declarations⟩
   | _ => none
 
 def terminals (input : Input) : List Terminal :=
@@ -195,8 +200,9 @@ def normalizeRow (input : Input) (record : Record) : Option ConstructionGrammar.
 def normalize (input : Input) : Option ConstructionGrammar.Input :=
   (lookup input.names input.augmented).bind fun augmented =>
     (lookup input.names input.root).bind fun root =>
-      (input.records.mapM (normalizeRow input)).map fun records =>
-        ⟨records, augmented, root, root, input.rules, input.decode, input.recipes, input.declarations⟩
+      (input.declarations.mapM (lookup input.names)).bind fun declarations =>
+        (input.records.mapM (normalizeRow input)).map fun records =>
+          ⟨records, augmented, root, root, input.rules, input.decode, input.recipes, declarations⟩
 
 theorem normalization_fields (input : Input) (normalized : ConstructionGrammar.Input)
     (success : normalize input = some normalized) :
@@ -205,10 +211,12 @@ theorem normalization_fields (input : Input) (normalized : ConstructionGrammar.I
     input.records.mapM (normalizeRow input) = some normalized.records := by
   change (lookup input.names input.augmented).bind (fun augmented =>
     (lookup input.names input.root).bind (fun root =>
-      (input.records.mapM (normalizeRow input)).map (fun records =>
-        (⟨records, augmented, root, root, input.rules, input.decode, input.recipes, input.declarations⟩ : ConstructionGrammar.Input)))) = some normalized at success
+      (input.declarations.mapM (lookup input.names)).bind (fun declarations =>
+        (input.records.mapM (normalizeRow input)).map (fun records =>
+          (⟨records, augmented, root, root, input.rules, input.decode, input.recipes, declarations⟩ : ConstructionGrammar.Input))))) = some normalized at success
   obtain ⟨augmented, augRead, rest⟩ := Option.bind_eq_some_iff.mp success
   obtain ⟨root, rootRead, rest⟩ := Option.bind_eq_some_iff.mp rest
+  obtain ⟨declarations, _, rest⟩ := Option.bind_eq_some_iff.mp rest
   obtain ⟨records, rowsRead, equal⟩ := Option.map_eq_some_iff.mp rest
   subst normalized
   exact ⟨augRead, rootRead, rowsRead⟩

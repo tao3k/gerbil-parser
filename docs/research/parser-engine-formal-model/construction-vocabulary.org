@@ -41,6 +41,55 @@ The new laws consume its existing result rather than recomputing an automaton.
 The final law covers all allocated nodes and their published edges for the
 discovered terminal, retaining exact target closure/goto meaning for every child.
 
+* Declaration source authority
+
+The next source audit found that raw construction frames omitted declarations.
+=ConstructionEncoding.read= copied =origins.declarations= from the separate
+semantic metadata input, while =ConstructionEncodingWitness.fields= compared
+only rows and roots. That checked neither declaration provenance nor its order.
+A reserved reference and a declaration must remain different even when both
+already have directory indices.
+
+The actual lowering declaration callback now contributes an explicit list of
+symbol names to the raw frame. The fixture verifies that its helper callbacks
+agree with the separate proof-binding callbacks. The order follows the real
+=lower-grammar= publication: augmented owner, authored rows, then helpers in
+allocation order. The metadata decoder now projects its reversed binding
+observation back to that same chronological order. Duplicate authored names and
+helpers with no production row are retained. Reader data still comes from the
+existing source-data macro; no source-string serializer is added.
+
+=ConstructionEncoding= reads declaration symbols from this frame and encodes
+each through its own name directory before converting production operands.
+Missing names reject instead of receiving a default code. The reader no longer
+consults the semantic metadata's declaration field. Old incomplete frames fail
+the reader rather than entering a compatibility path. No schema version or
+versioned module name is introduced.
+
+[[file:../../../formal/ParserEngine/ConstructionDeclarationEncoding.lean][ConstructionDeclarationEncoding]] connects this input to the existing constructor:
+
+| Obligation | General theorem and consumer |
+|------------+------------------------------|
+| Declaration field is read from the same raw frame | =reader_declarations= derives its complete partial traversal. |
+| Side metadata cannot inject declarations | =metadata_independent= holds for every raw datum and replacement metadata list. |
+| Every name has this directory's code | =normalized_declarations= and =declaration_positions= retain every position and duplicate. |
+| Reservation is distinct from declaration | =declared_iff= equates encoded membership with the explicit raw declaration stream; =undeclared_operand= rejects reserved-only names. |
+| Absent declaration name | =missing_name_rejected= prevents constructing a normalized input. |
+| Retained constructor owner | =factory_owner_declared= consumes the same LeanPoo-backed construction product and traces its physical lhs back to the raw declaration stream. |
+| Real witness comparison | =declaration_mismatch_rejected= proves that the actual frame checker rejects a different declaration field; source corpus comparisons include order and multiplicity. |
+
+These are arbitrary-input encoding/consumer theorems. They do not prove that
+every possible Scheme lowering run emits a complete declaration callback
+history, or derive source rules, decode functions and recipes from arbitrary
+runtime heaps. Those producer-control obligations remain explicit below.
+Installed reader, symbol interning and scalar extraction also remain external.
+
+The existing parser-test owner exercises an undefined reserved reference,
+a zero-row helper and duplicate authored declarations. Existing real corpus
+freshness checks remain active. The encoding Quint model now mirrors declaration
+encoding before row conversion and rejects missing declarations and injected
+metadata codes. Its controls complement the general Lean results.
+
 * Remaining responsibilities
 
 The entry remains a restricted, normal-return parser protocol.
@@ -48,7 +97,7 @@ The entry remains a restricted, normal-return parser protocol.
 | Responsibility | Current evidence | Remaining proof or premise |
 |----------------+------------------+----------------------------|
 | Reader identities and terminal ordinals | Generic roundtrip, occurrence, catalogue and final-edge composition | Host scalar extraction and interned-symbol identity are external |
-| Records, IDs, augmentation and references | Checked by =ConstructionGrammar.prepare= and consumed by the same factory | Does not show that every native DSL invocation produces an admitted record list |
+| Records, IDs, augmentation and references | Checked by =ConstructionGrammar.prepare= and consumed by the same factory; explicit raw declarations are independently encoded and compared | Does not show that every native DSL invocation produces an admitted record list or complete declaration callback history |
 | Lowering source rules and recipes | =Names= proves generic recipe semantics; the gate checks every supplied row/recipe; native corpus preserves actual publication | Complete source-control refinement for arbitrary native lowering runs and supplied source/decode/recipe metadata, including rejection behavior |
 | Queue, scratch, templates and vectors | Complete source-order construction, ownership, readiness and physical publication | Supported schemas and normal-return primitive contracts; not arbitrary Scheme execution |
 | Lookahead, selector and conflict policy | Dedicated graph, table and request models | Integrate supported semantic admission with the same raw vocabulary and complete request; LR0 closure does not discharge LR1/policy semantics |
@@ -77,19 +126,25 @@ consumer and executable rejection control. A finite pass alone changes no status
 
 * Qualification
 
-The complete Lean package builds 199 jobs. The axiom audit includes collector,
-catalogue, ordinal, occurrence, discovery and physical target laws, with standard
-Lean logical axioms only; no =sorry=, =native_decide= or host axiom is introduced.
+| Current gate | Result | Existing limit |
+|--------------+--------+----------------|
+| Standard clean and complete package build | 105.39 s, exit 0 | 180/5 |
+| Original four preparation owners | 42.30 s, exit 0 | 90/5 |
+| Real native and raw frame regeneration | 11.61 s, exit 0 | 90/5 |
+| Original 16-owner first cold aggregate | 152.20 s end to end, exit 0 | 180/5 |
+| Complete Lean model and axiom audit | 252 jobs passed | unchanged |
+| Encoding lifecycle controls | 12 tests and 1000 histories passed | 20 steps, seed 1 |
 
-The existing =defparser-check= and =deflanguage-parser-tests= owners pass 69 cases,
-including an independent append-based vocabulary reference. Controls cover
-equal contents with different token/literal/layout tags, duplicate and marked
-operands, nullable/repeated rules, composed/decomposed accents and non-ASCII
-names. Every vector ordinal is compared with the actual native hash index;
-absent keys stay absent. Existing reader-data corpus checks remain active.
-The unchanged 90-second total and 5-second idle watchdogs apply.
+The original aggregate retains the same sixteen owners, four workers and
+90-second combined preparation/execution per owner. Its resolved-grammar owner
+passes 58 macro-owned cases, including the new declaration controls and both
+real corpus freshness comparisons. Proof-input regeneration uses the fixture
+already compiled by the original preparation owners; no complete aggregate is
+executed before this first cold run. No warmer or narrower run substitutes for
+it. All SDK/Gambit objects remain installed inputs; neither is modified or built.
 
-[[file:../../../formal/quint/ConstructionVocabulary.qnt][The vocabulary protocol]] passes eight directed controls and 1,000 histories of
-20 transitions. Negative controls remove EOF, reorder the catalogue, change an
-ordinal or drop an occurrence. They supplement arbitrary-list Lean laws and
-establish no CPU improvement.
+The complete axiom audit includes source declaration reading, position and
+membership correspondence, retained owner authority and mismatch rejection.
+Only standard Lean logical axioms occur. No =sorry=, =native_decide= or host
+implementation axiom is introduced. These receipts establish neither arbitrary
+Scheme lowering adequacy nor CPU improvement.

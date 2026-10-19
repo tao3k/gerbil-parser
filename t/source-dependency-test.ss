@@ -2,7 +2,7 @@
 (import :gerbil-parser/language-test-support
         (only-in :gerbil-parser/t/fixtures/event-walk-source
                  source-expression-procedure source-expression-dependencies source-procedure
-                 read-source-definition-port transform-source-declaration)
+                 read-source-definition-port read-source-subdefinition source-mutation-sites transform-source-declaration)
         (only-in :gerbil/expander current-expander-context make-top-context
                  eval-syntax core-bind-syntax! datum->syntax stx-car))
 
@@ -37,6 +37,20 @@
               (lambda (port) (read-source-definition-port port 'wanted))) true)
     (raises (call-with-input-string "(def (wanted) 1) ("
               (lambda (port) (read-source-definition-port port 'wanted))) true))
+  (scenario "syntax data cannot become nested source declarations"
+    (each (owner) ('(quoted-source-owner syntax-source-owner syntax-alias-source-owner))
+      (equal (with-catch error-message
+               (lambda () (read-source-subdefinition "t/fixtures/quoted-source-declarations.ss" owner 'wanted)))
+             "expected one nested source declaration"))
+    (equal (read-source-subdefinition "t/fixtures/quoted-source-declarations.ss" 'mixed-source-owner 'wanted)
+           '(def (wanted) 'actual))
+    (raises (read-source-subdefinition "t/fixtures/quoted-source-declarations.ss" 'duplicate-source-owner 'wanted) true))
+  (scenario "mutation witnesses use the same syntax-data barriers and source order"
+    (equal (source-mutation-sites '()) '())
+    (equal (source-mutation-sites
+             '(begin (quote (set! quoted 0)) (quote-syntax (vector-set! quoted 0 0))
+                     (syntax (set! quoted 0)) (set! live (vector-set! live 0 1))))
+           '((set! live (vector-set! live 0 1)) (vector-set! live 0 1))))
   (scenario "transformations execute once and cannot replace the lexical interface"
     (sequential ((calls 0)
                  (result (transform-source-declaration '(def (wanted x) x)

@@ -1,6 +1,16 @@
 ;;; Typed source-data declarations. Proofs belong to Lean, not Scheme strings.
 (import (only-in :std/misc/ports read-all-as-string))
-(export parser-source-data write-parser-source-data source-data-current? parser-source-symbol-text)
+(export parser-source-data write-parser-source-data source-data-current? parser-source-symbol-text parser-source-sites)
+;;; Structural reader-site protocol shared by declaration and mutation witnesses.
+;;; Literal syntax is data. Expansion and hygienic binding remain SDK duties.
+(def (parser-source-sites form selected?)
+  (cond ((not (pair? form)) '())
+        ((memq (car form) '(quote quote-syntax syntax)) '())
+        (else
+          (append (if (selected? form) (list form) '())
+                  (apply append
+                    (map (lambda (child) (parser-source-sites child selected?)) form))))))
+
 (defstruct source-binding (namespace name value) final: #t)
 (defrules parser-source-data ()
   ((_ (namespace name value) ...)

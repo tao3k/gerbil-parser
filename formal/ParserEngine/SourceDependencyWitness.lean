@@ -17,6 +17,21 @@ def readerSource : Datum :=
 end ParserEngine.SourceDependencyWitness
 namespace ParserEngine.SourceDependencyWitness
 open WalkSource
+def sitesSource : Datum :=
+(l [(s "def"), (l [(s "parser-source-sites"), (s "form"), (s "selected?")]), (l [(s "cond"), (l [(l [(s "not"), (l [(s "pair?"), (s "form")])]), (l [(s "quote"), (l [])])]), (l [(l [(s "memq"), (l [(s "car"), (s "form")]), (l [(s "quote"), (l [(s "quote"), (s "quote-syntax"), (s "syntax")])])]), (l [(s "quote"), (l [])])]), (l [(s "else"), (l [(s "append"), (l [(s "if"), (l [(s "selected?"), (s "form")]), (l [(s "list"), (s "form")]), (l [(s "quote"), (l [])])]), (l [(s "apply"), (s "append"), (l [(s "map"), (l [(s "lambda"), (l [(s "child")]), (l [(s "parser-source-sites"), (s "child"), (s "selected?")])]), (s "form")])])])])])])
+end ParserEngine.SourceDependencyWitness
+namespace ParserEngine.SourceDependencyWitness
+open WalkSource
+def mutationSource : Datum :=
+(l [(s "def"), (l [(s "source-mutation-sites"), (s "form")]), (l [(s "parser-source-sites"), (s "form"), (l [(s "lambda"), (l [(s "form")]), (l [(s "memq"), (l [(s "car"), (s "form")]), (l [(s "quote"), (l [(s "set!"), (s "vector-set!")])])])])])])
+end ParserEngine.SourceDependencyWitness
+namespace ParserEngine.SourceDependencyWitness
+open WalkSource
+def nestedSource : Datum :=
+(l [(s "def"), (l [(s "read-source-subdefinition"), (s "path"), (s "outer"), (s "name")]), (l [(s "let"), (l [(s "found"), (l [(s "parser-source-sites"), (l [(s "read-source-definition"), (s "path"), (s "outer")]), (l [(s "lambda"), (l [(s "form")]), (l [(s "and"), (l [(s "source-declaration-matches?"), (s "form"), (s "name")]), (l [(s "pair?"), (l [(s "cadr"), (s "form")])])])])])]), (l [(s "unless"), (l [(s "="), (l [(s "length"), (s "found")]), (n 1)]), (l [(s "error"), (.text "expected one nested source declaration"), (s "outer"), (s "name")])]), (l [(s "car"), (s "found")])])])
+end ParserEngine.SourceDependencyWitness
+namespace ParserEngine.SourceDependencyWitness
+open WalkSource
 def matcherSource : Datum :=
 (l [(s "def"), (l [(s "source-declaration-matches?"), (s "form"), (s "name")]), (l [(s "and"), (l [(s "list?"), (s "form")]), (l [(s ">="), (l [(s "length"), (s "form")]), (n 3)]), (l [(s "eq?"), (l [(s "car"), (s "form")]), (l [(s "quote"), (s "def")])]), (l [(s "or"), (l [(s "eq?"), (l [(s "cadr"), (s "form")]), (s "name")]), (l [(s "and"), (l [(s "pair?"), (l [(s "cadr"), (s "form")])]), (l [(s "eq?"), (l [(s "caadr"), (s "form")]), (s "name")])])])])])
 end ParserEngine.SourceDependencyWitness

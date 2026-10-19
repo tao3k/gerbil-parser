@@ -3,7 +3,7 @@
         (only-in "./prediction-witness.ss"
                  prediction-observation prediction-dependencies prediction-fixtures)
         (only-in "../../src/testing/source-witness.ss"
-                 parser-source-data write-parser-source-data source-data-current?))
+                 parser-source-data write-parser-source-data source-data-current? parser-source-sites))
 (export read-event-walk-source read-event-walk-source-port read-event-iterative-source read-source-definition read-source-definition-port source-declaration-matches? transform-source-declaration source-procedure source-expression-procedure source-expression-dependencies read-source-subdefinition source-mutation-sites write-event-walk-source-data event-walk-data-current?)
 
 (def (read-event-walk-source path)
@@ -113,24 +113,15 @@
 ;;; Select a named nested declaration without positional AST paths. Quoted
 ;;; data is excluded; duplicates and missing definitions fail closed.
 (def (read-source-subdefinition path outer name)
-  (def (collect form)
-    (cond ((not (pair? form)) '())
-          ((eq? (car form) 'quote) '())
-          (else
-            (append (if (and (list? form) (>= (length form) 3)
-                             (eq? (car form) 'def) (pair? (cadr form))
-                             (eq? (caadr form) name)) (list form) '())
-                    (apply append (map collect form))))))
-  (let (found (collect (read-source-definition path outer)))
+  (let (found (parser-source-sites (read-source-definition path outer)
+               (lambda (form)
+                 (and (source-declaration-matches? form name) (pair? (cadr form))))))
     (unless (= (length found) 1) (error "expected one nested source declaration" outer name))
     (car found)))
 
-;;; Independent reader-level control; Lean proves its own collector completeness.
+;;; Both protocols share the same literal barriers and ordered traversal.
 (def (source-mutation-sites form)
-  (cond ((not (pair? form)) '())
-        ((eq? (car form) 'quote) '())
-        (else (append (if (memq (car form) '(set! vector-set!)) (list form) '())
-                      (apply append (map source-mutation-sites form))))))
+  (parser-source-sites form (lambda (form) (memq (car form) '(set! vector-set!)))))
 
 (def (source-bindings source)
   (parser-source-data

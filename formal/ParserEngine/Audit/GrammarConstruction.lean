@@ -10,6 +10,7 @@ import ParserEngine.SourceDependencies
 import ParserEngine.SourceDependencyExecution
 import ParserEngine.SourceDependencyAdapter
 import ParserEngine.SourceDeclarationStorage
+import ParserEngine.SourceSiteExtraction
 import ParserEngine.SourceProcedureAdmission
 import ParserEngine.LoweringReservationEvaluation
 import ParserEngine.LoweringPreprocessingEvaluation
@@ -680,3 +681,16 @@ import ParserEngine.SourceInventory
 
 #print axioms ParserEngine.SourceProcedureAdmission.execution_ready
 #print axioms ParserEngine.SourceProcedureAdmission.nonprocedure_result_rejected
+
+#print axioms ParserEngine.SourceSiteExtraction.complete
+#print axioms ParserEngine.SourceSiteExtraction.selected_visible
+#print axioms ParserEngine.SourceSiteExtraction.factory_visible
+#print axioms ParserEngine.SourceSiteExtraction.quoted_absent
+#print axioms ParserEngine.SourceSiteExtraction.extracted_sites
+
+#print axioms ParserEngine.SourceSiteExtraction.extracted_nested
+#print axioms ParserEngine.SourceSiteExtraction.extracted_mutations
+
+#print axioms ParserEngine.SourceSiteExtraction.ordered
+
+#print axioms ParserEngine.SourceSiteExtraction.read_nested_sound

@@ -11,6 +11,12 @@
       (read-source-definition "src/testing/source-execution.ss" 'source-reference-resolved?))
     (ParserEngine.SourceDependencyWitness readerSource
       (read-source-definition "t/fixtures/event-walk-source.ss" 'read-source-definition-port))
+    (ParserEngine.SourceDependencyWitness sitesSource
+      (read-source-definition "src/testing/source-witness.ss" 'parser-source-sites))
+    (ParserEngine.SourceDependencyWitness mutationSource
+      (read-source-definition "t/fixtures/event-walk-source.ss" 'source-mutation-sites))
+    (ParserEngine.SourceDependencyWitness nestedSource
+      (read-source-definition "t/fixtures/event-walk-source.ss" 'read-source-subdefinition))
     (ParserEngine.SourceDependencyWitness matcherSource
       (read-source-definition "t/fixtures/event-walk-source.ss" 'source-declaration-matches?))
     (ParserEngine.SourceDependencyWitness snapshotSource

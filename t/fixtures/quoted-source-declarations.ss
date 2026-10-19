@@ -1,0 +1,12 @@
+;;; Reader fixture: syntax data is not a nested source declaration.
+(def (quoted-source-owner) (quote (def (wanted) 'data)))
+(def (syntax-source-owner) (quote-syntax (def (wanted) 'data)))
+(def (syntax-alias-source-owner) (syntax (def (wanted) 'data)))
+(def (mixed-source-owner)
+  (quote-syntax (def (wanted) 'data))
+  (syntax (def (wanted) 'data))
+  (def (wanted) 'actual)
+  (wanted))
+(def (duplicate-source-owner)
+  (def (wanted) 'first)
+  (def (wanted) 'second))

@@ -252,6 +252,53 @@ inspection; retained-callback mutation controls run both before and after the
 guard while preserving the detached published value. They complement the arbitrary-stream and closure proofs;
 they do not replace them.
 
+* Nested producer provenance and shared source sites
+
+The unified constructor consumes named nested LR producers, including emission,
+template, growth and interning helpers. Their provenance depends on the actual
+nested-source reader, not only the top-level declaration selector. The audit
+found that its private traversal skipped =quote= but descended into
+=quote-syntax= and =syntax= data. Same-named data could be counted as a producer
+or make a real producer appear ambiguous. A native regression containing one
+real producer and two literal syntax copies reproduces the ambiguity before
+the repair. Negative controls compare the exact selection error rather than
+accepting an unrelated exception.
+
+The mutation-site observer copied the same traversal and inherited the same
+literal-data error. Both adapters now use =parser-source-sites= in the existing
+[[file:../../../src/testing/source-witness.ss][source-witness engine module]]. One ordered traversal owns the three direct
+quotation barriers. The declaration adapter reuses the existing matcher and adds
+the procedure-header restriction; the mutation adapter selects =set!= and
+=vector-set!= sites. Empty lists and non-pair data never invoke the selector.
+No new loader, dependency cache or independent runtime evaluator is introduced.
+
+[[file:../../../formal/ParserEngine/SourceSiteExtraction.lean][SourceSiteExtraction]] proves this protocol for arbitrary representable trees and
+stable selector predicates. =complete= relates every collected site to an
+independent ancestry predicate. =ordered= proves equality with filtering an
+independent preorder, preserving the entire sequence and duplicates, rather
+than merely agreeing on membership. =selected_iff= and =selected_visible= derive
+unique nested declaration provenance from that sequence. =factory_visible=
+composes whole-file outer declaration selection with the exact nested producer
+retained by LeanPoo, through =read_nested_sound=;
+same-named syntax data cannot supply this capability. Generated reader data
+checks the shared traversal and both complete adapters against actual Scheme
+source. These results apply to the structural source-witness protocol; compiler
+expansion, hygienic binding, quasiquotation interpretation and unrestricted
+Scheme execution remain outside it.
+
+The native fixture tests all three direct quotation forms, one real declaration
+among quoted copies, duplicate real declarations, empty traversal and ordered
+nested mutation sites. All assertions use the existing parser-test macro.
+[[file:../../../formal/quint/SourceSites.qnt][SourceSites]] separately controls quote barriers and source ordering, including
+mutations that omit a barrier or reverse pending siblings. Its bounded controls
+complement the arbitrary-tree Lean proofs and are included in the existing
+Quint test command.
+
+The first witness regeneration after changing the shared engine module was
+rejected because the installed package generation no longer matched its source.
+That failure is preserved. Standard package clean/build is required before
+regeneration; no stale compiled interface or bypass supplies the new helper.
+
 * Complete preparation audit
 
 The remaining-premise audit found a composition error in the model:
@@ -283,6 +330,7 @@ and rejects omission of either the literal or final-result guard.
 
 | Remaining premise | Classification and discharge boundary |
 |-------------------+---------------------------------------|
+| Nested producer and mutation-site provenance | Shared traversal, arbitrary-tree completeness/order and exact LeanPoo producer selection are derived; normal-return stable predicates and primitive list operations remain external. |
 | Whole-file declaration selection and header acceptance | Derived by the reader transcript and native predicate proofs; no caller matcher or guard certificate. |
 | Transform body execution and normal return | Existing Scheme closure/heap semantics covers a supplied complete execution derivation; totality of arbitrary user callbacks is not asserted. |
 | Published data graph isolation | Project codec composition and logical frame theorem; physical codec round-trip, graph allocation and stable inputs remain host premises. |
@@ -376,13 +424,13 @@ unchanged. No timing above is interpreted as a CPU optimization result.
 
 | Gate | Result | Existing limit |
 |------+--------+----------------|
-| Standard clean and complete package build | 134.91 s, exit 0 | 180/5 |
-| Original four preparation owners | 47.14 s, exit 0 | 90/5 |
-| Original 16-owner first cold aggregate | 155.57 s end to end, exit 0 | 180/5 |
-| Dependency, LR source and real compiler controls | 53 cases, 12.53 s, exit 0 | 90/5 |
-| Source dependency witness freshness | 2.71 s, exit 0 | 90/5 |
-| Lean model and unified axiom audit | 250 jobs passed | unchanged |
-| Quint lifecycle controls | 22 tests; 1000 traces per model passed | unchanged |
+| Standard clean and complete package build | 152.23 s, exit 0 | 180/5 |
+| Original four preparation owners | 62.20 s, exit 0 | 90/5 |
+| Original 16-owner first cold aggregate | 170.06 s end to end, exit 0 | 180/5 |
+| Dependency, LR source and real compiler controls | 55 cases, 9.71 s, exit 0 | 90/5 |
+| Source dependency witness freshness | 2.33 s, exit 0 | 90/5 |
+| Lean model and unified axiom audit | 251 jobs passed | unchanged |
+| Source-site Quint controls | 6 tests; 1000 traces passed | unchanged |
 
 The cold aggregate uses the original owner list and four workers. The broader
 controls include verified and missing kernel primitives, an ordinary ambient

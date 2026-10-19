@@ -59,6 +59,32 @@
       (raises (transform-source-declaration declaration
                 (lambda (copy) (string-set! (cadadr (cadr copy)) 0 #\X) copy)) true)
       (equal default "original")))
+  (scenario "published declarations do not alias retained callback output"
+    (sequential ((held #f)
+                 (published (transform-source-declaration '(def (wanted x) x)
+                              (lambda (copy) (set! held copy) copy))))
+      (act (set-car! (cadr held) 'retargeted))
+      (act (set-car! (cddr held) '(unbound-source-tail)))
+      (equal published '(def (wanted x) x)))
+    (sequential ((shared (list 'def '(wanted) (vector (string-copy "stable"))))
+                 (published (transform-source-declaration '(def (wanted) 0) (lambda (_) shared))))
+      (act (string-set! (vector-ref (caddr shared) 0) 0 #\X))
+      (act (vector-set! (caddr shared) 0 "replaced"))
+      (equal published '(def (wanted) #("stable")))))
+  (scenario "complete source requests retain isolated literal storage"
+    (sequential ((held #f)
+                 (procedure (source-procedure "src/compiler/lr-compiler.ss" 'dynamic-precedence? '()
+                              (lambda (declaration)
+                                (set! held (append declaration (list (string-copy "stable")))) held))))
+      (act (string-set! (last held) 0 #\X))
+      (equal (procedure #f) "stable")))
+  (scenario "helper storage slots do not supply source-level lexical references"
+    (each (name) ('(declaration transformed header output))
+      (raises (source-procedure "src/compiler/lr-compiler.ss" 'dynamic-precedence? '()
+                (lambda (declaration) (append declaration (list name)))) true))
+    (sequential ((procedure (source-procedure "src/compiler/lr-compiler.ss" 'dynamic-precedence? '(declaration)
+                              (lambda (declaration) (append declaration '(declaration))))))
+      (equal (procedure #f "explicit source capability") "explicit source capability")))
   (scenario "new parameters cannot hide dependencies introduced by a transform"
     (raises (source-procedure "src/compiler/lr-compiler.ss" 'dynamic-precedence? '()
               (lambda (declaration)

@@ -9,7 +9,7 @@ import ParserEngine.SourceEnvironment
 import ParserEngine.SourceDependencies
 import ParserEngine.SourceDependencyExecution
 import ParserEngine.SourceDependencyAdapter
-import ParserEngine.SourceDeclarationTransformation
+import ParserEngine.SourceDeclarationStorage
 import ParserEngine.LoweringReservationEvaluation
 import ParserEngine.LoweringPreprocessingEvaluation
 import ParserEngine.Components
@@ -652,3 +652,21 @@ import ParserEngine.SourceInventory
 #print axioms ParserEngine.SourceDeclarationTransformation.distinct_snapshot_retained
 
 #print axioms ParserEngine.SchemeTableEvaluation.literal_total
+
+#print axioms ParserEngine.SourceDeclarationTransformation.original_test_corresponds
+#print axioms ParserEngine.SourceDeclarationTransformation.result_test_corresponds
+#print axioms ParserEngine.SourceDeclarationTransformation.guards_accept_iff
+#print axioms ParserEngine.SourceDeclarationTransformation.emitted_original_guard
+#print axioms ParserEngine.SourceDeclarationTransformation.emitted_result_guard
+#print axioms ParserEngine.SourceDeclarationStorage.replay_frame
+#print axioms ParserEngine.SourceDeclarationStorage.published_factory_reads
+#print axioms ParserEngine.SourceDeclarationStorage.published_variable_evaluates
+#print axioms ParserEngine.SourceDeclarationStorage.aliased_factory_changes
+
+#print axioms ParserEngine.SourceDeclarationStorage.request_after_mutations
+
+#print axioms ParserEngine.SourceDeclarationStorage.declaration_does_not_supply_reference
+
+#print axioms ParserEngine.SourceDependencyAdapter.lambda_data_evaluates
+
+#print axioms ParserEngine.SourceDeclarationTransformation.accepted_lambda_shape

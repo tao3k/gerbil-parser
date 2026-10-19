@@ -68,6 +68,7 @@ raw grammar -> physical cores -> prediction/closure -> ordered sparse groups
 | Publication | Complete transitions / vector-set! | ConstructionRows.finish_published -> complete | Actual publication IDs and target rows |
 | Semantic target | Section 2.2 goto/closure | ConstructionProtocol.paper_target | Existing LR reference owners |
 | Source identity | Complete Scheme declarations | ConstructionProtocol.source_current | Freshness and changed-source rejection |
+| Declaration admission | Whole-file selection, isolated transformation and complete lambda input | SourceDeclarationStorage.request_after_mutations | Retained callback mutation, helper/source name separation, generated source freshness |
 | Bit callback order | Sorted item traversal / compiler-index-set-for-each | BitTraversal.dispatch_exact -> TraversalCapabilities -> traversal_finish_exact | Forced direct/field paths, native width, empty fields and callback effects |
 
 This is a maintained contract map, not a diary of proof additions. A producer
@@ -75,6 +76,14 @@ change must preserve its output law and revalidate the named consumer. The
 existing source generator checks complete declarations, the axiom audit imports
 the public entry, and model-input discovery binds the native fixtures and this
 topic to qualification. A theorem or an added file alone does not close a row.
+
+The [[file:source-dependency-admission.org][source dependency contract]] connects complete declaration reading, native
+predicate denotations, actual Scheme transform execution, detached result
+publication and source-lambda construction to one LeanPoo checklist. Its
+publication heap is the real transform's resulting heap. Tagged source-reference
+and declaration capabilities keep the helper frame separate from source lexical
+resolution. Compiler/codec behavior remains external; the project-owned guard,
+normalization and frame consequences are proved and tested separately.
 
 * Sorting and borrowed storage
 

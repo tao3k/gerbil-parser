@@ -71,8 +71,8 @@
 (def (read-source-definition path name)
   (call-with-input-file path (lambda (port) (read-source-definition-port port name))))
 
-;;; The installed host codec copies the object graph, including mutable strings
-;;; and vectors. This is value isolation, not a source text serializer.
+;;; The installed host codec gives each stage independent object storage,
+;;; including mutable strings and vectors.
 (def (copy-source-data value)
   (u8vector->object (object->u8vector value)))
 
@@ -85,7 +85,8 @@
     (error "source witness requires a procedure declaration"))
   (let* ((header (copy-source-data (cadr declaration)))
          (declaration (copy-source-data declaration)))
-    (let (transformed (transform declaration))
+    (let* ((output (transform declaration))
+           (transformed (copy-source-data output)))
       (unless (and (list? transformed) (>= (length transformed) 3)
                    (eq? (car transformed) 'def)
                    (equal? (cadr transformed) header))

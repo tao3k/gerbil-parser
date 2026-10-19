@@ -131,8 +131,13 @@ gain admission from this representable-datum theorem.
 [[file:../../../formal/ParserEngine/SourceDeclarationTransformation.lean][SourceDeclarationTransformation]] uses the existing Scheme closure, environment
 and heap semantics. =invoke_closure= derives execution of the actual extracted
 transform call from its complete closure body and lexical binding. Captured
-writes thread into the result heap. =checked_closure= constructs a retained
-=GuardedCall= witness from that execution; =unique_execution= applies the existing
+writes thread into the result heap. =checked_closure= computes the native guard
+predicates and returns an optional =GuardedCall= witness from that execution;
+it no longer accepts an independent =accepted= proof from its caller. The
+=original_test_corresponds=, =result_test_corresponds= and =guards_accept_iff=
+theorems derive that acceptance from the actual predicate denotations for
+arbitrary representable declarations. Both predicates emit the complete native
+guard expressions recorded by the source witness; =unique_execution= applies the existing
 determinism theorem to the same starting heap. It does not justify re-running a
 stateful transform against its updated heap.
 
@@ -176,6 +181,50 @@ implementation is built or modified. Native macro controls mutate a parameter
 list and an optional default string in place and require rejection while the
 original source values remain unchanged.
 
+* Publication ownership and the complete dependency request
+
+The next audit found that the returned declaration still aliased the callback's
+retained result. Input isolation protects the original but cannot protect a
+published result from later callback writes. The adapter now copies the returned
+object graph before checking its header and returning it. The same independently
+owned object is used by subsequent lambda construction and dependency admission.
+Native controls retain callback output, mutate names, body expressions, nested
+vectors and strings after publication, and require the published declaration to
+stay unchanged. A complete =source-procedure= request also retains its literal
+string after the callback changes its retained copy.
+
+[[file:../../../formal/ParserEngine/SourceDeclarationStorage.lean][SourceDeclarationStorage]] reuses =SchemeStorage.cell= and the existing indexed
+and symbolic write primitives. =replay_frame= proves preservation for arbitrary
+finite mutation histories whose addresses exclude the owned publication slot.
+=published_factory_reads= and =published_variable_evaluates= connect that frame
+to LeanPoo's exact selected factory and the Scheme variable rule. The negative
+=aliased_factory_changes= theorem proves that the same named factory follows a
+callback write if publication and callback storage alias.
+
+The unified =request_after_mutations= theorem binds publication allocation to
+the actual post-transform heap. Its fresh-storage premise supplies the existing
+allocator's freshness proof. The helper call environment and external compiler's
+source environment are distinct: the helper's =declaration= or =header= binding
+cannot silently satisfy a source-level lexical obligation. One LeanPoo checklist
+uses tagged reference/declaration capabilities, so even equal textual names do
+not collide. =declaration_does_not_supply_reference= proves rejection of this
+model failure generally; the native controls reject all helper-only names and
+accept an explicitly supplied same-name source parameter.
+
+Compiler input is explicitly =SourceDependencyAdapter.lambdaData= of that same
+published declaration and its supplied dependencies. =lambda_data_evaluates=
+proves that the actual extracted Scheme cons/append constructor creates this
+value for arbitrary complete bodies, including keyword data.
+=accepted_lambda_shape= derives the constructor envelope from successful guards.
+The project-owned normalization is therefore separate from external compiler
+expansion, rather than being hidden inside an abstract expansion function.
+
+The host object codec owns round-trip value preservation and graph separation
+for supported stable inputs during each copy. The logical cell/field proof does
+not verify the codec's physical pair, vector or string implementation, GC, or
+arbitrary concurrent mutation during copying. No SDK/Gambit source or installed
+object is modified or built.
+
 Body instrumentation may intentionally change observations. This protocol does
 not assert semantic equivalence for arbitrary user callbacks, nor does lexical
 capability admission establish initialized cell contents or callback termination.
@@ -187,12 +236,16 @@ introduced.
 |--------------------+-------+----------------------+------------|
 | Resolve exactly one complete declaration | =predicate_corresponds=, =read_iff= | =read-source-definition-port= | duplicates, quote, trailing reader error |
 | Keep binder identity through instrumentation | =accepted_interface=, =changed_interface_rejects= | =transform-source-declaration= | header injection and retargeting reject |
+| Retain published storage across later writes | =replay_frame=, =request_after_mutations= | copy callback output before guard and publication | retained header/body/vector/string mutation |
+| Derive native guard acceptance | =guards_accept_iff= | complete emitted guard predicates | invalid envelopes and changed headers reject |
 | Execute the retained transformation once | =invoke_closure=, =unique_execution= | single =transform= call, threaded heap | effectful counter is one |
 | Admit every transformed lexical obligation | =read_transform_prepare=, =prepared_covers_source= | full-body lambda and SDK visitor | appended unresolved reference rejects |
 
 [[file:../../../formal/quint/SourceDeclarations.qnt][The declaration lifecycle controls]] reject duplicate or missing declarations,
-read errors, interface changes, transformed missing dependencies, early calls
-and repeated calls. They complement the arbitrary-stream and closure proofs;
+read errors, interface changes, transformed missing dependencies, early calls,
+repeated calls and missing output isolation. Publication precedes guard and
+inspection; retained-callback mutation controls run both before and after the
+guard while preserving the detached published value. They complement the arbitrary-stream and closure proofs;
 they do not replace them.
 
 * Real source and execution controls
@@ -275,15 +328,14 @@ unchanged. No timing above is interpreted as a CPU optimization result.
 
 | Gate | Result | Existing limit |
 |------+--------+----------------|
-| Standard clean and complete package build | 95.22 s, exit 0 | 180/5 |
-| Original four preparation owners | 40.29 s, exit 0 | 90/5 |
-| Original 16-owner first cold aggregate | 142.87 s end to end, exit 0 | 180/5 |
-| Dependency, LR source and real compiler controls | 49 cases, 11.85 s, exit 0 | 90/5 |
-| Complete process controls, both Unicode backpressure variants | 18.78 s, exit 0 | 90/5; inner limits unchanged |
+| Standard clean and complete package build | 179.35 s, exit 0 | 180/5 |
+| Original four preparation owners | 53.55 s, exit 0 | 90/5 |
+| Original 16-owner first cold aggregate | 150.88 s end to end, exit 0 | 180/5 |
+| Dependency, LR source and real compiler controls | 52 cases, 18.56 s, exit 0 | 90/5 |
 | New source witness freshness | passed | 90/5 |
 | Existing complete source witness freshness | passed | 90/5 |
-| Lean model and unified axiom audit | 248 jobs passed | unchanged |
-| Quint lifecycle controls | 15 tests; 1000 traces per model passed | unchanged |
+| Lean model and unified axiom audit | 249 jobs passed | unchanged |
+| Quint lifecycle controls | 18 tests; 1000 traces per model passed | unchanged |
 
 The cold aggregate uses the original owner list and four workers. The broader
 controls include verified and missing kernel primitives, an ordinary ambient

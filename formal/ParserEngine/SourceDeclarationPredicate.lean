@@ -7,18 +7,20 @@ namespace ParserEngine.SourceDeclarationPredicate
 open WalkSource SourceDeclarationReading
 
 inductive View where
-  | form | header | owner
+  | form | header | owner | parameters
 
 def view : View → Datum → Option Datum
   | .form, datum => some datum
   | .header, .list (_ :: header :: _) => some header
   | .owner, .list (_ :: .list (owner :: _) :: _) => some owner
+  | .parameters, .list (_ :: .list (_ :: parameters) :: _) => some (.list parameters)
   | _, _ => none
 
-def emitView : View → Datum
-  | .form => s "form"
-  | .header => app "cadr" [s "form"]
-  | .owner => app "caadr" [s "form"]
+def emitView (subject : String) : View → Datum
+  | .form => s subject
+  | .header => app "cadr" [s subject]
+  | .owner => app "caadr" [s subject]
+  | .parameters => app "cdadr" [s subject]
 
 inductive Test where
   | proper
@@ -26,6 +28,9 @@ inductive Test where
   | definition
   | named (projection : View)
   | pair (projection : View)
+  | symbol (projection : View)
+  | properView (projection : View)
+  | sameHeader (expected : Datum)
   | all (tests : List Test)
   | any (left right : Test)
 
@@ -40,6 +45,9 @@ mutual
     | .definition => match datum with | .list (.symbol "def" :: _) => true | _ => false
     | .named projection => isSymbol name (view projection datum)
     | .pair projection => match view projection datum with | some (.list (_ :: _)) => true | _ => false
+    | .symbol projection => match view projection datum with | some (.symbol _) => true | _ => false
+    | .properView projection => match view projection datum with | some (.list _) => true | _ => false
+    | .sameHeader expected => decide (view .header datum = some expected)
     | .all tests => evaluateAll name datum tests
     | .any left right => evaluate name datum left || evaluate name datum right
   def evaluateAll (name : String) (datum : Datum) : List Test → Bool
@@ -48,17 +56,20 @@ mutual
 end
 
 mutual
-  def emit : Test → Datum
-    | .proper => app "list?" [s "form"]
-    | .lengthAtLeast count => app ">=" [app "length" [s "form"], n count]
-    | .definition => app "eq?" [app "car" [s "form"], quoted "def"]
-    | .named projection => app "eq?" [emitView projection, s "name"]
-    | .pair projection => app "pair?" [emitView projection]
-    | .all tests => app "and" (emitAll tests)
-    | .any left right => app "or" [emit left, emit right]
-  def emitAll : List Test → List Datum
+  def emit (subject : String) : Test → Datum
+    | .proper => app "list?" [s subject]
+    | .lengthAtLeast count => app ">=" [app "length" [s subject], n count]
+    | .definition => app "eq?" [app "car" [s subject], quoted "def"]
+    | .named projection => app "eq?" [emitView subject projection, s "name"]
+    | .pair projection => app "pair?" [emitView subject projection]
+    | .symbol projection => app "symbol?" [emitView subject projection]
+    | .properView projection => app "list?" [emitView subject projection]
+    | .sameHeader _ => app "equal?" [emitView subject .header, s "header"]
+    | .all tests => app "and" (emitAll subject tests)
+    | .any left right => app "or" [emit subject left, emit subject right]
+  def emitAll (subject : String) : List Test → List Datum
     | [] => []
-    | test :: rest => emit test :: emitAll rest
+    | test :: rest => emit subject test :: emitAll subject rest
 end
 
 def matcher : Test := .all [.proper, .lengthAtLeast 3, .definition,
@@ -67,7 +78,7 @@ def matcher : Test := .all [.proper, .lengthAtLeast 3, .definition,
 /-- No input predicate is assumed: this emitted protocol is the current
 source declaration body, including its complete short-circuit ordering. -/
 theorem emitted_source : SourceDependencyWitness.matcherSource =
-    app "def" [l [s "source-declaration-matches?", s "form", s "name"], emit matcher] := rfl
+    app "def" [l [s "source-declaration-matches?", s "form", s "name"], emit "form" matcher] := rfl
 
 /-- All representable reader forms, headers, names and body lengths, including
 quoted declarations and nonmatching or malformed outer envelopes. -/

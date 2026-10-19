@@ -9,6 +9,7 @@ import ParserEngine.SourceEnvironment
 import ParserEngine.SourceDependencies
 import ParserEngine.SourceDependencyExecution
 import ParserEngine.SourceDependencyAdapter
+import ParserEngine.SourceDeclarationTransformation
 import ParserEngine.LoweringReservationEvaluation
 import ParserEngine.LoweringPreprocessingEvaluation
 import ParserEngine.Components
@@ -627,3 +628,27 @@ import ParserEngine.SourceInventory
 #print axioms ParserEngine.SourceDependencyAdapter.first_body_projection_loses_tail
 
 #print axioms ParserEngine.SourceDependencyExecution.extracted_preparation
+
+#print axioms ParserEngine.SourceDeclarationReading.reads_exact
+#print axioms ParserEngine.SourceDeclarationReading.read_iff
+#print axioms ParserEngine.SourceDeclarationReading.selected_occurs
+#print axioms ParserEngine.SourceDeclarationReading.duplicate_rejects
+#print axioms ParserEngine.SourceDeclarationReading.read_error_rejects
+#print axioms ParserEngine.SourceDeclarationTransformation.extracted_transform
+#print axioms ParserEngine.SourceDeclarationTransformation.invoke_closure
+#print axioms ParserEngine.SourceDeclarationTransformation.checked_closure
+#print axioms ParserEngine.SourceDeclarationTransformation.unique_execution
+#print axioms ParserEngine.SourceDeclarationTransformation.read_transform_prepare
+
+#print axioms ParserEngine.SourceDeclarationTransformation.changed_interface_rejects
+
+#print axioms ParserEngine.SourceDeclarationPredicate.emitted_source
+#print axioms ParserEngine.SourceDeclarationPredicate.predicate_corresponds
+#print axioms ParserEngine.SourceDeclarationPredicate.predicate_read_iff
+
+#print axioms ParserEngine.SourceDeclarationTransformation.extracted_snapshot
+
+#print axioms ParserEngine.SourceDeclarationTransformation.aliased_snapshot_overwritten
+#print axioms ParserEngine.SourceDeclarationTransformation.distinct_snapshot_retained
+
+#print axioms ParserEngine.SchemeTableEvaluation.literal_total

@@ -77,6 +77,21 @@
                     list)))))
           "COMPILER-EVALUATE probe\nCOMPILER-EVALUATED probe\n")
         (equal actual expected))))
+  (scenario "qualification runtime services do not request compiler interfaces"
+    (equal (capture-build-text
+             (list "gxi" "-e"
+               (object->string
+                 '(parameterize
+                    ((gx#current-expander-module-import
+                       (lambda args (error "runtime CLI requested a compiler interface"))))
+                    (load "qualify.ss")
+                    (unless (and
+                      (procedure? (eval 'run-observed-process))
+                      (procedure? ((eval 'profile-value)
+                        "gerbil-parser/t/support/qualification/process"
+                        'gerbil-parser/t/support/qualification/process#receipt-present?)))
+                      (error "runtime qualification service was not loaded"))))))
+           "QUALIFICATION-START\n"))
   (scenario "compiler children inherit the active SDK logical bin mapping"
     (equal (capture-build-text
              (list (getenv "GERBIL_GSC" "gsc") "-e" "(write (path-expand \"~~bin\"))"))

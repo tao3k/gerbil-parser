@@ -4,7 +4,7 @@
                  prediction-observation prediction-dependencies prediction-fixtures)
         (only-in "../../src/testing/source-witness.ss"
                  parser-source-data write-parser-source-data source-data-current?))
-(export read-event-walk-source read-event-walk-source-port read-event-iterative-source read-source-definition source-procedure source-expression-procedure source-expression-dependencies read-source-subdefinition source-mutation-sites write-event-walk-source-data event-walk-data-current?)
+(export read-event-walk-source read-event-walk-source-port read-event-iterative-source read-source-definition read-source-definition-port source-declaration-matches? transform-source-declaration source-procedure source-expression-procedure source-expression-dependencies read-source-subdefinition source-mutation-sites write-event-walk-source-data event-walk-data-current?)
 
 (def (read-event-walk-source path)
   (call-with-input-file path read-event-walk-source-port))
@@ -53,20 +53,44 @@
             body))))))
 
 ;;; Keep the complete declaration, including both passes and final publication.
-(def (read-source-definition path name)
+(def (source-declaration-matches? form name)
+  (and (list? form) (>= (length form) 3) (eq? (car form) 'def)
+       (or (eq? (cadr form) name)
+           (and (pair? (cadr form)) (eq? (caadr form) name)))))
+
+(def (read-source-definition-port port name)
   (let (found
-        (call-with-input-file path
-          (lambda (port)
-            (let loop ((found '()))
-              (let (form (read port))
-                (cond ((eof-object? form) (reverse found))
-                      ((and (list? form) (>= (length form) 3) (eq? (car form) 'def)
-                            (or (eq? (cadr form) name)
-                                (and (pair? (cadr form)) (eq? (caadr form) name))))
-                       (loop (cons form found)))
-                      (else (loop found))))))))
-    (unless (= (length found) 1) (error "expected one source declaration" path name))
+        (let loop ((found '()))
+          (let (form (read port))
+            (cond ((eof-object? form) (reverse found))
+                  ((source-declaration-matches? form name) (loop (cons form found)))
+                  (else (loop found))))))
+    (unless (= (length found) 1) (error "expected one source declaration" name))
     (car found)))
+
+(def (read-source-definition path name)
+  (call-with-input-file path (lambda (port) (read-source-definition-port port name))))
+
+;;; The installed host codec copies the object graph, including mutable strings
+;;; and vectors. This is value isolation, not a source text serializer.
+(def (copy-source-data value)
+  (u8vector->object (object->u8vector value)))
+
+;;; A transformation executes once and may change the body, never its owner or
+;;; lexical interface. Dependency admission checks its complete output below.
+(def (transform-source-declaration declaration transform)
+  (unless (and (list? declaration) (>= (length declaration) 3)
+               (eq? (car declaration) 'def) (pair? (cadr declaration))
+               (symbol? (caadr declaration)) (list? (cdadr declaration)))
+    (error "source witness requires a procedure declaration"))
+  (let* ((header (copy-source-data (cadr declaration)))
+         (declaration (copy-source-data declaration)))
+    (let (transformed (transform declaration))
+      (unless (and (list? transformed) (>= (length transformed) 3)
+                   (eq? (car transformed) 'def)
+                   (equal? (cadr transformed) header))
+        (error "source transformation changed the declaration interface"))
+      transformed)))
 
 (def (source-execution-binding name)
   (load-parser-module "gerbil-parser/src/testing/source-execution")
@@ -80,7 +104,7 @@
 
 ;;; Keep every body form and reject omissions before the procedure is created.
 (def (source-procedure path name dependencies (transform identity))
-  (let (declaration (transform (read-source-definition path name)))
+  (let (declaration (transform-source-declaration (read-source-definition path name) transform))
     (source-expression-procedure
       (cons 'lambda
         (cons (append (cdr (cadr declaration)) dependencies) (cddr declaration))))))

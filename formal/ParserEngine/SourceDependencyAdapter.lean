@@ -1,8 +1,8 @@
 import ParserEngine.SourceDependencyWitness
 import ParserEngine.SchemeEvaluationDeterminism
 
-/-! Generic evaluation of the real adapters' lambda-data construction. Reader
-and optional transform results are inputs; no body length is fixed or sampled. -/
+/-! Generic evaluation of the real adapters' lambda-data construction. The upstream reader and transform
+protocols are composed by SourceDeclarationTransformation; no body length is sampled. -/
 namespace ParserEngine.SourceDependencyAdapter
 open WalkSource SchemeTableEvaluation
 

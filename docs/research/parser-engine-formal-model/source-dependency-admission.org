@@ -91,8 +91,10 @@ analogue. CI checks the reader witness against the current source reader AST.
 For arbitrary parameter, supplied-dependency and body lists, it proves Scheme
 evaluation constructs the lambda with every body form in order. It formalizes
 the noninjective first-expression projection that caused the earlier omission.
-The reader/optional-transform result is an admitted input to this theorem;
-foreign file IO and arbitrary caller transformations are not silently verified.
+The upstream protocols are now composed by the declaration-reading and
+transformation models below. Foreign byte reading and installed compiler
+semantics remain external; the selected declaration is no longer an unexplained
+input to the composition theorem.
 
 The proofs compose with =SourceEnvironment= and its existing Scheme =resolve=
 and variable-evaluation rule. A bound mutable cell can still be uninitialized;
@@ -105,6 +107,94 @@ check-before-execution and retained-core identity invariants. Mutation controls
 reject a second expansion, unchecked execution and replacement of the checked
 core. These bounded controls do not replace the arbitrary-tree Lean theorems.
 
+* Declaration reading and transformation into admission
+
+[[file:../../../formal/ParserEngine/SourceDeclarationReading.lean][SourceDeclarationReading]] consumes the real port-reader and matcher declarations.
+Its operational transcript consumes every source form, records matches by cons,
+and reverses only at EOF. =reads_exact= proves the complete ordered filter for
+arbitrary finite input streams and arbitrary existing accumulators. =read_iff=
+connects successful unique selection to that complete transcript in both
+directions. =selected_occurs= retains the original complete form; identical
+duplicate declarations still reject. A reader exception after a valid match is
+not EOF and cannot publish that prefix.
+
+[[file:../../../formal/ParserEngine/SourceDeclarationPredicate.lean][SourceDeclarationPredicate]] gives the actual predicate a first-order denotation
+for proper-list, length, tag, header-pair and symbol-name tests. Its emitted
+syntax is the current matcher body. =predicate_corresponds= proves equality with
+the selector for every representable reader datum, name and body length;
+=predicate_read_iff= composes that result with the whole read transcript. The
+project's matcher is therefore not a caller-supplied premise. Installed Scheme
+primitive and short-circuit interpretation, including the reader's symbol
+interning, remain external semantics. Unsupported source-data encodings do not
+gain admission from this representable-datum theorem.
+
+[[file:../../../formal/ParserEngine/SourceDeclarationTransformation.lean][SourceDeclarationTransformation]] uses the existing Scheme closure, environment
+and heap semantics. =invoke_closure= derives execution of the actual extracted
+transform call from its complete closure body and lexical binding. Captured
+writes thread into the result heap. =checked_closure= constructs a retained
+=GuardedCall= witness from that execution; =unique_execution= applies the existing
+determinism theorem to the same starting heap. It does not justify re-running a
+stateful transform against its updated heap.
+
+The composition audit found that the existing data conversion rejected keyword
+atoms. Actual LR declarations contain keyword arguments such as =test:=, so
+assuming conversion success would exclude real source from a supposedly generic
+contract. The Scheme value model now represents keyword data distinctly from
+symbols. =literal_total= proves successful conversion for every representable
+reader datum and =checked_closure= constructs both conversions itself. It no
+longer asks the caller to supply conversion success for a selected declaration.
+
+The model exposed a missing interface constraint: an arbitrary transform could
+introduce a new parameter and turn an unresolved dependency into a local name.
+The shared adapter now checks that the original is a procedure declaration and
+that transformation preserves its entire name/parameter header. It invokes the
+transform once, then checks the complete transformed body through the existing
+SDK expansion and dependency capability. =changed_interface_rejects= proves the
+header-injection rejection generally. The complete real source includes both
+guards around exactly one transform invocation, and is covered by the generated
+source witness.
+
+=read_transform_prepare= combines unique whole-source selection, retained real
+Scheme call execution, interface preservation, explicit expansion of that same
+transformed declaration, and LeanPoo's typed factory preparation. It supplies
+every required capability of that expansion. The installed SDK is responsible
+for expansion semantics; an unrelated tree cannot silently replace the
+transformed declaration in this contract.
+
+The mutable-data audit also found that comparing two aliases after a callback
+is insufficient: an in-place header mutation can change both sides.
+=aliased_snapshot_overwritten= and =distinct_snapshot_retained= prove the
+failure and preservation conditions for arbitrary heaps and callback writes.
+The adapter
+now snapshots the header and gives the callback a separate copy of the complete
+declaration, using the installed host's object-graph codec. Separate round trips
+keep the original source, guard snapshot and callback storage distinct, including
+mutable literal strings and vectors. The source witness checks that concrete
+codec composition. Codec round-trip correctness and storage separation are
+explicit external host premises, as are ordinary reader primitives; no host
+implementation is built or modified. Native macro controls mutate a parameter
+list and an optional default string in place and require rejection while the
+original source values remain unchanged.
+
+Body instrumentation may intentionally change observations. This protocol does
+not assert semantic equivalence for arbitrary user callbacks, nor does lexical
+capability admission establish initialized cell contents or callback termination.
+The existing construction, storage and FIFO contracts continue to carry those
+separate behavioral obligations. No arbitrary transform-equivalence axiom was
+introduced.
+
+| Unified obligation | Model | Real Scheme boundary | Regression |
+|--------------------+-------+----------------------+------------|
+| Resolve exactly one complete declaration | =predicate_corresponds=, =read_iff= | =read-source-definition-port= | duplicates, quote, trailing reader error |
+| Keep binder identity through instrumentation | =accepted_interface=, =changed_interface_rejects= | =transform-source-declaration= | header injection and retargeting reject |
+| Execute the retained transformation once | =invoke_closure=, =unique_execution= | single =transform= call, threaded heap | effectful counter is one |
+| Admit every transformed lexical obligation | =read_transform_prepare=, =prepared_covers_source= | full-body lambda and SDK visitor | appended unresolved reference rejects |
+
+[[file:../../../formal/quint/SourceDeclarations.qnt][The declaration lifecycle controls]] reject duplicate or missing declarations,
+read errors, interface changes, transformed missing dependencies, early calls
+and repeated calls. They complement the arbitrary-stream and closure proofs;
+they do not replace them.
+
 * Real source and execution controls
 
 [[file:../../../t/source-dependency-test.ss][The source dependency suite]] uses the existing constrained test macros for reads,
@@ -113,6 +203,10 @@ optional defaults, verified host primitives, forged kernel names, ambient global
 functions, quote/quote-syntax, the actual LR procedure, trailing body
 forms, stateful macro expansion and rejection of executable setup expressions.
 The real LR and event-walk suites execute the shared checked capability.
+Reader controls also cover quoted definitions, complete trailing forms, duplicate
+selection, malformed trailing input, one-time effectful transforms, interface
+mutation and an unresolved reference appended by a transform. All use the
+existing =deflanguage-parser-tests= macro.
 
 Qualification retains the same original 16-owner cold aggregate, four workers,
 180/5 aggregate budget and 90-second combined preparation/execution per owner.
@@ -124,7 +218,9 @@ or warm process cannot substitute for the complete first cold aggregate.
 
 The installed SDK's reader, core expansion, binding classification, inherited
 visitor coverage and core evaluator remain compiler premises. The separate host
-primitive slot and its stability during a request are runtime premises. The project now
+primitive slot and its stability during a request are runtime premises. The
+installed object-graph codec supplies isolated copies of supported reader data;
+its round-trip and allocation behavior are also external host premises. The project now
 reuses those actual mechanisms instead of assuming an arbitrary hand-maintained
 source name list is complete. The proof is relative to those compiler premises;
 it is not a verification of the Gerbil compiler or Gambit implementation.
@@ -133,6 +229,29 @@ A lexical reference proof does not establish termination, callback behavior,
 initialized heap cells, dynamically computed module loads, or the completeness
 of an arbitrary transitive module-effect graph. Those obligations retain their
 existing contracts. No SDK/Gambit code or installed object is modified or built.
+
+* Qualification runtime dependency boundary
+
+The current macOS semantics job failed in the Unicode backpressure control's
+completion wait, after the real target-ready acknowledgement. Its four-second
+readiness, six-second completion, 0.8-second child idle fence and 1.2-second
+intentional consumer pause remain unchanged.
+
+The source audit identified another phase crossing: =qualify.ss= imported
+runtime-only services through expander interfaces. The CLI now obtains only the
+selected runtime service through the existing shared module loader. That adapter
+continues to delegate cache/error ownership to the SDK and handles source-only
+wrappers in their proper evaluator context. A direct SDK call alone was rejected
+by the raw wrapper's =declare= in the Gerbil evaluator; that failed experiment
+is retained. No new loader, cache, whole-library copy or admission bypass was
+introduced. Both pre/post source and product validation remain in the same
+library-reader lock.
+
+The compiler-process suite installs an expander-import callback that rejects
+any interface request, then loads the real CLI and resolves its runtime service
+in a fresh GXI. This checks the actual phase boundary, rather than merely
+matching source text. Original backpressure controls retain every Unicode line,
+exact child-log byte count, process status and final receipt.
 
 * Preserved negative qualification
 
@@ -145,7 +264,7 @@ then the broader LR source control identified legitimate host primitives being
 misclassified as missing expander bindings. The primitive-slot rule addresses
 that classification separately from ordinary unresolved source dependencies.
 
-The current-head CI compiler failure is also addressed independently: SDK tool
+The previously fixed CI compiler failure had an independent cause: SDK tool
 launches retain the inherited =GAMBOPT= relocation prefix and append the same
 heap/debug settings. A real installed =gsc= probe with a temporary logical bin
 map demonstrates that the old assignment loses it and the corrected assignment
@@ -156,14 +275,15 @@ unchanged. No timing above is interpreted as a CPU optimization result.
 
 | Gate | Result | Existing limit |
 |------+--------+----------------|
-| Standard clean and complete package build | 119.97 s, exit 0 | 180/5 |
-| Original four preparation owners | 78.99 s, exit 0 | 90/5 |
-| Original 16-owner first cold aggregate | 166.25 s end to end, exit 0 | 180/5 |
-| Dependency, LR source and real compiler controls | 43 cases, 9.90 s, exit 0 | 90/5 |
+| Standard clean and complete package build | 95.22 s, exit 0 | 180/5 |
+| Original four preparation owners | 40.29 s, exit 0 | 90/5 |
+| Original 16-owner first cold aggregate | 142.87 s end to end, exit 0 | 180/5 |
+| Dependency, LR source and real compiler controls | 49 cases, 11.85 s, exit 0 | 90/5 |
+| Complete process controls, both Unicode backpressure variants | 18.78 s, exit 0 | 90/5; inner limits unchanged |
 | New source witness freshness | passed | 90/5 |
 | Existing complete source witness freshness | passed | 90/5 |
-| Lean model and unified axiom audit | 245 jobs passed | unchanged |
-| Quint lifecycle controls | 7 tests and 1000 traces passed | unchanged |
+| Lean model and unified axiom audit | 248 jobs passed | unchanged |
+| Quint lifecycle controls | 15 tests; 1000 traces per model passed | unchanged |
 
 The cold aggregate uses the original owner list and four workers. The broader
 controls include verified and missing kernel primitives, an ordinary ambient

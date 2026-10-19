@@ -12,8 +12,28 @@ def resolutionSource : Datum :=
 end ParserEngine.SourceDependencyWitness
 namespace ParserEngine.SourceDependencyWitness
 open WalkSource
+def readerSource : Datum :=
+(l [(s "def"), (l [(s "read-source-definition-port"), (s "port"), (s "name")]), (l [(s "let"), (l [(s "found"), (l [(s "let"), (s "loop"), (l [(l [(s "found"), (l [(s "quote"), (l [])])])]), (l [(s "let"), (l [(s "form"), (l [(s "read"), (s "port")])]), (l [(s "cond"), (l [(l [(s "eof-object?"), (s "form")]), (l [(s "reverse"), (s "found")])]), (l [(l [(s "source-declaration-matches?"), (s "form"), (s "name")]), (l [(s "loop"), (l [(s "cons"), (s "form"), (s "found")])])]), (l [(s "else"), (l [(s "loop"), (s "found")])])])])])]), (l [(s "unless"), (l [(s "="), (l [(s "length"), (s "found")]), (n 1)]), (l [(s "error"), (.text "expected one source declaration"), (s "name")])]), (l [(s "car"), (s "found")])])])
+end ParserEngine.SourceDependencyWitness
+namespace ParserEngine.SourceDependencyWitness
+open WalkSource
+def matcherSource : Datum :=
+(l [(s "def"), (l [(s "source-declaration-matches?"), (s "form"), (s "name")]), (l [(s "and"), (l [(s "list?"), (s "form")]), (l [(s ">="), (l [(s "length"), (s "form")]), (n 3)]), (l [(s "eq?"), (l [(s "car"), (s "form")]), (l [(s "quote"), (s "def")])]), (l [(s "or"), (l [(s "eq?"), (l [(s "cadr"), (s "form")]), (s "name")]), (l [(s "and"), (l [(s "pair?"), (l [(s "cadr"), (s "form")])]), (l [(s "eq?"), (l [(s "caadr"), (s "form")]), (s "name")])])])])])
+end ParserEngine.SourceDependencyWitness
+namespace ParserEngine.SourceDependencyWitness
+open WalkSource
+def snapshotSource : Datum :=
+(l [(s "def"), (l [(s "copy-source-data"), (s "value")]), (l [(s "u8vector->object"), (l [(s "object->u8vector"), (s "value")])])])
+end ParserEngine.SourceDependencyWitness
+namespace ParserEngine.SourceDependencyWitness
+open WalkSource
+def transformSource : Datum :=
+(l [(s "def"), (l [(s "transform-source-declaration"), (s "declaration"), (s "transform")]), (l [(s "unless"), (l [(s "and"), (l [(s "list?"), (s "declaration")]), (l [(s ">="), (l [(s "length"), (s "declaration")]), (n 3)]), (l [(s "eq?"), (l [(s "car"), (s "declaration")]), (l [(s "quote"), (s "def")])]), (l [(s "pair?"), (l [(s "cadr"), (s "declaration")])]), (l [(s "symbol?"), (l [(s "caadr"), (s "declaration")])]), (l [(s "list?"), (l [(s "cdadr"), (s "declaration")])])]), (l [(s "error"), (.text "source witness requires a procedure declaration")])]), (l [(s "let*"), (l [(l [(s "header"), (l [(s "copy-source-data"), (l [(s "cadr"), (s "declaration")])])]), (l [(s "declaration"), (l [(s "copy-source-data"), (s "declaration")])])]), (l [(s "let"), (l [(s "transformed"), (l [(s "transform"), (s "declaration")])]), (l [(s "unless"), (l [(s "and"), (l [(s "list?"), (s "transformed")]), (l [(s ">="), (l [(s "length"), (s "transformed")]), (n 3)]), (l [(s "eq?"), (l [(s "car"), (s "transformed")]), (l [(s "quote"), (s "def")])]), (l [(s "equal?"), (l [(s "cadr"), (s "transformed")]), (s "header")])]), (l [(s "error"), (.text "source transformation changed the declaration interface")])]), (s "transformed")])])])
+end ParserEngine.SourceDependencyWitness
+namespace ParserEngine.SourceDependencyWitness
+open WalkSource
 def adapterSource : Datum :=
-(l [(s "def"), (l [(s "source-procedure"), (s "path"), (s "name"), (s "dependencies"), (l [(s "transform"), (s "identity")])]), (l [(s "let"), (l [(s "declaration"), (l [(s "transform"), (l [(s "read-source-definition"), (s "path"), (s "name")])])]), (l [(s "source-expression-procedure"), (l [(s "cons"), (l [(s "quote"), (s "lambda")]), (l [(s "cons"), (l [(s "append"), (l [(s "cdr"), (l [(s "cadr"), (s "declaration")])]), (s "dependencies")]), (l [(s "cddr"), (s "declaration")])])])])])])
+(l [(s "def"), (l [(s "source-procedure"), (s "path"), (s "name"), (s "dependencies"), (l [(s "transform"), (s "identity")])]), (l [(s "let"), (l [(s "declaration"), (l [(s "transform-source-declaration"), (l [(s "read-source-definition"), (s "path"), (s "name")]), (s "transform")])]), (l [(s "source-expression-procedure"), (l [(s "cons"), (l [(s "quote"), (s "lambda")]), (l [(s "cons"), (l [(s "append"), (l [(s "cdr"), (l [(s "cadr"), (s "declaration")])]), (s "dependencies")]), (l [(s "cddr"), (s "declaration")])])])])])])
 end ParserEngine.SourceDependencyWitness
 namespace ParserEngine.SourceDependencyWitness
 open WalkSource

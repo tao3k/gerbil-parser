@@ -1,7 +1,8 @@
 ;;; SDK binding/visitor controls for the shared source execution capability.
 (import :gerbil-parser/language-test-support
         (only-in :gerbil-parser/t/fixtures/event-walk-source
-                 source-expression-procedure source-expression-dependencies source-procedure)
+                 source-expression-procedure source-expression-dependencies source-procedure
+                 read-source-definition-port transform-source-declaration)
         (only-in :gerbil/expander current-expander-context make-top-context
                  eval-syntax core-bind-syntax! datum->syntax stx-car))
 
@@ -26,6 +27,47 @@
 
 (deflanguage-parser-tests source-dependency-test "complete source dependency admission"
   (engine (exclusive #t))
+  (scenario "declaration reading retains complete forms and rejects ambiguity"
+    (equal (call-with-input-string "'(def (wanted) ignored) (def (other) 0) (def (wanted x) x 'tail)"
+             (lambda (port) (read-source-definition-port port 'wanted)))
+           '(def (wanted x) x 'tail))
+    (raises (call-with-input-string "(def (wanted) 1) (def (wanted) 2)"
+              (lambda (port) (read-source-definition-port port 'wanted))) true)
+    (raises (call-with-input-string "(def (other) 1)"
+              (lambda (port) (read-source-definition-port port 'wanted))) true)
+    (raises (call-with-input-string "(def (wanted) 1) ("
+              (lambda (port) (read-source-definition-port port 'wanted))) true))
+  (scenario "transformations execute once and cannot replace the lexical interface"
+    (sequential ((calls 0)
+                 (result (transform-source-declaration '(def (wanted x) x)
+                           (lambda (declaration) (set! calls (+ calls 1))
+                             '(def (wanted x) x 'tail)))))
+      (equal calls 1)
+      (equal result '(def (wanted x) x 'tail)))
+    (raises (transform-source-declaration '(def wanted 1) identity) true)
+    (raises (transform-source-declaration '(def (wanted x) x)
+              (lambda (_) '(def (other x) x))) true)
+    (raises (transform-source-declaration '(def (wanted x) x)
+              (lambda (_) '(def (wanted x unbound-source-tail) x))) true))
+  (scenario "in-place header mutations cannot change the retained source or snapshot"
+    (sequential ((declaration (list 'def (list 'wanted 'x) 'x)))
+      (raises (transform-source-declaration declaration
+                (lambda (copy) (set-cdr! (cadr copy) '(x unbound-source-tail)) copy)) true)
+      (equal declaration '(def (wanted x) x)))
+    (sequential ((default (string-copy "original"))
+                 (declaration (list 'def (list 'wanted (list 'x default)) 'x)))
+      (raises (transform-source-declaration declaration
+                (lambda (copy) (string-set! (cadadr (cadr copy)) 0 #\X) copy)) true)
+      (equal default "original")))
+  (scenario "new parameters cannot hide dependencies introduced by a transform"
+    (raises (source-procedure "src/compiler/lr-compiler.ss" 'dynamic-precedence? '()
+              (lambda (declaration)
+                (cons 'def
+                  (cons (append (cadr declaration) '(unbound-source-tail))
+                        (append (cddr declaration) '((unbound-source-tail))))))) true))
+  (scenario "transformed trailing dependencies cannot bypass admission"
+    (raises (source-procedure "src/compiler/lr-compiler.ss" 'dynamic-precedence? '()
+              (lambda (declaration) (append declaration '((unbound-source-tail))))) true))
   (scenario "read targets and nested closure bodies are checked before execution"
     (equal (source-expression-dependencies '(lambda (x) (unbound-source-callback x)))
            '(unbound-source-callback))

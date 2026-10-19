@@ -9,6 +9,14 @@
       (call-with-input-file "src/testing/source-execution.ss" read-all))
     (ParserEngine.SourceDependencyWitness resolutionSource
       (read-source-definition "src/testing/source-execution.ss" 'source-reference-resolved?))
+    (ParserEngine.SourceDependencyWitness readerSource
+      (read-source-definition "t/fixtures/event-walk-source.ss" 'read-source-definition-port))
+    (ParserEngine.SourceDependencyWitness matcherSource
+      (read-source-definition "t/fixtures/event-walk-source.ss" 'source-declaration-matches?))
+    (ParserEngine.SourceDependencyWitness snapshotSource
+      (read-source-definition "t/fixtures/event-walk-source.ss" 'copy-source-data))
+    (ParserEngine.SourceDependencyWitness transformSource
+      (read-source-definition "t/fixtures/event-walk-source.ss" 'transform-source-declaration))
     (ParserEngine.SourceDependencyWitness adapterSource
       (read-source-definition "t/fixtures/event-walk-source.ss" 'source-procedure))
     (ParserEngine.SourceDependencyWitness eventAdapterSource

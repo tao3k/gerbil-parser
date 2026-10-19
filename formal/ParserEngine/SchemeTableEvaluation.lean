@@ -27,6 +27,7 @@ inductive Value where
   | table (address : Nat)
   | unit
   | text (value : String)
+  | keyword (name : String)
   | symbol (name : String)
   | cell (address : Nat)
   | closure (parameters : List Datum) (body : List Datum) (captured : String → Option Value)
@@ -60,10 +61,37 @@ mutual
     | .text value => some (.text value)
     | .symbol name => some (.symbol name)
     | .list values => (literals values).map Value.list
-    | .keyword _ => none
+    | .keyword name => some (.keyword name)
   def literals : List Datum → Option (List Value)
     | [] => some []
     | head :: tail => do return (← literal head) :: (← literals tail)
+end
+
+/- Reader declarations are data even when their bodies contain keyword
+arguments. Every representable datum has a value; keywords remain distinct
+from symbols instead of making the complete declaration unrepresentable. -/
+mutual
+  def datumValue : Datum → Value
+    | .integer value => .natural value
+    | .boolean value => .boolean value
+    | .text value => .text value
+    | .keyword name => .keyword name
+    | .symbol name => .symbol name
+    | .list values => .list (datumValues values)
+  def datumValues : List Datum → List Value
+    | [] => []
+    | head :: tail => datumValue head :: datumValues tail
+end
+
+mutual
+  theorem literal_total (datum : Datum) : literal datum = some (datumValue datum) := by
+    cases datum <;> simp only [literal, datumValue]
+    rename_i values
+    rw [literals_total values]; rfl
+  theorem literals_total (values : List Datum) : literals values = some (datumValues values) := by
+    cases values with
+    | nil => rfl
+    | cons head tail => simp [literals, datumValues, literal_total head, literals_total tail]
 end
 
 def bind : List Datum → List Value → Environment → Option Environment

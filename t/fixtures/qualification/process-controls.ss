@@ -32,7 +32,10 @@
     ;; This is the target's one-time real acknowledgement, not a heartbeat.
     (displayln "PROCESS-CONTROL-READY unicode-backpressure") (force-output)
     (let (bytes (thread-join! reader (max 0.001 (- 6 (- (##current-time-point) started))) 'incomplete))
-      (check (u8vector? bytes) 'backpressure-completion)
+      (check (u8vector? bytes) 'backpressure-completion
+             'elapsed (- (##current-time-point) started)
+             'captured (u8vector-length (get-output-u8vector capture))
+             'status (process-status pipe 0 'pending))
       (check paused? 'backpressure-exercised)
       bytes)
     (finally (thread-terminate! reader) (close-port capture)))))

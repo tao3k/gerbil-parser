@@ -1,11 +1,13 @@
 // Common lowering emitter: callbacks return before increment/store; failure aborts publication.
 module LoweringPublication {
   type State={next:int,rows:List[int],origins:List[int],proofs:List[int],stage:str,
-    origin:bool,proof:bool,failAt:int,failStage:str,published:bool}
+    origin:bool,proof:bool,failAt:int,failStage:str,published:bool,
+    synthetic:int,names:List[int],callerNext:int}
   var q:State
   action start(origin:bool,proof:bool,failAt:int,failStage:str):bool =
     q'={next:1,rows:List(),origins:List(),proofs:List(),stage:"ready",
-      origin:origin,proof:proof,failAt:failAt,failStage:failStage,published:false}
+      origin:origin,proof:proof,failAt:failAt,failStage:failStage,published:false,
+      synthetic:0,names:List(),callerNext:-100}
   action init={nondet origin=Set(false,true).oneOf(); nondet proof=Set(false,true).oneOf();
     nondet failAt=Set(1,2,3,4).oneOf(); nondet failStage=Set("origin","proof").oneOf();
     start(origin,proof,failAt,failStage)}
@@ -19,8 +21,11 @@ module LoweringPublication {
   action increment=all {q.stage=="increment",q'={...q,next:q.next+1,stage:"store"}}
   action store=all {q.stage=="store",q'={...q,rows:q.rows.append(q.next-1),stage:"ready"}}
   action finish=all {q.stage=="ready",q.rows.length()==3,q'={...q,stage:"done",published:true}}
-  action step=any {allocate,observeOrigin,observeProof,increment,store,finish,q'=q}
+  action allocateName=all {q.stage=="ready",q.synthetic<4,
+    q'={...q,synthetic:q.synthetic+1,names:q.names.append(q.synthetic)}}
+  action step=any {allocateName,allocate,observeOrigin,observeProof,increment,store,finish,q'=q}
   val PublicationSafety=all {
+    q.synthetic==q.names.length(),q.names==range(0,q.names.length()),q.callerNext== -100,
     q.rows==range(1,q.rows.length()+1),
     q.next==q.rows.length()+(if(q.stage=="store") 2 else 1),
     q.origin or q.origins==List(),q.proof or q.proofs==List(),
@@ -49,4 +54,17 @@ module LoweringPublication {
     .then(q'={...q,proofs:List(1)}).expect(not(PublicationSafety))
   run failedPrefixCannotPublishTest=start(true,true,1,"proof").then(allocate).then(observeOrigin).then(observeProof)
     .then(q'={...q,published:true}).expect(not(PublicationSafety))
+  run interleavedNamesAndEmissionsTest=start(false,false,4,"origin").then(allocateName)
+    .then(allocate).then(observeOrigin).then(observeProof).then(increment).then(store).then(allocateName)
+    .then(allocate).then(observeOrigin).then(observeProof).then(increment).then(store)
+    .expect(PublicationSafety and q.rows==List(1,2) and q.next==3 and q.synthetic==2)
+  run existingPrefixTest=start(false,false,4,"origin")
+    .then(q'={...q,rows:List(1,2),next:3,synthetic:2,names:List(0,1)})
+    .then(allocate).then(observeOrigin).then(observeProof).then(increment).then(store).then(finish)
+    .expect(PublicationSafety and q.rows==List(1,2,3) and q.synthetic==2 and q.callerNext== -100)
+  run wrongNameCounterRejectedTest=start(false,false,4,"origin").then(allocate)
+    .then(q'={...q,synthetic:1}).expect(not(PublicationSafety))
+  run callerCounterMutationRejectedTest=start(false,false,4,"origin").then(allocate)
+    .then(q'={...q,callerNext:-99}).expect(not(PublicationSafety))
+
 }

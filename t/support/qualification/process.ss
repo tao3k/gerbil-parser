@@ -51,6 +51,27 @@
       (run-observed-process/worker command log timeout: budget idle-timeout: idle
                                    error-output?: error-output? observe: observe)))))
 
+;;; Only a line prefix can be an error. Once it diverges, keep no string
+;;; state until newline. Arbitrary byte chunks need no UTF-8 decoding or copying.
+(def (process-error-prefix prefix bytes)
+  (let ((end (u8vector-length bytes)))
+    (let loop ((index 0) (prefix prefix))
+      (if (or (= index end) (eq? prefix 'error)) prefix
+        (let (byte (u8vector-ref bytes index))
+          (cond
+           ((= byte 10)
+            (if (equal? prefix "ERROR") 'error (loop (+ index 1) "")))
+           ((not prefix) (loop (+ index 1) #f))
+           ((equal? prefix "ERROR")
+            (if (or (<= 48 byte 57) (<= 65 byte 90) (<= 97 byte 122) (= byte 95))
+              (loop (+ index 1) #f) 'error))
+           (else
+            (let (next (string-append prefix (string (integer->char byte))))
+              (cond ((equal? next "*** ERROR") 'error)
+                    ((or (string-prefix? next "*** ERROR") (string-prefix? next "ERROR"))
+                     (loop (+ index 1) next))
+                    (else (loop (+ index 1) #f)))))))))))
+
 (def (run-observed-process/worker command log timeout: (budget 60) idle-timeout: (idle #f)
                                   error-output?: (error-output? #t) observe: (observe void))
   (unless (and (pair? command) (> budget 0) (or (not idle) (> idle 0)))
@@ -82,22 +103,8 @@
           (thread-interrupt! coordinator (lambda () (raise (process-interruption why))))))
       (def (observe-error! bytes)
         (when error-output?
-          (let loop ((index 0))
-            (when (< index (u8vector-length bytes))
-              (let (byte (u8vector-ref bytes index))
-                (cond
-                 ((= byte 10)
-                  (when (equal? line-prefix "ERROR") (fail! 'error-output))
-                  (set! line-prefix ""))
-                 ((< (string-length line-prefix) 10)
-                  (set! line-prefix (string-append line-prefix (string (integer->char byte))))
-                  (when (or (equal? line-prefix "*** ERROR")
-                            (and (= (string-length line-prefix) 6)
-                                 (equal? (substring line-prefix 0 5) "ERROR")
-                                 (not (or (<= 48 byte 57) (<= 65 byte 90)
-                                          (<= 97 byte 122) (= byte 95)))))
-                    (fail! 'error-output)))))
-              (loop (+ index 1))))))
+          (set! line-prefix (process-error-prefix line-prefix bytes))
+          (when (eq? line-prefix 'error) (fail! 'error-output))))
       (try
        (set! reader
          (spawn

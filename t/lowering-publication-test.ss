@@ -147,6 +147,39 @@
       (each (production) ((append origins proofs))
         (equal (eq? production (list-ref rows (production-id production))) #t)))))
 
+(defparser-check (source-emitter-interleave-case prefix-count width)
+  (scope ((rules (list (list 'start (cons 'sequence
+             (map (lambda (_) '(optional (literal "x"))) (iota width)))))))
+    (scope-values (((fresh emit dispatch finish inspect) (make-source-root rules 'start)))
+      (each (index) ((iota prefix-count))
+        (equal (fresh 'prefix) (candidate-name 'prefix index))
+        (scope ((next-id -100) (productions '(caller-owned)))
+          (act (emit 'prefix '((terminal literal "prefix")) 'pass (list 'left index)
+                 'prefix '() '(literal "prefix") #f))
+          (equal next-id -100)
+          (equal productions '(caller-owned))))
+      (scope ((prefix (caddr (inspect))))
+        (equal prefix
+          (map (lambda (index) (list (+ index 1) 'prefix '((terminal literal "prefix"))
+                                    'pass (list 'left index))) (iota prefix-count)))
+        (act (dispatch))
+        (scope ((snapshot (inspect)) (rows (finish))
+                (helpers (map (lambda (index) (candidate-name 'start (+ prefix-count index))) (iota width))))
+          (equal (car snapshot) (+ prefix-count (* 2 width) 2))
+          (equal (cadr snapshot) (+ prefix-count width))
+          (equal (take (caddr snapshot) prefix-count) prefix)
+          (each (pair) ((map cons prefix (take (caddr snapshot) prefix-count)))
+            (equal (eq? (car pair) (cdr pair)) #t))
+          (equal rows
+            (cons '(0 $accept ((nonterminal start)) pass #f)
+              (append prefix
+                (apply append (map (lambda (name index)
+                  (list (list (+ prefix-count (* 2 index) 1) name '() 'concat #f)
+                        (list (+ prefix-count (* 2 index) 2) name '((terminal literal "x")) 'pass #f)))
+                  helpers (iota width)))
+                (list (list (+ prefix-count (* 2 width) 1) 'start
+                            (map (lambda (name) (list 'nonterminal name)) helpers) 'concat #f))))))))))
+
 (deflanguage-parser-tests lowering-publication-test "source lowering publication protocol"
   (engine)
   (scenario "the complete source prefix separates reservations from authored counts"
@@ -166,6 +199,9 @@
           (equal (table-ref (list-ref snapshot 5) '$start.0 0) 0)
           (equal (fresh 'start) '$start.1)
           (equal (take (inspect) 3) '(1 2 ()))))))
+  (matrix "recursive dispatch preserves an existing emission prefix and independent name counter"
+    (setup) ((prefix-count '(0 1 3 8)) (width '(0 1 2 8 16))) (bindings)
+    (equal (parser-check-result source-emitter-interleave-case prefix-count width) (void)))
   (matrix "source name encoding retains first occurrences and rejects absent identities"
     (setup) ((count '(0 1 2 8 32)) (reversed? '(#f #t))) (bindings)
     (equal (parser-check-result source-name-index-case count reversed?) (void)))

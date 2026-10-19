@@ -488,6 +488,10 @@ simulation remains a distinct parser obligation; this is not global closure.
 
 [[file:lowering-scheme-dispatch.org][Scheme dispatch]] supplies actual case evaluation, stateful operand-map
 composition, concrete tag encoding and root/local-closure entry laws. It also
-lists the remaining recursive branch and native emitter obligations explicitly.
+lists the remaining recursive branch obligations explicitly.
+[[file:lowering-emitter-source.org][Shared-heap source emission]] now derives the real unobserved constructor,
+captured local/root emitter chain, arbitrary returning emission histories and
+mixed allocation/declaration traces. Generating those traces from complete
+recursive Scheme dispatch remains open.
 The retained LeanPoo constructor remains the same consumer; global source
 simulation closure is not inferred from branch selection or finite tests.

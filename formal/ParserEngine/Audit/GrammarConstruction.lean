@@ -753,3 +753,28 @@ import ParserEngine.ConstructionDeclarationEncoding
 #print axioms ParserEngine.LoweringEntryEvaluation.captures
 #print axioms ParserEngine.LoweringEntryEvaluation.body_eval
 #print axioms ParserEngine.LoweringEntryEvaluation.root_invoke
+
+#print axioms ParserEngine.SchemeTableEvaluation.Invoke.deterministic
+#print axioms ParserEngine.LoweringProductionEvaluation.source_constructor
+#print axioms ParserEngine.LoweringProductionEvaluation.invoke
+#print axioms ParserEngine.LoweringEmitterEvaluation.body_eval
+#print axioms ParserEngine.LoweringEmitterEvaluation.invoke
+#print axioms ParserEngine.LoweringEmitterEvaluation.committed_frame
+#print axioms ParserEngine.LoweringEmitClosure.caller_bound
+#print axioms ParserEngine.LoweringEmitClosure.invoke
+#print axioms ParserEngine.LoweringEmissionCalls.Calls.append
+#print axioms ParserEngine.LoweringEmissionCalls.record_ids
+#print axioms ParserEngine.LoweringEmissionCalls.records_append
+#print axioms ParserEngine.LoweringEmissionCalls.source_history
+#print axioms ParserEngine.LoweringEmissionCalls.every_return
+#print axioms ParserEngine.LoweringEmissionConstruction.retained_ids
+
+#print axioms ParserEngine.LoweringEmitterEvaluation.name_counter_preserved
+#print axioms ParserEngine.LoweringEmitterEvaluation.names_preserved
+#print axioms ParserEngine.LoweringEmitterEvaluation.allocation_emission_commute
+
+#print axioms ParserEngine.LoweringMixedEmission.Trace.append
+#print axioms ParserEngine.LoweringMixedEmission.publication
+#print axioms ParserEngine.LoweringMixedEmission.collector_owned
+#print axioms ParserEngine.LoweringMixedEmission.collector_root_frame
+#print axioms ParserEngine.LoweringEmissionConstruction.retained_trace_ids

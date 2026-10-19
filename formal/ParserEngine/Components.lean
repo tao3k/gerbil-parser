@@ -10,6 +10,7 @@ import ParserEngine.LoweringDeclarationCalls
 import ParserEngine.LoweringSymbolEvaluation
 import ParserEngine.LoweringMapEvaluation
 import ParserEngine.LoweringEntryEvaluation
+import ParserEngine.LoweringEmissionConstruction
 import ParserEngine.RuleIndexSource
 import ParserEngine.LoweringProgramControls
 import ParserEngine.LoweringCallStackControls

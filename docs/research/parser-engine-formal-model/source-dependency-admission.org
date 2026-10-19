@@ -402,6 +402,26 @@ in a fresh GXI. This checks the actual phase boundary, rather than merely
 matching source text. Original backpressure controls retain every Unicode line,
 exact child-log byte count, process status and final receipt.
 
+The current macOS semantics failure recurred at the completion fence after the
+target-ready acknowledgement. The phase correction above therefore does not
+establish that every completion failure is resolved. A source audit found that
+the process error observer still repeated string-state checks for every byte
+after a line had already diverged from either accepted error prefix. It now
+retains a skipped-line state until newline, preserves partial prefixes across
+arbitrary byte chunks, and recognizes the same error delimiters without UTF-8
+fragment decoding. Parser-test macros compare every byte split with an
+independent regular-expression oracle, including Unicode and binary prefixes.
+The original readiness, completion, idle and consumer-pause fences remain;
+no bytes, flood lines, final receipts or padded-startup control are removed.
+Local unchanged controls passed before and after the scanner repair. The
+ordinary/padded completion observations were 3.86/3.70 seconds before and
+3.81/3.60 seconds after; this small uncontrolled difference cannot establish the
+scanner as the cause of the remote six-second failure. Completion failures now
+retain elapsed time, captured byte count and child status, so a later failure
+can distinguish unfinished output from post-output exit/admission work.
+Remote macOS confirmation belongs to the newly submitted commit, separately
+from local controls. This qualification repair is not a parser CPU-gain claim.
+
 * Preserved negative qualification
 
 The first complete aggregate rejected the publication observer's missing conflict

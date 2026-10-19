@@ -1,0 +1,114 @@
+#+title: Shared-heap source emission and retained construction
+
+* Contract and paper target
+
+The target remains the paper-level grammar derivation and LR construction in
+[[file:lowering-publication.org][the publication contract]]. A dense sequence of production identifiers is only
+one representation obligation. It does not establish grammar meaning, AST
+semantics or the correctness of an arbitrary source dispatcher.
+
+The source path is the actual =lower-to= local closure, =emit-production=,
+=make-production=, counter assignment and reverse-list insertion in
+[[file:../../../src/compiler/lr.ss][the parser implementation]]. The constructor is a five-field Scheme list.
+The model executes that declaration; it does not replace it with an opaque
+record primitive or assume its result agrees with an expected record.
+
+* One mutable store
+
+| Obligation | Module and theorem | Derived result |
+|------------+--------------------+----------------|
+| Source constructor | =LoweringProductionEvaluation.invoke= | Actual five arguments produce the five-field list in the unchanged heap |
+| Root emitter | =LoweringEmitterEvaluation.body_eval=, =invoke= | Actual source increments the production counter before storing the new record |
+| Captured local closure | =LoweringEmitClosure.caller_bound=, =invoke= | Real parameter order, root lookup and local closure preserve caller metadata and root cell addresses |
+| Arbitrary emission partitions | =LoweringEmissionCalls.Calls.append=, =records_append= | Recursive helper/body/continuation partitions share their predecessor's heap and source order |
+| Every returning call stream | =source_history=, =every_return= | Arbitrary length, starting counter and existing prefix; complete concrete fields and exact writes |
+| Allocation frame | =name_counter_preserved=, =names_preserved= | Emission cannot overwrite the independent synthetic counter or reservation table |
+| Mixed source execution | =LoweringMixedEmission.publication=, =Trace.append= | Arbitrarily interleaved actual fresh calls, declaration callbacks and emitter calls preserve publication order |
+| Collector separation | =collector_owned=, =collector_root_frame= | Allocator freshness derives separation of an existing collector from newly initialized root storage |
+| Existing retained product | =LoweringEmissionConstruction.retained_trace_ids= | Source-generated IDs equal the records of the same successful LeanPoo construction product |
+
+The mixed trace contains actual =Eval= and =Invoke= derivations. It does not
+accept caller-provided final heap equalities, frame assertions or a guessed
+counter-to-record alignment certificate. Determinism connects each returning
+source call to its constructed execution witness. Fresh-name search terminates
+under the existing finite reservation and injective candidate contracts.
+
+The root storage layout owns the production counter and publication list;
+helper allocation owns different cells. The declaration collector is allocated
+before that root. Their separation follows from the same allocator contract,
+not independent nonaliasing assertions for every branch. The fixed-argument
+heap-write commutation theorem is a frame law, not permission to reorder
+source-dependent operations or a concurrency/weak-memory claim.
+
+The existing LeanPoo construction factory remains the consumer. The bridge
+relates physical IDs to its retained dependent product; its explicit payload
+encoder is not a proof of arbitrary raw grammar normalization or complete
+payload decoding. No second automaton or certification factory is introduced.
+
+* Gaps found by the source audit
+
+The earlier dispatch theorem accepted selected-branch execution while the
+common emitter had no source evaluation proof. The constructor, captured local
+call and two publication writes are now derived for the unobserved profile.
+The arbitrary mixed-trace theorem prevents silently resetting the production
+counter between helper and parent emissions, or confusing it with the helper
+name counter. Native controls exercise existing prefixes and caller shadowing.
+
+A separate representation gap remains: =WalkSource.Datum.integer= carries a
+natural number and the source-data renderer rejects negative integers. The
+actual grammar validator admits negative precedence ranks; the existing layout
+boundary test already uses one. Thus complete signed metadata extraction is a
+parser-model obligation. It cannot be delegated to the host or hidden behind
+recognition-only rank normalization. No native parsing bug is inferred from
+this witness limitation.
+
+* Remaining simulation obligations
+
+- Generate the mixed operational trace from every complete recursive Scheme
+  branch, including recursive procedure calls, instead of assuming that trace.
+- Derive parallel precedence bindings and native field/alias action execution.
+- Prove observed path/proof closures and their callback outcomes against the
+  same source evaluation, including their interaction with publication.
+- Connect arbitrary admitted raw grammar payloads, signed precedence metadata
+  and the full concrete record encoding to the retained product.
+
+The proofs here concern normal returns with both observers disabled. They do
+not establish rollback on allocation failure, exceptions, continuation reentry
+or arbitrary observer mutation. Installed reader, arithmetic, list, ordered-map,
+compiler and GC behavior retain their explicit host contracts. Gambit and the
+SDK are neither modified nor built. Local parser CPU optimization remains
+blocked by the unified model frontier.
+
+* Qualification
+
+The original sixteen owners and four workers are retained. The publication
+owner uses =defparser-check= and =deflanguage-parser-tests=; its new matrix spans
+four prefix lengths and five recursive sequence widths, including zero. It
+checks exact five-field rows, contiguous IDs, helper names, retained prefix
+object identity and caller-shadowed cells. Existing observer controls remain.
+
+The publication Quint model now separates synthetic allocation, production
+allocation and a shadowed caller counter. Thirteen directed controls and 1000
+forty-step histories, seed one, pass. The complete Lean build and explicit axiom
+audit pass 266 jobs with no added axioms or placeholders. Native cold receipts
+and current-commit remote CI are recorded separately at closure; neither is a
+CPU performance claim.
+
+| Native acceptance gate | Current local receipt |
+|------------------------+-----------------------|
+| Standard current-package clean/cold build | Exit zero, 97.09 seconds; unchanged 180 total / 5 idle |
+| Original four preparation owners | Exit zero, 40.27 seconds; unchanged 90 total / 5 idle |
+| Real grammar/source witness generation | Exit zero, 10.43 seconds; unchanged 90 total / 5 idle |
+| Original sixteen-owner first complete cold aggregate, four workers | Exit zero, 140.97 seconds wall; unchanged 180 total / 5 idle |
+| Existing model-input/organization controls | Six passed |
+
+The aggregate above was rerun after the qualification support change. It is the
+first complete aggregate after standard clean/build, not a narrower module
+selection or a warm replay. Earlier successful receipts are not relabeled as
+qualification of the later source state.
+
+The qualification error-prefix owner passes six macro-owned scenarios/matrices
+under the existing 90/5 limit. Original process controls also pass, including
+both full Unicode floods and padded startup. The small local before/after
+completion-time difference is not a causal diagnosis of the remote failure;
+[[file:source-dependency-admission.org][the dependency admission audit]] retains that unresolved boundary.

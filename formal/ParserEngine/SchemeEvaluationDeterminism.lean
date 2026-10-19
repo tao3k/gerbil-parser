@@ -321,4 +321,24 @@ theorem Eval.unique (first : Eval env before expression value after) : EvalClaim
 theorem Eval.deterministic (first : Eval env before expression value after)
     (second : Eval env before expression other last) : value = other ∧ after = last :=
   first.unique expression other last rfl second
+/-- Reuse the same body determinism for arbitrary direct closure invocations,
+including source calls whose arguments are not reader-serializable values. -/
+theorem Invoke.deterministic (first : Invoke before function values value after)
+    (second : Invoke before function values other last) : value = other ∧ after = last := by
+  cases first with
+  | closure bound body =>
+      cases second with
+      | closure otherBound otherBody =>
+          have same := Option.some.inj (bound.symm.trans otherBound)
+          cases same
+          exact (Eval.begin body).deterministic (.begin otherBody)
+  | recursive found bound body =>
+      cases second with
+      | recursive otherFound otherBound otherBody =>
+          have sameDefinition := Option.some.inj (found.symm.trans otherFound)
+          cases sameDefinition
+          have same := Option.some.inj (bound.symm.trans otherBound)
+          cases same
+          exact (Eval.begin body).deterministic (.begin otherBody)
+
 end ParserEngine.SchemeTableEvaluation

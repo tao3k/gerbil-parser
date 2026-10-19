@@ -58,9 +58,9 @@ The following are parser obligations, not newly declared host premises:
   lowering induction, instead of accepting them as composition hypotheses.
 - Evaluate parallel =let= bindings in precedence dispatch and the actual
   field/alias operand-action operations.
-- Derive native production-record creation and local emitter execution,
-  including observation closures, from the existing emission/publication
-  contract in the same heap as helper allocation and declaration callbacks.
+- Generate complete recursive branch traces against the now source-executed
+  constructor and emitter in [[file:lowering-emitter-source.org][the shared-heap emission contract]]. Enabled
+  observation closures still require their own operational simulation.
 - Connect observed =map-children= paths and choice proof closures to unobserved
   execution while retaining path, callback, production and recipe ordering.
 - Derive source normalization and per-input concrete encoding from arbitrary
@@ -75,6 +75,9 @@ provides that order. No SDK or Gambit source is modified or built.
 The constructor still uses the same LeanPoo retained factory. These source laws
 strengthen its representation boundary; they do not prove AST actions or a CPU
 improvement. Local performance optimization remains deferred.
+
+The signed precedence witness limitation is tracked in the same emission
+audit. Concrete metadata must not be silently replaced by recognition IDs.
 
 * Qualification
 

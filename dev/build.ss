@@ -18,8 +18,17 @@
         (call-with-input-string
          (run-process (list "gxi" script "spec")
                       stdout-redirection: #t coprocess: read-all-as-string) read))
-      (unless (equal? (spec "build.ss") (spec "dev/package-source-build.ss"))
-        (error "production catalog differs from native source discovery"))
+      ;; Filesystem enumeration order varies across the supported hosts. Compare
+      ;; complete target values, including options, after ordering by identity.
+      ;; Compilation continues to use the production declaration's own order.
+      (def (canonical targets)
+        (list-sort (lambda (a b) (string<? (cadr a) (cadr b))) targets))
+      (let ((production (spec "build.ss"))
+            (discovered (spec "dev/package-source-build.ss")))
+        (unless (equal? (canonical production) (canonical discovered))
+          (error "production catalog differs from native source discovery"
+                 (filter (lambda (item) (not (member item discovered))) production)
+                 (filter (lambda (item) (not (member item production))) discovered))))
       (asp-gerbil-scheme-run-selected-policy
        (append gerbil-parser-library-modules
                '("src/ffi/language-abi.ss" "src/ffi/language-abi-context.ss"

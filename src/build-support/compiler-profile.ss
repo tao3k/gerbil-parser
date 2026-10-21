@@ -23,12 +23,7 @@
     ;; the configured SINGLE_HOST define. No optimization level is replaced.
     (setenv "CORCXXFLAGS_GAMBUILD" (compiler-host-options configured))))
 (def (initialize-compiler-build!)
-  ;; Readers need policy data, not a compiler session. The installed SDK owns
-  ;; capacity discovery; load and initialize it only for an actual build owner.
-  (eval '(begin
-           (import (only-in :asp-gerbil-scheme/src/build-api/core-capacity
-                            initialize-native-build-core-capacity!))
-           (initialize-native-build-core-capacity!)))
+  ;; The SDK compiler and std/make read GERBIL_BUILD_CORES directly.
   (initialize-compiler-host!))
 
 ;; Report actual compiler GC work while large immutable images are lowered.

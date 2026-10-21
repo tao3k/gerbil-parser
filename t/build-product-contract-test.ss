@@ -9,7 +9,7 @@
         (only-in :asp-gerbil-scheme/building-api
                  asp-gerbil-scheme-package-native-capabilities
                  asp-gerbil-scheme-portable-native-profile)
-        (only-in :gerbil-parser/src/build-support/rust-runtime-aot
+        (only-in "../dev/rust-runtime-aot"
                  rust-runtime-aot-runtime-modules
                  rust-runtime-aot-package
                  rust-runtime-aot-build-spec))
@@ -23,7 +23,7 @@
       (sequential ((cargo-source (call-with-input-file "Cargo.toml" read-all-as-string))
              (bridge (pregexp-match "gerbil-scheme-rust-ir = [^\n]*rev = \"([0-9a-f]{40})\"" cargo-source))
              (library-source
-             (call-with-input-file "build.ss" read-all-as-string))
+             (call-with-input-file "dev/package-source-build.ss" read-all-as-string))
             (package-source
              (call-with-input-file "gerbil.pkg" read-all-as-string))
             (command-source
@@ -42,8 +42,13 @@
                 #t)
         (equal (and bridge #t)  #t)
         (equal (cadr (member 'depend: (call-with-input-string package-source read)))
-                (list "github.com/tao3k/poo-flow-core@e85fd45303b208b23e5957fd316e7004994109a4"
-                         "github.com/tao3k/asp-gerbil-scheme@f5b7c009d2cab61144a8af18008a0bfba3056584"))
+                (list "github.com/tao3k/yuanxu@45817d938961e2ad9ca90e1fd56ff843bb53541e"))
+        (equal (string-contains
+                 (call-with-input-file "build.ss" read-all-as-string)
+                 "asp-gerbil-scheme") #f)
+        (equal (cadr (member 'depend:
+                       (call-with-input-file "dev/gerbil.pkg" read)))
+               (list "github.com/tao3k/asp-gerbil-scheme@9ae9bc377cbab4b84de52b512a2c03375a36d6c9"))
         (equal (string-contains library-source
                                 "(exe: \"src/main\"")
                 #f)

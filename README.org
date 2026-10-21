@@ -490,3 +490,11 @@ language or a general comparison with tree-sitter.
   observations, with explicit proof boundaries.
 - [[file:docs/architecture/0001-parser-compiler.org][Compiler architecture]] and
   [[file:docs/architecture/0003-parse-artifact.org][ParseArtifact design]]
+
+* Development dependencies
+The production package uses the Gerbil SDK build entry and has no ASP runtime
+dependency. Run =just prepare-dev= before development tests and optional Rust
+compiler tools. ASP is pinned in =dev/gerbil.pkg=. =just check-policy= compares
+all production SDK targets with the original native source discovery declaration
+and applies the existing source policy to those same inputs. No test or policy
+finding is suppressed by the production/development split.

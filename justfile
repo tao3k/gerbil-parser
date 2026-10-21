@@ -691,3 +691,10 @@ diagnose-capture-cost: build-qualification
 diagnose-capture-input: build-qualification
     gerbil env gerbil compile -O t/benchmarks/capture-prefix/profile.ss
     gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/capture-input-stages.log --require SELECTOR-STAGE-DIAGNOSIS-OK -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-module "gerbil-parser/t/benchmarks/capture-prefix/profile") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process") (eval (quote (import :gerbil-parser/t/benchmarks/capture-prefix/profile :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process))) (eval (quote (main))) (eval (quote (test-child-process-exit! 0)))'
+
+# The production package has no ASP dependency; tools are explicitly installed.
+prepare-dev:
+    cd dev && GERBIL_PATH="${GERBIL_PATH:-$PWD/../.gerbil}" gerbil deps --install
+
+check-policy:
+    timeout 240 gerbil env gxi dev/build.ss compile

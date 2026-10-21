@@ -35,7 +35,7 @@
                     #t)
                => #t)
         (check (cadr (member 'depend: (call-with-input-string package-source read)))
-               => '("github.com/tao3k/poo-flow-core@6f94d8125653ecd7788bbf2f26f4f5be96c73468"
+               => '("github.com/tao3k/poo-flow-core@06381b2af9f0188bf8036b6c5291c22872578059"
                     "github.com/tao3k/asp-gerbil-scheme@31c7ddee27d775a6164cbe8f032c6405cc7b353d"))
         (check (string-contains library-source
                                 "(exe: \"src/main\"")

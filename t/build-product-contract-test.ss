@@ -42,7 +42,7 @@
                 #t)
         (equal (and bridge #t)  #t)
         (equal (cadr (member 'depend: (call-with-input-string package-source read)))
-                (list "github.com/tao3k/yuanxu@45817d938961e2ad9ca90e1fd56ff843bb53541e"))
+                (list "github.com/tao3k/yuanxu@44a99d45396d1a23e850105ffe8af442a61b2780"))
         (equal (string-contains
                  (call-with-input-file "build.ss" read-all-as-string)
                  "asp-gerbil-scheme") #f)

@@ -84,8 +84,12 @@
 (deflanguage-parser-tests library-publication-test "complete build publication"
   (engine (exclusive #t))
   (scenario "a complete snapshot allocates one scratch buffer and hashes every byte"
-    (using (with-publication-root) (root)
-      (scope ((allocations '()) (files '()) (expected '()))
+    (scope ((allocations '()) (files '()) (expected '()) (snapshot #f))
+      ;; Resolve the source witness before entering the private publication
+      ;; prefix. That prefix deliberately contains no compiler/test modules.
+      (act (set! snapshot (source-snapshot-with-buffer-count
+                           (lambda (size) (set! allocations (cons size allocations)) (make-u8vector size)))))
+      (using (with-publication-root) (root)
         (each (size index) ('(131073 0 1 65535 65536 65537 0) '(0 1 2 3 4 5 6))
           (scope ((path (path-expand (number->string index) root))
                   (bytes (make-u8vector size (modulo (+ size index) 256))))
@@ -93,14 +97,12 @@
                    (lambda (port) (write-subu8vector bytes 0 size port))))
             (act (set! files (cons path files)))
             (act (set! expected (cons (sha256 bytes) expected)))))
-        (scope ((snapshot (source-snapshot-with-buffer-count
-                           (lambda (size) (set! allocations (cons size allocations)) (make-u8vector size)))))
-          (scope ((rows (snapshot files)))
-            (equal allocations '(65536))
-            (equal (map car rows) files)
-            (equal (map cadr rows) expected))
-          (act (snapshot files))
-          (equal allocations '(65536 65536))))))
+        (scope ((rows (snapshot files)))
+          (equal allocations '(65536))
+          (equal (map car rows) files)
+          (equal (map cadr rows) expected))
+        (act (snapshot files))
+        (equal allocations '(65536 65536)))))
   (scenario "separate snapshots rehash same-size edits and failed reads do not publish"
     (using (with-publication-root) (root)
       (scope ((path (path-expand "mutable" root)))

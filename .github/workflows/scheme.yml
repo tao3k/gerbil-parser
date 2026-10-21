@@ -76,6 +76,10 @@ jobs:
             .gerbil/lib
             .gerbil/bin
           key: gerbil-parser-packages-v2-${{ runner.os }}-${{ runner.arch }}-${{ inputs.release-sha256 }}-${{ hashFiles('gerbil.pkg', 'dev/gerbil.pkg') }}
+      # Development compilation adds foreign namespace artifacts to the prefix.
+      # Finish it before the base writer snapshots the complete dependency set.
+      - name: Qualify development catalog and policy
+        run: gerbil env gxi dev/build.ss compile
       - name: Build parser and language packs
         run: |
           gerbil clean
@@ -85,8 +89,6 @@ jobs:
           "${GERBIL_GCC:-gcc}" -std=c11 -Wall -Wextra -Werror \
             -fsyntax-only \
             -Iinclude t/ffi-header-smoke.c
-      - name: Qualify development catalog and policy
-        run: gerbil env gxi dev/build.ss compile
       - name: Build optional compiled commands
         run: |
           gerbil env gxi build-gparse.ss compile

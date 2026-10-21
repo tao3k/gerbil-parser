@@ -145,6 +145,26 @@
       (scope ((before (library-publication-inputs root)))
         (act (put-library-input root "static/dependency.c/keep.ssi" "nested interface"))
         (equal (equal? (library-publication-inputs root) before) #f))))
+  (scenario "development dependencies must precede the base publication"
+    (using (with-publication-root) (root)
+      (using (with-publication-directory root) ()
+        (act (put-source root "gerbil.pkg" "(package: gerbil-parser)"))
+        (act (call-with-library-publication root build-products))
+        ;; Compiling the relocated development package changes a real foreign
+        ;; input. Extension writers must reject the old base generation.
+        (act (put-library-input root "gerbil-parser-dev/rust-runtime-aot.ssi"
+                                "development interface"))
+        (raises (call-with-library-publication root build-products
+                  (lambda (directory)
+                    (list '("compile") (library-publication-inputs directory))) #f)
+                true)
+        ;; The base writer admits the complete dependency set. The extension
+        ;; can then proceed without excluding development inputs from identity.
+        (act (call-with-library-publication root build-products))
+        (act (call-with-library-publication root build-products
+               (lambda (directory)
+                 (list '("compile") (library-publication-inputs directory))) #f))
+        (act (call-with-library-reader root void)))))
   (scenario "clean withdraws admission and delegates to the standard build owner"
     (using (with-publication-root) (root)
       (act (call-with-library-publication root build-products (lambda (_) '(source))))

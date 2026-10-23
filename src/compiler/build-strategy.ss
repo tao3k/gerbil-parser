@@ -2,7 +2,7 @@
 ;;; Common POO strategy binding/admission; providers belong to engine extensions.
 (import (only-in :clan/poo/object .o .cc .ref .slot? object?)
         (only-in :clan/poo/mop define-type validate)
-        (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
+        (only-in :yuanxu/types YuanxuContract. yuanxu-classification-evidence)
         (only-in ../language/descriptor language-grammar? language-grammar-ir language-grammar-machine)
         (only-in ./machine parser-machine-grammar-digest parser-machine-ir))
 (export BuildStrategy. BuildStrategyContract make-bound-build-strategy emit-build-strategy
@@ -35,11 +35,11 @@
       (and (build-strategy-common-shape? candidate)
            ((build-strategy-provider-admit (.ref candidate 'provider)) candidate)))))
 
-(define-type (BuildStrategyContract @ PooFlowContract.)
+(define-type (BuildStrategyContract @ YuanxuContract.)
   identity: 'gerbil-parser/build-strategy
   .classify: (lambda (candidate context)
                (let (accepted? (build-strategy-shape? candidate))
-                 (poo-flow-classification-evidence
+                 (yuanxu-classification-evidence
                   'gerbil-parser/build-strategy candidate accepted?
                   (if accepted? '() '((expected gerbil-parser/build-strategy))) context))))
 

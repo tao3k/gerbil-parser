@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Grammar-owned Core phase observation without global instrumentation.
 
-(import :core/observability/debug
+(import :yuanxu/observability/debug
         (only-in :gerbil-parser/languages/cypher/parser
                  opencypher-language-grammar
                  parse-opencypher)
@@ -26,7 +26,7 @@
 (def (opencypher-grammar-observability-scenario)
   (let* ((source "RETURN count(*) AS n\n")
          (plain (parse-opencypher source))
-         (policy (poo-flow-debug-call-policy 'gerbil-parser/runtime 4))
+         (policy (yuanxu-debug-call-policy 'gerbil-parser/runtime 4))
          (observed-grammar
           (language-grammar-with-observability
            opencypher-language-grammar policy))

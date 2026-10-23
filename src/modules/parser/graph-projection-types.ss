@@ -3,11 +3,11 @@
 
 (import (only-in :clan/poo/object .o .ref)
         (only-in :clan/poo/mop define-type)
-        (only-in :core/types
-                 PooFlowContract. PooFlowNativeObjectContract.
-                 poo-flow-contract-admit
-                 poo-flow-validation-evidence-accepted?
-                 poo-flow-classification-evidence)
+        (only-in :yuanxu/types
+                 YuanxuContract. YuanxuObjectContract.
+                 yuanxu-contract-admit
+                 yuanxu-validation-evidence-accepted?
+                 yuanxu-classification-evidence)
         (only-in ./types ParserSymbol))
 (export +graph-projection-kind+ +graph-node-kind+ +graph-field-kind+
         GraphProjectionContract GraphNodeContract GraphFieldContract)
@@ -20,7 +20,7 @@
 
 (def (graph-classify identity predicate candidate context)
   (let (accepted? (predicate candidate))
-    (poo-flow-classification-evidence
+    (yuanxu-classification-evidence
      identity candidate accepted?
      (if accepted? '() (list (list 'expected identity))) context)))
 
@@ -29,20 +29,20 @@
     (graph-classify identity (lambda (value) (eq? value expected))
               candidate context)))
 
-(define-type (GraphProjectionKind @ PooFlowContract.)
+(define-type (GraphProjectionKind @ YuanxuContract.)
   identity: 'gerbil-parser/graph-projection-kind
   .classify: (kind-contract 'gerbil-parser/graph-projection-kind
                              +graph-projection-kind+))
-(define-type (GraphNodeKind @ PooFlowContract.)
+(define-type (GraphNodeKind @ YuanxuContract.)
   identity: 'gerbil-parser/graph-node-kind
   .classify: (kind-contract 'gerbil-parser/graph-node-kind
                              +graph-node-kind+))
-(define-type (GraphFieldKind @ PooFlowContract.)
+(define-type (GraphFieldKind @ YuanxuContract.)
   identity: 'gerbil-parser/graph-field-kind
   .classify: (kind-contract 'gerbil-parser/graph-field-kind
                              +graph-field-kind+))
 
-(define-type (GraphLabel @ PooFlowContract.)
+(define-type (GraphLabel @ YuanxuContract.)
   identity: 'gerbil-parser/graph-label
   .classify: (lambda (candidate context)
                (graph-classify 'gerbil-parser/graph-label
@@ -50,7 +50,7 @@
                            (and (string? value) (> (string-length value) 0)))
                          candidate context)))
 
-(define-type (GraphFieldMode @ PooFlowContract.)
+(define-type (GraphFieldMode @ YuanxuContract.)
   identity: 'gerbil-parser/graph-field-mode
   .classify: (lambda (candidate context)
                (graph-classify 'gerbil-parser/graph-field-mode
@@ -58,7 +58,7 @@
                            (memq value '(append each append-or-empty node-text each-node-text)))
                          candidate context)))
 
-(define-type (GraphFieldContract @ PooFlowNativeObjectContract.)
+(define-type (GraphFieldContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/graph-field
   proto: (empty-prototype)
   responsibilities:
@@ -70,17 +70,17 @@
 (def (valid-fields? fields)
   (and (list? fields)
        (andmap (lambda (field)
-                 (poo-flow-validation-evidence-accepted?
-                  (poo-flow-contract-admit GraphFieldContract field #f)))
+                 (yuanxu-validation-evidence-accepted?
+                  (yuanxu-contract-admit GraphFieldContract field #f)))
                fields)))
 
-(define-type (GraphFields @ PooFlowContract.)
+(define-type (GraphFields @ YuanxuContract.)
   identity: 'gerbil-parser/graph-fields
   .classify: (lambda (candidate context)
                (graph-classify 'gerbil-parser/graph-fields
                          valid-fields? candidate context)))
 
-(define-type (GraphNodeContract @ PooFlowNativeObjectContract.)
+(define-type (GraphNodeContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/graph-node
   proto: (empty-prototype)
   responsibilities:
@@ -94,8 +94,8 @@
   (and (list? nodes)
        (not (null? nodes))
        (andmap (lambda (node)
-                 (poo-flow-validation-evidence-accepted?
-                  (poo-flow-contract-admit GraphNodeContract node #f)))
+                 (yuanxu-validation-evidence-accepted?
+                  (yuanxu-contract-admit GraphNodeContract node #f)))
                nodes)
        (let loop ((rest nodes) (seen '()))
          (if (null? rest)
@@ -104,13 +104,13 @@
              (and (not (memq kind seen))
                   (loop (cdr rest) (cons kind seen))))))))
 
-(define-type (GraphNodes @ PooFlowContract.)
+(define-type (GraphNodes @ YuanxuContract.)
   identity: 'gerbil-parser/graph-nodes
   .classify: (lambda (candidate context)
                (graph-classify 'gerbil-parser/graph-nodes
                          valid-nodes? candidate context)))
 
-(define-type (GraphProjectionContract @ PooFlowNativeObjectContract.)
+(define-type (GraphProjectionContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/graph-projection
   proto: (empty-prototype)
   responsibilities:

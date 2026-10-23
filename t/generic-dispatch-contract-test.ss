@@ -2,7 +2,7 @@
 ;;; Core CLOS preparation and contextual conflict contracts.
 ;;; These executable design controls do not install a parser backend.
 (import :std/test
-        (only-in :core/poo-clos/interface .defgeneric .defmethod)
+        (only-in :yuanxu/poo-clos/interface .defgeneric .defmethod)
         (only-in :gerbil-parser/src/compiler/contextual-dispatch
                  compile-contextual-dispatch contextual-dispatch-ref)
         (only-in :gerbil-parser/src/modules/parser/contextual-objects

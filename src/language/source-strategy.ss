@@ -4,7 +4,7 @@
         (only-in :clan/poo/object .o .ref .slot? object?)
         (only-in :clan/poo/mop define-type validate)
         (only-in ./result-profile result-plan? result-plan-catalog)
-        (only-in :core/types PooFlowContract. poo-flow-classification-evidence))
+        (only-in :yuanxu/types YuanxuContract. yuanxu-classification-evidence))
 (export SourceStrategy. SourceStrategyContract bind-source-strategy
         declare-source-strategy-provider make-source-engine
         source-engine? source-engine-program source-engine-scanner source-engine-factory
@@ -24,11 +24,11 @@
            (eq? (.ref candidate 'kind) (source-strategy-provider-name (.ref candidate 'provider)))
            (object? (.ref candidate 'metadata))
            ((source-strategy-provider-admit (.ref candidate 'provider)) candidate)))))
-(define-type (SourceStrategyContract @ PooFlowContract.)
+(define-type (SourceStrategyContract @ YuanxuContract.)
   identity: 'gerbil-parser/source-strategy
   .classify: (lambda (candidate context)
                (let (accepted? (source-strategy? candidate))
-                 (poo-flow-classification-evidence
+                 (yuanxu-classification-evidence
                   'gerbil-parser/source-strategy candidate accepted?
                   (if accepted? '() '((expected gerbil-parser/source-strategy))) context))))
 (def SourceStrategy.

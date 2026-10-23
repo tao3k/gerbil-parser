@@ -3,11 +3,11 @@
 
 (import (only-in :clan/poo/object .o .ref)
         (only-in :clan/poo/mop define-type)
-        (only-in :core/types
-                 PooFlowContract. PooFlowNativeObjectContract.
-                 poo-flow-contract-admit
-                 poo-flow-validation-evidence-accepted?
-                 poo-flow-classification-evidence)
+        (only-in :yuanxu/types
+                 YuanxuContract. YuanxuObjectContract.
+                 yuanxu-contract-admit
+                 yuanxu-validation-evidence-accepted?
+                 yuanxu-classification-evidence)
         (only-in ./types ParserSymbol ParserList))
 (export +line-structure-schema+
         +line-structure-kind+
@@ -54,7 +54,7 @@
 
 (def (line-classify identity predicate candidate context)
   (let (accepted? (predicate candidate))
-    (poo-flow-classification-evidence
+    (yuanxu-classification-evidence
      identity candidate accepted?
      (if accepted? '() (list (list 'expected identity)))
      context)))
@@ -67,7 +67,7 @@
              (and (< (char->integer (string-ref value index)) 128)
                   (loop (+ index 1)))))))
 
-(define-type (AsciiPrefix @ PooFlowContract.)
+(define-type (AsciiPrefix @ YuanxuContract.)
   identity: 'gerbil-parser/ascii-prefix
   .classify: (lambda (candidate context)
                (line-classify 'gerbil-parser/ascii-prefix
@@ -85,7 +85,7 @@
                         (eq? char #\_) (eq? char #\-))
                     (loop (+ index 1))))))))
 
-(define-type (KeyLineKeys @ PooFlowContract.)
+(define-type (KeyLineKeys @ YuanxuContract.)
   identity: 'gerbil-parser/key-line-keys
   .classify: (lambda (candidate context)
                (line-classify 'gerbil-parser/key-line-keys
@@ -94,7 +94,7 @@
                                      (andmap key-name? value)))
                               candidate context)))
 
-(define-type (KeyLineSeparator @ PooFlowContract.)
+(define-type (KeyLineSeparator @ YuanxuContract.)
   identity: 'gerbil-parser/key-line-separator
   .classify: (lambda (candidate context)
                (line-classify
@@ -108,7 +108,7 @@
                               (not (char-whitespace? char))))))
                 candidate context)))
 
-(define-type (LineMarker @ PooFlowContract.)
+(define-type (LineMarker @ YuanxuContract.)
   identity: 'gerbil-parser/line-marker
   .classify: (lambda (candidate context)
                (line-classify 'gerbil-parser/line-marker
@@ -117,19 +117,19 @@
                                      (= (string-length value) 1)))
                               candidate context)))
 
-(define-type (LineDelimiter @ PooFlowContract.)
+(define-type (LineDelimiter @ YuanxuContract.)
   identity: 'gerbil-parser/line-delimiter
   .classify: (lambda (candidate context)
                (line-classify 'gerbil-parser/line-delimiter
                               ascii-text? candidate context)))
 
-(define-type (LineBoolean @ PooFlowContract.)
+(define-type (LineBoolean @ YuanxuContract.)
   identity: 'gerbil-parser/line-boolean
   .classify: (lambda (candidate context)
                (line-classify 'gerbil-parser/line-boolean
                               boolean? candidate context)))
 
-(define-type (BlockRecovery @ PooFlowContract.)
+(define-type (BlockRecovery @ YuanxuContract.)
   identity: 'gerbil-parser/block-recovery
   .classify: (lambda (candidate context)
                (line-classify
@@ -138,7 +138,7 @@
                   (memq value '(close-at-eof recover-as-text)))
                 candidate context)))
 
-(define-type (BlockContents @ PooFlowContract.)
+(define-type (BlockContents @ YuanxuContract.)
   identity: 'gerbil-parser/block-contents
   .classify: (lambda (candidate context)
                (line-classify
@@ -146,7 +146,7 @@
                 (lambda (value) (memq value '(opaque elements)))
                 candidate context)))
 
-(define-type (BlockOpeningMode @ PooFlowContract.)
+(define-type (BlockOpeningMode @ YuanxuContract.)
   identity: 'gerbil-parser/block-opening-mode
   .classify: (lambda (candidate context)
                (line-classify
@@ -155,7 +155,7 @@
                   (memq value '(literal named-delimited required-named-argument)))
                 candidate context)))
 
-(define-type (KeyValueLineKind @ PooFlowContract.)
+(define-type (KeyValueLineKind @ YuanxuContract.)
   identity: 'gerbil-parser/key-value-line-kind
   .classify: (lambda (candidate context)
                (line-classify 'gerbil-parser/key-value-line-kind
@@ -163,7 +163,7 @@
                                 (eq? value +key-value-line-kind+))
                               candidate context)))
 
-(define-type (KeyValueLineContract @ PooFlowNativeObjectContract.)
+(define-type (KeyValueLineContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/key-value-line
   proto: (empty-prototype)
   responsibilities:
@@ -174,25 +174,25 @@
       value-token: ParserSymbol
       trivia-token: ParserSymbol))
 
-(define-type (BlockBodyContract @ PooFlowContract.)
+(define-type (BlockBodyContract @ YuanxuContract.)
   identity: 'gerbil-parser/block-body
   .classify: (lambda (candidate context)
                (line-classify
                 'gerbil-parser/block-body
                 (lambda (value)
                   (or (eq? value #f)
-                      (poo-flow-validation-evidence-accepted?
-                       (poo-flow-contract-admit KeyValueLineContract value #f))))
+                      (yuanxu-validation-evidence-accepted?
+                       (yuanxu-contract-admit KeyValueLineContract value #f))))
                 candidate context)))
 
-(define-type (BlockHeaderKind @ PooFlowContract.)
+(define-type (BlockHeaderKind @ YuanxuContract.)
   identity: 'gerbil-parser/block-header-kind
   .classify: (lambda (candidate context)
                (line-classify 'gerbil-parser/block-header-kind
                               (lambda (value) (eq? value +block-header-kind+))
                               candidate context)))
 
-(define-type (BlockHeaderContract @ PooFlowNativeObjectContract.)
+(define-type (BlockHeaderContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/block-header
   proto: (empty-prototype)
   responsibilities:
@@ -200,14 +200,14 @@
       argument-token: ParserSymbol
       trivia-token: ParserSymbol))
 
-(define-type (InlineLinkKind @ PooFlowContract.)
+(define-type (InlineLinkKind @ YuanxuContract.)
   identity: 'gerbil-parser/inline-link-kind
   .classify: (lambda (candidate context)
                (line-classify 'gerbil-parser/inline-link-kind
                               (lambda (value) (eq? value +inline-link-kind+))
                               candidate context)))
 
-(define-type (InlineLinkContract @ PooFlowNativeObjectContract.)
+(define-type (InlineLinkContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/inline-link
   proto: (empty-prototype)
   responsibilities:
@@ -220,14 +220,14 @@
       description-token: ParserSymbol
       trivia-token: ParserSymbol))
 
-(define-type (HeadingFieldsKind @ PooFlowContract.)
+(define-type (HeadingFieldsKind @ YuanxuContract.)
   identity: 'gerbil-parser/heading-fields-kind
   .classify: (lambda (candidate context)
                (line-classify 'gerbil-parser/heading-fields-kind
                               (lambda (value) (eq? value +heading-fields-kind+))
                               candidate context)))
 
-(define-type (HeadingFieldsContract @ PooFlowNativeObjectContract.)
+(define-type (HeadingFieldsContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/heading-fields
   proto: (empty-prototype)
   responsibilities:
@@ -235,56 +235,56 @@
       title-token: ParserSymbol
       trivia-token: ParserSymbol))
 
-(define-type (OptionalHeadingFieldsContract @ PooFlowContract.)
+(define-type (OptionalHeadingFieldsContract @ YuanxuContract.)
   identity: 'gerbil-parser/optional-heading-fields
   .classify: (lambda (candidate context)
                (line-classify
                 'gerbil-parser/optional-heading-fields
                 (lambda (value)
                   (or (eq? value #f)
-                      (poo-flow-validation-evidence-accepted?
-                       (poo-flow-contract-admit HeadingFieldsContract value #f))))
+                      (yuanxu-validation-evidence-accepted?
+                       (yuanxu-contract-admit HeadingFieldsContract value #f))))
                 candidate context)))
 
-(define-type (OptionalInlineLinkContract @ PooFlowContract.)
+(define-type (OptionalInlineLinkContract @ YuanxuContract.)
   identity: 'gerbil-parser/optional-inline-link
   .classify: (lambda (candidate context)
                (line-classify
                 'gerbil-parser/optional-inline-link
                 (lambda (value)
                   (or (eq? value #f)
-                      (poo-flow-validation-evidence-accepted?
-                       (poo-flow-contract-admit InlineLinkContract value #f))))
+                      (yuanxu-validation-evidence-accepted?
+                       (yuanxu-contract-admit InlineLinkContract value #f))))
                 candidate context)))
 
-(define-type (OptionalBlockHeaderContract @ PooFlowContract.)
+(define-type (OptionalBlockHeaderContract @ YuanxuContract.)
   identity: 'gerbil-parser/optional-block-header
   .classify: (lambda (candidate context)
                (line-classify
                 'gerbil-parser/optional-block-header
                 (lambda (value)
                   (or (eq? value #f)
-                      (poo-flow-validation-evidence-accepted?
-                       (poo-flow-contract-admit BlockHeaderContract value #f))))
+                      (yuanxu-validation-evidence-accepted?
+                       (yuanxu-contract-admit BlockHeaderContract value #f))))
                 candidate context)))
 
-(define-type (OptionalParagraphNodeContract @ PooFlowContract.)
+(define-type (OptionalParagraphNodeContract @ YuanxuContract.)
   identity: 'gerbil-parser/optional-paragraph-node
   .classify: (lambda (candidate context)
                (line-classify
                 'gerbil-parser/optional-paragraph-node
                 (lambda (value)
                   (or (eq? value #f)
-                      (poo-flow-validation-evidence-accepted?
-                       (poo-flow-contract-admit ParserSymbol value #f))))
+                      (yuanxu-validation-evidence-accepted?
+                       (yuanxu-contract-admit ParserSymbol value #f))))
                 candidate context)))
 
-(define-type (TableLineKind @ PooFlowContract.)
+(define-type (TableLineKind @ YuanxuContract.)
   identity: 'gerbil-parser/table-line-kind
   .classify: (line-kind-contract 'gerbil-parser/table-line-kind
                                  +table-line-kind+))
 
-(define-type (TableLineContract @ PooFlowNativeObjectContract.)
+(define-type (TableLineContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/table-line
   proto: (empty-prototype)
   responsibilities:
@@ -299,23 +299,23 @@
       trivia-token: ParserSymbol
       rule-token: ParserSymbol))
 
-(define-type (OptionalTableLineContract @ PooFlowContract.)
+(define-type (OptionalTableLineContract @ YuanxuContract.)
   identity: 'gerbil-parser/optional-table-line
   .classify: (lambda (candidate context)
                (line-classify
                 'gerbil-parser/optional-table-line
                 (lambda (value)
                   (or (eq? value #f)
-                      (poo-flow-validation-evidence-accepted?
-                       (poo-flow-contract-admit TableLineContract value #f))))
+                      (yuanxu-validation-evidence-accepted?
+                       (yuanxu-contract-admit TableLineContract value #f))))
                 candidate context)))
 
-(define-type (ListLineKind @ PooFlowContract.)
+(define-type (ListLineKind @ YuanxuContract.)
   identity: 'gerbil-parser/list-line-kind
   .classify: (line-kind-contract 'gerbil-parser/list-line-kind
                                  +list-line-kind+))
 
-(define-type (ListTabWidth @ PooFlowContract.)
+(define-type (ListTabWidth @ YuanxuContract.)
   identity: 'gerbil-parser/list-tab-width
   .classify: (lambda (candidate context)
                (line-classify 'gerbil-parser/list-tab-width
@@ -323,7 +323,7 @@
                                 (and (integer? value) (<= 1 value 16)))
                               candidate context)))
 
-(define-type (ListLineContract @ PooFlowNativeObjectContract.)
+(define-type (ListLineContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/list-line
   proto: (empty-prototype)
   responsibilities:
@@ -336,23 +336,23 @@
       bullet-token: ParserSymbol
       trivia-token: ParserSymbol))
 
-(define-type (OptionalListLineContract @ PooFlowContract.)
+(define-type (OptionalListLineContract @ YuanxuContract.)
   identity: 'gerbil-parser/optional-list-line
   .classify: (lambda (candidate context)
                (line-classify
                 'gerbil-parser/optional-list-line
                 (lambda (value)
                   (or (eq? value #f)
-                      (poo-flow-validation-evidence-accepted?
-                       (poo-flow-contract-admit ListLineContract value #f))))
+                      (yuanxu-validation-evidence-accepted?
+                       (yuanxu-contract-admit ListLineContract value #f))))
                 candidate context)))
 
-(define-type (KeyLineKind @ PooFlowContract.)
+(define-type (KeyLineKind @ YuanxuContract.)
   identity: 'gerbil-parser/key-line-kind
   .classify: (line-kind-contract 'gerbil-parser/key-line-kind
                                  +key-line-kind+))
 
-(define-type (KeyLineContract @ PooFlowNativeObjectContract.)
+(define-type (KeyLineContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/key-line
   proto: (empty-prototype)
   responsibilities:
@@ -376,7 +376,7 @@
                     '(unbounded-key-line)
                     '())))
 
-(define-type (LineStructureSchema @ PooFlowContract.)
+(define-type (LineStructureSchema @ YuanxuContract.)
   identity: 'gerbil-parser/line-structure-schema
   .classify: (lambda (candidate context)
                (line-classify 'gerbil-parser/line-structure-schema
@@ -390,27 +390,27 @@
                    (lambda (value) (eq? value expected))
                    candidate context)))
 
-(define-type (HeadingLineKind @ PooFlowContract.)
+(define-type (HeadingLineKind @ YuanxuContract.)
   identity: 'gerbil-parser/heading-line-kind
   .classify: (line-kind-contract 'gerbil-parser/heading-line-kind
                                  +heading-line-kind+))
 
-(define-type (BlockLineKind @ PooFlowContract.)
+(define-type (BlockLineKind @ YuanxuContract.)
   identity: 'gerbil-parser/block-line-kind
   .classify: (line-kind-contract 'gerbil-parser/block-line-kind
                                  +block-line-kind+))
 
-(define-type (TextLineKind @ PooFlowContract.)
+(define-type (TextLineKind @ YuanxuContract.)
   identity: 'gerbil-parser/text-line-kind
   .classify: (line-kind-contract 'gerbil-parser/text-line-kind
                                  +text-line-kind+))
 
-(define-type (LineStructureKind @ PooFlowContract.)
+(define-type (LineStructureKind @ YuanxuContract.)
   identity: 'gerbil-parser/line-structure-kind
   .classify: (line-kind-contract 'gerbil-parser/line-structure-kind
                                  +line-structure-kind+))
 
-(define-type (HeadingLineContract @ PooFlowNativeObjectContract.)
+(define-type (HeadingLineContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/heading-line
   proto: (empty-prototype)
   responsibilities:
@@ -422,7 +422,7 @@
       heading-token: ParserSymbol
       fields: OptionalHeadingFieldsContract))
 
-(define-type (BlockLineContract @ PooFlowNativeObjectContract.)
+(define-type (BlockLineContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/block-line
   proto: (empty-prototype)
   responsibilities:
@@ -460,7 +460,7 @@
                      '(named-argument-requires-header)
                      '()))))
 
-(define-type (TextLineContract @ PooFlowNativeObjectContract.)
+(define-type (TextLineContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/text-line
   proto: (empty-prototype)
   responsibilities:
@@ -473,19 +473,19 @@
 (def (line-structure-obligations candidate _context)
   (append
    (if (andmap (lambda (block)
-                 (poo-flow-validation-evidence-accepted?
-                  (poo-flow-contract-admit BlockLineContract block #f)))
+                 (yuanxu-validation-evidence-accepted?
+                  (yuanxu-contract-admit BlockLineContract block #f)))
                (.ref candidate 'blocks))
      '()
      '(invalid-block-rule))
    (if (andmap (lambda (rule)
-                 (poo-flow-validation-evidence-accepted?
-                  (poo-flow-contract-admit KeyLineContract rule #f)))
+                 (yuanxu-validation-evidence-accepted?
+                  (yuanxu-contract-admit KeyLineContract rule #f)))
                (.ref candidate 'key-lines))
      '()
      '(invalid-key-line-rule))))
 
-(define-type (LineStructureContract @ PooFlowNativeObjectContract.)
+(define-type (LineStructureContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/line-structure
   proto: (empty-prototype)
   responsibilities:

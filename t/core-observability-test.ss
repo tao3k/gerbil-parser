@@ -8,7 +8,7 @@
         (only-in :clan/poo/object .ref)
         (only-in :std/misc/ports read-all-as-string)
         :asp-gerbil-scheme/src/benchmark/framework
-        :core/observability/debug
+        :yuanxu/observability/debug
         :gerbil-parser/src/modules/parser/interface
         (only-in :gerbil-parser/t/fixtures/progress report-test-progress!))
 
@@ -47,25 +47,25 @@
       (equal
          (and (string-contains
                source
-               ":core/observability/debug")
+               ":yuanxu/observability/debug")
               (not (string-contains
                     source
                     ":poo-flow/src/module-system/observability/interface")))
           #t))
     (scenario "checked object construction emits a bounded POO memory receipt"
       (scope ((policy
-            (poo-flow-debug-memory-policy
+            (yuanxu-debug-memory-policy
              'gerbil-parser
              heap-limit-bytes: 4294967296
              live-growth-limit-bytes: 67108864
              collect-before-sample?: #t)))
-        (scope-values (((grammars receipt) (call-with-poo-flow-debug-memory-span
+        (scope-values (((grammars receipt) (call-with-yuanxu-debug-memory-span
              policy 'grammar-object-construction
              make-observed-grammar-batch)))
             (equal (observed-grammar-batch-valid? grammars)  #t)
             (equal (.ref receipt 'accepted?)  #t)
             (equal (.ref receipt 'reason)  'within-budget)
-            (equal (car (poo-flow-debug-memory-receipt-sexp receipt))
+            (equal (car (yuanxu-debug-memory-receipt-sexp receipt))
                     'debug-memory-observation))))
     (scenario "checked object construction satisfies the ASP benchmark gate"
       (equal (benchmark-contract-valid? benchmark-path)  #t)

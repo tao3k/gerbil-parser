@@ -2,10 +2,10 @@
 ;;; POO-native graph projection declarations; syntax belongs to language packs.
 
 (import (only-in :clan/poo/object .o .ref)
-        (only-in :core/types
-                 poo-flow-contract-admit
-                 poo-flow-validation-evidence-accepted?)
-        (only-in :core/object-family/interface
+        (only-in :yuanxu/types
+                 yuanxu-contract-admit
+                 yuanxu-validation-evidence-accepted?)
+        (only-in :yuanxu/object-family/interface
                  defpoo-object-family)
         (only-in ./graph-projection-types
                  +graph-projection-kind+ +graph-node-kind+ +graph-field-kind+
@@ -21,8 +21,8 @@
 (def GraphField. (.ref GraphFieldContract 'proto))
 
 (def (admit-graph! contract candidate)
-  (let (evidence (poo-flow-contract-admit contract candidate #f))
-    (unless (poo-flow-validation-evidence-accepted? evidence)
+  (let (evidence (yuanxu-contract-admit contract candidate #f))
+    (unless (yuanxu-validation-evidence-accepted? evidence)
       (error "invalid POO graph projection" (.ref evidence 'diagnostics)))
     candidate))
 
@@ -62,5 +62,5 @@
   (projections))
 
 (def (graph-projection? value)
-  (poo-flow-validation-evidence-accepted?
-   (poo-flow-contract-admit GraphProjectionContract value #f)))
+  (yuanxu-validation-evidence-accepted?
+   (yuanxu-contract-admit GraphProjectionContract value #f)))

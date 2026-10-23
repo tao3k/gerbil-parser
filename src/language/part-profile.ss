@@ -1,7 +1,7 @@
 ;;; Closed recognition rules compile once to context/first-character dispatch.
 (import (only-in :clan/poo/object .o .ref object?)
         (only-in :clan/poo/mop define-type validate)
-        (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
+        (only-in :yuanxu/types YuanxuContract. yuanxu-classification-evidence)
         (only-in ../runtime/region-scanner source-prefix-at? region-plan-specification prepare-region-plan)
         (only-in ../runtime/scan make-bounded-text-profile-scanner make-bounded-literal-end-scanner)
         (only-in ../grammar/lexical-algebra text-profile-data)
@@ -168,11 +168,11 @@
                     dispatch literal bindings)))
 (def (profile-valid? profile)
   (with-catch (lambda (_) #f) (lambda () (profile-plan profile) #t)))
-(define-type (PartProfileContract @ PooFlowContract.)
+(define-type (PartProfileContract @ YuanxuContract.)
   identity: 'gerbil-parser/part-profile
   .classify: (lambda (candidate context)
     (let (accepted? (profile-valid? candidate))
-      (poo-flow-classification-evidence 'gerbil-parser/part-profile candidate accepted?
+      (yuanxu-classification-evidence 'gerbil-parser/part-profile candidate accepted?
        (if accepted? '() '((expected gerbil-parser/part-profile))) context))))
 (def (compile-part-profile profile)
   (validate PartProfileContract profile) (profile-plan profile))

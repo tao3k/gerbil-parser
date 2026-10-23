@@ -3,14 +3,14 @@
 (import :std/test
         (only-in :clan/poo/object .o .cc .ref .all-slots)
         (only-in :clan/poo/mop element? validate)
-        (only-in :core/types poo-flow-contract-admit
-                 poo-flow-validation-evidence-accepted?
-                 poo-flow-classification-evidence)
+        (only-in :yuanxu/types yuanxu-contract-admit
+                 yuanxu-validation-evidence-accepted?
+                 yuanxu-classification-evidence)
         :gerbil-parser/src/modules/parser/interface)
 
 (def (evidence-member? contract candidate)
-  (poo-flow-validation-evidence-accepted?
-   (poo-flow-contract-admit contract candidate #f)))
+  (yuanxu-validation-evidence-accepted?
+   (yuanxu-contract-admit contract candidate #f)))
 (def (empty-role (rules '()))
   (make-grammar-role 'role '() '() '() rules '() '() '() '() '()))
 (def (rejects? thunk)
@@ -41,7 +41,7 @@
       (sequential ((role (empty-role))
              (reclassified (.cc GrammarRoleContract '.classify
                              (lambda (candidate context)
-                               (poo-flow-classification-evidence
+                               (yuanxu-classification-evidence
                                 (.ref GrammarRoleContract 'identity) candidate #f
                                 '(refined-rejection) context))))
              (constrained (.cc GrammarRoleContract '.obligations
@@ -54,7 +54,7 @@
       (bindings (calls 0) (role (empty-role)) (refined (.cc GrammarRoleContract '.classify
                          (lambda (candidate context)
                            (set! calls (+ calls 1))
-                           (poo-flow-classification-evidence
+                           (yuanxu-classification-evidence
                             (.ref GrammarRoleContract 'identity) candidate #f
                             '(refined-rejection) context)))))
       (equal (rejects? (lambda () (validate refined role)))  #t)

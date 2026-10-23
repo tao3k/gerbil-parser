@@ -9,7 +9,7 @@
                  syntax-fixture-expected-status syntax-fixture-root-kind syntax-fixture-required-kinds)
         (only-in :clan/poo/object .o .ref .cc .slot? object?)
         (only-in :clan/poo/mop define-type validate)
-        (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
+        (only-in :yuanxu/types YuanxuContract. yuanxu-classification-evidence)
         (only-in ../src/runtime/identity sha256-text)
         (only-in ../src/runtime/source-scanner source-scanner-for-source?)
         (only-in ../src/compiler/machine parser-machine-grammar-digest parser-machine-direct-source)
@@ -223,11 +223,11 @@
               (declared-scan-workers? (.ref candidate 'scan-workers) descriptor)
               (declared-build-strategies? (.ref candidate 'build-strategies) descriptor)))))
 
-(define-type (LanguageDevelopmentLoaderContract @ PooFlowContract.)
+(define-type (LanguageDevelopmentLoaderContract @ YuanxuContract.)
   identity: 'gerbil-parser/language-loader
   .classify: (lambda (candidate context)
                (let (accepted? (loader-shape? candidate))
-                 (poo-flow-classification-evidence
+                 (yuanxu-classification-evidence
                   'gerbil-parser/language-loader candidate accepted?
                   (if accepted? '() '((expected gerbil-parser/language-loader)))
                   context))))

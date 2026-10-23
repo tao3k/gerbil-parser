@@ -4,7 +4,7 @@
 
 (import (only-in :clan/poo/object .o)
         (only-in :clan/poo/mop define-type)
-        (only-in :core/types PooFlowNativeObjectContract.)
+        (only-in :yuanxu/types YuanxuObjectContract.)
         (only-in ./types ParserSymbol ParserList))
 (export +contextual-role-kind+ ContextualRoleContract)
 
@@ -12,7 +12,7 @@
 
 (def (contextual-empty-prototype) (.o))
 
-(define-type (ContextualRoleContract @ PooFlowNativeObjectContract.)
+(define-type (ContextualRoleContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/contextual-role
   proto: (contextual-empty-prototype)
   responsibilities:

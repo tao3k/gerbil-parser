@@ -1,7 +1,7 @@
 ;;; Language assertions are imported only by admitted loader declarations.
 (import (only-in :std/test check check-exception test-case test-suite)
         (only-in :clan/poo/object .ref .cc)
-        (only-in :core/observability/testing-case poo-flow-test-case)
+        (only-in :yuanxu/observability/testing-case yuanxu-test-case)
         (only-in :clan/poo/mop validate)
         (only-in ../../language-support/entry LanguageLoaderContract)
         (only-in ../../language-support/development language-parser-entry-ref run-language-test language-loader-fixtures language-loader-fixture-count

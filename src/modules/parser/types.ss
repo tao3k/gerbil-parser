@@ -6,12 +6,12 @@
                  +parser-ir-schema+ +parse-artifact-schema+ +diagnostic-schema+)
         (only-in :clan/poo/object .o .ref .slot? object? compute-precedence-list!)
         (only-in :clan/poo/mop define-type element? raise-type-error)
-        (only-in :core/types
-                 PooFlowContract.
-                 PooFlowNativeObjectContract.
-                 poo-flow-classification-evidence
-                 poo-flow-contract-admit
-                 poo-flow-validation-evidence-accepted?))
+        (only-in :yuanxu/types
+                 YuanxuContract.
+                 YuanxuObjectContract.
+                 yuanxu-classification-evidence
+                 yuanxu-contract-admit
+                 yuanxu-validation-evidence-accepted?))
 
 (export +grammar-role-kind+
         +grammar-kind+
@@ -32,30 +32,30 @@
 (def +grammar-role-kind+ 'gerbil-parser-grammar-role)
 ;; : Symbol
 (def +grammar-kind+ 'gerbil-parser-grammar)
-;; : (-> Symbol Procedure Object Object PooFlowClassificationEvidence)
+;; : (-> Symbol Procedure Object Object YuanxuClassificationEvidence)
 (def (parser-scalar-classify identity predicate candidate context)
   (let (accepted? (predicate candidate))
-    (poo-flow-classification-evidence
+    (yuanxu-classification-evidence
      identity candidate accepted?
      (if accepted? '() (list (list 'expected identity)))
      context)))
 
 ;;; Invariant: parser-domain identities remain canonical Scheme symbols.
-(define-type (ParserSymbol @ PooFlowContract.)
+(define-type (ParserSymbol @ YuanxuContract.)
   identity: 'gerbil-parser/symbol
   .classify: (lambda (candidate context)
                (parser-scalar-classify
                 'gerbil-parser/symbol symbol? candidate context)))
 
 ;;; Invariant: declaration sections are proper lists before normalization.
-(define-type (ParserList @ PooFlowContract.)
+(define-type (ParserList @ YuanxuContract.)
   identity: 'gerbil-parser/list
   .classify: (lambda (candidate context)
                (parser-scalar-classify
                 'gerbil-parser/list list? candidate context)))
 
 ;;; Invariant: a role cannot forge another parser object family identity.
-(define-type (GrammarRoleKind @ PooFlowContract.)
+(define-type (GrammarRoleKind @ YuanxuContract.)
   identity: 'gerbil-parser/grammar-role-kind
   .classify: (lambda (candidate context)
                (parser-scalar-classify
@@ -64,7 +64,7 @@
                 candidate context)))
 
 ;;; Invariant: a composed grammar has exactly the stable grammar kind.
-(define-type (GrammarKind @ PooFlowContract.)
+(define-type (GrammarKind @ YuanxuContract.)
   identity: 'gerbil-parser/grammar-kind
   .classify: (lambda (candidate context)
                (parser-scalar-classify
@@ -73,7 +73,7 @@
                 candidate context)))
 
 ;;; Invariant: public grammar objects publish the schema declared in shared metadata.
-(define-type (GrammarSchema @ PooFlowContract.)
+(define-type (GrammarSchema @ YuanxuContract.)
   identity: 'gerbil-parser/grammar-schema
   .classify: (lambda (candidate context)
                (parser-scalar-classify
@@ -85,7 +85,7 @@
 (def (parser-empty-prototype) (.o))
 
 ;;; Boundary: a grammar role owns all declaration sections as typed POO responsibilities.
-(define-type (GrammarRoleContract @ PooFlowNativeObjectContract.)
+(define-type (GrammarRoleContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/grammar-role
   proto: (parser-empty-prototype)
   responsibilities:
@@ -124,7 +124,7 @@
      '(invalid-grammar-composition))))
 
 ;;; Boundary: grammar composition admits only typed parent grammars and role objects.
-(define-type (GrammarContract @ PooFlowNativeObjectContract.)
+(define-type (GrammarContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/grammar
   proto: (parser-empty-prototype)
   responsibilities:
@@ -176,8 +176,8 @@
    ((eq? descriptor +grammar-boolean-contract+)
     (and (parser-native-ancestry? descriptor candidate) (parser-grammar-slots? candidate)))
    (else
-    (poo-flow-validation-evidence-accepted?
-     (poo-flow-contract-admit descriptor candidate #f)))))
+    (yuanxu-validation-evidence-accepted?
+     (yuanxu-contract-admit descriptor candidate #f)))))
 
 (def (parser-object-validate descriptor candidate)
   (if (and (or (eq? descriptor +grammar-role-boolean-contract+)
@@ -186,7 +186,7 @@
     candidate
     ;; A refined descriptor is admitted exactly once. Its classifier and
     ;; obligations belong to the open protocol, including invocation count.
-    (let (evidence (poo-flow-contract-admit descriptor candidate #f))
-      (if (poo-flow-validation-evidence-accepted? evidence)
+    (let (evidence (yuanxu-contract-admit descriptor candidate #f))
+      (if (yuanxu-validation-evidence-accepted? evidence)
         candidate
         (raise-type-error descriptor candidate (.ref evidence 'diagnostics))))))

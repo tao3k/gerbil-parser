@@ -2,10 +2,10 @@
 ;;; POO-native graph query context; language packs supply their own view.
 
 (import (only-in :clan/poo/object .o .ref)
-        (only-in :core/types
-                 poo-flow-contract-admit
-                 poo-flow-validation-evidence-accepted?)
-        (only-in :core/object-family/interface defpoo-object-family)
+        (only-in :yuanxu/types
+                 yuanxu-contract-admit
+                 yuanxu-validation-evidence-accepted?)
+        (only-in :yuanxu/object-family/interface defpoo-object-family)
         (only-in ./graph-query-types
                  +graph-query-context-kind+
                  GraphQueryContextContract graph-query-view?))
@@ -38,9 +38,9 @@
                 view: graph-view
                 index: by-id
                 count: (length (.ref graph-view 'records))))
-           (evidence (poo-flow-contract-admit
+           (evidence (yuanxu-contract-admit
                       GraphQueryContextContract candidate #f)))
-      (unless (poo-flow-validation-evidence-accepted? evidence)
+      (unless (yuanxu-validation-evidence-accepted? evidence)
         (error "invalid POO graph query context"
                (.ref evidence 'diagnostics)))
       candidate)))

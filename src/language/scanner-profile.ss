@@ -1,7 +1,7 @@
 ;;; POO scanner declarations compile to closed shared contextual IR.
 (import (only-in :clan/poo/object .o .ref object?)
         (only-in :clan/poo/mop define-type validate)
-        (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
+        (only-in :yuanxu/types YuanxuContract. yuanxu-classification-evidence)
         (only-in ../modules/parser/contextual-objects make-contextual-role make-contextual-method make-contextual-scan-rule)
         (only-in ../compiler/contextual-dispatch compile-contextual-dispatch)
         (only-in ../compiler/contextual-scanner-ir compile-contextual-scanner)
@@ -18,11 +18,11 @@
 (def (profile-valid? profile)
  (with-catch (lambda (_) #f) (lambda ()
   (and (object? profile) (profile-ir profile) #t))))
-(define-type (ScannerProfileContract @ PooFlowContract.)
+(define-type (ScannerProfileContract @ YuanxuContract.)
  identity: 'gerbil-parser/scanner-profile
  .classify: (lambda (candidate context)
   (let (ok? (profile-valid? candidate))
-   (poo-flow-classification-evidence 'gerbil-parser/scanner-profile candidate ok?
+   (yuanxu-classification-evidence 'gerbil-parser/scanner-profile candidate ok?
     (if ok? '() '((expected gerbil-parser/scanner-profile))) context))))
 (def (compile-scanner-profile profile)
  (validate ScannerProfileContract profile)

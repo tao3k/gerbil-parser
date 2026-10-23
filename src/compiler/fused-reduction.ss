@@ -3,7 +3,7 @@
 (import (only-in ./lr-table validate-lr-tables)
         (only-in :clan/poo/object .o .cc .ref .slot? object?)
         (only-in :clan/poo/mop define-type validate)
-        (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
+        (only-in :yuanxu/types YuanxuContract. yuanxu-classification-evidence)
         (only-in ../language/descriptor language-grammar? language-grammar-ir language-grammar-machine)
         (only-in ./machine parser-machine-grammar-digest parser-machine-ir)
         (only-in ./build-strategy BuildStrategy. build-strategy-common-shape?
@@ -56,11 +56,11 @@
                          productions)
                   #t))))))
 
-(define-type (FusedReductionStrategyContract @ PooFlowContract.)
+(define-type (FusedReductionStrategyContract @ YuanxuContract.)
   identity: 'gerbil-parser/fused-reduction-strategy
   .classify: (lambda (candidate context)
                (let (accepted? (strategy-shape? candidate))
-                 (poo-flow-classification-evidence
+                 (yuanxu-classification-evidence
                   'gerbil-parser/fused-reduction-strategy candidate accepted?
                   (if accepted? '() '((expected gerbil-parser/fused-reduction-strategy))) context))))
 

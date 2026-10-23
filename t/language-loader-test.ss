@@ -5,7 +5,7 @@
         (for-syntax (only-in :gerbil/expander core-expand))
         (only-in :clan/poo/object .o .ref .cc object?)
         (only-in :clan/poo/mop define-type element? validate)
-        (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
+        (only-in :yuanxu/types YuanxuContract. yuanxu-classification-evidence)
         (only-in :gerbil-parser/language-support/development
                  deflanguage-development-loader LanguageDevelopmentLoader. LanguageDevelopmentLoaderContract
                  language-parser-entry-ref check-language-loader-fixtures!
@@ -36,12 +36,12 @@
 
 (def dialect-admissions 0)
 
-(define-type (DialectContract @ PooFlowContract.)
+(define-type (DialectContract @ YuanxuContract.)
   identity: 'loader-test/dialect
   .classify: (lambda (candidate context)
                (set! dialect-admissions (+ dialect-admissions 1))
                (let (ok? (eq? (.ref candidate 'dialect) 'arithmetic))
-                 (poo-flow-classification-evidence
+                 (yuanxu-classification-evidence
                   'loader-test/dialect candidate ok?
                   (if ok? '() '((invalid dialect))) context))))
 

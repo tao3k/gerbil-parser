@@ -3,11 +3,11 @@
 
 (import (only-in :clan/poo/object .o .ref .slot? object?)
         (only-in :clan/poo/mop define-type)
-        (only-in :core/types
-                 PooFlowContract. PooFlowNativeObjectContract.
-                 poo-flow-contract-admit
-                 poo-flow-validation-evidence-accepted?
-                 poo-flow-classification-evidence))
+        (only-in :yuanxu/types
+                 YuanxuContract. YuanxuObjectContract.
+                 yuanxu-contract-admit
+                 yuanxu-validation-evidence-accepted?
+                 yuanxu-classification-evidence))
 (export +graph-query-context-kind+
         GraphQueryViewContract GraphQueryContextContract
         graph-query-view? graph-query-context?)
@@ -16,7 +16,7 @@
 
 (def (classify identity predicate candidate context)
   (let (accepted? (predicate candidate))
-    (poo-flow-classification-evidence
+    (yuanxu-classification-evidence
      identity candidate accepted?
      (if accepted? '() (list (list 'expected identity))) context)))
 
@@ -29,13 +29,13 @@
                       (procedure? (.ref value slot))))
                '(id-of parent-of kind-of))))
 
-(define-type (GraphQueryViewContract @ PooFlowContract.)
+(define-type (GraphQueryViewContract @ YuanxuContract.)
   identity: 'gerbil-parser/graph-query-view
   .classify: (lambda (candidate context)
                (classify 'gerbil-parser/graph-query-view
                          graph-query-view-shape? candidate context)))
 
-(define-type (GraphQueryContextKind @ PooFlowContract.)
+(define-type (GraphQueryContextKind @ YuanxuContract.)
   identity: 'gerbil-parser/graph-query-context-kind
   .classify: (lambda (candidate context)
                (classify 'gerbil-parser/graph-query-context-kind
@@ -43,13 +43,13 @@
                            (eq? value +graph-query-context-kind+))
                          candidate context)))
 
-(define-type (GraphQueryIndex @ PooFlowContract.)
+(define-type (GraphQueryIndex @ YuanxuContract.)
   identity: 'gerbil-parser/graph-query-index
   .classify: (lambda (candidate context)
                (classify 'gerbil-parser/graph-query-index
                          hash-table? candidate context)))
 
-(define-type (GraphQueryCount @ PooFlowContract.)
+(define-type (GraphQueryCount @ YuanxuContract.)
   identity: 'gerbil-parser/graph-query-count
   .classify: (lambda (candidate context)
                (classify 'gerbil-parser/graph-query-count
@@ -57,7 +57,7 @@
                            (and (exact-integer? value) (>= value 0)))
                          candidate context)))
 
-(define-type (GraphQueryContextContract @ PooFlowNativeObjectContract.)
+(define-type (GraphQueryContextContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/graph-query-context
   proto: (.o)
   responsibilities:
@@ -67,8 +67,8 @@
       count: GraphQueryCount))
 
 (def (admitted? contract candidate)
-  (poo-flow-validation-evidence-accepted?
-   (poo-flow-contract-admit contract candidate #f)))
+  (yuanxu-validation-evidence-accepted?
+   (yuanxu-contract-admit contract candidate #f)))
 
 (def (graph-query-view? value)
   (admitted? GraphQueryViewContract value))

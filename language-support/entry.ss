@@ -6,7 +6,7 @@
         (only-in ../src/language/entry parse-language-source call-with-language-parser-policy)
         (only-in :clan/poo/object .o .ref .cc .slot? object?)
         (only-in :clan/poo/mop define-type validate)
-        (only-in :core/types PooFlowContract. poo-flow-classification-evidence)
+        (only-in :yuanxu/types YuanxuContract. yuanxu-classification-evidence)
         (only-in ../src/compiler/machine parser-machine-grammar-digest install-parser-machine-backends!)
         (only-in ../src/language/descriptor
                  language-grammar? language-grammar-contract language-grammar-language
@@ -46,11 +46,11 @@
               (loader-metadata? (.ref candidate 'metadata) descriptor)
 ))))
 
-(define-type (LanguageLoaderContract @ PooFlowContract.)
+(define-type (LanguageLoaderContract @ YuanxuContract.)
   identity: 'gerbil-parser/language-loader
   .classify: (lambda (candidate context)
                (let (accepted? (loader-shape? candidate))
-                 (poo-flow-classification-evidence
+                 (yuanxu-classification-evidence
                   'gerbil-parser/language-loader candidate accepted?
                   (if accepted? '() '((expected gerbil-parser/language-loader)))
                   context))))

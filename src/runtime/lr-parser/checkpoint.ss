@@ -37,7 +37,7 @@
 ;;; path; an immutable checkpoint object is allocated only when an explicit
 ;;; action budget pauses execution. Fork/failure fallback passes the raw local
 ;;; frontier directly to selective GLR without replay.
-;; : (-> LRCheckpoint (OrFalse Nat) PooFlowDebugCallPolicy
+;; : (-> LRCheckpoint (OrFalse Nat) YuanxuDebugCallPolicy
 ;;        (Values Symbol Datum))
 ;;; The input representation is selected at expansion time. Streaming keeps
 ;;; token/#f in the loop; borrowed token tails retain their physical identity.

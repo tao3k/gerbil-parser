@@ -1,6 +1,6 @@
 ;;; -*- Gerbil -*-
 ;;; Prepared semantic kernels; the LR driver owns stacks and branch admission.
-(import (only-in :core/poo-clos/interface .defgeneric .defmethod)
+(import (only-in :yuanxu/poo-clos/interface .defgeneric .defmethod)
         (only-in :std/vector/vector vector-map/index)
         (only-in ../compiler/lr production-rhs operand-actions)
         (only-in ./recognition make-recognition-fragment)

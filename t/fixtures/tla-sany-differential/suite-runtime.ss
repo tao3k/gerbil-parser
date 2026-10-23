@@ -16,9 +16,9 @@
            test-child-process-exit!)))
 (displayln "SUITE-IMPORT case-profile") (force-output)
 (import (only-in :clan/poo/object .o)
-        (only-in :core/observability/testing-case
-                 poo-flow-default-testing-case-profile
-                 poo-flow-current-testing-case-profile))
+        (only-in :yuanxu/observability/testing-case
+                 yuanxu-default-testing-case-profile
+                 yuanxu-current-testing-case-profile))
 
 (displayln "SUITE-IMPORTED case-profile") (force-output)
 
@@ -26,7 +26,7 @@
 ;; Suite. Align its absolute cap with the full runner budget; retain its growth,
 ;; sampling, failure, and duration policies through POO inheritance.
 (def testing-case-profile
-  (.o (:: @ poo-flow-default-testing-case-profile)
+  (.o (:: @ yuanxu-default-testing-case-profile)
       (heap-limit-bytes (* 3 1024 1024 1024))))
 
 (def (import-test-owner file)
@@ -163,7 +163,7 @@
                    (call-with-owner-budget file emit
                      (lambda ()
                        (let (run (lambda ()
-                                    (parameterize ((poo-flow-current-testing-case-profile
+                                    (parameterize ((yuanxu-current-testing-case-profile
                                                     testing-case-profile))
                                       (test-result-ok? (test-run! (test-owner-harness owner))))))
                          ;; Exclusive cases may first request an author capability.

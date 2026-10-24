@@ -20,7 +20,9 @@ case "$operation" in
     identity > "$RUNNER_TEMP/expected-scheme-identity"
     tar -xOf "$archive" .gerbil/ci/identity > "$RUNNER_TEMP/actual-scheme-identity"
     cmp "$RUNNER_TEMP/expected-scheme-identity" "$RUNNER_TEMP/actual-scheme-identity"
-    tar -xzf "$archive"
+    # Publication snapshots bind permissions as well as bytes. The consumer's
+    # umask must not silently change the admitted producer generation.
+    tar -xpzf "$archive"
     mkdir -p "$HOME/.gerbil/pkg"
     gerbil pkg dir --add git.cons.io/mighty-gerbils/gerbil-directory
     ;;

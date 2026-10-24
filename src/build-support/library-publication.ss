@@ -155,6 +155,36 @@
                                      (string-suffix? ".scm" path)))
                               (preparation-files (path-expand "static" library))))))))
 
+(def (report-publication-row-drift component expected current)
+  (let loop ((expected expected) (current current))
+    (cond
+     ((equal? expected current) (void))
+     ((and (pair? expected) (pair? current) (equal? (car expected) (car current)))
+      (loop (cdr expected) (cdr current)))
+     (else
+      (displayln "LIBRARY-PUBLICATION-DRIFT component=" component
+                 " expected=" (and (pair? expected) (caar expected))
+                 " current=" (and (pair? current) (caar current))
+                 " expected-mode=" (and (pair? expected) (caddar expected))
+                 " current-mode=" (and (pair? current) (caddar current)))))))
+
+(def (report-publication-drift record before products)
+  (with-catch
+   (lambda (_) (displayln "LIBRARY-PUBLICATION-DRIFT component=invalid-record"))
+   (lambda ()
+     (if (not record)
+       (displayln "LIBRARY-PUBLICATION-DRIFT component=missing-record")
+       (let ((expected (cadr (cadr record))) (current (cadr before)))
+         (unless (equal? (car expected) (car current))
+           (displayln "LIBRARY-PUBLICATION-DRIFT component=compiler-options"))
+         (for-each
+          (lambda (entry)
+            (unless (equal? entry (assoc (car entry) (cadr current)))
+              (displayln "LIBRARY-PUBLICATION-DRIFT environment=" (car entry))))
+          (cadr expected))
+         (report-publication-row-drift 'products (caddr record) products)
+         (report-publication-row-drift 'requested-source (caddr expected) (caddr current)))))))
+
 (def (call-with-library-publication root build (identity (lambda (directory)
                                       (list '("compile") (library-publication-inputs directory))))
                                     (reuse? #t) (clean clean-library-products!))
@@ -164,11 +194,13 @@
          (lock (open-output-file/lock (string-append root ".publication.lock") 0)))
     (try
       (let* ((before (identity root)) (record (publication-record root))
-             (products-current? (and record (equal? (publication-products root) (caddr record))))
+             (products (and record (publication-products root)))
+             (products-current? (and record (equal? products (caddr record))))
              (current? (and products-current? (equal? before (cadr record))))
              (extension? (and (not reuse?) (not current?) products-current?
                               (base-extension-current? root record before))))
         (when (and (not reuse?) (not (or current? extension?)))
+          (report-publication-drift record before products)
           (error "library generation is not current; build the package before extending it"))
         (if (and current? reuse?)
           (begin (displayln "LIBRARY-PUBLICATION-HIT") (force-output))

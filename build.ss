@@ -1,4 +1,4 @@
-#!/usr/bin/env gxi
+#!/usr/bin/env -S timeout --signal=TERM --kill-after=5s 180s gxi
 (import (for-syntax
           (only-in :std/source this-source-file)
           (only-in :yuanxu/module-system/building/source-package register-module-build-source!)))

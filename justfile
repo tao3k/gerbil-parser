@@ -29,6 +29,10 @@ test-plan:
 qualify-library:
     timeout --signal=TERM --kill-after=5s 180s {{ gerbil_test_launcher }} -:max-heap=2G,debug=q build-qualified-library.ss compile
 
+# Read both owners' actual specs without compiling or changing installed products.
+check-build-catalog:
+    timeout --signal=TERM --kill-after=5s 180s {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} dev/build.ss check-catalog
+
 # Source contracts consume the installed library, without compiling unrelated
 # benchmark helpers. Keep the same pre-import heap and native harness checks.
 test-source-contracts:

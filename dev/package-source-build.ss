@@ -25,7 +25,6 @@
             (
               (import (only-in :std/source this-source-file)
                       (only-in :std/build-script defbuild-script)
-                      (only-in "../src/build-support/compiler-profile.ss" compiler-gsc-options)
                       (only-in "../src/build-support/library-publication.ss" publication-build-main)
                       (only-in :asp-gerbil-scheme/building-api
                                default-exclude-dirs
@@ -41,7 +40,8 @@
               ;; library catalog. Keep the boundary declarative so PackageSpec still performs
               ;; the single source discovery pass.
               (def gerbil-parser-exclude-modules
-                '("build-modules.ss" "build-qualification.ss" "qualify.ss" "build-conformance.ss"
+                '("init.ss" "build-qualified-library.ss"
+                  "build-qualification.ss" "qualify.ss" "build-conformance.ss"
                   "test-processes.ss"
                   "scripts/tests/process-qualification-test.ss"
                   "scripts/tests/history-commit-test.ss"
@@ -105,7 +105,6 @@
                (spec gerbil-parser-build-spec)
                (exclude-dirs gerbil-parser-exclude-dirs)
                (exclude-modules gerbil-parser-exclude-modules)
-               (native-options-resolver compiler-gsc-options)
                (extra-spec gerbil-parser-ffi-specs))
 
               ;; Keep the standard multicall entrypoint at top level. std/build-script owns

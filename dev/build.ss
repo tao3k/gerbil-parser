@@ -11,26 +11,37 @@
 (def (build-development . args)
   (defbuild-script '("rust-runtime-aot"))
   (apply main args))
+(def (check-library-catalog!)
+  (parameterize ((current-directory (path-expand ".." (path-directory (this-source-file)))))
+    (def (spec script)
+      (call-with-input-string
+        (run-process (list "gxi" "-:max-heap=1G,debug=q" script "spec")
+          stdout-redirection: #t coprocess: read-all-as-string) read))
+    ;; Core normalizes native source targets to extensionless identities. Keep
+    ;; every compiler option in this independent source-discovery comparison.
+    (def (canonical targets)
+      (list-sort (lambda (a b) (string<? (cadr a) (cadr b)))
+        (map (lambda (target)
+               (def name (if (string? target) target (cadr target)))
+               (cons (if (string? target) 'gxc: (car target))
+                 (cons (if (string-suffix? ".ss" name) (path-strip-extension name) name)
+                       (if (string? target) '() (cddr target))))) targets)))
+    (let ((production (canonical (spec "build.ss")))
+          (discovered (canonical (spec "dev/package-source-build.ss"))))
+      (unless (equal? production discovered)
+        (error "production catalog differs from native source discovery"
+          (filter (lambda (item) (not (member item discovered))) production)
+          (filter (lambda (item) (not (member item production))) discovered)))))
+  (displayln "PARSER-BUILD-CATALOG-OK"))
 (def (main . args)
-  (when (or (null? args) (equal? (car args) "compile"))
-    (parameterize ((current-directory (path-expand ".." (path-directory (this-source-file)))))
-      (def (spec script)
-        (call-with-input-string
-         (run-process (list "gxi" script "spec")
-                      stdout-redirection: #t coprocess: read-all-as-string) read))
-      ;; Filesystem enumeration order varies across the supported hosts. Compare
-      ;; complete target values, including options, after ordering by identity.
-      ;; Compilation continues to use the production declaration's own order.
-      (def (canonical targets)
-        (list-sort (lambda (a b) (string<? (cadr a) (cadr b))) targets))
-      (let ((production (spec "build.ss"))
-            (discovered (spec "dev/package-source-build.ss")))
-        (unless (equal? (canonical production) (canonical discovered))
-          (error "production catalog differs from native source discovery"
-                 (filter (lambda (item) (not (member item discovered))) production)
-                 (filter (lambda (item) (not (member item production))) discovered))))
-      (asp-gerbil-scheme-run-selected-policy
-       (append gerbil-parser-library-modules
-               '("src/ffi/language-abi.ss" "src/ffi/language-abi-context.ss"
-                 "src/ffi/rust-aot-abi.ss")))))
-  (apply build-development args))
+  (if (equal? args '("check-catalog"))
+    (check-library-catalog!)
+    (begin
+      (when (or (null? args) (equal? (car args) "compile"))
+        (check-library-catalog!)
+        (parameterize ((current-directory (path-expand ".." (path-directory (this-source-file)))))
+          (asp-gerbil-scheme-run-selected-policy
+            (append gerbil-parser-library-modules
+              '("src/ffi/language-abi.ss" "src/ffi/language-abi-context.ss"
+                "src/ffi/rust-aot-abi.ss")))))
+      (apply build-development args))))

@@ -10,7 +10,7 @@
         (only-in :clan/poo/object .get)
         (only-in "./init.ss" gerbil-parser.init.exports)
         (only-in "./build-modules.ss" gerbil-parser-library-modules)
-        (only-in "./src/build-support/compiler-profile.ss" compiler-build-spec initialize-compiler-build!))
+        (only-in "./src/build-support/compiler-profile.ss" initialize-compiler-build!))
 (def gerbil-parser-ffi-specs
   (let ((include-option
          (string-append "-I" (path-expand "include" (path-directory (this-source-file)))))
@@ -23,8 +23,7 @@
 ;; spec normalization and the exact handoff; the SDK owns compilation/scheduling.
 (def modules-spec (.get gerbil-parser.init.exports std-make-spec))
 (def retained-spec
-  (compiler-build-spec
-    (append (map path-strip-extension gerbil-parser-library-modules) gerbil-parser-ffi-specs)))
+  (append (map path-strip-extension gerbil-parser-library-modules) gerbil-parser-ffi-specs))
 ;; Host compiler policy is process-local; Core/SDK own ordinary package recovery.
 (initialize-compiler-build!)
 (defbuild-script (modules-spec retained-spec))

@@ -180,7 +180,11 @@
          (for-each
           (lambda (entry)
             (unless (equal? entry (assoc (car entry) (cadr current)))
-              (displayln "LIBRARY-PUBLICATION-DRIFT environment=" (car entry))))
+              (displayln "LIBRARY-PUBLICATION-DRIFT environment=" (car entry))
+              (when (equal? (car entry) "PATH")
+                (write (list 'expected (cdr entry) 'current
+                             (cdr (assoc "PATH" (cadr current)))))
+                (newline))))
           (cadr expected))
          (report-publication-row-drift 'products (caddr record) products)
          (report-publication-row-drift 'requested-source (caddr expected) (caddr current)))))))

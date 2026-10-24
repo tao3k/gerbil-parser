@@ -5,7 +5,7 @@
 ;;; Drain initialization output before applying pressure to the executed child.
 ;;; Otherwise library admission can fill the pipe before it creates ready.
 (def (backpressure-output pipe ready)
- (let* ((started (##current-time-point)) (paused? #f)
+ (let* ((started (##current-time-point)) (deadline (+ started 6)) (paused? #f)
         (capture (open-output-u8vector))
         (reader
           (spawn
@@ -24,14 +24,17 @@
   (try
     (let loop ()
       (unless (file-exists? ready)
-        (when (> (- (##current-time-point) started) 4)
+        ;; Startup and the deliberate pause share the existing six-second
+        ;; completion fence. A separate four-second startup fence rejected
+        ;; cold admission even when the complete operation met its contract.
+        (when (>= (##current-time-point) deadline)
           (error "flood child did not start" (process-status pipe 0 #f)
                  (thread-join! reader 0 'pending)
                  (u8vector-length (get-output-u8vector capture))))
         (thread-sleep! 0.05) (loop)))
     ;; This is the target's one-time real acknowledgement, not a heartbeat.
     (displayln "PROCESS-CONTROL-READY unicode-backpressure") (force-output)
-    (let (bytes (thread-join! reader (max 0.001 (- 6 (- (##current-time-point) started))) 'incomplete))
+    (let (bytes (thread-join! reader (max 0.001 (- deadline (##current-time-point))) 'incomplete))
       (check (u8vector? bytes) 'backpressure-completion
              'elapsed (- (##current-time-point) started)
              'captured (u8vector-length (get-output-u8vector capture))

@@ -66,6 +66,17 @@ runs:
       uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad
       with:
         tool: just
+    # The prepared generation binds PATH. macOS runner images carry optional
+    # Ruby/Android/etc. entries that vary between independent matrix jobs.
+    # Declare the actual CI tool search path before either writer or reader.
+    - name: Select reproducible macOS tool search path
+      if: runner.os == 'macOS'
+      run: |
+        ci_path="$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/opt/coreutils/libexec/gnubin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin"
+        PATH="$ci_path" command -v just
+        PATH="$ci_path" command -v timeout
+        echo "PATH=$ci_path" >> "$GITHUB_ENV"
+      shell: bash
     - name: Cache immutable SDK archive
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
       with:

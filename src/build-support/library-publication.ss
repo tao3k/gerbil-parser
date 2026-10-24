@@ -20,7 +20,7 @@
          (policy (and owner (package-input-policy owner root)))
          (home (gerbil-home))
          (sources
-          (append (apply append (map preparation-files '("src" "languages" "language-support" "include")))
+          (append (apply append (map preparation-files '("src" "modules" "languages" "language-support" "include")))
                   (filter (lambda (path) (string-suffix? ".ss" path))
                           (list-sort string<? (directory-files ".")))
                   '("gerbil.pkg")))

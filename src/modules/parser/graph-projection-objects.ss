@@ -2,7 +2,7 @@
 ;;; POO-native graph projection declarations; syntax belongs to language packs.
 
 (import (only-in :clan/poo/object .o .ref)
-        (only-in :yuanxu/types
+        (only-in :yuanxu/object-types/contracts
                  yuanxu-contract-admit
                  yuanxu-validation-evidence-accepted?)
         (only-in :yuanxu/object-family/interface

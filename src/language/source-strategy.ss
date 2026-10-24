@@ -4,7 +4,7 @@
         (only-in :clan/poo/object .o .ref .slot? object?)
         (only-in :clan/poo/mop define-type validate)
         (only-in ./result-profile result-plan? result-plan-catalog)
-        (only-in :yuanxu/types YuanxuContract. yuanxu-classification-evidence))
+        (only-in :yuanxu/object-types/contracts YuanxuContract. yuanxu-classification-evidence))
 (export SourceStrategy. SourceStrategyContract bind-source-strategy
         declare-source-strategy-provider make-source-engine
         source-engine? source-engine-program source-engine-scanner source-engine-factory

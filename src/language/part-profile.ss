@@ -1,7 +1,7 @@
 ;;; Closed recognition rules compile once to context/first-character dispatch.
 (import (only-in :clan/poo/object .o .ref object?)
         (only-in :clan/poo/mop define-type validate)
-        (only-in :yuanxu/types YuanxuContract. yuanxu-classification-evidence)
+        (only-in :yuanxu/object-types/contracts YuanxuContract. yuanxu-classification-evidence)
         (only-in ../runtime/region-scanner source-prefix-at? region-plan-specification prepare-region-plan)
         (only-in ../runtime/scan make-bounded-text-profile-scanner make-bounded-literal-end-scanner)
         (only-in ../grammar/lexical-algebra text-profile-data)

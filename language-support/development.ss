@@ -9,7 +9,7 @@
                  syntax-fixture-expected-status syntax-fixture-root-kind syntax-fixture-required-kinds)
         (only-in :clan/poo/object .o .ref .cc .slot? object?)
         (only-in :clan/poo/mop define-type validate)
-        (only-in :yuanxu/types YuanxuContract. yuanxu-classification-evidence)
+        (only-in :yuanxu/object-types/contracts YuanxuContract. yuanxu-classification-evidence)
         (only-in ../src/runtime/identity sha256-text)
         (only-in ../src/runtime/source-scanner source-scanner-for-source?)
         (only-in ../src/compiler/machine parser-machine-grammar-digest parser-machine-direct-source)

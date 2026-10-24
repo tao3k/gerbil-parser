@@ -5,7 +5,7 @@
         (for-syntax (only-in :gerbil/expander core-expand))
         (only-in :clan/poo/object .o .ref .cc object?)
         (only-in :clan/poo/mop define-type element? validate)
-        (only-in :yuanxu/types YuanxuContract. yuanxu-classification-evidence)
+        (only-in :yuanxu/object-types/contracts YuanxuContract. yuanxu-classification-evidence)
         (only-in :gerbil-parser/language-support/development
                  deflanguage-development-loader LanguageDevelopmentLoader. LanguageDevelopmentLoaderContract
                  language-parser-entry-ref check-language-loader-fixtures!

@@ -5,7 +5,7 @@
                  result-plan-recipe result-plan-catalog copy-result-datum)
         (only-in :clan/poo/object .o .ref object?)
         (only-in :clan/poo/mop define-type validate)
-        (only-in :yuanxu/types YuanxuContract. yuanxu-classification-evidence)
+        (only-in :yuanxu/object-types/contracts YuanxuContract. yuanxu-classification-evidence)
         (only-in ./scanner-profile compile-scanner-profile)
         (only-in ../runtime/token token? token-kind token-start token-end)
         (only-in ../runtime/recognition

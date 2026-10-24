@@ -6,7 +6,7 @@
                  +parser-ir-schema+ +parse-artifact-schema+ +diagnostic-schema+)
         (only-in :clan/poo/object .o .ref .slot? object? compute-precedence-list!)
         (only-in :clan/poo/mop define-type element? raise-type-error)
-        (only-in :yuanxu/types
+        (only-in :yuanxu/object-types/contracts
                  YuanxuContract.
                  YuanxuObjectContract.
                  yuanxu-classification-evidence

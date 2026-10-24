@@ -3,7 +3,7 @@
 (import :std/test
         (only-in :clan/poo/object .o .cc .ref .all-slots)
         (only-in :clan/poo/mop element? validate)
-        (only-in :yuanxu/types yuanxu-contract-admit
+        (only-in :yuanxu/object-types/contracts yuanxu-contract-admit
                  yuanxu-validation-evidence-accepted?
                  yuanxu-classification-evidence)
         :gerbil-parser/src/modules/parser/interface)

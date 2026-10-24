@@ -2,7 +2,7 @@
 ;;; POO-native graph query context; language packs supply their own view.
 
 (import (only-in :clan/poo/object .o .ref)
-        (only-in :yuanxu/types
+        (only-in :yuanxu/object-types/contracts
                  yuanxu-contract-admit
                  yuanxu-validation-evidence-accepted?)
         (only-in :yuanxu/object-family/interface defpoo-object-family)

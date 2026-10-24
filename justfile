@@ -1,3 +1,17 @@
+# Run one native suite with its heap fence established before SDK imports.
+gerbil_test_runtime_options := "-:max-heap=1G,debug=q"
+
+test-file path:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p .gerbil/test-results
+    output_file="$(mktemp .gerbil/test-results/native.XXXXXX)"
+    timeout --signal=TERM --kill-after=5s 120s gxi {{ gerbil_test_runtime_options }} :gerbil/tools/gxtest -v 3 "{{ path }}" 2>&1 | tee "$output_file"
+    if grep -E 'ERROR (CHECK|CASE|HARNESS|MODULE)|Heap overflow|Stack overflow' "$output_file" >/dev/null; then exit 1; fi
+    grep -F 'MODULE-OK ' "$output_file" >/dev/null
+    grep -F 'HARNESS-OK' "$output_file" >/dev/null
+    grep -Fx 'OK' "$output_file" >/dev/null
+
 set shell := ["sh", "-eu", "-c"]
 
 # Same native gxtest suite values, linked before the bounded runtime gate.

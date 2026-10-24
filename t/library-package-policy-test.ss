@@ -8,7 +8,6 @@
         (only-in "../src/build-support/compiler-profile.ss" call-with-compiler-import-progress initialize-compiler-build!)
         (only-in "../src/build-support/library-publication.ss" library-publication-inputs
                  call-with-library-publication call-with-library-reader))
-(export library-package-policy-test)
 (def (put path value)
   (create-directory* (path-directory path))
   (call-with-output-file (list path: path truncate: #t)

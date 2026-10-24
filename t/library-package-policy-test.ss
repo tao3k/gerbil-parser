@@ -16,11 +16,16 @@
 (def (with-packages procedure)
   (def token (path-strip-directory (make-temporary-file-name "input-policy-")))
   (def parent (path-expand (string-append "qualification.local/" token) (pkg-root-dir)))
+  (def checkout (make-temporary-file-name "input-policy-checkout-"))
   (def output (path-expand "output" parent))
   (def (key name) (string-append "qualification.local/" token "/" name))
   (def (ns name) (string-append token "-" name))
   (def (source name) (path-expand (key name) (pkg-root-dir)))
   (def (declare name dependencies (prefix (ns name)))
+    (def target (if (string=? name "enclosing") checkout (path-expand name checkout)))
+    (create-directory* target)
+    (create-directory* parent)
+    (unless (file-exists? (source name)) (create-symbolic-link target (source name)))
     (put (path-expand "gerbil.pkg" (source name))
       (object->string (list package: (string->symbol prefix) depend: dependencies))))
   (try
@@ -29,10 +34,17 @@
     (declare "middle" (list (key "base")))
     (declare "consumer" (list (key "middle")))
     (declare "unrelated" '())
+    ;; Like a linked application checkout containing its .gerbil/pkg tree,
+    ;; this registered consumer encloses independently registered packages.
+    (declare "enclosing" (list (key "base")))
     (create-directory* (path-expand "lib" output))
     (procedure key ns source output declare)
     (finally
+      (for-each (lambda (name)
+                  (when (file-exists? (source name)) (delete-file (source name))))
+                '("dependency" "base" "middle" "consumer" "unrelated" "enclosing"))
       (when (file-exists? parent) (delete-file-or-directory parent #t))
+      (when (file-exists? checkout) (delete-file-or-directory checkout #t))
       ;; Only this fixture's unique native namespace is ever removed.
       (for-each
         (lambda (name)
@@ -52,6 +64,9 @@
                    '(".ssi" ".o1" ".o2" ".o3" ".scm"))))
           (put (path-expand "x.ss" (source "consumer")) "fixture")
           (def policy (package-input-policy (key "base") output))
+          (check-equal? (package-input-path? policy (path-expand "x.ss" (source "base"))) #t)
+          (check-equal? (package-input-path? policy (path-expand "x.ss" (source "dependency"))) #t)
+          (check-equal? (package-input-path? policy (path-expand "../x.ss" (source "base"))) #f)
           (check-equal? (package-input-path? policy
                           (path-expand (string-append "lib/" (ns "consumer") "/x.o2") output)) #f)
           (check-equal? (package-input-path? policy

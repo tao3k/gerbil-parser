@@ -47,7 +47,13 @@
     namespaces)
   (for-each checked-metadata packages)
   (package-input-policy-value namespaces
-    (map (lambda (package) (normalized (path-expand package (pkg-root-dir)))) consumers)
+    ;; A linked consumer checkout can contain the package installation itself.
+    ;; The deepest registered source owns a path; an enclosing checkout does
+    ;; not turn its independently registered dependencies into consumer code.
+    (list-sort (lambda (left right) (> (string-length (car left)) (string-length (car right))))
+      (map (lambda (package)
+             (cons (normalized (path-expand package (pkg-root-dir)))
+                   (and (member package consumers) #t))) packages))
     (map (lambda (package) (cons package (metadata-path package)))
          (list-sort string<? packages))
     (normalized (path-expand "lib" root))))
@@ -58,7 +64,9 @@
 (def (package-input-path? policy path)
   (let ((path (normalized path)) (library (package-input-policy-value-library policy)))
     (not (or
-      (any (lambda (source) (under? source path)) (package-input-policy-value-sources policy))
+      (let (owner (find (lambda (source) (under? (car source) path))
+                       (package-input-policy-value-sources policy)))
+        (and owner (cdr owner)))
       (any (lambda (name)
              (or (under? (path-expand name library) path)
                  (string-prefix?

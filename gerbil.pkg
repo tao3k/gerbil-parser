@@ -1,3 +1,3 @@
 (package: gerbil-parser
- depend: ("github.com/tao3k/gerbil-poo@8c15ba5fd142f202909705a8913f94baf28f98b3"
-          "github.com/tao3k/gebril-yuanxu@f3ade2160eed248c9f21c68c094e742f4fda0b5c"))
+ depend: ("github.com/tao3k/gerbil-poo@4d63f36f116f9c3d4c78ab29f8731f94bfc4d9ca"
+          "github.com/tao3k/gebril-yuanxu@6ed590f0579d6d59500ae9e092b26783e7d0fc07"))

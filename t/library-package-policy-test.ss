@@ -1,0 +1,150 @@
+;;; SDK-backed package direction, runtime generations and pre-expansion refusal.
+(import :std/test
+        (only-in :std/io/tempfile make-temporary-file-name)
+        (only-in :std/error Error?)
+        (only-in :gerbil/tools/gxpkg pkg-root-dir)
+        (only-in :gerbil/expander current-expander-module-import)
+        "../src/build-support/package-inputs.ss"
+        (only-in "../src/build-support/compiler-profile.ss" call-with-compiler-import-progress initialize-compiler-build!)
+        (only-in "../src/build-support/library-publication.ss" library-publication-inputs
+                 call-with-library-publication call-with-library-reader))
+(export library-package-policy-test)
+(def (put path value)
+  (create-directory* (path-directory path))
+  (call-with-output-file (list path: path truncate: #t)
+    (lambda (port) (display value port))))
+(def (with-packages procedure)
+  (def token (path-strip-directory (make-temporary-file-name "input-policy-")))
+  (def parent (path-expand (string-append "qualification.local/" token) (pkg-root-dir)))
+  (def output (path-expand "output" parent))
+  (def (key name) (string-append "qualification.local/" token "/" name))
+  (def (ns name) (string-append token "-" name))
+  (def (source name) (path-expand (key name) (pkg-root-dir)))
+  (def (declare name dependencies (prefix (ns name)))
+    (put (path-expand "gerbil.pkg" (source name))
+      (object->string (list package: (string->symbol prefix) depend: dependencies))))
+  (try
+    (declare "dependency" '())
+    (declare "base" (list (key "dependency")))
+    (declare "middle" (list (key "base")))
+    (declare "consumer" (list (key "middle")))
+    (declare "unrelated" '())
+    (create-directory* (path-expand "lib" output))
+    (procedure key ns source output declare)
+    (finally
+      (when (file-exists? parent) (delete-file-or-directory parent #t))
+      ;; Only this fixture's unique native namespace is ever removed.
+      (for-each
+        (lambda (name)
+          (let (path (path-expand (string-append "lib/" (ns name)) (gerbil-path)))
+            (when (file-exists? path) (delete-file-or-directory path #t))))
+        '("consumer" "unrelated")))))
+(def library-package-policy-test
+  (test-suite "Native package publication direction"
+    (test-case "SDK transitive consumers are excluded; dependencies and unknown inputs remain"
+      (with-packages
+        (lambda (key ns source output declare)
+          (for-each (lambda (path) (put (path-expand path output) "fixture"))
+            (append
+              (list (string-append "lib/" (ns "consumer") "/x.o2")
+                    (string-append "lib/" (ns "middle") "/x.ssi") "lib/unknown/input.ssi")
+              (map (lambda (suffix) (string-append "lib/" (ns "dependency") "/x" suffix))
+                   '(".ssi" ".o1" ".o2" ".o3" ".scm"))))
+          (put (path-expand "x.ss" (source "consumer")) "fixture")
+          (def policy (package-input-policy (key "base") output))
+          (check-equal? (package-input-path? policy
+                          (path-expand (string-append "lib/" (ns "consumer") "/x.o2") output)) #f)
+          (check-equal? (package-input-path? policy
+                          (path-expand (string-append "lib/" (ns "middle") "/x.ssi") output)) #f)
+          (for-each
+            (lambda (suffix)
+              (check-equal? (package-input-path? policy
+                (path-expand (string-append "lib/" (ns "dependency") "/x" suffix) output)) #t))
+            '(".ssi" ".o1" ".o2" ".o3" ".scm"))
+          (check-equal? (package-input-path? policy (path-expand "lib/unknown/input.ssi" output)) #t)
+          (check-equal? (package-input-path? policy (path-expand "x.ss" (source "consumer"))) #f))))
+    (test-case "compiler import admission refuses consumers before macro code executes"
+      (with-packages
+        (lambda (key ns source output declare)
+          (def policy (package-input-policy (key "base") (gerbil-path)))
+          (def marker (path-expand "forbidden" output))
+          (def allowed (path-expand "allowed" output))
+          (def (module name file)
+            (def path (path-expand (string-append "lib/" (ns name) "/probe.ss") (gerbil-path)))
+            (put path (string-append "package: " (ns name)
+                        "\n(begin-syntax (call-with-output-file " (object->string file)
+                        " (lambda (p) (display \"executed\" p))))\n"))
+            path)
+          (def blocked (module "consumer" marker))
+          (module "unrelated" allowed)
+          (def (import path)
+            (call-with-compiler-import-progress
+              (lambda () ((current-expander-module-import) path #f))
+              (lambda (path) (package-input-admit-import! policy path))))
+          (check-exception (import (string->symbol (string-append ":" (ns "consumer") "/probe"))) Error?)
+          (check-exception (import blocked) Error?)
+          (check-equal? (file-exists? marker) #f)
+          (import (string->symbol (string-append ":" (ns "unrelated") "/probe")))
+          (check-equal? (file-exists? allowed) #t))))
+    (test-case "base and whole-environment views retain different input obligations"
+      (with-packages
+        (lambda (key ns source output declare)
+          (parameterize ((current-directory (source "base")))
+            (check-equal? (current-package-input-owner) (key "base"))
+            (initialize-compiler-build!)
+            (def before (library-publication-inputs output (key "base")))
+            (def whole (library-publication-inputs output))
+            (call-with-library-publication output
+              (lambda (root)
+                (put (path-expand "lib/gerbil-parser/module.ssi" root) "interface")
+                (put (path-expand "lib/gerbil-parser/module.o1" root) "object"))
+              (lambda (root) (list '("compile") (library-publication-inputs root (key "base")))))
+            (check-equal? (call-with-library-reader output (lambda () 'readable)) 'readable)
+            (put (path-expand (string-append "lib/" (ns "consumer") "/changed.o1") output) "consumer output")
+            (check-equal? (library-publication-inputs output (key "base")) before)
+            (check-equal? (call-with-library-reader output (lambda () 'readable)) 'readable)
+            (check-equal? (equal? (library-publication-inputs output) whole) #f)
+            (put (path-expand (string-append "lib/" (ns "dependency") "/changed.o2") output) "effective native input")
+            (check-equal? (equal? (library-publication-inputs output (key "base")) before) #f)
+            (check-exception (call-with-library-reader output void) Error?)
+            (check-exception (library-publication-inputs output (key "unrelated")) Error?)
+            (def policy (package-input-policy (key "base") output))
+            (declare "consumer" '())
+            ;; Refuse a stale SDK metadata projection before any next import.
+            (check-exception (library-publication-inputs output (key "base")) Error?)
+            (check-exception (package-input-admit-import! policy ':gerbil/core) Error?)))))
+    (test-case "extension handoff preserves current base and environment obligations"
+      (with-packages
+        (lambda (key ns source output declare)
+          (parameterize ((current-directory (source "base")))
+            (initialize-compiler-build!)
+            (def calls 0)
+            (def (build root)
+              (set! calls (+ calls 1))
+              (put (path-expand "lib/gerbil-parser/module.ssi" root) "interface")
+              (put (path-expand "lib/gerbil-parser/module.o1" root) "object"))
+            (def (base root) (list '("compile") (library-publication-inputs root (key "base"))))
+            (def (whole root) (list '("compile") (library-publication-inputs root)))
+            (call-with-library-publication output build base)
+            (def previous-path (getenv "PATH"))
+            (try
+              (setenv "PATH" (string-append output ":" previous-path))
+              (check-exception (call-with-library-publication output build whole #f) Error?)
+              (finally (setenv "PATH" previous-path)))
+            (check-equal? calls 1)
+            (def added (path-expand "added.ss"))
+            (put added "(def added 1)")
+            (check-exception (call-with-library-publication output build whole #f) Error?)
+            (delete-file added)
+            (check-equal? calls 1)
+            (call-with-library-publication output build whole #f)
+            (check-equal? calls 2)
+            (check-equal? (call-with-library-reader output (lambda () 'extended)) 'extended)
+            ;; The extension now owns the full view, including consumers.
+            (put (path-expand (string-append "lib/" (ns "consumer") "/new.o1") output) "changed")
+            (check-exception (call-with-library-reader output void) Error?)))))
+    (test-case "a reverse consumer cannot claim a dependency's namespace"
+      (with-packages
+        (lambda (key ns source output declare)
+          (declare "collision" (list (key "base")) (ns "dependency"))
+          (check-exception (package-input-policy (key "base") output) Error?))))))

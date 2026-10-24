@@ -489,3 +489,28 @@ selective phase dependency loading was still a design obligation. See
 does not attribute all startup cost to the sampler, prove the complete Scheme
 evaluator, or claim parser-request CPU improvement. Gambit and SDK sources
 remain unchanged.
+
+* Base package and extension input direction
+
+A registered base package uses the SDK's =pkg-dependents*= graph to identify
+reverse consumers. Their declared namespace outputs are excluded from the base
+compiler footprint, and attempted compiler imports of those namespaces or source
+roots are rejected before expansion. All dependency and unclassified foreign
+inputs remain covered, including effective =.oN= runtime generations. Ambiguous
+namespace ownership refuses. Registry metadata is itself captured and checked
+against the SDK's cached projection; metadata drift requires a fresh process.
+
+The base request retains =(package-build owner)= as its input purpose. Reader
+admission recomputes that same scope and refuses another source owner. Extension
+and unregistered development writers keep the existing whole-environment view.
+This prevents Parser -> Orgize -> Parser invalidation cycles without treating
+loadable foreign generations as inert compiler outputs or relaxing extension
+review. =just test-package-inputs= runs five SDK-backed controls with the existing
+1-GiB / 120-second fence, without bootstrapping Parser to test its own installer.
+
+An extension can explicitly cross from a current package-scoped base to the full
+environment view. Source support, native products and the exact compiler
+options/environment must still match before execution; base source support is
+rechecked on return. Source or PATH drift refuses before the builder runs. The
+resulting extension record owns the full view, so later consumer changes once
+again invalidate it. This is a purpose handoff, not a bypass of input admission.

@@ -92,7 +92,7 @@
 ;;; Report completed imports, not elapsed-time heartbeats, while that real work
 ;;; runs. Report each optimizer-interface boundary; a stuck import still
 ;;; trips the existing idle fence. Preserve the SDK importer and its failures.
-(def (call-with-compiler-import-progress procedure)
+(def (call-with-compiler-import-progress procedure (admit-import void))
   (let ((importer (gx#current-expander-module-import))
         (evaluate (gx#current-expander-module-eval))
         (completed 0) (started (##current-time-point))
@@ -102,6 +102,8 @@
       (parameterize
         ((gx#current-expander-module-import
           (lambda (path reload?)
+            ;; Admission precedes expansion and every initializer.
+            (admit-import path)
             (let (context (importer path reload?))
               (set! completed (+ completed 1))
               (when (or (zero? (modulo completed 64))

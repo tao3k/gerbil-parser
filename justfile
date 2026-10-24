@@ -19,6 +19,19 @@ test-file path: build-qualification build-test-support
 
 set shell := ["sh", "-eu", "-c"]
 
+# SDK-only package direction controls do not bootstrap the Parser under test.
+test-package-inputs:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p .gerbil/test-results
+    output_file="$(mktemp .gerbil/test-results/package-inputs.XXXXXX)"
+    timeout --signal=TERM --kill-after=5s 120s gerbil {{ gerbil_test_runtime_options }} env gxi {{ gerbil_test_runtime_options }} :gerbil/tools/gxtest -v 5 t/library-package-policy-test.ss 2>&1 | tee "$output_file"
+    if rg 'ERROR (CHECK|CASE|HARNESS|MODULE)|Heap overflow|Stack overflow' "$output_file"; then exit 1; fi
+    rg -Fx 'MODULE-OK t/library-package-policy-test.ss' "$output_file" >/dev/null
+    rg -F 'HARNESS-OK' "$output_file" >/dev/null
+    rg '^CASE-OK ' "$output_file" >/dev/null
+    rg -x 'OK' "$output_file" >/dev/null
+
 # Same native gxtest suite values, linked before the bounded runtime gate.
 test-runtime-organization:
     GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gxi build-qualification.ss compile --optimized

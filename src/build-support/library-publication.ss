@@ -5,7 +5,7 @@
         (only-in :std/os/device device-close)
         "./preparation-snapshot.ss" "./compiler-profile.ss"
         "./build-environment.ss"
-        "./loader-products.ss")
+        "./loader-products.ss" "./package-inputs.ss")
 (export call-with-library-publication library-publication-inputs publication-build-main call-with-library-reader)
 
 (def (publication-root path)
@@ -13,8 +13,11 @@
     (if (and (> (string-length path) 1) (string-suffix? "/" path))
       (loop (substring path 0 (- (string-length path) 1))) path)))
 
-(def (library-publication-inputs root)
+(def (library-publication-inputs root (owner #f))
+  (when (and owner (not (equal? owner (current-package-input-owner))))
+    (error "publication input policy belongs to another package source" owner))
   (let* ((library (path-expand "lib" root))
+         (policy (and owner (package-input-policy owner root)))
          (home (gerbil-home))
          (sources
           (append (apply append (map preparation-files '("src" "languages" "language-support" "include")))
@@ -28,9 +31,10 @@
           (filter (lambda (path) (not (preparation-native-object? path library)))
             (preparation-files library
               (lambda (path)
-                (not (or (equal? path namespace)
-                         (string-prefix? (path-expand "static/gerbil-parser__" library) path))))))))
-    (list (compiler-gsc-options)
+                (and (or (not policy) (package-input-path? policy path))
+                     (not (or (equal? path namespace)
+                              (string-prefix? (path-expand "static/gerbil-parser__" library) path)))))))))
+    (append (list (compiler-gsc-options)
           (map (lambda (name)
                  (cons name (cond
                               ((equal? name "PATH") (canonical-build-search-path (getenv name #f)))
@@ -40,11 +44,12 @@
                  "PATH" "COMPILER_PATH" "LIBRARY_PATH" "MACOSX_DEPLOYMENT_TARGET" "GERBIL_BUILD_DEBUG"
                  "CORCXXFLAGS_GAMBUILD" "LDFLAGS_GAMBUILD"))
           (preparation-snapshot
-           (append sources foreign
+           (append sources foreign (if policy (package-input-metadata policy) '())
              (filter file-exists?
                (list (path-expand "bin/gsc" home) (path-expand "bin/gambuild-C" home)
                      (path-expand "include/gambit.h" home)
-                     (getenv "GERBIL_GCC" "gcc"))))))))
+                     (getenv "GERBIL_GCC" "gcc"))))))
+      (if owner (list (list 'package-build owner)) '()))))
 
 (def (publication-record root)
   (let (path (path-expand "library-publication.sexp" root))
@@ -76,9 +81,32 @@
   ;; just as a modified or removed source does. Reader heap options may differ.
   (let (request (cadr record))
     (and (list? request) (= (length request) 2)
-         (list? (cadr request)) (= (length (cadr request)) 3)
-         (equal? (caddr (cadr request))
-                 (caddr (library-publication-inputs root))))))
+         (list? (cadr request))
+         (let* ((inputs (cadr request))
+                (scope (and (= (length inputs) 4) (list-ref inputs 3)))
+                (owner (and (list? scope) (= (length scope) 2)
+                            (eq? (car scope) 'package-build) (string? (cadr scope))
+                            (cadr scope))))
+           (and (or (= (length inputs) 3) owner)
+                (let (current (library-publication-inputs root owner))
+                  (and (equal? (caddr inputs) (caddr current))
+                       (equal? (cdddr inputs) (cdddr current)))))))))
+
+;; A whole-environment extension may consume a current package-scoped base.
+;; Compiler options/environment, source support and products remain mandatory.
+(def (base-extension-current? root record before)
+  (with-catch (lambda (_invalid) #f)
+    (lambda ()
+      (let* ((request (cadr record)) (inputs (cadr request))
+             (next (cadr before)) (scope (list-ref inputs 3)))
+        (and (list? request) (= (length request) 2)
+             (= (length inputs) 4) (list? scope) (= (length scope) 2)
+             (eq? (car scope) 'package-build)
+             (list? before) (= (length before) 2) (list? next) (= (length next) 3)
+             (equal? (car request) (car before))
+             (equal? (car inputs) (car next))
+             (equal? (cadr inputs) (cadr next))
+             (publication-inputs-current? root record))))))
 
 (def (withdraw-publication! root)
   (let (receipt (path-expand "library-publication.sexp" root))
@@ -136,9 +164,11 @@
          (lock (open-output-file/lock (string-append root ".publication.lock") 0)))
     (try
       (let* ((before (identity root)) (record (publication-record root))
-             (current? (and record (equal? before (cadr record))
-                            (equal? (publication-products root) (caddr record)))))
-        (when (and (not reuse?) (not current?))
+             (products-current? (and record (equal? (publication-products root) (caddr record))))
+             (current? (and products-current? (equal? before (cadr record))))
+             (extension? (and (not reuse?) (not current?) products-current?
+                              (base-extension-current? root record before))))
+        (when (and (not reuse?) (not (or current? extension?)))
           (error "library generation is not current; build the package before extending it"))
         (if (and current? reuse?)
           (begin (displayln "LIBRARY-PUBLICATION-HIT") (force-output))
@@ -146,10 +176,12 @@
             ;; Failure or process death leaves the generation unadmitted. There
             ;; is no second library tree, rollback copy, or destination swap.
             (withdraw-publication! root)
-            (unless current? (clean root))
+            (unless (or current? extension?) (clean root))
             (build root)
             (unless (equal? before (identity root))
               (error "library inputs changed during compilation"))
+            (when (and extension? (not (publication-inputs-current? root record)))
+              (error "base package inputs changed during extension"))
             (let* ((products (publication-products root))
                    (receipt (path-expand "library-publication.sexp" root))
                    (temporary (make-temporary-file-name (string-append receipt ".pending-"))))
@@ -167,16 +199,19 @@
     (cond
       ((or (null? args) (equal? (car args) "compile"))
        (gc-report-set! #t)
-       (call-with-library-publication (gerbil-path)
+       (let* ((owner (and (not extension?) (current-package-input-owner)))
+              (policy (and owner (package-input-policy owner (gerbil-path)))))
+        (call-with-library-publication (gerbil-path)
          (lambda (root)
-           (call-with-compiler-import-progress (lambda () (apply compile-main args)))
+           (call-with-compiler-import-progress (lambda () (apply compile-main args))
+             (if policy (lambda (path) (package-input-admit-import! policy path)) void))
            (prepare-library-loader-products! root))
          (lambda (root)
-           (list (if (null? args) '("compile") args) (library-publication-inputs root)))
+           (list (if (null? args) '("compile") args) (library-publication-inputs root owner)))
          (not extension?)
          (lambda (root)
            (apply compile-main '("clean"))
-           (clean-library-products! root))))
+           (clean-library-products! root)))))
       ((equal? (car args) "clean")
        ;; gerbil clean delegates to this standard std/build-script owner.
        ;; Withdraw admission BEFORE removing products, then run its actual

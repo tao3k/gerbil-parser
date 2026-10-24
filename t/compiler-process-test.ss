@@ -2,7 +2,7 @@
         (only-in :std/io/tempfile make-temporary-file-name)
         (only-in :std/misc/process process-error?)
         (only-in :std/sync/wg make-wg wg-add! wg-wait!)
-        (only-in :gerbil-parser/src/build-support/compiler-profile run-build-tool compiler-host-options initialize-compiler-build! call-with-compiler-import-progress))
+        (only-in :gerbil-parser/src/build-support/compiler-profile run-build-tool compiler-host-options compiler-gsc-options initialize-compiler-build! call-with-compiler-import-progress))
 
 (def (with-compiler-probe procedure)
   (let* ((root (make-temporary-file-name "parser-compiler-pipes-"))
@@ -45,6 +45,7 @@
       (equal (string-prefix? "-O2 -pipe " flags) #t)
       (equal (compiler-host-options flags) flags)
       (equal (member "-Q" (string-split flags #\space)) #f)
+      (equal (member "-verbose" (compiler-gsc-options)) #f)
       (scope ((macros (capture-build-text
                         (append (list (getenv "GERBIL_GCC" "gcc"))
                                 (string-split flags #\space)

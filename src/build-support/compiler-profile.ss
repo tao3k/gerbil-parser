@@ -39,6 +39,9 @@
   ;; The SDK compiler and std/make read GERBIL_BUILD_CORES directly.
   (initialize-compiler-host!))
 
+;; GC and SDK module jobs provide actual progress. Do not combine Gambit
+;; -verbose function enumeration with this unbuffered diagnostic port: every
+;; generated binding otherwise becomes synchronous build I/O.
 ;; Report actual compiler GC work while large immutable images are lowered.
 ;; This changes the compiler process diagnostics, never generated program code.
 (def compiler-progress-expression
@@ -76,7 +79,7 @@
   ;; example clan/poo/type) can spend the entire silence window in one GCC pass.
   (string-append options " -U___SINGLE_HOST -D___MULTIPLE_HOSTS"))
 (def (compiler-gsc-options)
-  (list "-verbose" "-cc-options" (compiler-c-options "-v -ftrack-macro-expansion=0")
+  (list "-cc-options" (compiler-c-options "-v -ftrack-macro-expansion=0")
         "-e" compiler-progress-expression))
 
 (def (compiler-build-spec spec)
@@ -88,7 +91,7 @@
            ((and (pair? item) (memq (car item) (list gsc: exe: static-exe:)))
             ;; Executable/link drivers append their own GSC options; do not
             ;; put -e before those options. Keep the same GCC host contract.
-            (append item (list "-verbose" "-cc-options" (compiler-c-options "-v"))))
+            (append item (list "-cc-options" (compiler-c-options "-v"))))
            (else item))) spec))
 
 ;;; std/make expands source interfaces before scheduling their compiler jobs.

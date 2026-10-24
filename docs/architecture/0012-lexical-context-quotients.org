@@ -1,0 +1,278 @@
+#+title: RFC 0012 — Compiled lexical context quotients at incremental boundaries
+#+startup: overview
+
+* Connected pipeline and proof boundary
+
+RFCs 0010–0011 connect source provenance, certified recognition, original
+production replay and canonical ParseArtifact publication. This experiment
+addresses the lexical boundary in that same pipeline. It does not add another
+parse authority. Its implementation is in compiler/machine.ss; ordinary
+suffix convergence and certificate probing consume it in incremental.ss and
+reuse.ss. The request-owned probe slot keeps the actual requested LR mode.
+
+An LR mode names a set of admitted declared lexical rules. Numeric mode identity
+is sufficient for reuse but can reject equivalent scanner behavior. Declared
+rule ordinals retain token identity, expression, precedence and declaration
+order. Longest consumption wins; equal consumption uses precedence, then order.
+Within one prepared machine, equal complete admission vectors therefore permit
+sharing one prepared scanner closure. Arithmetic has eight modes and three
+such plans; HCL has 33 modes and ten plans.
+
+This proves lexical behavior, not equivalence of LR stacks or original production
+semantics. Fragment admission still checks the prepared runtime, state/stack,
+original production transfer, lookahead and its existing lexical context. The
+single request-owned probe slot retains its exact mode-object guard, including
+its cross-runtime veto. External scanners that may consult changed source
+prefixes still exclude ordinary suffix convergence. These guards are required
+at their respective interfaces.
+
+* Primary algorithms, transfer and falsifiable limits
+
+| Primary source | Transfer at an existing interface | Limit and gate |
+| [[https://github.com/tree-sitter/tree-sitter/blob/20cf25c10f13ed9b8c499dd966b4e7a57bedbf81/crates/generate/src/build_tables/build_lex_table.rs][Tree-sitter build_lex_table, pinned source]] | Associate parse states with lexical token sets, build shared lexical states and minimize afterward. Here: exact declared-rule admission vectors share preparation. | Tree-sitter also merges nonidentical sets using token-conflict, prefix and coincident-token checks. This implementation does not adopt that union or claim its complete DFA minimization. Compare every mode's complete token and next offset with separate preparation. |
+| [[https://re2c.org/manual/manual_c.html][re2c official C manual]] | Maximal munch and declaration-order ties constrain which competitors a lexical quotient must preserve. Here: conservative first-transition candidates and guaranteed-acceptance dominance. | Our declared lexical precedence adds another tie condition. Retain rule identity and competing longer matches, and reject same-spelling different-token counterexamples. Unknown expressions remain possible candidates. |
+| [[https://github.com/python/cpython/blob/v3.14.0/Objects/listsort.txt][CPython listsort.txt, v3.14.0]] | Exponential bracketing from a prior position followed by binary search in the bracket; the separate speculative source finger in reuse.ss | This is ordered point lookup, not a sorting implementation or its adaptive merging policy. Backward queries require a full lower bound. Comparison/call costs can outweigh the bound, so complete-edit timing remains the admission gate. |
+
+The Tree-sitter receipt pins revision
+=20cf25c10f13ed9b8c499dd966b4e7a57bedbf81=, Git blob
+=ef4d162c1178c04fda8b283a82b2f131fd3fe7a8= and source SHA256
+=e91a1ad27c7d30bd0c34ceb6df559d0af531ede2f34ea67a7809a93e12a2da1c=.
+The exact source groups token sets before creating lexical states and then
+minimizes transitions. No performance number from that project is transferred.
+
+** Conservative first-transition projection
+
+This projection still missed the common all-rule fallback. When the directed
+mode has no matching candidates, generated-lexer scans with all rules to produce
+the offending token or failure frontier. One mode can admit a newline directly,
+while another obtains the same newline through that fallback. Candidate-mask
+identity alone is too conservative for this actual executor.
+
+** Effective scanner projection with fallback dominance
+
+The final certificate normalizes the executor's effective candidates:
+
+1. Project admitted rules through P(c). If the result is empty, no directed
+   rule can match, so use the machine's common all-rule projection instead.
+2. Separately derive G(c), a lower bound on guaranteed nonempty acceptance.
+   Closed run scanners and matching one-character literals can guarantee a
+   match. Incomplete strings/comments, numeric prefixes and external expressions
+   cannot supply this guarantee. P and G have opposite proof directions.
+3. A pure fallback consumes exactly one character. Remove it only when an
+   admitted guaranteed nonfallback rule consumes at least one character and
+   wins a length-one tie by higher precedence or earlier declaration order.
+   Keep every other competitor, including possible longer matches.
+4. Intern the normalized vectors. Equal canonical identities prove equal
+   scanner outputs and next character positions at this boundary. Any failed
+   directed scan that remains possible reaches the same all-rule scanner.
+
+First-character classes include both P and G, so characters with different
+acceptance guarantees cannot accidentally share a normalization class. The
+best guaranteed rule is computed in one traversal; dominance is not a quadratic
+pairwise rule search. For M LR modes, C unique complete masks, D ASCII classes
+and R rules, certificate preparation costs O(MR + 128R + CDR); metadata stores
+shared per-class vectors for C masks and references them from M modes. Scanner
+preparation itself occurs C times when sharing is enabled, instead of M times.
+All certificates belong to one machine. No cross-machine numeric IDs are compared.
+
+Ordinary old-token reuse remains outside the changed byte interval and at an
+exact shifted byte boundary. The old lexeme supplies c from an unchanged suffix.
+Successful indexed reuse records the actual new LR mode when it differs; the
+certificate does not claim historical mode IDs are identical. Fresh parsing,
+full artifact equality and the independent original projector verify results.
+
+* Carrying the proof through speculative probes
+
+Ordinary source convergence alone did not reduce measured scanner work, even
+when all HCL modes were proved equivalent at newline. The grammar reuser had
+already scanned boundaries while certifying fragments, before ordinary source
+convergence could supply a token. The same lexical proof must therefore be
+consumed at that earlier source interface.
+
+A closed-source owner now admits old-source tokens to those speculative probes.
+The byte must be after the new changed interval, map to an old token start after
+the old changed interval, and have a compatible lexical certificate. Prefix
+reuse is excluded: changing later characters can extend a longest match that
+formerly ended before the edit. Source bytes after the suffix boundary are
+unchanged; external prefix-dependent scanners remain excluded.
+
+=fragmentCertificateProbeByteCount= counts successful fresh scanner probe bytes.
+=certifiedLexicalProbeTokenCount= counts old-source-certified probe requests,
+including speculative requests; it is not a count of distinct published tokens.
+The existing relex receipt describes source-stream coverage and is not replaced
+with a fabricated zero when speculative scanning is avoided. The shared policy
+parameter independently enables both consumers for matched controls.
+
+* Native qualification and matched measurements
+
+An attempted scanner-row extension failed because generated-lexer's ranked
+normalization copied only the original seven fields from bare-rules. The added
+metadata was dropped before certificate construction. The initial stale-cache
+hypothesis was incorrect; a separately compiled nine-element vector also
+preserved all nine elements. The final design places pure-fallback flags and
+guaranteed-acceptance predicates in a separate AOT certificate column aligned
+by declared rule ordinal, preserving the scanner's existing internal layout.
+There is no legacy-row adapter.
+
+The complete matched run contains 120 admitted rows at runtime head
+=27ec5c694336be773da581f2cc2c7ae0f28c2b96=. Twenty jobs exited normally with
+unchanged five-second/180-second gates. Two output-complete jobs were killed
+by the inactivity watchdog during native shutdown; each was retained as a failed
+attempt and rerun once in a fresh process at identical pins. Their rows are
+excluded. An earlier sampled shutdown showed =___cleanup_dyn_module= through
+dyld =dlclose= waiting for debugger-unload notification; this explains the
+observed failure class, but does not turn a failed job into a passing receipt.
+
+| Complete-request scenario | Strict median ms, repetitions 1 / 2 | Proof reuse median ms, repetitions 1 / 2 | Fresh certificate probe bytes, strict → reuse |
+| Flat 800, first insert | 6.8470 / 6.7035 | 5.1835 / 5.0775 | 4800 → 0 |
+| Flat 400, first insert | 2.7235 / 2.9690 | 2.5355 / 2.5035 | 2400 → 0 |
+| Nested 16, first insert | 3.7845 / 4.1965 | 4.5395 / 3.8005 | 96 → 0 |
+| Flat 800, six edits | 23.6595 / 23.6465 | 23.0965 / 23.2135 | 14406 → 0 |
+| Nested 16, six edits | 21.7860 / 21.9555 | 20.4760 / 22.3175 | 300 → 6 |
+
+The 800-line flat first-insert gain repeats at approximately 24.3%. It does not
+establish a universal gain: nested first insertion changes from approximately
+19.9% regression to 9.4% improvement, and nested 16 history changes from 6.0%
+improvement to 1.6% regression. Across 56 paired request medians, changes range
+from 31.8% improvement to 19.9% regression; the median paired ratio improves
+approximately 2.4%. This descriptive summary is not a statistical confidence
+interval. The source-stream relex coverage is still 812 bytes for the flat
+800 first insertion; zero denotes eliminated *fresh certificate probes*, not
+zero source-stream coverage or zero parser work.
+
+Fresh stateless ParseArtifact medians in the two enabled 800-line first-insert
+rows are approximately 0.6150 / 0.6155 ms, while the incremental requests retain
+reusable session state as well as the complete artifact. No speedup over those
+fresh parses is claimed. The lexer proof does not close the complete incremental
+publication cost.
+
+Admission commit =384255e= leaves runtime lexical-plan reuse disabled by default.
+Explicit =plan-reuse= controls still exercise both proof consumers; equal LR
+mode reuse and prior fragment admission remain available. Scanner sharing stays
+enabled. ASCII certificate tables are now machine-owned promises: full-plan
+identity does not force them, and the first ASCII query requiring stronger
+equivalence prepares and caches the table. Normal parsing and disabled reuse
+therefore avoid the unused experimental table's construction cost. The
+all-mode-pair tests force the lazy table and verify its actual outputs.
+
+The final preparation gate has 16 rows at
+=7fb9cba974b3ab5d855c436e89713949c1065277=, with twenty samples, reversed
+control orders and normal exits for every job:
+
+| Factory scope | Family and mode plans | Separate median ms, repetitions 1 / 2 | Shared median ms, repetitions 1 / 2 |
+| Scanner only, proof promise unforced | Arithmetic 8 → 3 | 0.0870 / 0.0870 | 0.0680 / 0.0680 |
+| Scanner only, proof promise unforced | HCL 33 → 10 | 0.4435 / 0.4420 | 0.2035 / 0.2030 |
+| Scanner plus first proof-table force | Arithmetic 8 → 3 | 0.1595 / 0.1550 | 0.1355 / 0.1320 |
+| Scanner plus first proof-table force | HCL 33 → 10 | 0.6415 / 0.6320 | 0.3975 / 0.3905 |
+
+Default scanner construction improves approximately 21.8% for arithmetic and
+54.1% for HCL against separate preparation on the same head. These are factory
+measurements, not whole-parser startup or complete-edit improvements. Forcing a
+fresh table still costs work; the stronger proof is computed once per owning
+machine when first requested.
+
+The historical receipt loaded 57 native test modules and passed 315 selected
+test cases in 19 normally exiting batches without watchdog events. A subsequent
+suite-selection audit (RFC 0013) found that only 34 modules actually executed
+cases: 22 exported names ended in =-tests= rather than gxtest's =-test= suffix,
+and one language-pack wrapper registered no cases. Consequently this receipt
+is not full-suite qualification. Its log hashes and the 315 actual passed
+cases remain valid; the original sealed receipt is preserved. The five lexical-plan cases cover complete scan
+outputs and offsets across modes, fallback precedence/order counterexamples,
+Unicode shifted boundaries in vector/indexed owners, six-edit artifacts and the
+independent original projector. Existing cross-runtime probe guards also pass.
+
+The edit data pin precedes admission and lazy preparation. Its controls already
+explicitly override the runtime policy; the original warmed proof lookup and
+source-owner algorithm remain unchanged. Final native tests validate the lazy
+construction and disabled default, and the separate final factory experiment
+measures the changed preparation boundary. No fresh full-edit CPU number is
+attributed to a different source head.
+
+Clean qualification first explicitly compiles =t/fixtures/lr1-construction.ss=
+and =t/line-structure-assertions.ss=.
+The production PackageSpec excludes =t/=, so a clean library rebuild alone
+cannot satisfy the reference/AOT tests' imported support modules. The failed
+pre-repair missing-module errors and exit 42 remain environment failures, not
+semantic passes. The complete import audit identifies these two bare local
+module imports; source-relative quoted scenario imports are loaded by gxtest.
+
+On Darwin, qualification additionally reports actual dyld API operations through
+process cleanup. The Homebrew system-shell launcher drops =DYLD_*= diagnostics;
+the recipe preserves its literal =GERBIL_HOME=, =GERBIL_PREFIX= and Gambit path
+mappings and invokes that same native executable directly. =DYLD_PRINT_APIS=,
+documented by the installed =dyld(1)= manual, emits actual =dlopen=, =dlsym= and
+=dlclose= operations. The previously twice-failed fourth batch then exited 0
+with a continuous real unload trace and the unchanged watchdog. There is no
+timer heartbeat, fast-exit replacement or relaxed inactivity limit. CPU
+measurements use their original executor configuration, separately from this
+native qualification progress setting.
+Preparation rows measure the generated lexer factory, including its certificates;
+they exclude LR table preparation, grammar expansion and whole-parser startup.
+The 120-row run prepared certificates eagerly. Final preparation controls
+separately measure scanner-only factories and factories whose returned proof
+promise is forced; deferring a computation is not eliminating its cost when
+requested.
+Edit rows measure complete ParseArtifact requests, including canonical events
+and source digest. Preparation gains cannot be reported as whole-edit gains.
+
+Run from the corresponding receipt's recorded source head. Reproduction uses the existing flat/nested topology and six-edit history
+scenarios, twenty CPU samples, both control orders and two repetitions. Controls
+explicitly select =plan-reuse= or =no-plan-reuse= on the same compiled head.
+Preparation controls select =no-plan-sharing= independently. Raw logs are sealed
+by digest, process exit, row count, watchdog outcome and exact source/harness
+pins. Only normally exited jobs are admitted. =--resume= validates exact source,
+sample count, harness, fixtures, arguments and retained logs; it permits one
+fresh retry per output-complete final watchdog failure, preserves that failed
+log and its hash, and rejects incomplete-result or semantic failures. The fixtures report actual nested native-module loads as well as import/eval
+operations. No timer heartbeat substitutes for actual child progress; five seconds of silence or 180 seconds per batch fails. The final native gate also reports real unload operations on Darwin.
+
+* Remaining structural limit and next experiment
+
+The source/provenance index in RFC 0011 stays experimental. Its balanced storage
+and chunk sharing did not produce a matched whole-edit gain. Lexical equivalence
+cannot repair that representation cost, and scanner equivalence cannot authorize
+a different semantic reduction order.
+
+The current complete-result boundary still copies source, publishes a flat event
+sequence with absolute byte positions, and computes the standard whole-source
+SHA256 in artifact.ss and incremental receipts. A changed prefix changes SHA256's
+subsequent chaining state; a cached suffix hash cannot preserve this contract.
+An insertion before a flat event suffix changes all its absolute positions.
+Returning that entire materialized suffix retains a cost proportional to its
+output size. Recognition-local bounds must therefore be measured separately
+from complete publication, without substituting a Merkle digest or dropping
+canonical events.
+
+The next structural experiment belongs at original production replay and
+publication: retain immutable recognition children and original fold order,
+represent translated event windows internally, and materialize canonical rows
+only at the existing publication boundary. Measure accepted local recognition,
+original fold, event materialization and digest separately on the established
+first/middle/last and sequential-history cases. Admit a new public local-result
+interface only with an explicit contract and a full-artifact compatibility path.
+This RFC implements lexical certificates; it does not claim that local-result
+API or sublinear complete publication already exists.
+
+** Concrete next interfaces and falsification gates
+
+| Interface | Current retained authority | Next measured change and rejection condition |
+| =lr-parser.ss: reduce-value= and =funcs.ss: recognition-sequence->list= | Original production order and semantic child sequence | Retain translated immutable event windows through original reductions. Reject any context-dependent repeat reassociation, altered field order or mismatch with the independent original projector. |
+| =artifact.ss: recognition-events= and =make-success-parse-artifact/raw-event-tape= | Current source-token identity, trivia order, canonical IDs and absolute UTF8 offsets | Materialize translated windows once at publication. Require exact full event rows after first/middle/last insertion/deletion and inverse edits; distinguish event allocation cost from recognition cost. |
+| =artifact.ss: artifact= and =incremental.ss: directed-edit-fields= | Standard source SHA256 and existing receipt schema | Measure UTF8 conversion and digest separately. Reuse only an owner-proven immutable source digest; caller-supplied mutable source/artifact validation cannot be skipped on an assumed identity. Reject any changed digest contract. |
+
+The independent =lr-recognition-project= is a validation oracle here; benchmark
+semantic preflights run it outside the warmed timed edit samples. Its cost must
+not be attributed to the timed request without an actual phase measurement.
+The listed seams identify experiments, not a measured CPU profile or completed
+local-result implementation.
+
+
+* Scheme/ASP verification owner
+
+Execute correctness assertions through the shared native Scheme harness.
+Performance admission uses =t/core-observability-test.ss=,
+=t/gql-runtime-benchmark-test.ss= and =t/incremental-suffix-benchmark-test.ss=,
+with their existing ASP =benchmark.ss= contracts. The repository's =Justfile=
+selects diagnostic microbenchmarks when a specific algorithm phase needs study.
+Workloads, samples and thresholds remain owned by those Scheme sources.

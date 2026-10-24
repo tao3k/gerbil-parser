@@ -1,0 +1,780 @@
+#+title: Candidate comparison after the recent survey
+
+[[file:../scheme-parser-performance-framework.org][Model and evidence index]]
+
+* Candidate comparison after the recent survey
+
+| Route | Scheme generator change | Likely benefit | Main risk |
+|-
+| Tree-sitter-style contextual DFA + LR/GLR + subtree reuse | Extend Grammar IR lowering, lexer automaton generation, parse-state token masks, and reusable tree metadata. | One coherent batch and incremental architecture; keeps deterministic ordinary cases. | Largest migration; context-sensitive or external scanners and recovery must preserve language-specific behavior. |
+| Lezer-style compact LR/GLR + fragments | Encode compact tables and balanced tree fragments in Scheme products. | Lower runtime footprint and explicit ambiguity policy. | Fragment semantics and tree representation diverge from current lossless ParseArtifact/Rust syntax boundary. |
+| Bison IELR table generation | Replace or augment LALR state construction. | Better grammar recognition with potentially modest tables. | Does not directly address lexical dispatch, full-source reparsing, or output construction. |
+| re2c-style lexer only | Compile closed lexical algebra into DFA or direct code. | An isolated lexical experiment for batch throughput and contextual lexing. | Not a complete parsing framework; must retain maximal-munch, precedence, declaration tie order, UTF-8 offsets, and fallback behavior. |
+| langcc-style optimized LR automaton | Generate a lookahead-partitioned LR NFA/DFA from Scheme Grammar IR and compare its states, conflicts, build time, and generated parser throughput with the current LALR path. | Directly targets fresh parsing and grammar expressiveness without replacing Scheme authorship. | The paper's speed results do not isolate each innovation; XLR has no langcc implementation to reuse. |
+| Hocc APLR(1) | Build a canonical LR(1) reference and adequacy-preserving remerge in the Scheme compiler. | May avoid LALR-induced conflicts while keeping a compact table. | Canonical construction and remerge can be costly; parser throughput benefit is unproven here. |
+
+** Explicit construction choice by grammar scene
+
+=compile-lr-spec= and =compile-parser= now accept
+=lalr-then-follow= as an explicit construction choice. It first publishes an
+ordinary LALR action table with unresolved cells marked as forks for the
+probe only. If there is no unresolved cell, it returns that LALR table
+unchanged. Under the =reject= conflict policy, an unresolved cell invokes the
+direct follow-partition LR(1) constructor, whose ordinary conflict policy
+must still accept the result. A genuinely ambiguous grammar therefore remains
+rejected. Under =selective-glr=, the choice keeps the existing LALR/GLR route.
+The default remains =lalr= while representative grammar and generation-cost
+qualification continues. This is a workload policy, not a new proof of the
+paper's partition theorem.
+
+The 200-run pure Scheme comparison on this host found that a conflict-free
+fixture selected LALR with 8 states and about 27--28 us per generation on
+both explicit LALR and adaptive routes. The LR(1)-but-not-LALR(1) fixture
+selected the follow-partition table with 15 states. Its fallback compiles
+two candidate tables, so grammar generation is more expensive than explicitly
+requesting the known-good route; repeated small-fixture timings also vary
+with GC. This option is for grammars whose LALR adequacy is not known in
+advance, not for maximizing generation speed on a known LR(1) grammar.
+
+For fresh parsing, the Scheme LR runtime is now scanner-driven in one
+continuous loop, and semantic reductions fuse operand mapping with sequence
+concatenation using the v0.19 standard =foldl=. On the local 3,200-term
+arithmetic fixture, the five-sample best full parse changed from about
+17.6 ms before the continuous loop to about 10.0 ms after these changes.
+The prepared LR stage was about 4.9 ms; lexical scanning and artifact
+materialization were about 1.8 and 1.6 ms. These one-host observations do
+not imply submillisecond parsing for documents of that size.
+
+The LR executor now prepares each production's reduction width once and pops
+its immutable state and semantic stacks together, yielding source-ordered
+values for both deterministic LR and selective GLR. This removes the separate
+stack traversals and value reversal from every reduction without changing the
+public tables or recognition products. On a local 3,200-term arithmetic input,
+the five-sample best prepared LR stage was 6.08 ms before this change and 5.00
+ms in a repeated run afterward; full-parse samples varied more widely between
+processes. Parser runtime, grammar composition, incremental, canonical LR(1),
+and selective-GLR suites passed. This measures a runtime improvement, not a
+new parsing-complexity bound.
+
+The matched streaming benchmark now records process CPU time beside elapsed
+time. On PR head =6a7cab9=, repeated full parses of a 512-line,
+1,534-character arithmetic source typically used about 1.3 ms CPU. Some
+elapsed samples exceeded 100 ms while
+using only a few milliseconds of CPU; elapsed outliers therefore cannot be
+attributed to LR computation alone. A separately timed prepared-token path
+measured, at five-sample best CPU time, 0.166 ms lexical scanning, 0.020 ms
+significant-token filtering, 0.613 ms LR execution, and 0.295 ms artifact
+materialization for 512 addition terms. At 3,200 terms these stages measured
+1.018, 0.097, 3.679, and 1.633 ms respectively. These are attribution probes,
+not a sum of streaming-path costs. A single-character ASCII byte-width shortcut
+and a precomputed unit-pass reduction shortcut were both rebuilt and measured;
+neither established a consistent CPU improvement and both were reverted. The
+remaining runtime experiment should address the LR dispatch and semantic
+construction together rather than add another special case to either path.
+
+An integer-packed action index was then tested on the deterministic executor:
+positive integers encoded shifts, negative integers reductions, and zero
+acceptance, while GLR retained the original actions. Arithmetic, parser runtime,
+and canonical-LR tests passed. The 512-line CPU samples clustered around
+1.36--1.41 ms instead of the approximately 1.30 ms baseline, and 3,200-term
+samples did not improve. The extra index and decoder were reverted. This
+isolates the next AOT boundary: =deflanguage-grammar= already embeds Parser IR
+at expansion time, but =defgeneral-parser-machine= still calls =lr-prepare= at
+module initialization and the executor interprets action rows. A direct-code
+prototype must generate state/terminal dispatch from the embedded IR while
+keeping the original tables for GLR, diagnostics, and conformance. A bounded
+prototype did exactly that for automata with at most 64 states, retaining the
+original indexed path for larger languages and GLR. Gerbil v0.19 build and
+arithmetic/runtime/canonical-LR tests passed, including root equality against
+the indexed path. A same-process, prepared-token 512-line comparison gave
+best CPU times of 0.600 ms for the indexed executor and 0.666 ms for the
+generated dispatcher (20 measured iterations each, three warmups). The
+512-line complete ParseArtifact samples still clustered near 1.3--1.4 ms CPU;
+3,200-term complete samples ranged from 7.5 to 14.3 ms CPU and did not show a
+stable advantage over earlier indexed runs. The generated dispatcher still
+called a closure per LR action, tested terminal clauses in Scheme, and left
+semantic reduction in the interpreter. The prototype was reverted. The next
+direct-code experiment needs to fuse state transition and reduction execution,
+not merely replace indexed action lookup with generated conditions.
+
+A separate experiment based on PR head =13f164c= specialized the whole-source
+LR driver, removing budget, frontier,
+and observation branches from the ordinary action loop while retaining the
+indexed action table, immutable stacks, and exact selective-GLR handoff.
+Gerbil v0.19 build and focused arithmetic, HCL, GQL, parser-runtime, and
+canonical-LR tests passed. In one process on the same prepared 512-line token
+stream, best LR CPU time was 0.792 ms through the generic driver and 0.754 ms
+through the specialized driver (20 measured iterations after three warmups).
+The complete 512-line ParseArtifact benchmark did not improve: best CPU time
+was 1.255 ms on the baseline and 1.290 ms with the specialized driver, with
+large host outliers in both runs. The duplicate driver was reverted. This
+narrows the next vertical slice to grammar-specialized transition, reduction,
+and stack behavior together; removing control branches alone is insufficient
+for this engine's full parse product.
+
+On PR head =fbd8c35=, another Scheme experiment prepared a semantic-action
+plan per production at =lr-prepare= time, so deterministic LR and selective GLR
+would no longer extract each RHS operand's actions on every reduction. The
+v0.19 build and focused arithmetic, HCL, GQL, parser-runtime, and canonical-LR
+tests passed. In the same pinned package environment, the 20-sample 512-line
+complete ParseArtifact best CPU time was 1.240 ms with plans and 1.309 ms on
+the rebuilt baseline. The 3,200-term five-sample prepared LR best moved the
+other way, from 3.545 ms baseline to 3.662 ms with plans; the complete parse
+best likewise moved from 7.218 ms to 7.555 ms. These small, opposite-direction
+results do not establish a throughput gain. The plan added a vector lookup and
+an extra runtime descriptor while leaving LR transitions and the semantic
+action interpreter separate, so it was reverted. The next generated experiment
+must fuse transition and semantic work end to end rather than only hoist
+production metadata.
+
+The comparison with Gerbil Djot PR #1509
+(https://git.cons.io/mighty-gerbils/gerbil/pulls/1509) sharpens the output
+boundary. Djot's native Scheme implementation parses blocks and inlines into
+typed AST nodes, then finalizes document references and sections; its quoted
+parse benchmark uses =gxc -O -exe= and disables source locations. Langcc's
+implementation report (https://arxiv.org/pdf/2209.08385) describes generated
+AST datatypes, a DFA lexer, and generated LR parsing as one frontend. These
+are different grammars and products, so their published parse times cannot
+rank our lossless =ParseArtifact= executor. The transferable design target is
+a Scheme-generated, grammar-specialized transition and semantic constructor,
+with the indexed/checkpoint/GLR engine as fallback. This is an algorithmic
+candidate, not a measured speedup.
+
+A smaller preparatory experiment used private vector state/value stacks for
+whole-source deterministic parsing and materialized an immutable checkpoint
+only at a fork. Six focused parser suites passed. In a rebuilt v0.19 package,
+the 512-line, 20-sample complete-artifact best CPU time was 1.253 ms with the
+vector path and 1.210 ms on the rebuilt baseline; the 3,200-term seven-sample
+bests were 7.116 ms and 7.283 ms respectively. The opposite-direction small
+differences and process variance do not justify the additional executor, so
+it was reverted. A direct identity reduction for one-operand =pass= rules
+also passed those suites, but its 512-line best (1.216 ms) matched the 1.210 ms
+baseline and its prepared 3,200-term LR best (3.584 ms) did not improve the
+previous 3.545 ms observation; it too was reverted. Neither experiment
+generated state-specific semantic code.
+
+The pure Scheme =t/benchmarks/arithmetic-scale/aot-benchmark.ss= now separates
+three native executable workloads on one preloaded source: directed complete
+=ParseArtifact=, source-to-recognition tree, and prepared-token recognition.
+It preflights recognition against the complete artifact, excludes process
+startup and input construction, collects CPU and elapsed time, and permits GC
+during each timed batch. With the repository's isolated =GERBIL_PATH= set,
+create its output directory with =mkdir -p .gerbil/benchmarks=, then
+build it as =gxc -O -exe -o .gerbil/benchmarks/gerbil-parser-aot-benchmark t/benchmarks/arithmetic-scale/aot-benchmark.ss= and run the executable with
+=1024 lines artifact 20 10=, =1024 lines source-recognition 20 10=, or
+=1024 lines recognition 20 10=. This 1,024-line arithmetic input (3,070
+source characters) is the primary baseline size for subsequent experiments. It
+matches Djot's build mode, but does not make the grammars equivalent.
+On this host, three independent 20-sample runs of ten parses per sample gave
+median CPU ranges of 3.442--3.562 ms per full artifact, 2.914--2.926 ms for
+source-to-recognition, and 1.736--1.768 ms for prepared-token recognition.
+The 3,200-term shape remains a secondary scale check; an earlier seven-sample
+run had medians of 9.868 ms and 7.760 ms for the first two modes. A prior
+same-protocol =gxi= run on 512 lines measured 0.838 ms for
+source-to-recognition, so native packaging alone is not an optimization claim.
+These numbers still use different inputs and AST contracts from Djot; they
+mainly establish a reproducible local gate for a generated semantic path.
+
+A first fused Scheme-code experiment now lives in
+=t/benchmarks/arithmetic-scale/generate-fused-lr.ss= and
+=fused-lr-benchmark-body.ss=. From the repository root, generate one standalone
+source (after =mkdir -p .gerbil/benchmarks=) with =gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss .gerbil/benchmarks/fused-lr-aot.ss=,
+compile it with =gxc -O -exe -o .gerbil/benchmarks/fused-lr-aot .gerbil/benchmarks/fused-lr-aot.ss=,
+then run =.gerbil/benchmarks/fused-lr-aot 1024 lines prepared 20 10= or substitute =source=
+or =artifact= for =prepared=. The generator consumes the compiled arithmetic Parser IR; it
+emits state-specific action selection, inlined reduction expressions, and goto
+branches as Scheme source. Field/alias constructors remain the shared semantic
+helpers. Every timed run preflights the generated recognition tree against the
+existing LR result and the complete directed =ParseArtifact= on 24 varied
+expressions plus the measured input. Strict mode rejects any fallthrough to the
+generic interpreter, so a claimed fast-path result cannot silently reparse.
+The executable alternates measurement order between samples, invokes GC before
+each batch, and reports CPU and elapsed time with input construction and
+process startup excluded.
+
+On this host, one final-source 20-sample, ten-parse batch measured 1,024-line
+prepared LR medians of 2.206 ms for indexed execution and 1.372 ms for the
+generated executor; source-to-recognition medians were 3.421 and 2.546 ms.
+The 3,200-term secondary scale measured 6.499 versus 3.618 ms prepared and
+7.169 versus 4.976 ms from source. Earlier repeated AOT runs of the same
+algorithm, including reversed measurement order, also favored generated
+execution, though absolute CPU medians varied with host load.
+
+The same generator now emits a streaming state driver as
+=src/compiler/arithmetic-drive.ss=. Its lexical-mode identities come from
+the prepared LR catalog; it requests one token under the current state mode,
+builds the same recognition values, and records shifts through the existing
+source driver's callback. =parser-machine= admits it only when its embedded
+grammar digest matches the machine. A missing action, fork, or invalid goto
+returns =fallback=, so the ordinary driver restarts with fresh scanner state
+and retains its diagnostic and selective-GLR behavior. The arithmetic v1
+production entry uses the generated driver for unobserved fresh parses;
+incremental and observed requests keep their existing executor. Run
+=gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss check src/compiler/arithmetic-drive.ss=
+to compare the checked-in output byte for byte with the current Scheme IR;
+native CI runs this check after building the package.
+
+The experimental streaming benchmark matched the complete directed artifact
+for 24 varied expressions, including Unicode identifiers, and both large
+input shapes without falling back. Three 20-sample AOT batches gave 1,024-line
+complete-artifact CPU medians of 3.412--3.476 ms for the indexed driver and
+2.532--2.599 ms for the generated driver; the 3,200-term ranges were
+10.257--10.594 ms and 7.363--7.589 ms. After integrating the driver, four
+alternating AOT runs of the old and new =parse-arithmetic= executables
+measured 3.224--3.260 versus 2.512--2.571 ms at 1,024 lines and
+9.377--9.535 versus 6.488--6.558 ms at 3,200 terms. The package's warm
+build measured 6.35 s on this host. The corresponding AOT benchmark executable
+grew from 22,416,616 to 22,738,832 bytes. These are matched host observations for
+one grammar, not a cross-grammar or Djot speed ranking. Generalizing the
+full-state emitter beyond arithmetic still requires semantic and build-size
+qualification.
+
+HCL v2.24 gives a second grammar with 133 LR states and 120 productions.
+Expanding the whole arithmetic-style state driver for HCL emitted 809 KB of
+Scheme and its C compilation was killed after more than three minutes. Moving
+one copy of each reduction into a helper reduced the output to 492 KB, but
+still exceeded a 30-second compilation limit. Generating only the semantic
+expression produced 14 KB and compiled in about 2 seconds; matched 1,024-line
+and 3,200-line complete-artifact CPU medians improved by only about 2--3%.
+That narrower candidate was reverted. These failed build and runtime gates
+rule out unbounded state expansion for HCL on this host.
+
+The admitted HCL slice instead generates a fused reduction step from the
+Scheme Parser IR: each production has static stack pops and semantic actions,
+then looks up its exact goto in the existing indexed table. LR action lookup,
+parser-directed lexical modes, diagnostics, and selective GLR remain with the
+existing runtime. The generated =src/compiler/hcl-reductions.ss= is about
+124 KiB; current native compiler receipts are recorded in the closure roadmap. The language module installs it
+only when its embedded grammar digest matches the compiled parser machine;
+the runtime exposes a benchmark override to run the same scanner and artifact
+path with indexed reductions. Run
+=gerbil env gxi scripts/generate-reductions.ss check :gerbil-parser/languages/hcl/grammar src/compiler/hcl-reductions.ss=
+to verify byte-for-byte regeneration; native CI runs this check.
+
+The repository-owned =step-benchmark.ss= preflights exact full
+=ParseArtifact= equality and alternates AOT timing order, with garbage
+collection before each batch and process startup outside the timed region.
+At 1,024 Basic lines (11,178 characters), 20 samples of 10 parses had CPU
+medians of 11.507 ms indexed versus 10.333 ms fused, with fused faster in 19
+of 20 pairs. At 3,200 lines, 12 samples of 5 parses measured 35.631 versus
+32.451 ms, with fused faster in all 12 pairs. The HCL official accepted
+corpus and the 1,024-line Basic source also assert exact indexed/generated
+artifact equality; the rejected corpus retains typed failure checks. These
+are matched observations on this host, not a cross-grammar speed ranking.
+
+The prepared action row now indexes ASCII single-character literals directly
+by character code. Multi-character and Unicode literals retain the existing
+list/table index; exact literal lookup still precedes case-folded literal and
+generic token-kind lookup. This targets repeated action selection across LR
+reductions without changing contextual token admission. On the same local
+3,200-term arithmetic input, the five-sample best prepared LR stage was 3.85
+ms in a repeated run after this action-row change, versus 5.00 ms in the
+previous run. The ISO GQL 100-query p95 sample was 50.964 ms against its 150 ms
+admission ceiling. These timings are host observations, not portable ratios.
+
+** Forward event construction after fused LR reductions
+
+The shared =src/runtime/artifact.ss= linearizer now appends events in source
+order with a tail cell. Its child dispatch reads the concrete token, node, or
+fragment offsets directly, computes a child's end only for a named field,
+and admits trivia once before emitting a token. This keeps the existing
+lossless event schema and source-order checks. It applies to all grammars;
+the arithmetic and HCL generated LR paths need no special artifact code.
+
+An AOT HCL experiment checked exact =ParseArtifact= equality before timing.
+With 20 alternating batches of 10 parses in one executable, the 1,024-line
+Basic source (11,178 characters) had median complete-parse CPU time 10.746
+ms for the committed event builder and 10.387 ms for the new builder (17/20
+paired wins). At 3,200 lines (37,290 characters), medians were 32.465 and
+30.903 ms (17/20 paired wins). A separate prebuilt recognition-tree
+experiment isolated event construction at 1,024 lines: 1.98 to 1.50 ms;
+at 3,200 lines: 5.72 to 4.21 ms. These local measurements use =gxc -O -exe=,
+exclude process startup and input construction, and include GC during parsing.
+The whole suite passed 49 modules with =HARNESS-OK= and final =OK=. The
+complete-parser gain is smaller because scanning and LR work remain.
+
+** Grammar IR recursive actions for HCL
+
+The larger fresh-parse cost was the sequence of grammar-wrapper reductions,
+not event list reversal. On the 1,024-line Basic HCL source, each line drove
+about 20 deterministic LR reductions; nullable branches and single-child
+aliases accounted for much of that sequence. A generic event-valued LR
+prototype built the exact same artifact but took 20.638 ms versus 10.258 ms
+for the previous full parser. Indexed actions reduced that candidate to 13.886
+ms, and generated event reductions to 13.672 ms. A guarded reduction-corridor
+prototype also kept exact artifacts but measured 11.038 ms versus 11.075 ms
+without the corridor in a same-process comparison. None removed enough
+semantic work to warrant integration.
+
+The first =src/compiler/recursive-source.ss= version compiled the
+HCL Grammar IR's sequence, choice, optional, repeat, field, alias, literal,
+token, and reference forms into Scheme recursive-descent functions. They
+constructed the existing recognition nodes and used the standard Scheme
+sequence helpers, then published through the lossless =ParseArtifact= builder.
+This follows langcc's generated recursive-descent action direction while
+retaining this repository's Scheme grammar and artifact contract. The generated
+=src/compiler/hcl-source.ss= is checked byte for byte against
+the current IR in native CI. It is installed only for the matching grammar
+digest and used for fresh unobserved HCL source requests. A non-admitted
+source returns to the existing parser-directed LR route, which owns rejection,
+diagnostics, checkpoints, and observed execution.
+The source generator lives beside the HCL grammar and is excluded from the
+runtime library build.
+
+The integrated AOT benchmark compared the previous fused LR source path and
+the public generated entry in one executable, with strict artifact equality
+before timing and 20 alternating batches of 10 parses. Median complete-artifact
+CPU time was 9.867 to 6.558 ms at 1,024 Basic lines (20/20 paired wins), and
+30.114 to 19.823 ms at 3,200 lines (20/20 wins). The generated path matched
+all 12 official accepted HCL specimens exactly; the three official rejected
+specimens returned to the typed LR failure path. A deterministic local
+differential probe compared 301 additional accepted mixed HCL sources against
+the prior LR path without an artifact mismatch. These are host and grammar
+specific observations; they neither rank Djot's different output contract nor
+establish a general recursive-descent compiler for every grammar.
+
+** Generated HCL event actions
+
+The next structural step removed the recognition tree from the fresh HCL path.
+The same Scheme Grammar IR now generates recursive functions that append token,
+field, and node descriptors to a mutable event list. Choice, optional, repeat,
+and sequence operations save a list-tail checkpoint and roll back on failure.
+Only after a complete accepted parse does =src/runtime/artifact.ss= assign
+canonical token/node IDs, interleave trivia, check token order, and build the
+unchanged =ParseArtifact=. Non-admitted sources still use the directed LR
+failure path. The byte-for-byte generator check remains in native CI.
+
+The generated event path matched the previous parser on the 1,024- and
+3,200-line Basic inputs, the HCL representative and 15 official specimens,
+empty input, Unicode source with multibyte offsets, and 500 deterministic
+mixed accepted cases. The local compiled-module comparison alternated 20
+batches of 10 complete parses and checked exact artifact equality before
+timing. At 1,024 lines the old and new medians were 7.492 and 6.482 ms CPU
+(18/20 paired wins); at 3,200 lines they were 24.376 and 20.389 ms CPU
+(20/20 wins). These are same-process measurements on this host; a matched
+standalone AOT result is a separate verification gate.
+
+Two narrower experiments were rejected: a mutable recognition-child stack
+improved complete parsing by only about 4-5% at both sizes, while FIRST-set
+choice guards improved 1,024 lines by about 2% and slightly slowed 3,200
+lines. Applying the recursive generator to HL7 kept exact artifacts on its
+standard and dynamic-separator examples but showed no stable gain on a
+128-segment message. Those prototypes were not installed.
+
+** HCL generated control flow at scale
+
+A subsequent prototype emitted canonical events during speculative recursive
+descent, with trivia, token/node IDs, and token order included in each rollback
+checkpoint. Its complete artifact matched at 1,024 Basic lines, but the
+20-batch CPU median regressed from 7.471 to 8.159 ms (4/20 paired wins), so
+it was rejected. Resolving raw events only after acceptance remains cheaper.
+
+The next generator change replaced the two-value =(position, success?)=
+protocol at every grammar expression with a single result: the next token
+position on success and =#f= on failure. The existing tail checkpoint and
+raw-event finalization remain unchanged. Exact complete artifacts matched
+the 1,024- and 3,200-line Basic inputs and the representative HCL specimen.
+Two repeated, alternating same-process 20-batch comparisons at 3,200 lines
+measured 21.074 to 17.556 ms and 21.935 to 17.930 ms CPU per parse, with
+20/20 paired wins in both runs. At 1,024 lines the two runs were near parity:
+6.021 to 5.945 ms (13/20 wins) and 6.008 to 6.163 ms (9/20 wins). Thus the
+local evidence supports a scale gain, not a 1,024-line gain. The generated
+module passes a byte-for-byte freshness check, the complete 49-module native
+test suite, and the lossless artifact checks. A matched standalone AOT result
+remains unverified for this slice.
+
+** Rollback flat event tape for the 1,024-line HCL Basic path
+
+The generated event-action parser previously allocated a pair and a named
+descriptor for each speculative raw event before building canonical events.
+An intermediate vector of descriptors preserved the named type, but improved
+1,024-line complete parsing by only about 1.5% after the concurrent HCL
+generator refactor. The admitted path stores =operation=, =name=, and byte
+offset in one request-local flat vector. Choice rollback restores an integer
+cursor. The single artifact authority in =src/runtime/artifact.ss= materializes
+only its accepted prefix. The named descriptor remains available for
+inspection. This follows the paper's allocation-oriented direction while
+retaining the exact full =ParseArtifact= contract. Initial capacity covers six
+raw events per lexed token, with geometric growth for denser expressions.
+
+Against the clean remote =9ceca64= head, separate-process 20-batch medians
+of 10 complete parses at 1,024 Basic lines were 5.607 ms CPU before and
+3.369 ms after; a second production run measured 3.084 ms. A same-process
+prototype comparison with exact artifact preflight measured 5.558 to 3.149
+ms, with 20/20 paired wins. At 3,200 lines the remote and production medians
+were 18.518 and 15.346 ms. These are local compiled-module results; the
+separate-process medians are not paired confidence intervals. The complete
+49-module native suite passed after the generator move. It covers the official
+accepted/rejected specimens, Unicode byte offsets, a 1,024-line indexed
+baseline comparison, and compact 128-line input that forces tape growth.
+Standalone AOT throughput and peak memory remain separate gates.
+
+Two predictive-branch prototypes were rejected for this slice. A proven
+second-token guard for HCL =body-item= and a disjoint first-token dispatch
+for =primary-expression= each improved the 1,024-line input by only about
+3% in local paired runs; neither was installed.
+
+** Generated HCL lexical subset before recursive actions
+
+An isolated phase measurement on 1,024 Basic lines put the existing ranked
+lexer near 1.34 ms CPU out of roughly 3.2 ms for a complete artifact. The
+HCL generator now emits a closed ASCII lexical path for identifiers, decimal
+integer runs, horizontal whitespace, newlines, and single = signs. It emits
+the same token representation and byte offsets directly. Decimal fractions
+or exponents, ==, Unicode, comments, strings, and every other unhandled
+character cause a return to the unchanged ranked lexer for the whole source.
+The generator checks the exact lexical declarations before emitting this
+specialization; grammar drift requires review rather than silently changing
+lexical precedence. The recursive parser and artifact materializer are the
+same on both sides of this comparison.
+
+The compiled-module lexer alone measured 1.345 to 0.256 ms CPU at 1,024
+Basic lines in 20 alternating batches of ten calls, with 20/20 paired wins.
+Using the exact previous PR-head generated parser and the new parser in one
+process, complete =ParseArtifact= medians were 3.331 to 2.110 ms CPU at
+1,024 lines and 15.611 to 9.108 ms at 3,200 lines; both had 20/20 paired
+wins and exact artifact preflight. The preflight artifacts and token lists
+were released before timed batches. This is an HCL Basic subset gain, not a
+general lexical DFA claim. A complex source that fails the fast path late
+can spend time scanning its prefix before restarting with the ranked lexer.
+The official HCL corpus and a fixed random token differential test are
+semantic gates. The lexical phase can be rerun with =gxc -O
+t/benchmarks/hcl-scale/lexical-subset-benchmark.ss= followed by =gerbil env
+gxi -e '(import
+:gerbil-parser/t/benchmarks/hcl-scale/lexical-subset-benchmark) (main
+"1024" "20" "10")'=. Standalone AOT and peak memory are not measured here.
+
+** Deterministic simple-attribute event corridor
+
+After the lexical specialization, a 1,024-line Basic profile attributed about
+0.25 ms CPU to lexing, 0.18 ms to token/byte/tape setup, 1.12 ms to generated
+grammar actions, and 0.50 ms to artifact finalization. The generated grammar
+actions attempted 49,159 raw event writes and 54,284 rollbacks to retain
+32,770 events. A full FIRST-set guard prototype kept exact artifacts but
+improved complete parsing only from 2.005 to 1.950 ms CPU (17/20 wins).
+Speculative canonical-event construction removed finalization but regressed
+from 2.068 to 5.025 ms; scalar checkpoints still measured 2.013 to 4.986
+ms. Neither prototype was installed.
+
+The admitted path instead recognizes a closed token sequence: top-level
+newlines and attributes containing an identifier, an equals sign, and one number, string,
+or identifier value.
+It emits the Grammar IR's fixed field/node event shape for each attribute,
+then uses the existing shared raw-tape artifact authority. A complete token
+preflight runs before any events are emitted, so a complex value near the end
+does not discard a large speculative tape. Other inputs use the unchanged
+generated recursive parser. The generator pins the grammar digest and fails
+closed when that event shape requires review after a grammar edit.
+
+In the checked-in pure Scheme benchmark, 20 alternating batches of ten
+complete =ParseArtifact= calls measured 2.019 to 1.154 ms CPU at 1,024 Basic
+lines and 9.159 to 6.236 ms at 3,200 lines, with 20/20 paired wins in both.
+Appending one complex tuple after 1,024 simple lines measured 3.454 to
+3.533 ms, a small fallback cost. Preflight artifacts are released before
+timing. Official HCL fixtures, 5,000 mixed differential inputs, and 1,000
+valid assignments varying strings, Unicode, CRLF, and comments matched the
+previous generated parser exactly. Run =gxc -O
+t/benchmarks/hcl-scale/simple-attribute-benchmark.ss= and then =gerbil env
+gxi -e '(import
+:gerbil-parser/t/benchmarks/hcl-scale/simple-attribute-benchmark) (main
+"1024" "20" "10")'=. These are same-process compiled-module results for a
+bounded HCL subset; standalone AOT and peak memory remain unmeasured.
+
+** Closed ASCII quoted-string scanner for HCL
+
+The generated HCL lexer previously restarted the ranked scanner for every
+quoted string, even when the source otherwise matched its closed ASCII
+subset. The new branch calls the shared =scan-quoted-string= primitive for
+escape and doubled-delimiter semantics, then emits the same =string= token and
+byte offsets as ranked scanning. It admits only ASCII characters. Unsupported
+or malformed strings still use ranked lexing for the entire source. The
+parser already needs UTF-8 source bytes for =ParseArtifact=; computing them
+before lexing lets it skip the generated scanner altogether when byte length
+differs from character length. This prevents a late Unicode character from
+forcing a second full lexical pass. The implementation is a closed generated
+scanner specialization, not a complete HCL lexical DFA.
+
+The checked-in pure Scheme benchmark alternates the ranked and generated
+lexer in one process, performs strict token and full =ParseArtifact= preflight,
+and times 20 batches of ten complete parses with a 1 GiB Gambit heap. For
+1,024 =keyN= assignments with ASCII quoted values, ranked and generated
+medians were 2.695 and 1.257 ms CPU, with 20/20 paired wins. At 3,200 lines
+they were 13.079 and 6.438 ms, also 20/20. With a Unicode value in the last
+of 1,024 lines, both paths used ranked fallback; medians were 2.292 versus
+2.377 ms CPU, with 8/20 wins for the generated path. The small residual cost
+is not a gain.
+Focused tests compare escaped, doubled, multiline, and seeded ASCII strings
+with ranked tokens and indexed full artifacts, and require Unicode and
+unterminated strings to fall back. Run =gxc -O
+t/benchmarks/hcl-scale/quoted-string-benchmark.ss=, then =gerbil env gxi -e
+'(import :gerbil-parser/t/benchmarks/hcl-scale/quoted-string-benchmark) (main
+"1024" "20" "10" "ascii")'=. These are compiled-module measurements, not
+standalone AOT throughput or peak-memory results.
+
+Two other paper-oriented candidates were rejected in this round. A closed
+block/attribute event corridor matched complete artifacts but improved
+1,024 block-rich lines by only 10-15%, while its 3,200-line results varied
+from about 1% to 12% across matched runs. Replacing canonical event-list
+construction with a preallocated vector regressed 1,024-line Basic parsing
+by 8.6%; replacing only the node-ID cons stack with a vector also regressed
+at that size. Neither change remains in the runtime.
+
+** Closed ASCII comment scanner for HCL
+
+The generated lexer now recognizes =#=, =//=, and =/* ... */= comments
+without restarting the ranked lexer for each comment. It calls the shared
+=scan-line-comment= and =scan-block-comment= primitives, preserving their
+terminator and newline rules, then checks that the scanned range is ASCII.
+Unsupported characters and unterminated block comments use the ranked path.
+The parser's existing UTF-8 byte-length guard also avoids a second lexical
+pass when Unicode appears late in the source. This is a bounded HCL lexer
+specialization; the ranked lexer remains the semantic reference.
+
+The checked-in pure Scheme benchmark first compares exact tokens and full
+=ParseArtifact= values. It then alternates ranked and generated complete
+parses in one process for 20 batches of ten parses, with a 1 GiB Gambit heap.
+For 1,024 commented assignments, median CPU time in milliseconds was
+5.334 to 1.602 for =#= (20/20 paired wins), 5.807 to 1.626 for =//=
+(20/20), and 6.006 to 1.477 for =/* ... */= (20/20). For 3,200 =#=
+assignments, the medians were 17.557 to 7.692 ms (20/20). A Unicode
+character in the final comment of 1,024 lines forces ranked fallback;
+medians were 6.073 and 5.843 ms (12/20), which is not evidence of a
+generated-path gain. Run =gxc -O
+t/benchmarks/hcl-scale/comment-benchmark.ss=, then =gerbil env gxi -e
+'(import :gerbil-parser/t/benchmarks/hcl-scale/comment-benchmark) (main
+"1024" "20" "10" "hash")'=. Focused tests cover all three comment forms,
+CRLF, Unicode and unclosed fallback, 128 seeded ASCII cases, and a 1,024-line
+indexed-artifact comparison. These are compiled-module results; standalone
+AOT throughput and peak memory remain unmeasured.
+
+** Closed ASCII fractional and exponent scanner for HCL
+
+The generated lexer had admitted integer digits but restarted ranked lexing
+for decimal fractions and exponents. It now keeps the one-character-at-a-time
+integer path and calls the shared =scan-number-literal= primitive only when
+the digit run is followed by =.=, =e=, or =E=. An ASCII range check and the
+existing UTF-8 byte-length guard preserve the ranked fallback for unsupported
+characters. The generated lexer still uses the ranked scanner as its token
+and full =ParseArtifact= reference; this adds no second number grammar.
+
+The checked-in pure Scheme benchmark performs exact token and artifact
+preflight, then alternates ranked and generated complete parses with a 1 GiB
+heap. At 1,024 assignments, 20 batches of ten parses gave CPU medians of
+2.610 to 1.264 ms for decimal values, 2.398 to 1.277 ms for exponents, and
+2.731 to 1.466 ms for mixed integers/decimals/exponents; each candidate won
+20/20 paired batches. At 3,200 decimal assignments, 20 batches of five parses
+gave 16.900 to 4.081 ms, also 20/20. The original 1,024-line integer Basic
+benchmark recorded 1.206 ms for the generated corridor before this change
+and 1.173 ms afterward in separate runs; it shows no observed regression,
+but those two medians are not a matched A/B test. Focused tests cover numeric
+boundaries, 128 seeded valid literals, and a 1,024-line indexed artifact.
+Run =gxc -O t/benchmarks/hcl-scale/number-benchmark.ss=, then =gerbil env
+gxi -e '(import :gerbil-parser/t/benchmarks/hcl-scale/number-benchmark)
+(main "1024" "20" "10" "decimal")'=. These are compiled-module results;
+standalone AOT throughput and peak memory remain unmeasured.
+
+** Committed canonical events for the HCL simple-attribute corridor
+
+The generated simple-attribute route previously wrote raw event triples to a
+request-local rollback tape and then read the tape again to allocate canonical
+events, node IDs, token IDs, and trivia. Once the closed shape is admitted,
+there is no speculative rollback. The generated route now emits the canonical
+events directly and asks the shared artifact authority to assemble the final
+value. The raw tape is allocated only when the general generated parser runs.
+The general path, including late complex syntax and rejection, continues to
+use rollback and the existing raw-tape materializer. Strict full
+=ParseArtifact= comparison against both raw-tape and indexed routes protects
+the specialized event topology.
+
+The checked-in pure Scheme benchmark alternates the old raw-tape and new
+canonical paths in one process after exact artifact preflight. For 1,024
+Basic lines, 20 batches of ten complete parses gave median CPU times 1.201
+and 0.952 ms (17/20 paired wins). For 3,200 lines the medians were 6.521
+and 5.658 ms (20/20). A 1,024-line source ending in a complex array uses
+the generic path on both sides; medians were 3.951 and 4.014 ms across ten
+batches of five parses (6/10 paired wins for the candidate). Run =gxc -O
+t/benchmarks/hcl-scale/canonical-event-benchmark.ss=, then =gerbil env gxi
+-e '(import
+:gerbil-parser/t/benchmarks/hcl-scale/canonical-event-benchmark)
+(main "1024" "20" "10" "basic")'=. Standalone AOT throughput and peak memory
+remain unmeasured.
+
+The parser tests now share the hygienic =check-accepted-parse= syntax from
+=src/testing/parser-ast.ss=. It evaluates source and candidate once, checks
+accepted artifact validity and exact roundtrip, then compares any independent
+parser routes. HCL and arithmetic tests use it; its own test exercises
+single evaluation and caller bindings with the same names as macro internals.
+
+** Closed flat-block event corridor
+
+The generated HCL module now recognizes an additional closed shape: root-level
+blocks with an identifier type, zero or more string or identifier labels, and
+a body containing only simple attributes and newlines. The fast lexer covers
+the braces in this shape. The generator emits the =HclFile=, =Block=, =Body=,
+repeated =label= fields, and attribute fields and nodes directly into the
+canonical event stream. Nested blocks, mixed root items, and other expressions
+retain the generated recursive fallback.
+The grammar digest and lexical declaration check still guard regeneration.
+The generated module remains below the 1,000-line native source-policy limit.
+
+The checked-in pure Scheme benchmark compares complete parses with the same
+fast lexer and alternates the generic and specialized order. It first checks
+exact ranked tokens and full =ParseArtifact= equality. After a clean default
+parallel build, 20 paired batches of ten parses gave median CPU times of
+1.240 versus 0.696 ms for 256 four-line blocks (1,024 lines; 19/20 paired
+wins), and 3.920 versus 2.213 ms for 800 blocks (3,200 lines; 20/20 wins).
+After a clean rebuild, extending this corridor to two labels per block gave
+1.412 versus 0.895 ms for 1,024 lines and 7.137 versus 2.945 ms for 3,200
+lines, with 19/20 paired wins at each scale. The original unlabeled 1,024-line
+path remained in the same range: 1.256 versus 0.713 ms, 20/20 paired wins.
+Run =gxc -O t/benchmarks/hcl-scale/flat-block-benchmark.ss=, then
+=gerbil env gxi -e '(import
+:gerbil-parser/t/benchmarks/hcl-scale/flat-block-benchmark)
+(main "256" "20" "10" "labeled")'=. These are compiled-module, in-process
+measurements on one host; standalone AOT and peak memory remain unmeasured.
+
+** Recursive closed-block generation
+
+The next candidate extended the block admission scan and canonical event
+emitter recursively through =Block → Body → Block=. Each body still accepts
+only newlines, simple attributes, and nested blocks; complex expressions and
+mixed top-level attributes fall back to the generated recursive parser. The
+recursive emitter carries the last child end into the enclosing =Body= close,
+preserving nested field ranges, trivia order, and token/node IDs. Exact full
+=ParseArtifact= comparison covers varied nesting and a 1,024-line fixture.
+
+The =nested= shape in the checked-in flat-block benchmark uses two labeled
+block levels and one simple attribute in each four-line group. Across 20
+paired batches of ten complete parses, 256 groups (1,024 lines) had generic
+and specialized median CPU times of 1.380 and 1.068 ms (19/20 paired wins);
+800 groups (3,200 lines) had 6.844 and 3.212 ms (20/20). These are
+compiled-module, in-process observations on one host after a clean default
+parallel build; standalone AOT and peak memory remain unmeasured. The
+unlabeled and labeled 1,024-line paths remained faster than generic parsing
+at 1.301 versus 0.725 ms and 1.589 versus 0.931 ms (20/20 paired wins each).
+
+A separate mixed-root prototype admitted alternating top-level attributes
+and blocks. Its exact artifact matched, but its 1,024-line medians were 1.493
+versus 1.508 ms and its 3,200-line medians were 7.104 versus 7.059 ms;
+paired wins were 11/20 and 10/20. It had no reproducible throughput gain and
+was reverted. The current closed corridor deliberately does not admit mixed
+roots.
+
+** Fixed canonical event template for admitted HCL attributes
+
+The generated closed-shape attribute path previously called node and field
+helpers for every nested event. Each helper checked the token stream for
+trivia even though admission fixes the nested topology and trivia can only
+precede the name, equals, and value tokens. The generated Scheme path now
+assigns the six node IDs in one step and emits the same canonical vectors in
+Grammar IR order, flushing trivia at those three token boundaries. Blocks
+and nested blocks use the same attribute template; unclosed or complex forms
+still enter the existing recursive fallback.
+
+A temporary same-process A/B switch compared complete =ParseArtifact= values
+for 1,024 Basic lines, spaces, comments, CRLF, Unicode, identifier values,
+blocks, nested blocks, and a complex-value fallback; all matched exactly.
+Alternating 20 batches of ten complete parses on one host gave median CPU
+milliseconds of 1.1394 to 0.9069 at 1,024 Basic lines (19/20 candidate
+wins), and 5.7036 to 5.1664 at 3,200 lines (20/20 wins). The switch and old
+emitter were removed after the comparison. The generated module remains under
+the 1,000-line source limit. These results measure full lossless artifacts in
+compiled Scheme modules, excluding import and executable build time. A
+standalone =gxc -O -exe= link did not complete within a 240-second local cap,
+so no standalone AOT throughput is claimed.
+
+* Proposed proof sequence
+
+1. Fix one immutable Scheme grammar and a corpus that exercises keywords versus
+   identifiers, precedence ties, trivia, Unicode byte offsets, errors, and
+   externally supplied scanner behavior. Record the exact PR head and run
+   current Scheme parse/roundtrip and compiler phase receipts. The existing
+   =t/benchmarks/parser-hot-path= and =t/scenarios/performance/lalr-fixed-point=
+   are starting gates; add a large input and one-edit scenario so small-input
+   overhead cannot hide scaling behavior.
+2. Use the Scheme canonical LR(1) reference and both compact routes to
+   qualify context-sensitive state splitting on representative grammars.
+   The direct k=1 route already avoids canonical state enumeration, but its
+   conservative candidate stage and forward refinement need scale checks.
+   Compare language acceptance, conflict cells, state count, generation time
+   and memory, then fresh-parse throughput and lossless artifact equivalence.
+   Keep the current LALR generator as the reference until these checks pass.
+   Do not treat XLR as implemented evidence.
+3. Prototype a Scheme-produced contextual lexical DFA for the closed, regular
+   subset of LexicalExpr. Derive admitted token sets from the existing interned
+   LR lexical modes. Keep the existing scanner path for expressions the DFA
+   cannot represent. Compare token identities, source ranges, tie decisions,
+   and rejection points exactly against the current compiler output.
+
+   The first prototype now precomputes the ASCII first transition for each
+   interned LR lexical mode. It filters closed primitive scanners by their
+   possible first character, then runs the existing scanners and ranked
+   longest-match selector; non-ASCII input and expressions without a proven
+   first-character condition retain the complete candidate set. This is a
+   contextual prefix dispatch, not yet a full lexical DFA. On the local
+   1,600-term arithmetic fixture, five-sample best lexical analysis measured
+   about 3.31 ms before and 0.78 ms after the change, in separate processes;
+   process variation limits the precision of that ratio. A clean v0.19 build,
+   language-surface Unicode byte offsets, parser-runtime, grammar-composition,
+   incremental, and ISO GQL throughput suites passed. The GQL suite's 100-query
+   p95 sample was 92.093 ms under its 150 ms admission ceiling.
+4. If the batch path improves representative workloads, add reusable subtree
+   boundaries to the Scheme IR and ParseArtifact path. A reused node must have
+   unchanged text, grammar identity, lexical context, and entering LR state.
+   Compare incremental output with a fresh parse for edits before, inside, and
+   after nested structures, including edits that change downstream lexical
+   context. Measure re-lexed bytes, LR actions, reused node counts, memory,
+   and elapsed time; timing alone cannot prove edit locality.
+5. Apply the same generated contract to the Rust product only after the
+   Scheme algorithm and semantic receipts pass. Rust is a downstream consumer
+   and conformance check, not the source of parser decisions.
+
+* Current verification limit
+
+This document records a research decision, experiment design, and bounded
+local throughput observations. =gerbil.pkg= directly pins =poo-flow-core= at
+=e85fd45303b208b23e5957fd316e7004994109a4= and
+=asp-gerbil-scheme= at its recorded revision. Core itself declares
+=gerbil-poo= as a transitive dependency. There is no declared =poo-flow=
+dependency. Core's declarative Observability testing Case macro runs the
+focused canonical/partitioned parser test against the real Core modules. The
+local =gxpkg update= built Core and its dependency, then its global =gxtags=
+pass included a pre-existing =.gerbil/pkg/poo-flow= symlink and failed. This
+is a local package-environment issue, not a parser dependency edge. The
+installed Gerbil is the pinned =2591dcd= v0.19 release on Gambit =dcd677c=.
+Its standard library provides =:std/encoding/base64=,
+=:std/string/utf8=, =:std/encoding/zlib=, and the queue, extensible-vector,
+and list-builder modules used by this experiment. It does not provide the
+older =:std/text/base64= or =:std/sort= paths. Current Scheme sources use
+the v0.19 paths; stale =.gerbil/lib= interfaces from an older toolchain still
+import the older paths. A separate temporary =GERBIL_PATH= was populated from
+the exact declared revisions, followed by =gerbil clean= and =gerbil build=.
+The canonical LR reference, generated arithmetic comparison, and grammar
+composition suites all pass there. The original =.gerbil= cache was not
+reused. The generated arithmetic module originally imported =deflanguage=
+through the broad =language-support= facade, which loads ANTLR4, ISO BNF,
+JavaCC, fixture, and runtime adapters. The source-admission implementations
+have been moved from =src/language-support/= to the top-level
+=language-support/=; versioned language modules import their owning macro
+module directly. In repeated warm v0.19 process launches,
+the facade itself took 3.0--3.3 s to import versus 2.4--2.5 s for the focused
+grammar macro module. Arithmetic module import fell from about 3.9 s to
+2.5--3.2 s. A small pre-change AOT executable importing the arithmetic module started
+in about 0.01 s after warmup; dynamic =gxi= import costs must not be reported
+as LR parse latency. Isolated v0.19 imports measured 1.89 s for
+=:core/types=, 1.99 s for =:core/observability/types=, and 2.63 s for
+=:core/observability/debug=. The parser continues to pass Core's declared
+Observability policy directly; any reduction of this import cost belongs in
+=poo-flow-core=, with its contract and tracing semantics preserved. A separate
+v0.19 import of =:clan/poo/mop= took 2.11 s, so most of the cold Core import
+time is inherited from the POO contract runtime. A Core-only change to
+ordinary phase functions cannot remove that mandatory load while preserving
+the same POO policy contract. The POO MOP imports its JSON adapter eagerly;
+importing v0.19 =:std/encoding/json= alone took 1.72 s. Keep Core's single
+declarative Observability entry and accept this dynamic-import cost rather
+than adding a second parser/Core facade. In one
+process, 1,000 LR parses of a prepared token stream
+took 30.5 ms total. These are one-host short-input observations, not a
+throughput improvement claim. Run the Rust syntax differential gates before
+promoting this optional route.
+Do not use =gxpkg uninstall= in this workspace.

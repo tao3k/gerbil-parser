@@ -1,0 +1,497 @@
+#+title: Scoped physical lowering execution
+
+* One construction contract
+
+This extension connects the derivational grammar semantics in
+[[file:../../../formal/ParserEngine/Lowering.lean][Lowering]], the recursive native-shaped producer in
+[[file:../../../formal/ParserEngine/LoweringTraversal.lean][LoweringTraversal]], and the retained LeanPoo construction described by
+[[file:construction-vocabulary.org][the construction vocabulary]]. It removes the former caller-materialization
+adapter. Physical row alignment is now a generated theorem for the supported
+protocol, rather than an input assumption or a finite corpus comparison.
+
+| Stage | Generated obligation | Implementation |
+|-------+----------------------+----------------|
+| Source admission | Complete root and recursive helper schemas equal extracted source | LoweringBranchSource, LoweringNamesSource |
+| Root storage | Execute actual initializer forms; allocate separate mutable cells and table identities; preserve prior storage | SchemeStorage, LoweringRootStorage |
+| Reservation | Actual recursive Scheme body simulates arbitrary finite reservation traces and preserves disjoint storage | LoweringReservationEvaluation |
+| Declaration authority | Source owners plus allocated bindings; reserved references cannot become declarations; zero-row helpers remain declared | LoweringDeclarationVocabulary, LoweringProtocol.input_allocated, input_undeclared |
+| Lexical module | Construct the allocation interface from every directly nested source procedure and initialized root bindings | LoweringRootScope |
+| Recursive dispatch | All branches compile to scoped code with exact logical erasure | LoweringProgram, LoweringProgramBuilder |
+| Fresh names | Recursive source evaluation generates complete allocation and cross-call histories | LoweringNames, LoweringFreshEvaluation, LoweringAllocationCalls |
+| Mutable storage | Occupied names retain their meanings across subsequent claims | LoweringNameStore |
+| Lexical references | Captured operands preserve their physical names across scope extension | LoweringScope |
+| Call/return | Every lower-to call returns before its caller continuation; frames balance | LoweringCallStack |
+| Physical emission | Final packets derive complete RealizedRows and origin admission | LoweringProgram.physical_realized, LoweringProtocol.generated_origin |
+| Construction | Complete physical input check retains the original dependent LeanPoo product | LoweringProtocol.construct, complete |
+
+The paper target is still grammar derivation, not just equality of event lists.
+=declarations_language_sound= composes origin admission with the paper semantics.
+Recognition erasure alone does not prove AST semantics or language completeness.
+
+* Names, scopes and actual invocation boundaries
+
+The source has one mutable candidate counter and an occupied-name set. The
+model searches candidates in exactly increasing counter order. For an injective
+candidate encoding, at most =used.length + 1= probes are needed to find a free
+name. The bound is derived from occupancy; it is not a runtime timeout or
+user-supplied fuel. =search_trace= generates all retries and the final claim.
+
+Authored names and references are reserved before recursive execution. Physical
+handles carry their logical meaning. Store extension preserves every existing
+handle, including outer operands captured before an inner helper allocation.
+Two different names may decode to the same expression; the model never replaces
+per-occurrence names with one global expression-to-name map.
+
+Lexical binding lifetime and the native lower-to invocation are distinct.
+The CPS compiler retains a helper reference while constructing the caller's
+remaining operands. That lexical lifetime must not extend the recorded callee
+execution across the caller continuation. Separate =bind= and =call=
+instructions enforce this: allocation extends scope; =call= emits enter, body,
+return, then caller continuation. Every execution generates a balanced-frame
+proof for any starting stack. Empty choices still allocate a helper even when
+they emit no production, so allocation cannot be reconstructed from rows alone.
+
+The compiler covers arbitrary finite syntax depth, n-ary width and declaration
+lists. Its termination measure combines structural size with dispatch phases,
+including unisolated loops passing through isolated helpers. This closes the
+scoped compiler's recursive paths without assuming a finite observed trace.
+
+* Proof-directed implementation audit
+
+The model is a way to find violated implementation obligations, not a second
+parser whose agreement on examples is called a proof. Each admitted source
+fragment needs operational semantics, an invariant, a counterexample search and
+an executable regression against the real parser. The original retained
+LeanPoo construction product remains the shared consumer; adding a separate
+certified wrapper around the same unchecked source would not close a gap.
+
+| Obligation from the unified contract | Native audit result | Evidence and remaining work |
+|-------------------------------------+---------------------+-----------------------------|
+| Keep every authored declaration for a shared lhs | Nullable diagnostic indexing overwrote earlier declarations | Fixed; operational table evaluation and complete bucket theorem cover arbitrary lists |
+| Preserve candidate counter and occupied-name state | Source increments the counter before claim; strong per-assignment refinement is false | Source fresh/claim recursion now simulates one completed allocation, including arbitrary collision prefixes |
+| Preserve captured operands across recursive calls | Captured variables must denote shared cells, not copied values | Closure and recursive-call evaluation plus arbitrary allocation-call composition are proved; lower-to dispatch integration remains open |
+| Publish rows, recipes and callbacks in one order | Shared publication protocol checks complete retained output | Arbitrary native observer and exceptional execution remain outside the normal-return theorem |
+
+** Discovered declaration-loss defect
+
+Lowering preserves repeated authored declarations for one nonterminal. The
+nullable fixed point therefore sees all alternatives. The native diagnostic
+witness previously used a scalar table entry and replaced every earlier body
+with the last body. For =item -> empty= followed by =item -> "x"=, repetition is
+correctly rejected, but its nullable reference path becomes false. A nullable
+exit beside a cyclic duplicate can disappear in the same way. This defect
+concerns diagnostic completeness; it is not evidence of incorrect acceptance.
+
+The new =rule-index-by-lhs= keeps every body in source order. Witness traversal
+expands all nullable declarations once per referenced name, retaining the
+existing BFS and cycle guard. The nullable fixed point remains authoritative.
+The macro regression reproduces the old missing-path failure, then passes both
+declaration orders and cyclic siblings against the corrected implementation.
+
+** Operational proof and its limits
+
+[[file:../../../formal/ParserEngine/SchemeTableEvaluation.lean][SchemeTableEvaluation]] evaluates actual source Datum expressions, lexical
+bindings, primitive arguments, sequences, lambda bodies in for-each and table
+reads/writes. Its rules do not turn source equality into an invocation of a
+separate index algorithm. [[file:../../../formal/ParserEngine/SchemeEvaluationDeterminism.lean][The mutual determinism proof]] quantifies over all
+returning evaluations of this supported fragment.
+
+[[file:../../../formal/ParserEngine/RuleIndexSource.lean][RuleIndexSource.simulate]] connects the extracted native loop to that relation.
+The complete theorem proves exact original order and multiplicity for arbitrary
+rule lists, plus preservation of every other physical table. The overwrite
+counterexample explains why the old scalar representation cannot meet the
+contract. No finite corpus, successful source digest or supplied row-alignment
+premise replaces these theorems.
+
+Fresh-table allocation and primitive behavior have explicit semantic contracts;
+constructing and passing the correct initial table and cells remains a parser
+source obligation. The reader, compiler and collector are external. Faithful,
+injective native symbol
+to model-key transport is a separate parser representation obligation; it must
+not be silently declared a proved host property. Source payloads must also stay
+stable during traversal. The theorem starts after allocation with
+the captured table and rule-list environment. It does not certify arbitrary
+closures, the complete lowering dispatcher, all diagnostic BFS behavior or exact
+source locations for duplicate declarations sharing one owner metadata entry.
+Those obligations remain in the unified chain rather than being declared solved.
+
+** Captured cells and complete allocation calls
+
+The operational evaluator now represents lexical environments separately from
+mutable heap cells. Closures capture environments containing cell addresses;
+every invocation reads those cells from the current heap. Mutually recursive
+procedure groups and named-let calls retain the same captured scope. Arguments
+and sequences thread heap effects in order. Primitive application requires an
+unshadowed global; it cannot bypass a locally bound procedure of the same name.
+Optional missing arguments currently support literal defaults only.
+
+[[file:../../../formal/ParserEngine/SchemeCells.lean][SchemeCells]] proves arbitrary shared-counter calls and lexical scope, and
+rejects the proposed strong simulation: with no occupied names, the source
+counter-increment state cannot be a completed =Names.Trace= transition. This is
+a defect in that proposed correspondence, not evidence of a parser acceptance
+bug. Changing source mutation order merely to fit that model is unjustified.
+
+[[file:../../../formal/ParserEngine/LoweringClaimEvaluation.lean][LoweringClaimEvaluation]] and [[file:../../../formal/ParserEngine/LoweringFreshEvaluation.lean][LoweringFreshEvaluation]] extract the actual fresh
+and claim declarations into procedures. Operational derivations execute their
+real bodies, including the captured counter assignment, occupied/free branches,
+recursive loop call and return. =fresh_unique= covers every returning evaluation
+of the supported fragment. =allocation_simulation= derives the abstract history
+at complete-allocation boundaries, with all intervening collisions included.
+
+[[file:../../../formal/ParserEngine/LoweringAllocationCalls.lean][LoweringAllocationCalls.source_history]] composes arbitrary request sequences
+over the same physical heap. It generates both the source evaluations and one
+abstract history. =source_unique= derives global helper uniqueness and reserved
+name exclusion, including repeated owners. Counter/table projections are
+preserved after every return; =committed_frame= proves every other location is
+unchanged. These properties come from the grammar's name-separation obligation,
+not equality with a second allocator on a finite input corpus.
+=every_return= uses call-sequence determinism to extend that generated history
+to every returning operational execution of the sequence.
+
+The allocation interface now accepts the real lexical module. It no longer
+replaces that module with a separate two-procedure environment. The original
+retained LeanPoo construction remains authoritative; no parallel certificate or
+unchecked factory wrapper is introduced.
+
+** Root storage, module capture and name encoding
+
+[[file:../../../formal/ParserEngine/SchemeStorage.lean][SchemeStorage]] gives the initializer fragment allocation semantics with an
+owned frontier. That frontier denotes fresh logical identities, not physical GC
+addresses or a memory-capacity estimate. Each table consumes its own identity,
+even though its initial entry map is empty. Assigned variables receive mutable
+cells; immutable bindings retain their initialized values.
+
+[[file:../../../formal/ParserEngine/LoweringRootStorage.lean][LoweringRootStorage.source_entry]] executes the initializer list extracted from
+the actual root declaration. Conservative mutation collection ignores quoted
+data and includes nested procedures. For any prior heap satisfying the fresh
+frontier contract, it generates three distinct mutable cells and two distinct
+tables. The initial values, empty table contents and preservation of every
+previously owned location are kernel theorems. Root setup is no longer an
+independently supplied parser premise.
+
+[[file:../../../formal/ParserEngine/LoweringRootScope.lean][LoweringRootScope]] extracts every directly nested procedure, preserving the
+emitter, recursive dispatcher and proof helpers. It constructs the generic
+allocation scope using the real root environment. Primitive behavior remains a
+host interface; actual counter/table bindings and procedure lookup are proved
+from source. =root_allocations= composes arbitrary allocation calls in that
+complete module immediately after initialization. Reservation-prefix execution
+and deriving the call sequence from the dispatcher remain parser obligations;
+the theorem does not pretend those prefix effects have already occurred.
+
+[[file:../../../formal/ParserEngine/SchemeNameEncoding.lean][SchemeNameEncoding]] executes the extracted =name-id= loop using named-let,
+ordered cond tests and recursive calls. For every successful directory lookup,
+every returning evaluation has the same ordinal and unchanged heap. The proof
+uses the existing =ConstructionEncoding.lookup= and its identity-preservation
+theorem, including duplicate directory entries and nonzero loop indices.
+The directory domain is canonical interned source symbols. Native controls show
+that two distinct uninterned symbols may print identically while receiving
+different ordinals; the source renderer rejects such symbols rather than
+silently transporting their printed text as identity. Decimal candidate
+injectivity and broader native symbol transport still need their own proofs.
+
+** Discovered zero-row helper and vocabulary gap
+
+The grammar =start -> choice(sequence(choice()), literal("x"))= allocates a
+helper for the empty choice. That helper denotes the empty language and has no
+lhs production. The scoped lowering model already permits this trajectory;
+its allocation history cannot be reconstructed from emitted rows.
+
+The real witness producer nevertheless built its name directory from authored
+names, source references and production lhs values. It then attempted to encode
+the separately observed helper binding, raising =missing grammar name= for
+=$start.0=. The fix interns every observed binding as well as every row owner.
+The new native fixture retains the allocation even when no helper row exists;
+the complete origin/recipe comparison now covers 24 generated fixtures.
+
+The paper-level CFG has a nonterminal vocabulary N and productions P. In
+general N is not equal to lhs(P): an empty-language nonterminal may have no
+productions. Closure over that nonterminal predicts an empty set; it does not
+make the nonterminal undeclared. This distinction supplies the implementation
+contract rather than treating the failing fixture as a special case.
+
+The engine now publishes =declarations= separately from production rows.
+=lower-grammar= collects authored owners, allocated helpers and the augmented
+owner. Its helper sink runs before recursive lowering, including empty choices;
+it does not enable diagnostic proof recipe generation. References reserve names
+for collision avoidance but do not declare them. All production lhs values and
+nonterminal operands must belong to this directory. Scheme preparation, fused
+reductions and Rust emission consume the same canonical metadata.
+
+The first complete-parser regression exposed a second occurrence of the same
+defect: table admission constructed goto vocabulary from lhs values only. Table
+keys now use all nonterminal occurrences in admitted productions, including
+RHS-only names. This represented table vocabulary is distinct from declaration
+authority: canonical production admission must succeed first. The arbitrary-list
+=goto_key_exact= theorem and extracted vocabulary schema use the same distinction.
+
+The retained LeanPoo construction input carries the declaration directory.
+The complete scoped producer derives its directory from source owners and its
+allocation history, rather than trusting a caller-supplied directory.
+=input_allocated= proves that every allocated binding is declared regardless of
+its row count. =input_undeclared= proves that a reserved, unauthored reference
+cannot be captured and promoted by arbitrary subsequent helper allocation.
+=ConstructionGrammar.undeclared_rejected= retains rejection for arbitrary
+unknown operands, and =declared_operand= does not require any lhs row.
+
+A source run also exposed a cache dependency: unchanged generator identity
+reused parser artifacts without the new directory. The existing shared
+=compiler-generator-metadata= now records
+=(nonterminal-vocabulary . declarations)=. Both compiler cache layers therefore
+invalidate together. No schema identity, namespace or filename was renumbered.
+
+** Recursive reservation evaluation
+
+[[file:../../../formal/ParserEngine/LoweringReservationEvaluation.lean][LoweringReservationEvaluation]]
+executes the extracted =reserve-references= body using the source evaluator.
+The evaluator now includes quoted interned symbols, =when= and recursive
+procedure traversal. Its generic determinism proof covers these rules as well.
+The source theorem covers arbitrary finite recursive trees, repeated names and
+nonempty initial heaps; the actual root module supplies its recursive group and
+used-name table identity. A frame theorem preserves every disjoint table or
+cell. Source data exclude internal mutable-cell handles, which belong to the
+evaluator's environment representation rather than the grammar datum domain.
+
+The joint preprocessing theorem now executes root reservation, authored owner
+writes, repeated-owner occurrence counts and recursive reference walks in source
+order. Its heap trace retains both actual table identities and frames disjoint
+emitter storage. The extracted root supplies the lexical recursive group and
+argument bindings; evaluating that declaration group and composing the whole
+dispatcher with emission remain open. A supplied normal-return trace is still
+required; this theorem does not prove totality of arbitrary Scheme programs.
+
+* Source correspondence and remaining proof obligations
+
+The source-data macro extracts the complete =lower-rules= definition, not only
+the shared emitter. Independent schemas include reserve prepasses, fresh and
+claim mutations, recursive dispatch, recipes, declaration order and finalizer.
+The source gate rejects any different root. This prevents unnoticed changes to
+admitted source control order, but schema equality is not a general evaluator
+adequacy theorem.
+
+The following boundary remains explicit:
+
+- The physical interpreter denotes the restricted normal-return source protocol.
+  Table indexing and recursive allocation now have operational simulations.
+  The complete dispatcher, reservation prefix and emitter still need their
+  joint simulation into that interpreter. These are parser source-refinement
+  obligations, not assumed host theorems. Closure allocation proofs do not
+  discharge the dispatch-to-request edge. Directory lookup now has a source
+  simulation; native symbol transport and candidate encoding remain explicit.
+- Native symbol/text normalization must preserve the reserved vocabulary and
+  injective candidate encoding. The complete raw physical CFG is checked
+  against generated emissions before the retained construction is admitted.
+- The source can reject dynamic precedence and malformed DSL inputs. Arbitrary
+  exceptional exits, mutating observers and continuation reentry are outside
+  this normal-return proof. Existing publication failure proofs remain separate.
+- Actions, field/alias labels, layout capabilities and precedence policy require
+  their semantic/request correspondence beyond recognition erasure.
+- Primitive allocation, storage, arithmetic, symbol identity, compiler and GC
+  behavior are external contracts. Gambit and the installed SDK are neither
+  modified nor built.
+
+Thus universal scoped generation is proved; arbitrary actual Scheme evaluation
+and whole-engine model closure are not claimed. Local parser performance
+optimization remains gated on the remaining model obligations.
+
+* Qualification
+
+The shared =parser-source-data= renderer retains 24 native origin/recipe
+comparisons and extracts the complete source schema. Scheme controls use the
+existing =deflanguage-parser-tests= and =defparser-check= macros. The new
+collision matrix covers authored and reference-only reserved names, distinct
+helpers for identical bodies, augmentation collisions and dense publication.
+
+Lean's kernel checks generic generation, erasure, allocation, stability, stack
+and admission theorems. Concrete stack controls additionally check exact rows,
+return order and counters. Two generated-program regression controls execute
+with =#eval= and fail on an unexpected physical list; they are tests, not
+kernel-derived equality theorems. No =native_decide=, custom axiom or unsafe
+reducibility option is introduced.
+
+The earlier macOS preparation failure stopped inside GCC's single giant
+=clan/poo/type= host function before static-library readiness. Owned static
+objects now use per-procedure C hosts and record their compiler-option identity.
+GCC optimization and the installed SDK's tail-call contract remain in force.
+The offending object completed locally in 4.02 seconds under the original
+five-second idle watchdog. This one-object result is not full remote CI proof.
+
+The complete Lean package passes 216 build jobs. The axiom audit reports only
+standard Lean logical axioms. Six Scheme owners pass 101 macro-owned cases
+with four workers and natural exit zero in 57.73 seconds, within the unchanged
+90-second total and five-second idle watchdogs. The source generator check
+passes, and all 19 existing evidence-admission controls pass. These are local
+correctness receipts, not a CPU comparison or exact-new-head remote CI result.
+
+At the next current commit, both preparation jobs failed before native linking:
+the conformance catalog omitted the newly imported source-reader module and
+its prediction-recorder dependency. The catalog now prepares that dependency
+chain before the lowering generator. The regression checks the actual catalog
+order; a warm local import is not evidence of a complete clean build closure.
+
+The extended package passes 220 Lean build jobs and all 19 evidence-admission
+controls. A fresh helper namespace, with no cached fixture interfaces, compiles
+the actual three-module dependency chain in 13.96 seconds under the original
+watchdogs. The native missing-path regression passes both directed matrices.
+
+A broader local run subsequently returned signal 139 inside a compiled parser
+importer. Interface and optimization metadata had different source ages; both
+producer and importer were regenerated together. The following broad run hit
+its unchanged 90-second total fence during module preparation, before tests.
+These remain negative receipts, not passed qualification or a proved root cause.
+A separate library-load check reached its final module-import marker, then hit
+the idle fence during ordinary process teardown. This does not qualify cleanup
+or establish the cause of the earlier signal. The two changed owners pass five
+cases in 15.34 seconds, and the five existing semantic owners pass 100 cases in
+19.82 seconds. Both isolated runs retain the same watchdogs.
+
+The final seven-owner combination passes all 105 cases with four workers in
+19.54 seconds and natural exit zero. The original 90-second total and five-second
+idle fences remain unchanged. Earlier signal and timeout receipts are retained;
+this successful confirmation does not prove their unique cause. No Gambit source,
+compiler binary or SDK library was changed or rebuilt.
+
+The current-head preparation failures on both platforms have the same concrete
+cause: =t/nullable-origin-test= was compiled but absent from the unified entry's
+imports and suite list. Both entry declarations are now present. A macro-owned
+catalog regression checks every compiled test owner's entry import, preventing
+this class of omission before native linking. This is a plan-consistency repair,
+not a watchdog change or a diagnosis of an older import timeout.
+
+The extended seven-owner run passes 107 cases with four workers, natural exit
+zero and unchanged watchdogs in 34.27 seconds. An earlier attempt with a new
+test-parenthesis error failed during preparation; it is retained as a failed
+receipt. These are correctness controls, not performance measurements. The
+source closure matrix exercises nonzero counters, collision runs, two closures
+sharing a cell, a caller's shadowing binding and independent request state.
+The complete Lean package passes 224 build jobs, including the new explicit
+axiom audit; all reported dependencies are standard Lean logical axioms. The
+19 evidence-admission controls pass. The existing repository test-plan control
+and unchanged lowering source generator check both exit naturally with zero.
+
+At the following current commit, both preparation jobs pass, while both native
+semantics jobs expose an ownership error: the source-evaluation index Suite was
+sent to the compiled runner without a live Gerbil expander. Its raw evaluation
+rejects Gerbil's binding syntax. The existing =source-suites= mechanism now owns
+that Suite; native nullable diagnostics remain in the compiled entry. The
+repository plan check and a macro regression verify the split without dropping
+assertions or executing a Suite twice.
+
+The extended working-tree qualification passes 228 Lean build jobs and 113
+macro-owned cases across seven owners, with four workers and natural exit zero
+in 44.19 seconds. The 19 evidence-admission controls pass. The failing zero-row
+helper serialization receipt is retained separately from the corrected
+generation. No parser watchdog, proof resource limit or SDK component changed.
+
+** Declaration-contract qualification boundary
+
+The changed source schemas and reader data are generated through the existing
+Scheme source-data macros. The original zero-row missing-name and canonical
+rejection receipts remain historical negative evidence. Current controls must
+accept declared empty languages through complete parsing while rejecting
+unknown references, removed directories and attempts to capture reserved names.
+Quint exercises admission protocol transitions; Lean proves arbitrary histories.
+Neither is a substitute for current-source Scheme execution or exact-head CI.
+
+Local optimized project compilation initially failed under the unchanged
+90-second total and five-second idle limits. Real Scheme/C intermediate files
+were produced; the compiler-product observer previously ignored those formats.
+It now recognizes changed nonempty intermediate files, with controls for cached
+files, repeated observations and ordinary log files. Enabling actual installed
+GSC/GCC phase diagnostics then qualified the eight changed project modules in
+46.76 seconds with natural exit zero and unchanged compiler optimization flags.
+The earlier failed routes remain negative evidence. No Gambit or SDK build was
+performed.
+
+The focused native-engine/source-Suite run passes eight owners and 144 cases,
+including complete parsing, Rust generation, removed-directory rejection,
+source publication replay and output observation. The four existing Scheme
+backend generators were run and their exact-currentness checks pass. Backend
+identity changes are not silently accepted: the retained reviewed HCL artifact
+and the new artifact have verified content identities, and an actual Scheme
+comparison proves their complete IR differs only by the declaration directory.
+Their identities are respectively
+=sha256:7fa44a0c1fccad8bfc8c10096afd4b11fd7d945dacb88ebc79f494afee851648=
+and =sha256:fcfa996f3d859f99e2e9a1c626acd5eb9c2de5ad308ab83db248b67e5dd1efeb=.
+The reviewed recursive-source capability now reads its guard from the existing
+=compiler-generator-metadata= entry in =src/schema.ss=. The lexical contract and
+exact-parser identity guards remain mandatory; generated files are regenerated
+through their original generators, not patched by digest substitution.
+
+The unified Lean graph contains 231 successful jobs, including the joint
+preprocessing theorem and its axiom audit. Quint passes thirteen admission
+controls and 1000 bounded invariant traces. These protocol checks do not close
+the remaining declaration-group and full Scheme-dispatch obligations listed
+above. No parser CPU improvement is claimed.
+
+The additional source-prefix regression uses the existing parser-test macros.
+Its owner passes ten cases through the repository's standard dependency
+preloader in 81.43 seconds with natural exit zero. Both the 90-second total and
+five-second idle limits remain unchanged. The earlier temporary source runner
+disabled dependency preloading and timed out; that route is not accepted as
+evidence against the standard runner. A full local package build also reached
+the total fence and remains unqualified. This is a different preparation scope
+from the focused eight-module compile above. Other workspaces were compiling
+concurrently, so these elapsed times establish budget compliance only, not a
+performance comparison or a complete diagnosis of the package-build timeout.
+
+Two original Rust generators now complete through the standard preloader in
+42.53 and 52.43 seconds with the same limits. Broader regeneration is not yet
+qualified: the module-framing route reports a missing declaration directory
+while loading the native TLA+ core grammar, and the contextual route rejects
+another retained native artifact. The TLA+ intermediate source was regenerated
+while its latest native object predates the directory change. Interrupted
+package preparation therefore left a mixed generation of interfaces,
+intermediate sources and native objects. These failures require coherent
+product regeneration; neither a compatibility fallback nor a larger timeout
+admits those old artifacts. The structured-lexical route also retains a
+separate idle-timeout receipt. Successful parent-commit CI does not qualify
+these uncommitted local products.
+
+A focused repair regenerated three grammar owners and the structured lexical
+fixture in 36.23 seconds with natural exit zero. Subsequent checks exposed more
+old dependent products: the TLA+ layout grammar, the arithmetic backend's
+embedded digest guard, and the compiled qualification observer. The artifact
+owner independently passes twenty cases, but the combined run fails because
+that old observer does not recognize the new C-output control. This is not a
+passing receipt for the combined run. Pure Rust runtime tests pass 146 cases.
+
+The remaining dependent-product repair stops after 24.59 seconds at the
+five-second idle fence during GCC assembly of the arithmetic backend. Its
+generated C unit is 2,436,679 bytes. A diagnostic retaining actual GCC assembly
+files also stops at the same fence after 32.11 seconds: the assembly file grows
+to 648 bytes and then supplies no further observed progress before termination.
+That experiment does not establish a fix; assembly observation is not added to
+the production observer. Neither timeout reached the 90-second total fence.
+The outstanding gate is coherent native backend preparation under the existing
+limits, not a qualified parser-request regression or permission to widen them.
+
+Subsequent action-code sharing qualifies the isolated cold arithmetic backend
+in 16.07 seconds. Later complete native-cold library builds qualify in 95.73
+and 70.23 seconds with the unchanged five-second idle fence and the authorized
+180-second total budget. These observations retain immutable grammar caches;
+they do not establish complete-parser CPU improvement. See
+[[file:native-product-publication.org][compiler granularity and complete native product publication]] for the generic
+sharing proof, macro controls, transport contract and retained full-build
+failures. Partial native products are never admitted as a complete generation;
+successful full builds publish a source-bound product manifest. The full
+recursive Scheme-evaluation correspondence remains a separate open obligation.
+
+* Declaration callback composition
+
+[[file:lowering-declaration-callbacks.org][Declaration callbacks]] now have explicit ordered events, arbitrary-call-tree
+completeness and uniqueness, and actual captured-cell Scheme collector
+evaluation. The constructor consumes the event stream instead of reconstructing
+its order from the reversed allocation store. The full native dispatcher
+simulation remains a distinct parser obligation; this is not global closure.
+
+* Scheme dispatcher composition
+
+[[file:lowering-scheme-dispatch.org][Scheme dispatch]] supplies actual case evaluation, stateful operand-map
+composition, concrete tag encoding and root/local-closure entry laws. It also
+lists the remaining recursive branch obligations explicitly.
+[[file:lowering-emitter-source.org][Shared-heap source emission]] now derives the real unobserved constructor,
+captured local/root emitter chain, arbitrary returning emission histories and
+mixed allocation/declaration traces. Generating those traces from complete
+recursive Scheme dispatch remains open.
+The retained LeanPoo constructor remains the same consumer; global source
+simulation closure is not inferred from branch selection or finite tests.

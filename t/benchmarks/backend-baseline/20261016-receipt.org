@@ -1,0 +1,64 @@
+#+title: Matched arithmetic backend baseline, 2026-10-16
+
+* Identity and admission
+
+Parser source: =04e2cdbbe64a3eb2d15ea6a491b0741624d7fb8f= plus the
+baseline-only sources in this commit. Runtime code is unchanged.
+Bridge IR Git dependency: =2c82b845c141ce68147cf74cb5a4ec680c6ffb07=.
+This dependency does not link the bridge host runtime into the Rust sample.
+Host: macOS 26.6.1 (25G76), arm64, 12 logical CPUs.
+Rust: 1.95.0 (59807616e 2026-04-14), optimized Cargo bench profile.
+SDK: installed Gerbil 1cfb032 / Gambit ea114fc, unchanged.
+
+All six processes completed twenty batches. For each load, Rust ran first,
+then Scheme; loads ran in ascending order, without overlapping processes or
+compiler jobs. This order is recorded, not randomized. One host session is
+a baseline, not repeatable cross-session regression or optimization evidence.
+Every request roundtrips exactly; all sixty paired grammar/corpus/boundary
+checks pass through =just report-backend-baseline .data/backend-baseline=.
+The report ends with =MATCHED-BASELINE-REPORT-OK=.
+Numerical results and metric boundaries are in the root README and protocol.
+No Org, Fold, FFI, Python, Tokio, SMP or multi-VM performance is admitted.
+
+* Durable local artifacts
+
+Root: =/Users/guangtao/.codex/worktrees/parser-abi-fixture-20261016/gerbil-parser/.data/backend-baseline=.
+The files are retained there; hashes below do not replace their raw contents.
+Do not overwrite these receipts on rerun. RSS sidecars include platform time
+output and exit status. Input preparation, corpus hashing, warmup and percentile
+sorting are outside the per-batch wall but inside process peak RSS.
+
+| File | SHA256 |
+|------+--------|
+| rust-aot-1000.ss | 6b31f4ad49ed7cc941868292706c217dc054be72c99b0f2b33b3b96af000d8fc |
+| rust-aot-10000.ss | 2d6e97f10d494e567e19d6484baa605df896e50466bfc11d882af20303c45775 |
+| rust-aot-100000.ss | bae1a36b6524e1eea6f7e216a9a21e348b0ad4e9f3cac9c99c60f47ce48ee159 |
+| scheme-vm-1000.ss | 85cbc3a7f5248fd996dd931ba8b3731cab15e255cc73580251275edb8b878fcf |
+| scheme-vm-10000.ss | 9ec167e9a135c92dd94c65dfdb0376b1ed21de510d6a2f24fb8bff9748e5e41e |
+| scheme-vm-100000.ss | a52e879a588cc18ff65aefb34143fcb1a81da75be1ada4e177db3b776d57f476 |
+| rust-aot-1000.ss.resources | 58b923ec53f8bae48ec33c385f432da7108b347972ae8163054ae7aa68965b86 |
+| rust-aot-10000.ss.resources | 120c5f598e7ba01621261b85f742f99f2a277f953519d2dfa45b82c6533016cc |
+| rust-aot-100000.ss.resources | b66dece87a59e813991a06a89d7615f045edd8520aff8e0789ea2119ca92eb5c |
+| scheme-vm-1000.ss.resources | 16231b1a2b06927cb7ff1f68372e1770b7d47dc63430c87dc9c873dbbeee32e4 |
+| scheme-vm-10000.ss.resources | 9af34b785be109640b56d323a6b3cd780d6f3e1746e5b962adf6c1644ef86091 |
+| scheme-vm-100000.ss.resources | 13189c771ecccbeb8b9593de3e3ace80ddad6f59f1f281fd6aac809ef353ae72 |
+
+Scheme executable SHA256:
+=4488b7a6ec4bdc1fbfca2cf2c54ed0171002e9d78a4a4eb100b24c6966fa4e19=.
+Rust executable SHA256:
+=2563a3bd179bcdc9295c317ae06ce620bb0c0d0e7a5afeb5e5ddfc2ffe5df12b=.
+Scheme benchmark source SHA256:
+=b454fbe4a66e7c3ac2ed7dc887983374e1462d9a3ce13fc7c9abc600d4edb1b8=.
+Rust benchmark source SHA256:
+=f8acb9ede93a75a6d0ac855c82a7a7790c5b320a742c9deef4cecd960530a61a=.
+
+* Other qualification boundaries
+
+Local exact-byte ABI regeneration on the latest source passed twenty language
+products with final gxtest OK; =.data/abi-latest-prepared-validation.log= and
+=.data/language-abi-alignment-test.log= are retained separately.
+The earlier remote semantic mismatch is not dismissed by this local pass.
+Exact-head remote Scheme CI is still pending at receipt creation; Rust
+contracts, lints and AOT performance succeeded for =04e2cdb=.
+CI fixes =f01d588= (official dependency environment) and =04e2cdb= (bounded
+byte-difference diagnostics without relaxing equality) are on existing PR13.

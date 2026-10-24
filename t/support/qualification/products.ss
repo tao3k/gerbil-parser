@@ -1,0 +1,140 @@
+;;; Native products retain SDK compiler and Cargo ownership.
+(import ./process ./environment :std/io/tempfile :std/misc/ports :std/text/pregexp :std/string/misc)
+(import (only-in ./compiler-output compiler-output-observer))
+(export #t)
+(def (with-product-directory prefix proc)
+ (let (directory (make-temporary-file-name prefix))
+  (create-directory directory)
+  (try (proc directory) (finally (delete-file-or-directory directory #t)))))
+(def (sdk-compiler)
+ (let* ((result (run-qualified! [(path-expand "bin/gambuild-C" (gerbil-home)) "C_COMPILER"]
+                    ".data/qualification/sdk-compiler.log" timeout: 5 idle-timeout: 5))
+        (compiler (string-trim (utf8->string (process-result-output result)))))
+  (unless (and (not (zero? (string-length compiler))) (not (pregexp-match "[[:space:]]" compiler)))
+   (error "SDK C_COMPILER must name one executable" compiler))
+  compiler))
+(def (same-product! actual expected)
+ (unless (equal? (call-with-input-file actual read-all-as-u8vector)
+                 (call-with-input-file expected read-all-as-u8vector))
+  (error "generated product differs" actual expected)))
+(def (native-artifact-observer directory log)
+ (let ((observed (make-hash-table)) (watched (make-hash-table)) (last-scan 0))
+  (lambda ()
+   (let ((now (##current-time-point)) (changed? #f))
+    (def (walk path)
+     (when (file-exists? path)
+      (if (eq? (file-type path) 'directory)
+       (for-each (lambda (name) (walk (path-expand name path))) (directory-files path))
+       (when (member (path-extension path) '(".i" ".s" ".o"))
+        (let* ((info (file-info path))
+               (state (list (file-info-size info) (time->seconds (file-info-last-modification-time info)))))
+         (when (and (> (car state) 0) (not (equal? (hash-ref observed path #f) state)))
+          (hash-put! observed path state) (set! changed? #t)
+          (displayln "NATIVE-COMPILER-OUTPUT " path " bytes=" (car state)) (force-output)))))))
+    (when (>= (- now last-scan) 0.5) (set! last-scan now) (walk directory))
+    ;; Admit static compiler products only from this invocation's -obj records.
+    ;; Existing files establish a baseline; only subsequent writes are progress.
+    (when (file-exists? log)
+     (let (text (call-with-input-file log read-all-as-string))
+      (for-each
+       (lambda (line)
+        (when (and (string-prefix? "invoke (" line) (string-contains line " -obj "))
+         (let (match (pregexp-match "[ ]([^ ()]+[.]c)[)]" line))
+          (when match
+           (let (prefix (path-strip-extension (cadr match)))
+            (for-each
+             (lambda (suffix)
+              (let (path (string-append prefix suffix))
+               (unless (hash-get watched path)
+                (hash-put! watched path #t)
+                (when (file-exists? path)
+                 (let (info (file-info path))
+                  (hash-put! observed path (list (file-info-size info) (time->seconds (file-info-last-modification-time info)))))))))
+             '(".i" ".s" ".o"))))))) (string-split text #\newline))))
+    (for-each walk (hash-keys watched))
+    changed?))))
+
+(def (build-language-library! output modules)
+ (unless (and (pair? modules) (andmap (lambda (module) (pregexp-match "^[A-Za-z0-9_./-]+$" module)) modules))
+  (error "expected Gerbil language module identities" modules))
+ (let ((output (path-expand output)) (compiler (sdk-compiler)) (root (path-expand ".")))
+  (create-directory* (path-directory output))
+  (with-product-directory "parser-shared-library-"
+   (lambda (directory)
+    (let* ((source (string-append directory "/bundle" (path-strip-directory directory) ".ss"))
+           (shim (path-expand "runtime.o" directory)) (bundle (path-expand "gpembed" directory))
+           (aot-log (string-append ".data/qualification/" (path-strip-directory directory) "-aot.log"))
+           (ld-options (cond-expand (darwin (string-append "-dynamiclib -Wl,-install_name," output))
+                                    (else "-shared -Wl,-z,defs")))
+           (preload (with-output-to-string ""
+             (lambda ()
+              (write '(gx#import-module (quote :gerbil/compiler) #f #t))
+              (for-each (lambda (module)
+                         (write `(gx#import-module (quote ,(string->symbol (string-append ":" module))) #f #t))) modules)
+              (write '(void))))))
+     (call-with-output-file source
+      (lambda (port)
+       (write `(import ,@(let loop ((rest modules) (index 0))
+                          (if (null? rest) '()
+                           (cons `(prefix-in ,(string->symbol (string-append ":" (car rest)))
+                                              ,(string->symbol (string-append "language" (number->string index) "-")))
+                                 (loop (cdr rest) (+ index 1)))))) port) (newline port)
+       (write '(export main) port) (newline port)
+       (write '(def (main . _) (void)) port) (newline port)))
+     (run-qualified! [compiler "-std=c11" "-D_POSIX_C_SOURCE=200809L" "-fPIC"
+                      (string-append "-I" (path-expand "include" (gerbil-home)))
+                      (string-append "-I" (path-expand "include" root))
+                      "-DGERBIL_PARSER_LINKER=___LNK_gpembed____exe__"
+                      "-c" "include/gerbil-parser/runtime.c" "-o" shim]
+                     ".data/qualification/shared-runtime.log" timeout: 90 idle-timeout: 30)
+     (setenv "GERBIL_GSC" (path-expand "bin/gsc" (gerbil-home)))
+     (setenv "GERBIL_GCC" compiler)
+     (run-qualified! ["gxi" "-e" preload "build-shared-library.ss" source bundle
+                      (string-append "-save-temps=obj -fPIC -fwrapv -fno-strict-aliasing -foptimize-sibling-calls -I"
+                                     (path-expand "include" root))
+                      (string-append ld-options " " shim)]
+                     aot-log timeout: 90 idle-timeout: 30 observe: (native-artifact-observer directory aot-log))
+     (unless (file-exists? bundle) (error "SDK did not publish native language library" bundle))
+     (when (file-exists? output) (delete-file output)) (copy-file bundle output))))
+  (displayln "SHARED-LIBRARY-OK " output) (force-output)))
+(def (qualify-runtime-host!)
+ (native-environment!)
+ (setenv "CARGO_TARGET_DIR" (path-expand "target"))
+ (setenv "RUSTC_WRAPPER") (setenv "RUSTC_WORKSPACE_WRAPPER")
+ (with-product-directory "parser-native-host-"
+  (lambda (directory)
+   (let* ((library (path-expand (cond-expand (darwin "libparsernative.dylib") (else "libparsernative.so")) directory))
+          (host (path-expand "native-host" directory)) (compiler (sdk-compiler))
+          (cpu-proof? (equal? (getenv "GERBIL_PARSER_RUST_CPU_PROOF" #f) "1"))
+          (archive (path-expand (if cpu-proof? "target/release/librust_language_abi_fixture.a"
+                                                 "target/debug/librust_language_abi_fixture.a"))))
+    (let (prepared (getenv "GERBIL_PARSER_NATIVE_HOST_LIBRARY" #f))
+     (if prepared
+      (begin
+       (unless (file-exists? prepared) (error "prepared language library missing" prepared))
+       (set! library (path-expand prepared)))
+      (build-language-library! library '("gerbil-parser/t/fixtures/shared-scanner/records-engine-abi"))))
+    (run-qualified! (append ["cargo" "build" "--locked" "--manifest-path" "t/fixtures/rust-language-abi/Cargo.toml" "--features" "standalone,tokio"]
+                           (if cpu-proof? '("--release") '()))
+                    ".data/native-host/rust-build.log" timeout: 90 idle-timeout: 30
+                    observe: (compiler-output-observer (path-expand (if cpu-proof? "target/release" "target/debug"))))
+    (run-qualified! (append [compiler "-std=c11" "-D_POSIX_C_SOURCE=200809L" "-Iinclude" "-I." "t/runtime-host.c"
+                            archive library "-lpthread" "-lm"]
+                            (cond-expand (darwin '()) (else '("-ldl"))) ["-o" host])
+                    ".data/native-host/link.log" timeout: 90 idle-timeout: 30)
+    (for-each (lambda (row)
+                (run-qualified! (append
+                   (if (and (member (car row) '("tokio-cpu-ascii" "tokio-cpu-unicode"))
+                            (getenv "CPU_PROOF_PROCESSOR" #f))
+                     ["taskset" "-c" (getenv "CPU_PROOF_PROCESSOR")] '())
+                   (cons host (cdr row)))
+                   (string-append ".data/native-host/" (car row) ".log") timeout: 90 idle-timeout: 5
+                   require: [(cond ((equal? (car row) "c") "NATIVE-HOST-CLEANUP-OK")
+                                  ((equal? (car row) "rust") "RUST-HOST-CLEANUP-OK")
+                                  ((equal? (car row) "tokio") "RUST-TOKIO-HOST-OK")
+                                  ((member (car row) '("tokio-cpu-ascii" "tokio-cpu-unicode")) "RUST-TOKIO-CPU-PROOF-OK")
+                                  (else "RUST-BORROWED-HOST-OK"))]))
+              (append '(("c") ("rust" "rust") ("borrowed" "borrowed") ("tokio" "tokio"))
+                (if cpu-proof?
+                  '(("tokio-cpu-ascii" "tokio-cpu-ascii") ("tokio-cpu-unicode" "tokio-cpu-unicode")) '()))))))
+ (displayln "NATIVE-HOST-OK") (force-output))

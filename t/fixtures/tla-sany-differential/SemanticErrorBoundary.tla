@@ -1,0 +1,3 @@
+---- MODULE SemanticErrorBoundary ----
+P == Undeclared
+====

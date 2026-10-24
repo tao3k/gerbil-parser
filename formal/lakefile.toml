@@ -1,0 +1,14 @@
+name = "ParserEngine"
+version = "0.1.0"
+defaultTargets = ["ParserEngine"]
+
+[leanOptions]
+warningAsError = true
+
+[[require]]
+name = "LeanPoo"
+git = "https://github.com/tao3k/lean-poo.git"
+rev = "8561a3ef8120101f956855d128d44ff9507c6703"
+
+[[lean_lib]]
+name = "ParserEngine"

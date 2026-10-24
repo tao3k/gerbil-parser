@@ -1,0 +1,245 @@
+#+title: Nested Scheme vocabulary: parameter origins and author declaration context
+#+date: 2026-10-06
+
+* Research question and scope
+
+Can a language package wrap or rename a component vocabulary without losing
+precise blame? Does preserving the parameter location also preserve the outer
+syntax that the author actually wrote?
+
+This follows the [[file:scheme-declaration-diagnostics.org][declaration diagnostics study]]. It adds local Scheme
+controls against baseline =783381f33fa1b309ac4cc4b0012696f24c852d93=.
+No public DSL, diagnostic renderer or general expansion-history API is introduced.
+
+* Actual vocabulary and the two required questions
+
+[[file:../../t/fixtures/language-pack-research/nested-list-vocabulary.ss][nested-list-vocabulary.ss]] exports a one-layer wrapper and a two-layer wrapper.
+Both forward matched syntax rather than rebuilding the author parameters.
+
+#+begin_src scheme
+(defrules argument-list ()
+  ((_ binding owner entry item separator label)
+   (deflocated-list binding owner entry item separator (field label))))
+
+(defrules public-argument-list ()
+  ((_ binding owner entry item separator label)
+   (argument-list binding owner entry item separator label)))
+
+;; At the consumer boundary:
+(import
+  (rename-in "nested-list-vocabulary"
+    (public-argument-list imported-arguments)))
+
+;; Invalid author input retained by the diagnostic collector:
+(imported-arguments component call-arguments arguments
+  (reference name) (literal ",") 63)
+
+;; Question 1: Why is this DSL design better?
+;; A package can provide domain vocabulary and rename imports while forwarding
+;; the original parameter syntax. Authors need not manage helper-rule details.
+;; Compared with datum reconstruction, syntax forwarding preserves exact blame
+;; coordinates through these wrappers using Gerbil's existing macro machinery.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; The contract independently checks error type, message, term, location and context.
+;; Evidence: 24 native checks with exit 0, including a source-losing negative control.
+;; Falsifier: a forwarded parameter points to different text or a renamed import
+;; changes which component validates the parameter.
+;; Limit: the inner context remains deflocated-list; the outer author form is not
+;; automatically recovered, and no whole expansion-chain or parsing claim follows.
+#+end_src
+
+The forwarding wrappers do not add a new list algorithm or parser. They preserve
+an existing component invocation and its explicit field contract. This is a
+syntax-abstraction advantage under a specific task, not evidence that every
+wrapper improves author comprehension.
+
+* Matched negative control
+
+The same vocabulary module exports =reconstructed-argument-list=. Its transformer
+keeps lexical context but converts each matched argument to a datum and rebuilds
+the component call with source arguments =#f #f=:
+
+#+begin_src scheme
+;; Inside the negative-control syntax-case branch:
+(datum->syntax #'reconstructed-argument-list
+  (list 'deflocated-list
+    (syntax->datum #'binding) (syntax->datum #'owner)
+    (syntax->datum #'entry) (syntax->datum #'item)
+    (syntax->datum #'separator) (list 'field (syntax->datum #'label)))
+  #f #f)
+#+end_src
+
+The rebuilt call still reaches the intended component and reports the same typed
+field-label failure. Its blame datum is correct, but its parameter location is
+absent. Correct binding and correct datum are therefore insufficient evidence of
+preserved source attribution. This explicit reconstruction is a control, not a
+recommendation for production vocabulary.
+
+* Native receipt
+
+[[file:../../t/fixtures/language-pack-research/nested-diagnostics.ss][nested-diagnostics.ss]] receives actual declarations as reader syntax. It uses
+the existing =core-expand= to reach validation through the nested macro layers,
+catches the resulting SyntaxError and returns inert records. It never evaluates
+the invalid generated definitions.
+
+#+begin_src sh
+GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" \
+  gtimeout 10 gxi t/fixtures/language-pack-research/nested-diagnostics.ss
+#+end_src
+
+The invocation reported =NESTED-DIAGNOSTICS-OK: 24 checks passed= and exited 0.
+There are four cases, each with six assertions:
+
+| Case | Blame datum | Reader position | Context supplied by component |
+|------+-------------+-----------------+-------------------------------|
+| Direct component | 61 | Points to actual 61 | deflocated-list |
+| One forwarding wrapper | 62 | Points to actual 62 | deflocated-list |
+| Two wrappers, outer import renamed | 63 | Points to actual 63 | deflocated-list |
+| Datum reconstruction | 64 | Explicitly absent | deflocated-list |
+
+Each case checks exception type, exact message, blame datum, presence/absence of
+location, source-token correctness or explicit unknown, and the context head.
+The positive coordinate assertions read the actual file at the reported position.
+The cases use distinct values to identify the author occurrence. They do not
+claim that imported alias spelling must replace the implementation's message.
+
+* What the paper adds
+
+[[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][Fortifying Macros (Culpepper and Felleisen, ICFP 2010)]], section 7.1, discusses
+loop clauses rewritten into an internal CPS protocol. The authors reconstruct
+original syntax for checking because errors should describe the user's clause.
+This motivates a separate author-context obligation here: retaining a bad
+parameter's location alone does not recover the outer declaration vocabulary.
+Their Racket mechanism is not assumed to exist unchanged in Gerbil.
+
+The concrete inference from our controls is that forwarding provides precise
+parameter origins, while outer declaration explanation needs an explicit
+protocol. The control does not establish whether that protocol should be stored
+in syntax, a diagnostic record or component elaboration data.
+
+* Compare design directions before choosing a public protocol
+
+| Direction | What it provides | Design cost / remaining check |
+|-----------+------------------+-------------------------------|
+| Forward syntax, accept inner context | Precise parameter blame in current witness | Outer vocabulary absent from error context |
+| Validate outer vocabulary directly | Local label witness preserves author context and alias | Other constraints delegate; validation order is a surface policy |
+| Carry original declaration with elaboration | Potentially explain inner failure through outer form | Define phase, ownership and persistence; no public implementation yet |
+| Reconstruct everything from datum | Keeps explicit values and chosen lexical context | Loses reader origins in this matched control |
+
+The working recommendation is to forward matched syntax by default. A vocabulary
+that changes the author's declaration shape should explicitly own that shape's
+validation or carry its original declaration to the validating stage. Blanket
+catch-and-rethrow of every compiler exception is not a substitute: an unrelated
+failure must not be presented as an author parameter error.
+
+For POO integration, distinguish three identities: the Scheme wrapper binding,
+the grammar contribution owner, and the public tree node/field. Renaming the
+wrapper import does not itself rename the grammar-domain symbols it passes.
+This study does not bind a complete nested language or change the earlier
+compositionDigest and actual-language timeout boundaries.
+
+* Next qualification questions
+
+- Preserve an outer declaration across wrappers that intentionally change shape.
+- Specify which layer owns a constraint and how shared validators avoid drift.
+- Check simultaneous invalid parameters and deterministic diagnostic ordering.
+- Connect selected contribution origins to override/removal without rewriting
+  historical declarations as if they were effective bindings.
+- Measure whether a developer can identify the outer declaration and repair it;
+  metadata assertions alone do not establish that usability improvement.
+
+* Follow-up: explicit outer contract and error ordering
+
+The next local witness implements one direction from the comparison: an outer
+vocabulary owns its positional label contract, then forwards valid syntax to the
+existing component. It does not intercept or relabel arbitrary inner exceptions.
+
+[[file:../../t/fixtures/language-pack-research/declaration-contracts.ss][declaration-contracts.ss]] defines an ordinary Scheme function imported at
+transformer phase. Both the inner component's four identifier checks and the
+outer vocabulary use that function. This shares the predicate and exception
+construction; each layer still chooses its parameter name, context and order.
+
+#+begin_src scheme
+;; Ordinary Scheme function, imported with for-syntax by vocabulary modules:
+(def (require-declaration-identifier term declaration operation parameter)
+  (unless (identifier? term)
+    (raise-syntax-error #f
+      (string-append operation ": " parameter " must be an identifier")
+      term declaration)))
+
+;; Matched branch of the local author-arguments transformer:
+(require-declaration-identifier #'label stx "author-arguments" "label")
+#'(deflocated-list binding owner entry item separator (field label))
+
+;; Question 1: Why is this DSL design better?
+;; The outer vocabulary explains its own positional label contract using the
+;; declaration the author wrote, including an imported alias in the context.
+;; A shared Scheme function avoids separate predicate/exception implementations;
+;; syntax forwarding retains the original label while the existing POO role is reused.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Failure behavior and successful elaboration have separate observable contracts.
+;; Evidence: 28 checks with exit 0 cover five failures and three valid-expansion controls.
+;; Falsifier: wrong context or blame, changed target binding/core call, lost label source,
+;; or a multi-error result inconsistent with the declared validation order.
+;; Limit: delegated failures still have inner context; no universal ordering or
+;; complete original-declaration bridge is established by this witness.
+#+end_src
+
+The complete wrapper is [[file:../../t/fixtures/language-pack-research/author-list-vocabulary.ss][author-list-vocabulary.ss]]. It validates label first,
+then delegates binding, owner and entry checks. The inner component retains its
+existing binding, owner, entry, label order. Keeping its label check is necessary
+because direct component callers do not pass through this wrapper. Predicate
+sharing does not eliminate these distinct admission boundaries.
+
+** Native evidence
+
+#+begin_src sh
+GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" \
+  gtimeout 10 gxi t/fixtures/language-pack-research/author-diagnostics.ss
+#+end_src
+
+[[file:../../t/fixtures/language-pack-research/author-diagnostics.ss][author-diagnostics.ss]] reported =AUTHOR-DIAGNOSTICS-OK: 28 checks passed=,
+exit 0. After sharing the validator, reader-diagnostics.ss was also rerun: its
+48 checks passed with exit 0, preserving the inner component's original four
+parameter diagnostics and source coordinates. Five invalid calls each check
+exception type, exact message, blame datum,
+actual source-token coordinates and declaration context:
+
+| Author case | Selected failure | Context head |
+|-------------+------------------+--------------|
+| Outer label 81 invalid | Outer label contract | author-arguments |
+| Renamed import label 82 invalid | Outer label contract | imported-author-arguments |
+| Outer owner 83 and label 84 invalid | Label 84 first | author-arguments |
+| Outer owner 85 invalid, valid label | Delegated owner contract | deflocated-list |
+| Direct owner 86 and label 87 invalid | Owner 86 first | deflocated-list |
+
+The three successful-elaboration controls compare a valid wrapper's expansion
+with an explicit component invocation: the target is the same macro binding,
+the complete call datum is equal, and the forwarded label retains the original
+reader location. These are expansion controls; they do not establish parser-event
+parity or artifact integration for this new wrapper.
+
+** Design consequence: equivalent valid syntax can have different error order
+
+The multi-error control intentionally retains the difference between the outer
+label-first policy and the direct component's owner-first policy. Valid expansion
+equality does not imply diagnostic equivalence for invalid inputs. This is an
+observable surface-language decision rather than a grammar-recognition change.
+
+A shared predicate helps maintain consistent parameter acceptance. A shared
+ordered contract would be needed if all wrappers were required to report the
+same first failing parameter. That stronger policy has not been selected. The
+current witness checks the chosen local order, not every permutation of errors.
+
+The working recommendation is to declare which constraints belong to a wrapper,
+share their implementation as ordinary Scheme functions at the appropriate phase,
+and state the order before treating diagnostics as an author API. If full outer
+context is required for delegated grammar failures too, this witness is only one
+part of the solution; the original-declaration protocol remains open.
+
+* Follow-up: official syntax parameters
+
+The [[file:scheme-syntax-parameter-context.org][syntax-parameter context study]] supplies a scoped author-form protocol for
+delegated identifier checks. Its positive role construction control also exposes
+and repairs an initial declaration-versus-expression scope error. Full expansion
+history and artifact integration remain open.

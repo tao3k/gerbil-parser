@@ -1,0 +1,880 @@
+#+title: RFC 0018 — Downstream language products and the Bash admission boundary
+#+date: 2026-10-04
+#+startup: overview
+
+* Status and scope
+
+Product contract and implementation track. The original proposal was grounded in PR 13 head
+=675755009e46824327a1c05d5c787087c1297af4=. The interfaces and commands described
+as targets below remain targets unless listed in the implementation section. This proposal extends RFCs
+0004, 0006, 0007 and 0008; it does not introduce another grammar authority.
+The original audit table below retains the names and limitations of that head.
+The implemented Rust/native access contract is now maintained in
+[[file:0006-rust-aot.org][RFC 0006]]; later executable examples use current =rust-runtime= names.
+Bash 5.3 source syntax is the first demanding consumer. Shell execution,
+expansion evaluation and alias execution are outside its parser contract.
+
+* Original audited seams and gaps
+
+| Seam | Implemented at the audited head | Missing product behavior |
+|------+---------------------------------+--------------------------|
+| Authoring | Public =rust-runtime-grammar-support.ss= exports =deflanguage= | One downstream repository initializer/product declaration |
+| Generation | =rust-runtime-source= takes a grammar module path with exactly one exported LanguageGrammar | Capability preflight and complete generated package products |
+| Rust runtime | =parse(&LANGUAGE, source)=, generated LR tables, operand fields, lossless Rust syntax events | Contextual/deferred scanner IR parity and generated typed node access |
+| Scanner | Scheme contextual dispatch, balanced-word and deferred FIFO scanner tests | A Bash grammar with structured word interiors and matching Rust execution |
+| Distribution | Independent records Cargo fixture, no Gerbil at parse time | Release/package automation, minimal C product and Rust FFI consumer |
+| Runtime C ABI | Owned result allocation/release, UTF-8 error payloads, real C callback probe | Language-independent handles, explicit byte lengths and runtime-owner facade |
+
+The parser FFI uses explicit language handles and the language-independent
+=src/ffi/language-artifact-codec.ss=. The former builtin name-dispatch facade
+and its C entry are removed; production FFI imports no GQL/openCypher package.
+The build-only =src/ffi/rust-runtime-aot.ss= accepts an external grammar path
+and generates immutable Rust source. These two services have distinct duties.
+=src/ffi/schema.ss= centrally declares their ABI/schema identities; file paths,
+module namespaces and C result names do not encode versions.
+The current Rust lexical expression enum includes a heredoc expression, but
+that does not establish Bash queued marker, quote removal or =<<-= semantics.
+
+* One declaration, multiple release products
+
+A language author maintains =grammar.ss=, one package product manifest, and a
+corpus. The grammar alone owns language identity, syntax version, node/field
+catalogs, lexical behavior and conflict/recovery policy. The manifest selects
+output targets, package names, toolchain pins and corpus paths; it cannot
+silently redefine the grammar's identity or semantics.
+
+Conceptual author-owned repository (names are proposed):
+
+#+begin_example
+grammar.ss                 # public declarative grammar facade
+language-package.toml      # output selection and pinned generator/runtime
+corpus/                    # accepted, rejected, incomplete, edit histories
+#+end_example
+
+The release tool generates =Cargo.toml=, the Rust module/re-export, optional
+typed node wrappers, C header, native build declaration and product receipt.
+Authors never copy the upstream source tree, maintain generated LR tables,
+write an FFI dispatcher case, or duplicate a parser in Rust. Generated artifacts
+may be committed for release and verified by regeneration in language CI.
+A downstream Cargo build then uses the generated language crate and generic
+runtime only. Gerbil is a producer/release tool, not a required consumer tool.
+
+| Product | Consumer dependency | Runtime authority | Admission |
+|---------+---------------------+-------------------+-----------|
+| Pure Rust AOT crate | Generic Rust runtime + selected generated language | Generated Grammar/Parser/Scanner IR | All required operations admitted by Rust backend |
+| Native C library + Rust safe facade | Selected Gerbil AOT closure + native runtime dependencies | Same compiled language IR executed in Gerbil | C lifecycle, result ownership and parity gates |
+
+Both products use the same language artifact identity. Packaging may produce
+separate backend digests. A missing Rust opcode is a build rejection naming
+the source rule, normalized operation and supported target; it cannot silently
+turn the native product into an AOT-parity claim. Native C packaging is not
+assumed to be standalone merely because Gerbil can export C functions.
+
+The generator must finish validation before publishing a product directory.
+Outputs are staged and atomically published only after all selected targets
+succeed; failed generation cannot leave half-new tables beside an old header.
+The receipt binds transitive grammar inputs, toolchain/runtime pins, artifact
+schema versions, required capabilities and each output digest. Changing a
+shared scanner role is therefore a detectable language artifact change.
+
+* Bash syntax granularity
+
+More nodes is not itself a better syntax contract. Expose stable named nodes
+and fields for tooling decisions, preserve punctuation/trivia as source-backed
+leaves, and hide LR helper productions. Do not impose evaluated shell values
+on the CST. Generated typed accessors remain optional; generic tree/event APIs
+must retain every source byte and diagnostic.
+
+| Syntax | Named nodes / useful fields | Required distinction |
+|--------+-----------------------------+----------------------|
+| Lists | Script, CommandList, AndOrList, Pipeline; commands/operators | =&&=, =||=, =|&= and asynchronous separators |
+| Commands | SimpleCommand; assignments, command, arguments, redirects | Reserved word vs ordinary argument; =a=b= position |
+| Words | Word, WordPart, QuotedPart, Escape | Adjacent parts form one word; quotes retain exact spans |
+| Expansion | ParameterExpansion, CommandSubstitution, ProcessSubstitution, ArithmeticExpansion | Nested source trees, parameter operator and subscript fields |
+| Compounds | If/Case/For/Select/While/Until, Function, Subshell, BraceGroup | Bodies/conditions/branches with stable field identities |
+| Redirection | Redirection, HereDocument; fd, operator, target/body/delimiter | FIFO marker binding, quoted delimiter, tab stripping policy |
+| Incomplete input | Missing/Error nodes plus diagnostics | Editor recovery must preserve bytes and admit no false success |
+
+A single opaque balanced-word token passes lexical recognition tests but does
+not supply a refactoring-quality tree for nested substitutions. Bash admission
+needs normalized word/interpolation modes and grammar entrypoints that expose
+interior tokens and fields. Subparse boundaries must share UTF-8 byte ownership
+with their parent; emitting overlapping parent/child token events is rejected.
+
+The old source parser is a corpus/reference candidate, not the implementation
+authority. Port its cases into the declarative language contract and independently
+check canonical artifacts. Bash syntax checking and Tree-sitter projections can
+provide separate references; disagreements must be classified rather than
+resolved automatically by copying either tree.
+
+* Contextual scanner portability
+
+Scheme owns the normalized scanner operations. Rust implements their specified
+execution, not Bash-specific callbacks. Compile grammar roles into immutable
+mode/dispatch/transition tables; source state is per parse/session.
+
+Bash requires command-position keyword/assignment admission; quote and nested
+substitution stacks; here-document marker queues; delimiter quote-removal and
+=<<-= tab policy. Checkpoint identity includes scanner artifact identity,
+source binding, byte cursor, mode/stack and pending marker state. Restoring a
+checkpoint against a different source/artifact fails closed. Incremental reuse
+requires matching scanner state, not merely equal token text or length.
+
+The generic IR extension must carry these states across both backends before
+Bash pure Rust AOT is advertised. A bounded state limit produces a typed limit
+diagnostic; it must never truncate state or silently change recognition.
+The capability inventory and golden transition traces are shared conformance
+data. Existing Scheme balanced-word/deferred tests are starting seams, not
+proof that the Rust lexer or complete Bash grammar implements them.
+
+* C ABI product boundary (language handles)
+
+Preserve published v1 result initialization/replacement/release behavior.
+A new length-bearing API uses =const uint8_t*= plus =size_t= for source bytes;
+NUL-containing and invalid UTF-8 inputs must be handled explicitly without
+string truncation. ABI version, header struct sizes and capability negotiation
+are independent from syntax and artifact versions.
+
+A language handle is admitted from a selected compiled language product.
+Parsing accepts that handle rather than a global language-name registry.
+The handle's descriptor binds grammar/parser/scanner digests, node and field
+catalogs, recovery policy and supported entrypoints. Admission validates the
+artifact before any parse; arbitrary grammar modules are build-time trusted
+code and are not loaded as data in a parse request.
+
+Result buffers remain C-owned, with explicit byte lengths and idempotent
+release. No GC-managed pointer escapes to Rust. A Rust guard owns the result
+and copies/borrows within its lifetime according to the declared API. Language
+handles cannot outlive their runtime/library owner. Library unload, runtime
+shutdown, cancellation, panic/exception transport and repeated release need
+separate tests; the current disposable test-child exit is not teardown evidence.
+
+The first native facade serializes calls through one initialized Gerbil runtime
+owner thread. It is not Send/Sync by assertion. Worker isolation and parallel
+runtime use require dedicated qualification; callbacks may not enter Gerbil
+from arbitrary Rust threads. Transport success is distinct from syntax
+acceptance: a rejected source can still produce a valid lossless artifact and
+structured diagnostics. Byte limits, state limits and malformed artifacts
+remain distinct transport/admission failures.
+
+* Measurable comparison with Tree-sitter
+
+Tree-sitter already generates C and Rust scaffolding with =tree-sitter init=;
+matching that workflow is the minimum authoring gate. Its external scanner
+contract has create/destroy/serialize/deserialize/scan callbacks, and Bash
+heredocs are explicitly an external-scanner use case. Those are actual
+comparison points, not claims that Tree-sitter lacks language packaging.
+
+The intended improvement is: no author-written Rust parser or scanner C for
+the admitted shared IR, explicit syntax/field/identity contracts, and one
+language declaration producing both pure Rust and native C products. Publish
+comparative results only after matching source coverage and output obligations.
+
+| Gate | Evidence required before claiming an advantage |
+|------+------------------------------------------------|
+| Author effort | Count handwritten files/lines and commands from empty external repo to working Rust consumer |
+| Granularity | Nested word/substitution/redirect field queries and edits without source-string reparsing |
+| Portability | Scheme/Rust/C artifact and field equality over accepted, rejected and incomplete corpus |
+| Incrementality | Fresh-equivalent forward/inverse edits including quoted markers, nesting and Unicode; changed work counters |
+| Performance | Matched cold build, binary size, startup, full parse/edit p50/p95, allocation and peak memory |
+| Product isolation | One selected language links no GQL/Cypher/Bash sibling artifact; two languages retain distinct identities |
+| Ergonomics | Clean Cargo consumer without Gerbil/Node; native C/Rust facade with explicit lifecycle and error behavior |
+
+Upstream reference interfaces:
+- https://tree-sitter.github.io/tree-sitter/cli/init.html
+- https://tree-sitter.github.io/tree-sitter/creating-parsers/4-external-scanners.html
+- https://github.com/tree-sitter/tree-sitter-bash/blob/master/grammar.js
+
+* Ordered implementation and closure
+
+1. Add a backend capability preflight over Grammar/Parser/Scanner IR and make
+   the standalone external records package the minimal authoring/product gate.
+   Reuse the existing Scheme-owned generator; do not misuse the Rust
+   =gerbil-parser-build-support= test-macro crate as a second generator.
+2. Generate package wrappers, receipts and typed syntax/field catalogs from
+   that admitted artifact. Qualify atomic generation and a clean external
+   Cargo consumer before adding Bash-specific syntax complexity.
+3. Port contextual/deferred state to Rust from the normalized scanner contract;
+   compare state traces, source-exhaustive events and edit histories against
+   Scheme. No handwritten downstream scanner is required for admitted modes.
+4. Port Bash source corpus to =deflanguage= with the node/field contract above.
+   Recovery, incomplete syntax and nested word structure are required admission
+   work, not a later documentation promise.
+5. Add language-bound native C AOT packaging and length-bearing handle APIs.
+   Qualify startup/shutdown, ownership and a real Rust FFI consumer on Linux and
+   macOS. Keep pure Rust and native-runtime distribution dependencies explicit.
+6. Run an independent language repository containing only author-owned inputs,
+   generate both selected products, test parity and inspect dependency closure.
+   Only then publish comparative Tree-sitter metrics and Bash support claims.
+
+This order is one downstream-language product track. Completing packaging alone
+or preserving the historical source parser does not close Bash/Rust support.
+
+* Bash source integration and verification
+
+At the human's explicit direction, the existing Bash branch was integrated into
+PR 13 rather than kept as an unsubmitted experiment. Its original head is
+preserved at =codex/bash-source-prototype-before-integration=. The sole Bash
+feature commit was rebased onto the current integration branch, then merged
+with an actual two-parent merge commit. Older core changes in its historical
+ancestry were not replayed over current PR optimizations.
+
+Merge head: =c20dae08c313a38d894af8be9a7db89d79dbb8a0=.
+Ten affected native modules compiled with two workers in 40.10 seconds. A
+90-second parallel test budget and five-second real-output watchdog admitted
+all four selected modules: 16 Bash cases, three public-language cases, five
+style cases and two GQL/Cypher consumer compatibility cases. This consumer test
+selection retains the source overlay; it is not an installed-only distribution
+gate. All selected modules exited successfully with final GC and harness
+receipts. No full Bash language conformance, Rust AOT parity or standalone C
+language product is claimed. The preserved source implementation is now
+available for users and for the canonical-IR port.
+
+Verification is owned by =languages/bash/parser-test.ss= and the shared native Scheme
+harness. Language/FFI performance admission uses the ASP =benchmark.ss=
+contracts. The Bash corpus and implementation live in =languages/bash=;
+there is no document-side parser audit, snapshot format or analysis pipeline.
+
+#+begin_src sh
+gerbil env gxi build-test-driver.ss compile
+GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
+  GAMBOPT=max-heap=1G,debug=q \
+  gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .gerbil/parser-bash-source.log \
+  --require 'TEST-SUITE-OK modules=1' --require '^OK$' \
+  -- gxi t/fixtures/tla-sany-differential/test-suite.ss languages/bash/parser-test.ss
+#+end_src
+
+* Shared scanner / contextual AOT / language C ABI implementation
+
+The public =rust-runtime-support= facade now exports
+=generate-rust-scanner-module= and
+=generate-contextual-language-rust-runtime-module=. The latter takes the existing
+LanguageGrammar descriptor and its Scheme-compiled contextual product. It
+emits ordinary Rust data: LanguageSpec, shared ScannerSpec, LR state positions
+and ContextualParserSpec. =parse_contextual(&CONTEXTUAL, source)= uses the LR
+state's position, retaining lookahead across reductions and every trivia byte.
+The generator admits the Scheme product against its parser machine before
+writing output; Rust binds the scanner's base grammar identity to LanguageSpec.
+Generated identities assume a trusted AOT producer, as existing LR tables do.
+
+Rust executes the closed =contextual-scanner-opcodes.v1= contract: longest
+match/rank, balanced nested words, quote removal, UTF-8 ranges and FIFO deferred
+markers. Successful admission and mode/dispatch indexes are cached once per
+immutable static ScannerSpec identity, matching the LR validation boundary.
+Contextual product admission and terminal/lexical catalogs are also indexed
+once per static product. Pulling each token uses indexed lookups instead of
+scanning both full catalogs; first-declared duplicate lookup semantics remain.
+The caches retain no input text, checkpoint or marker obligations. Each source
+executor shares its read-only plan through Arc; checkpoints still reject another
+executor even when both share that plan. Dispatch admission checks duplicate
+keys by indexed insertion rather than scanning all preceding cells. Immutable
+checkpoints share persistent two-stack FIFO storage; enqueue and checkpoint
+clone are constant work. Rear reversal is amortized along one linear scan;
+replaying old branches can repeat reversals. Iterative nesting and iterative
+unique-tail release avoid recursive stack growth. Contextual GLR forks fail
+explicitly, matching the current Scheme contextual admission boundary.
+
+The independent Records fixture compares canonical Scheme/contextual events,
+canonical/contextual source-indexed trees, and a generated language C entry. Scanner
+traces come from Scheme execution of the same IR. Committed generated Rust
+fixtures belong to the Cargo package, and native CI regenerates/compares all
+three products. No downstream Rust scanner or core builtin dispatch change is
+required. These bounded fixtures do not establish complete Bash AOT support.
+
+The =language-abi-support= facade exports =generate-language-pack=,
+=register-language!= and =release-language!=. The generator takes
+module/export identities and creates a normal Scheme native module plus a C
+header with =PREFIX_language_create(void)=. Each successful create returns a
+new opaque uint64 handle; zero means admission failure. Native package builders
+compile the generated entry with =-I/path/to/gerbil-parser/include=. ELF clients
+link the generic ABI object and selected language entry object explicitly.
+Language/compiler dependencies remain selected by the downstream descriptor.
+
+Module namespaces follow their source paths: =src/ffi/language-abi.ss=
+provides the language boundary, and =include/gerbil-parser/language.h= names
+its C contract. Version numbers belong to contract data returned by
+=gerbil_parser_language_abi_version()=, not module paths or C identifiers.
+The public result type is =gerbil_parser_result=; this rename introduces no
+alias for the removed versioned names.
+
+=include/gerbil-parser/language.h= is language independent. It accepts an
+explicit source pointer/length, preserves embedded NUL, rejects noncanonical
+UTF-8 and enforces 64 MiB before copying. Successful parsing transports the
+existing GPA1 event format, with syntax acceptance in its header. Results are
+C-owned and replaced/released explicitly. Handles never reuse released numeric
+identities. The runtime owner OS thread is pinned at native module initialization;
+foreign pthread calls fail before entering Gambit. Scheme logical-thread checks
+remain in the handle owner. This API requires an initialized embedding runtime
+and loaded libraries; startup/shutdown, unloading and a safe Rust FFI owner are
+not established by the native child exit test. Private generated callbacks use
+Gambit ___U64/___S32 declarations, while public headers use uint64_t/int32_t.
+Their widths agree without assuming that the platform's C typedef spellings
+are compatible (unsigned long and unsigned long long differ on Linux LP64).
+
+Performance is measured by =t/benchmarks/language-abi/benchmark.ss= through
+=t/language-abi-benchmark-test.ss=. The ASP test framework is outside the
+native C consumer's dependency closure. The fixture's contextual product is
+compiled during macro expansion, then embedded as immutable data; runtime
+language creation prepares its scanner/LR binding once per handle. A repeated
+C call does not spawn a process, recreate a runtime or compile a grammar.
+=src/runtime/parser-ir-data.ss= owns runtime-only IR access. Parser, recovery
+and incremental modules no longer import =src/compiler/parser-ir= for that
+accessor, removing a runtime edge to the LR construction dependency closure.
+Report startup, handle creation and warm callback batches separately. A process
+wall time that includes module loading is never a per-call throughput metric.
+The 100-call UTF-8 workload uses 40 samples with an unchanged 100 ms p95 ceiling
+and a 20 ms target. Each attempt preserves paired process CPU/GC counters and
+inner C-batch wall time. benchmark-run/result returns the exact ASP-admitted
+attempt, so a separately ranked CPU percentile cannot be substituted for the
+wall p95 observation. Progress output remains inside the ASP timed thunk and
+outside the inner C-batch timer; both boundaries are explicit. Allocation
+counters are raw process observations, not exclusive parser allocation claims.
+Passing the ceiling alone does not establish the target or an advantage over
+another parser.
+
+Remaining product work includes generic generated Cargo/native package manifests,
+atomic publication across products, standalone runtime lifecycle and Rust FFI
+ownership, typed accessors, contextual GLR branch state, and the canonical Bash
+syntax/field port. There is no comparative Tree-sitter performance claim.
+
+* Parser-test declarations
+
+Import =:gerbil-parser/language-test-support= in =parser-test.ss=. Define one
+exported suite with =deflanguage-parser-tests= and the language's POO loader:
+
+#+begin_src scheme
+(deflanguage-parser-tests example-parser-test "Example language"
+  (loader example-language)
+  (fixtures "inherited fixture values")
+  (accepted "assignment" "x = 1" (nodes Assignment) (tokens identifier number))
+  (accepted-many "literal forms" '("1" "2"))
+  (rejected "incomplete assignment" "x =" (diagnostics))
+  (identity "identity" (language "example") (contract "example.v1"))
+  (property "projection value"
+    (bindings (actual (example-project (parse-example "x = 1"))))
+    (equal (cdr (assq 'name actual)) "x")))
+#+end_src
+
+| Clause | Engine-owned obligation |
+|---+---|
+| =accepted= / =rejected= | Parse once through the Loader =.parse= slot; valid artifact, status, exact source and source digest |
+| =accepted-many= / =rejected-many= | A nonempty list of source strings; the same invariant checks for each |
+| =fixtures= | Invoke the Loader's named =fixtures= test service, retain inherited corpus values, verify count, validity, source and digest |
+| =identity= | Equality for declared =schema=, =language=, =version= and =contract= fields |
+| =ast= | Exact engine AST grammar with mandatory fields, token text and byte spans |
+| =property= | Explicit sequential bindings and at least one equality assertion for extension-specific results |
+
+Artifact expectations are =(nodes Kind ...)=, =(without-nodes Kind ...)=,
+=(tokens kind ...)=, =(counts (Kind nonnegative-count) ...)=, =(diagnostics)=,
+=(artifact-ref key expected)= and
+=(projection project (field expected) ...)=. Node/token names and projection
+keys are literal symbols; counts are nonnegative integer declarations. Ordinary
+source expressions remain values, so generated corpora do not need user-owned
+iteration/assertion code. Property bindings support application projection and
+receipt APIs; the compiler accepts no arbitrary test-case statement body.
+
+The macro validates the effective Loader through =LanguageLoaderContract=;
+POO inheritance/fixture override uses the existing Loader slots. The macro does
+not create a second Loader type, upgrade =language-entry.v2=, or grant Rust/C
+capabilities. Common tests require no author-written lambdas. A multivalue
+receipt API may use a property binding to collect its returned values explicitly.
+
+Bash, Arithmetic, HL7, FHIRPath, GQL and openCypher have migrated to this syntax,
+as has the independent Records consumer. TLA+ layout uses the same syntax in
+its canonical =parser-test.ss= entry. Bash's two source-contract/checkpoint controls
+remain under =t/= with their engine owner and all original assertions. HCL's
+strategy/parity suite now uses closed source generators and named engine routes.
+TLA+ core, layout, SANY candidate and closure now share the canonical
+=parser-test.ss= entry: 57 declaration rows replace the three separate raw
+suites while retaining their syntax, corpus, proof, native and rejection obligations.
+
+** Bound IR, structure and engine execution controls
+
+The same declaration accepts the following advanced obligations:
+
+| Clause | Constraint and check |
+|---+---|
+| =parser-ir= | Named rule count, root, materialization, conflict policy and case policy |
+| =bound-ir= / =bound-rules= | Binding count, exact source metadata, digest prefixes, structured binding identity and ordered references |
+| =lr= | Exact state/fork counts, absent nullable-prefix helpers and initial shift actions |
+| =lr-receipt= | Execute the declared machine/source with a positive branch budget; check remaining tokens and named branch/completion fields |
+| =parallel= | A positive worker count and nonempty sources; a barrier coordinates real parser calls; all workers join and each result equals its own checked fresh source |
+| =incremental= | Replace the first declared nonempty text; compute UTF-8 byte start/deletion length; compare incremental artifact to a checked fresh parse and assert receipt fields |
+| =recovery-rejected= | Require a valid, lossless rejected artifact and assert recovery receipt fields |
+
+Additional artifact expectations are =(root Kind)=,
+=(diagnostics nonnegative-count)=, =(subtree pattern)=,
+=(without-subtree pattern)= and =(field-counts Kind field (count ...))=.
+Subtree patterns have the form =(node Kind (lexemes text ...) (children pattern ...))=.
+The children clause selects direct nodes of the declared kinds through transparent
+fields, then requires the exact selected count and order. Lexeme requirements
+inspect that node's descendants. These are partial semantic queries; use =ast=
+for an exact complete tree with mandatory fields, bytes and token text.
+Field counts select matching nodes in preorder and count direct named fields.
+
+#+begin_src scheme
+(accepted "conjunction precedence" source
+  (subtree (node ValueExpression (lexemes "AND")
+    (children (node ValueExpression (lexemes ">"))
+              (node ValueExpression (lexemes "="))))))
+(bound-rules "source identity" parser-bound-ir
+  (program (source path "grammar-source/input.bnf")
+           (source-prefix replacementExpressionDigest "sha256:")))
+(lr "static conflict controls" parser-ir
+  (state-count 1317) (fork-count 321)
+  (empty-nullable-prefixes "$boolean factor") (initial-shifts "RETURN"))
+(parallel "independent requests" 9 sources)
+(incremental "Unicode byte edit" source
+  (replace "λ中" "μ文") (schema "gerbil-parser.incremental-receipt.v1"))
+#+end_src
+
+These examples describe checks, not extra backend capabilities. Incremental
+and recovery clauses derive their machine from an admitted Grammar IR Loader;
+a source-only Loader rejects those requests. Parallel workers propagate parser
+exceptions after joining all results. No import starts workers. Loader schema
+remains v2 and parser/scanner/Bound IR schemas remain unchanged.
+
+The =fixtures= row may add =(status accepted)= or =(status rejected)= to
+require a uniform corpus expectation as well as checking every fixture
+against its declared artifact status. Mixed corpora omit this constraint.
+
+** Generated native strategy qualification
+
+=parser-test.ss= may declare =installed=, =strategy-parity= and =fixture-parity=
+rows. The engine owns lexical execution, route selection, indexed checkpoint
+reference execution, exact artifact comparisons and fast/fallback coverage.
+It has no language import or language-name dispatch. A lexical-only row uses
+=(routes)=; a parser parity row names at least two distinct routes, or declares
+a required acceptance outcome. Coverage reuses the single lexical result.
+
+#+begin_src scheme
+(deflanguage-parser-tests sample-parser-test "native strategy qualification"
+  (loader sample-language)
+  (installed "generated reduction step is installed" step)
+  (strategy-parity "large source retains the indexed artifact"
+    (indexed 1024 (concat "key" index " = 1\n"))
+    (routes entry source-default source-raw source-generic indexed)
+    (accepted #t))
+  (fixture-parity "official accepted corpus" accepted
+    (routes entry source-default indexed) (accepted #t)))
+#+end_src
+
+The closed source collection algebra is =sources=, =indexed=, =seeded= and
+=append=. Indexed rows produce one concatenated source; seeded rows produce
+an ordered collection using the exact LCG constants 1103515245, 12345 and
+2147483648. Text templates support string literals, =index=, =concat=,
+=choice=, =character=, =integer=, =if-even=, =repeat=, scoped =bind= and
+=when-equal=. Bounds, names, duplicate bindings, unknown templates, routes and
+options are validated during expansion. No callback or free-form generator
+body is admitted. Each seeded collection resets its state once, retaining
+depth-first draw order across the full collection.
+
+| Route | Engine execution |
+|---+---|
+| =entry= | Effective Loader parse method |
+| =indexed= | Ranked scanning, indexed LR checkpoint driver and canonical artifact builder |
+| =source-default= | Installed generated source recognizer's default route |
+| =source-ranked= | Generated recursive recognizer with fast lexing disabled |
+| =source-raw= | Generated recursive recognizer with canonical shortcut disabled |
+| =source-generic= | Generated recursive recognizer with simple-source shortcuts disabled |
+
+The last four routes require an optional =native-test-profile= POO value on
+the Loader. Admission accepts only the =recursive-source= profile, checks its
+exact machine digest, requires source identity with the installed recognizer,
+and requires a declared lexer procedure. HCL's existing generated recognizer
+implements this parameter contract. The engine does not infer these parameters
+for arbitrary source backends: an absent or incompatible profile is unsupported.
+The lexer remains an explicitly declared generated product; this slot does not
+prove closed Scanner IR ownership or Rust/C portability. The profile is an
+inherited value, so compatible downstream overrides remain possible and are
+validated against their effective descriptor. No runtime test import is added
+to the production Loader, and no per-parse contract check is introduced.
+
+HCL's 27 former raw test cases now occupy 29 declaration rows: its numeric
+boundary and generated-number obligations were separated, and its Loader
+identity has its own row. The five seeds, all generated source sequences,
+fast/fallback thresholds, all large-source shapes, exact artifacts, 15 official
+fixtures and typed rejection controls remain executable. Independently retained
+port-writing references under =t/= compare all 1,024 generated sources exactly.
+Generated HCL scanner/recognizer ownership is now in =src/compiler/=. The
+recursive source provider uses the common build protocol with an explicit closed
+lexical/grammar admission corridor.
+
+** Descriptor-bound model receipts and fixture selection
+
+The test declaration now supports =fixture-group= for accepted/rejected members
+of the effective inherited Loader corpus, =accepted-fixture= for an indexed
+source, and =fixture-catalog= for pinned counts and first-source digest. Fixture
+groups use a validated POO override and reuse the checked artifacts rather than
+parsing the group again. =syntax-kind= checks exact grammar metadata; =fields=
+and =token-counts= constrain emitted artifact structure.
+
+=model-receipt= takes literal model/source/config data, positive workers and a
+closed =(stdout text exit-code)= or =(unresolved)= tool fixture. Filename
+components, tool exit bounds and receipt keys are checked during expansion.
+The engine owns temporary files, process execution, stdout quoting and cleanup.
+=(nonzero exit-status)= tests the existing raw Gerbil wait status without
+assuming it equals a shell exit code. These fixtures qualify receipt admission
+and failure handling; they do not establish actual TLC model checking.
+
+Production TLC qualification lives in =src/language/tlc.ss= and parses through
+the admitted descriptor without importing builtin languages. The parser entry
+exports all scope wrappers from its canonical =parser.ss=; the old
+=qualification.ss= facade is removed. The existing receipt and Loader
+schema versions are unchanged.
+
+=native-entry= compares Loader parsing, descriptor parsing and the actual native
+binary status. =portable-rejected= exercises the real Rust producer rejection
+and exact error. SANY proof policy remains unsupported by standalone Rust AOT;
+these checks preserve that boundary rather than grant a portable capability.
+All language directories now have three Scheme interfaces. TLA+ scanner/proof
+execution belongs to admitted structured POO engine recipes.
+
+** Generic POO fused reduction build strategies
+
+=language-build-support.ss= exposes =FusedReductionStrategy.= and its contract,
+=make-fused-reduction-strategy=, =declare-language-build-strategy= and
+=emit-language-build-strategy=. HCL and Arithmetic both declare the same
+engine-owned capability on their actual public Loader:
+
+#+begin_src scheme
+(slots build-strategies:
+       (list (declare-language-build-strategy 'fused-reductions
+               (make-fused-reduction-strategy my-language-grammar))))
+#+end_src
+
+=LanguageLoader.= defaults =build-strategies= to an empty list. Named entries
+are checked for unique names, a valid strategy contract and exact identity
+with the Loader's effective descriptor. Inheriting a strategy bound to another
+descriptor rejects during admission. This remains =language-entry.v2=.
+Building through =emit-language-build-strategy= selects only a declared entry;
+it invokes the validated engine emitter rather than a caller-supplied callback.
+Parser dispatch does not emit code or validate build strategies per source.
+
+The strategy itself is a POO prototype with these effective slots:
+
+| Slot | Admission or extension rule |
+|---+---|
+| =descriptor= | An admitted language grammar; its Parser IR must be the exact machine IR |
+| =digest= | Derived internally from the descriptor machine; explicit stale overrides reject |
+| =step-name=, =event-name=, =digest-name= | Distinct valid Scheme binding names; reserved/imported dependencies cannot be shadowed; override through POO slots |
+| =metadata= | POO object for downstream build annotations |
+| =.emit= | Common inherited method dispatches to the admitted engine provider |
+
+#+begin_src scheme
+(def MyReductions.
+  (.o (:: self FusedReductionStrategy.)
+      step-name: 'reduce-step
+      event-name: 'reduce-events
+      digest-name: 'reduce-digest
+      metadata: (.o consumer: 'my-project)))
+;; No user-written thunk is needed for a slot value.
+(declare-language-build-strategy 'fused-reductions
+  (make-fused-reduction-strategy my-language-grammar MyReductions.))
+#+end_src
+
+=src/compiler/fused-reduction.ss= has no builtin language imports or
+language-name dispatch. It validates every production ID and the closed
+=pass=/=concat= plus =field=/=alias= action algebra before producing any output.
+The same structured generator emits recognition and event program reductions.
+LR transition lookup, precedence, lexical modes and rejection remain owned by
+the existing runtime. The HCL generated product now lives at
+=src/compiler/hcl-reductions.ss=; the former language product and benchmark
+producer were removed. The generic =scripts/generate-reductions.ss= CLI accepts
+any module exporting one language descriptor and verifies deterministic output.
+
+This capability produces Scheme fused LR reductions. It does not confer Rust
+or C portability, or generalize HCL's recursive lexical/source corridor.
+=src/compiler/recursive-source.ss= and =src/compiler/hcl-source.ss= belong to
+the engine; =RecursiveSourceStrategy.= admits the reviewed HCL corridor.
+
+** Common POO build capability protocol
+
+=BuildStrategy.= and =BuildStrategyContract= now own descriptor/IR identity,
+exact digest, POO metadata, registered provider and truthful =kind=/=format=
+slots. =FusedReductionStrategy.= and =RustRuntimeStrategy.= inherit this common
+prototype and apply their own additional constraints. =LanguageLoaderContract=
+validates the common protocol, and =emit-language-build-strategy= invokes
+=emit-build-strategy=. Neither common dispatcher branches on language or strategy
+kind. The Loader imports no concrete generation backend; convenience constructors
+are provided by =language-build-support.ss=.
+
+HCL and Arithmetic both declare the two real engine providers:
+
+#+begin_src scheme
+(slots build-strategies:
+       (list (declare-language-build-strategy 'fused-reductions
+               (make-fused-reduction-strategy my-language-grammar))
+             (declare-language-build-strategy 'rust-runtime
+               (make-rust-runtime-strategy my-language-grammar))))
+#+end_src
+
+A downstream name is independent of provider kind. POO prototypes may inherit
+metadata and supported recipe slots; =make-bound-build-strategy= binds the
+actual descriptor and validates effective inherited values. Each concrete
+constructor additionally checks its own strategy contract, so a Rust constructor
+cannot be supplied a fused reduction prototype.
+
+| Layer | Authority |
+|---+---|
+| Language Loader | Named declarations, uniqueness and exact descriptor binding |
+| Common POO contract | Source/machine IR identity, digest, metadata and registered target identity |
+| Engine provider | Specific closed recipe admission and canonical producer |
+| Output consumer | Actual compilation/execution qualification for its backend |
+
+Engine extensions register an opaque provider with a name, format identifier,
+admission predicate and emitter through =declare-build-strategy-provider= in
+=src/compiler/build-strategy.ss=. They inherit =BuildStrategy.= and add their
+recipe constraints. Adding such a provider requires no edit to the Loader
+registry or common emitter. Registration is an engine extension boundary, not a
+language-authored arbitrary writer slot. Plain POO objects posing as providers,
+forged target identities and stale digests reject. The common build entry uses
+the registered provider even when a recipe overrides its =.emit= method.
+
+Emitters must materialize/validate output before writing to the caller's port.
+The fused provider retains its closed LR action algebra; the Rust provider calls
+the existing =language-rust-runtime-module-source= producer unchanged, preserving
+Scanner IR and portable-policy rejection. Both providers are build operations;
+repeated source parsing invokes neither provider admission nor generation.
+A format identifier does not grant a new portable runtime capability. No C
+provider is implemented by this change, and Scheme-only parser policies remain
+unsupported by Rust.
+
+** Header-derived delimiter rules shared by Scheme and Rust
+
+The closed LexicalExpr constructors =(header-delimiter prefix count index)= and
+=(header-data prefix count stops)= replace language-owned scanner callbacks.
+For example HL7 declares =(header-delimiter "MSH" 5 0)= for its field separator
+and =(header-data "MSH" 5 "\r\n")= for data. An independent header-record
+language declares prefix ="記"=, count =2= and stops =";"=, through the same
+=deflanguage= and POO =deflanguage-parser-loader= boundary.
+
+Admission requires a nonempty string prefix, an exact delimiter count from 1
+through 32, and a valid zero-based delimiter index or string of stop characters.
+The source must start with the prefix followed by exactly the declared number
+of distinct, non-alphabetic, non-numeric delimiter characters. The count defines
+the header span; subsequent source may immediately follow it. Data consumes a
+nonempty run excluding those delimiters and explicit stops; spaces are preserved.
+Rules return no match on malformed or incomplete headers. There are no callback,
+state, language-name or version-name slots in this lexical recipe.
+
+Scheme execution compares source characters directly. Rust borrows the UTF-8
+header slice and returns byte endpoints; neither implementation allocates a
+separator list or hash table. Header validation is repeated for each lexical
+rule invocation; this change does not add a per-source prepared-header cache or
+claim a measured runtime speedup. The bounded count keeps that work explicit.
+Unicode endpoint and selected alphabetic/numeric rejection cases are tested;
+these receipts are not exhaustive Unicode-table equivalence evidence.
+
+The language keeps ordinary metadata/fixture extension slots on its POO Loader.
+The inherited binding enforces descriptor identity. Extending an already bound
+metadata object preserves its required identity slots, whereas replacing it
+with an unbound metadata object rejects. The Loader schema remains v2.
+
+The Rust producer emits corresponding =LexicalExpr::HeaderDelimiter= and
+=LexicalExpr::HeaderData= values from canonical Scheme IR. Two complete generated
+language specs compile and execute with Rust: the real HL7 fixture and
+custom message delimiters, and the independent Unicode header-record language.
+CI regenerates both formatted Rust source products and compares them exactly.
+=languages/hl7/scanner.ss= is deleted; no import alias or fallback scanner remains.
+HL7's projection is a closed =RecordProjection.= recipe in =grammar.ss=.
+The engine validates ownership, evaluates selectors and publishes identity.
+
+** Complete authoring convergence
+
+All eight packs now contain exactly =grammar.ss=, =parser.ss= and
+=parser-test.ss=. The Scheme topology gate enforces the file and declaration
+boundary. Bash source execution uses the common =SourceStrategy.= protocol;
+line sources demonstrate an independent provider. TLA+ source metadata, fixtures
+and three grammar scopes share =grammar.ss= and canonical parser entry. Closed
+structured scanner and proof policy recipes are verified with an independent
+checklist language. HL7 and a Unicode record share =RecordProjection.=. Shared
+=GraphSyntax*= objects produce source accepted by both GQL and openCypher.
+
+Build input is resolved by =src/language/module-input.ss=. Multi-scope modules
+require an explicit =#export-name= selector; the generator CLIs and build C ABI
+use that same constrained resolution. Loader v2 and existing ABI versions remain
+unchanged. The old module paths are removed, without import aliases.
+
+This closes authoring ownership. Shell source execution and structured TLA+
+policies still require equivalent standalone Rust IR consumers before they may
+advertise portable support. Recursive HCL lowering admits its exact reviewed
+corridor; universal recursive code generation is not implied by common dispatch.
+
+** Closed structured lexical fragments
+
+A language declares local spelling with =deftext-profile= and composes fragments
+using =(ref name)=. TLA+ now uses the same shared text-profile interpreter and Rust
+emitter as FHIRPath and HL7. The new closed operations are:
+
+| Form | Constraint |
+|---+---|
+| =(run-containing class required minimum maximum)= | Consume a maximal bounded run; at least one consumed character must match =required=. Classification and recognition share one traversal. |
+| =(ends-in class body)= | Accept the complete positive-width =body= only if its last character matches =class=. |
+| =(ends-not-in class body)= | Accept the complete positive-width =body= only if its last character does not match =class=. |
+| =(alphabetic)= | The pinned Scheme alphabetic class, generated as a Rust table; no host Unicode version substitution. |
+
+Bounds, character classes, recursion depth and nullable roots are admitted by
+the engine. Classes and spellings are canonical data, included in grammar
+identity and emitted to Rust. No callback name or lambda appears in these local
+lexical declarations. Module context now uses closed =module-text= data and
+request-owned source indexes. Proof policy continues through its separate POO
+contract and remains a portable execution obligation. The language-entry schema
+remains v2.
+
+** Request-owned header capture preparation
+
+Closed =header-delimiter= and =header-data= rules lower to a deduplicated capture
+plan owned by the compiled parser machine. A Scheme parse prepares each distinct
+header once, including invalid results. The dynamic scope binds both that plan
+and the exact source object, restores outer scopes on failure, and gives parallel
+requests independent captures. Ordinary lexing, directed parsing, lossless
+failure materialization and incremental resume share this preparation. Empty
+plans keep the ordinary lexer path. No mutable cross-request cache is retained.
+
+Rust prepares the same distinct captures once per lexical request and borrows
+the delimiter spans. The prepared matcher owns its source borrow, so callers
+cannot pair it with another input. Nested choices use the same context. Header
+alphabetic/numeric rejection uses the frozen Scheme character classes.
+These changes retain the lexical IR and language-entry schema; they change the
+execution plan, not grammar identity. The standalone native producer includes
+=src/runtime/lexical-source= before its consumers.
+
+This implements prepared header captures. TLA+ nesting preparation, shell
+recognition and portable proof-policy execution remain separate obligations.
+
+** Request-owned module framing
+
+The =module-text= opcode contains seven bounded strings: repeated opening border,
+header word, repeated closing border, nested comment opening/closing strings,
+line-comment prefix and the extra name character. Admission rejects malformed
+profiles before preparing source state. The compiler emits the same values to
+Rust =ModuleTextProfile=; effective values participate in the grammar digest.
+
+Scheme and Rust prepare source-owned header intervals and depth transitions.
+Repeated border runs occupy one interval, including all admissible suffix starts.
+Depth preparation skips quoted strings, nested comments and line comments. Module
+text stopping preserves raw header recognition, including headers within text;
+this is intentionally distinct from the depth walk. Binary queries replace
+rescanning the whole source prefix for each token. Invalid/unterminated inputs
+retain their original framing behavior. There is no mutable cross-request cache.
+
+Alphabetic, numeric and whitespace classes come from the pinned Scheme producer.
+Rust uses generated tables and byte boundaries; Scheme uses character boundaries.
+A generated standalone parser checks exact endpoints, lossless accepted modules,
+nesting and rejection. Independent UNIT framing and a numeric extra name character
+exercise values beyond the TLA+ spelling. Long border runs have a bounded-record
+control. Full SANY proof policy portability remains separate from framing.
+
+** Source descriptors use the same native result product
+
+An admitted source descriptor now binds through =bind-language-abi= and
+=register-language!=. Its =ResultProfile.= supplies the native syntax,
+field and terminal domains; grammar descriptors continue to derive these from
+the grammar algebra. Source descriptors reject a contextual parser product
+before binding. The GPA1 buffer, native descriptor v1 and language handle ABI
+v2 are unchanged. Bash and an independent POO line language use the actual
+public C descriptor/parse/release functions, including Unicode source, invalid
+UTF-8 rejection, result reuse and released-handle rejection. Syntax rejection
+is carried by the existing GPA1 status and admitted fallback terminal.
+
+Standalone Rust Word/Binding and Command/Source recognition now execute shared
+closed profiles and match Scheme controls, as described in
+[[file:0008-extensible-language-packs.org][the shared engine contract]]. This native C product still executes the Scheme
+Source engine. Full Rust ParseArtifact identity, diagnostics and native binding
+remain separate from recognition/event parity. Construction field sets constrain
+publication but do not yet express field cardinality.
+
+** Scheme Source edit sessions
+
+Applications may keep a Source session without adding scanner code to a language
+repository. =parse-source-language/session= takes the same source descriptor on
+every edit and returns an opaque session whose artifact uses the normal Source
+publication contract:
+
+#+begin_src scheme
+(import (only-in :gerbil-parser/src/language/source
+                 parse-source-language/session source-language-session-artifact
+                 source-language-session-scanned-token-count
+                 source-language-session-reused-token-count))
+(def initial (parse-source-language/session bash-source-language "cat <<A\nα\nA\n"))
+(def edited (parse-source-language/session bash-source-language "echo猫 <<A\nα\nA\n" initial))
+(source-language-session-artifact edited)
+(source-language-session-scanned-token-count edited) ; 1
+(source-language-session-reused-token-count edited)  ; remaining lexical tokens
+#+end_src
+
+The engine scans the changed prefix and admits a suffix only after independently
+reached scanner states converge, including deferred delimiter attributes. It
+then runs recognition and publishes the complete artifact for the new source.
+The counts describe scanner execution and copied lexical records; they do not
+claim parser/CST subtree reuse. Lexical failure publishes the normal diagnostic,
+reports no completed scan count (#f), and cannot seed a reusable cache.
+Ordinary non-contextual Source engines call their original declared scanner,
+retain no lexical cache, and also report #f for the scan count and zero reuse.
+
+* Responsibility naming
+
+Scheme Grammar/Parser IR and the parsing engine remain the semantic authority.
+An ABI context holds a descriptor, the existing parser, and field/syntax indices
+for result publication. It does not define a second grammar or parser engine.
+
+| Responsibility | Module or entry |
+|----------------+-----------------|
+| Language pack generation | =src/compiler/language-pack.ss= |
+| Language handles and histories | =src/ffi/language-handles.ss= |
+| C interface | =src/ffi/language-abi.ss= |
+| Result publication context | =src/ffi/language-abi-context.ss= |
+| Result encodings | =src/ffi/event-binary.ss= and =datum-codec.ss= |
+| Rust AOT C interface | =src/ffi/rust-aot-abi.ss= |
+| Scheme test orchestration | =t/fixtures/tla-sany-differential/test-suite.ss= |
+| Content preparation cache | =scripts/preparation-cache.ss= |
+| Shared library build | =build-shared-library.ss= |
+
+Use =abi= for foreign-call and ownership boundaries, =rust-aot= for Rust code
+generation, and =test= for Scheme test ownership. Use =compiled= when distinguishing
+loaded machine-code modules from interpreted source. The Rust
+=gerbil-parser-ffi= crate is the C ABI host binding; it invokes the Scheme
+runtime. The =gerbil-parser-runtime= crate executes Scheme-generated Rust plans.
+These are separate deployment products with the same Scheme-owned IR authority.
+
+** Test preparation and execution ownership
+
+The workspace Rust test command owns =asp-rust-gate= together with the other
+integration tests. A separate invocation in the same CI job repeats its execution.
+
+GQL diagnostics prepare the union of their support modules once. CI uses
+=--prepared-diagnostics= after its explicit support compilation; missing loadable
+products fail before either diagnostic runs. This option is restricted to
+=gql-profile= and =gql-actors=. Both diagnostic executions and their existing
+completion and idle budgets remain mandatory.
+
+=scripts/test-plan.ss= checks the existing conformance build catalog against
+=t/conformance-main.ss= imports and Suite execution declarations. It rejects
+missing owners, missing Suites and repeated Suite execution. The control entry is
+=gxi scripts/tests/test-plan-test.ss=. The declarations remain the authority;
+there is no additional handwritten language or Suite inventory.
+
+CI runs the 23 compiled semantic groups in one process. Each group retains its
+10-second completion fence; the aggregate runner also requires real output within
+five seconds. Suite object identity is checked before execution. Research commands
+keep their separate process boundaries because their entrypoints own process exit.
+
+After that gate succeeds, =test-suite.ss --remaining-conformance t languages=
+validates the declaration plan and runs source owners outside the compiled catalog
+and declared source-only Suites.
+Direct =test-suite.ss t languages= still qualifies all source owners. The source
+interface cleanup remains necessary for shared fixture imports, while fully covered
+modules are no longer prepared or executed as direct source test owners.
+
+=gxi scripts/tests/test-plan-test.ss= validates owner and Suite coverage, including
+omission and repetition controls. =gxi test-processes.ss conformance= exercises
+the actual production runner functions for caller thread ownership, duplicate Suite
+objects, assertion failure and completion timeout. Diagnostic runtimes use the same
+3 GiB heap budget as the shared source test runtime.
+
+The partition is by Suite, including actual phase-zero exports. A module may own
+both compiled Suites and a source-only Suite that needs dynamic module admission.
+The source runner prepares that module once and selects only its uncovered exports.
+=sany-closure-test= retains its dynamic build-policy rejection check in this scope;
+it is never treated as a successful compiled check after an illegal import.

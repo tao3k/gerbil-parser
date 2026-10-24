@@ -1,0 +1,764 @@
+#+title: Canonical LR table admission and staged execution
+#+startup: overview
+
+* Prepared capability and request-local layout execution
+
+The table contract derives layout capability from canonical productions. The
+execution boundary must preserve that decision: ambient dynamic parameters are
+request data, not evidence that a prepared runtime admits layout semantics.
+At parent =27f5471=, a plain runtime accepts one =word= token normally, but the
+same runtime rejects it inside an outer column table and reference frame. The
+old action lookup consults =current-layout-columns= without its own capability,
+so an unrelated frame can remove the ordinary shift.
+
+The LR executor now captures its prepared layout capability once alongside
+case policy and indexes. Its deterministic loop and both GLR lookups pass that
+value to the private action selector. Only a layout-capable runtime consults
+dynamic source columns. Existing GLR memo keys and acceptance already use
+runtime capability; branch-local layout shifts and closing reductions retain
+their existing owners. This fixes capability leakage without changing grammar
+declarations or introducing a request-time generic dispatch protocol.
+
+The tokenized source boundary independently binds its own columns and empty
+initial frames for every request. Plain requests bind no columns; layout
+requests construct columns from their own source. Parameter restoration protects
+an enclosing request after acceptance or rejection. Layout ordinary literals
+also use the same prepared casefold lookup as plain LR, followed by the existing
+guard/column decision; a second whole-string conversion path is removed.
+
+#+begin_src scheme
+(def runtime
+  (lr-prepare (compile-lr-spec '((root (alias Root (token word)))) 'root)))
+(def tokens (list (make-token 'word "x" 0 1)))
+;; These values belong to an enclosing source request, not runtime's grammar.
+(parameterize ((current-layout-columns (make-layout-columns "x"))
+               (current-layout-frames '((100 . "outer"))))
+  (let-values (((root rest) (lr-parse/prepared runtime tokens)))
+    (null? rest))) ; => #t, matching execution outside the dynamic bindings
+
+;; Source ownership is bound once at the existing request boundary.
+(parameterize ((current-layout-columns
+                (and (lr-runtime-layout? (parser-machine-runtime machine))
+                     (make-layout-columns source)))
+               (current-layout-frames '()))
+  (parse-tokenized/with machine digest source tokens parse-significant policy))
+#+end_src
+
+** Question: why is this design preferable?
+
+The symbolic grammar determines the immutable prepared capability. Dynamic
+parameters carry only request-owned coordinates and branch frames. Keeping
+these roles distinct lets the same prepared parser run from ordinary code,
+callbacks or nested services. The existing Scheme request scope handles binding
+and restoration, while named LR algorithms retain explicit prepared arguments.
+POO/macro composition continues to select the declaration before lowering;
+authors add no layout switch, column builder or cleanup callback to their three
+interfaces. The existing casefold index is reused rather than implementing a
+second lexical algorithm for layout requests.
+
+** Question: how is the claim scientifically tested?
+
+The matched counterexample changes only ambient parameters around the same
+runtime and tokens. Permanent controls compare complete artifacts outside and
+inside those bindings, under both requested semantic preferences, with a plain
+grammar and a dynamic-precedence fork grammar. The independent materialized GLR
+entry exercises its fast and memoized lookups; a streaming driver checks token
+callbacks. Separate source controls execute success/rejection/success and require
+the original outer parameter identities after each request. ASCII and Unicode
+casefold controls check row identity, case-sensitive token fallback, primary
+shift and blocked-shift reduction fallback. They do not prove every possible
+layout grammar balanced or every compiler-generated fallback equivalent.
+
+The [[https://small.r7rs.org/attachment/r7rs.pdf][R7RS-small report]], Section 4.2.6, specifies temporary dynamic parameter
+values and restoration. The installed Gerbil =2591dcd= runtime
+=src/gerbil/runtime/control.ss= delegates =call-with-parameters= to Gambit's
+=##parameterize1=. This is the existing language mechanism, not a replacement
+scheduler or private dynamic-binding implementation. The report motivates the
+scope boundary; actual Gerbil controls qualify the implemented request behavior.
+No CPU, allocation or concurrent actor performance benefit is inferred.
+
+** Qualification
+
+The native parent counterexample reports =input does not match LR parser= only
+inside the ambient layout context. The baseline child exits zero in 6.368
+seconds with final =OK=. This records
+the reproduced bug, not success of the repaired implementation.
+
+The repaired layout, LR and source request owners and the focused layout module
+compile natively with optimization/static products in 70.397 seconds, exit zero
+and final =OK=. Fourteen consumer suites pass 131 cases in 26.984 seconds. The
+matrix includes the four new isolation/streaming/casefold/restoration cases,
+both semantic preferences, deterministic and dynamic fork grammars, generated
+Scheme/Rust controls, resolved source origins, complete parser products and
+ten-language ABI byte equality. Both supervisors retain the five-second real
+progress gate and report no rejection reason or missing completion output.
+
+Dependency products
+are reused in the native overlay; this is not a clean-checkout package build.
+No Rust runtime source or language declarations change. Exact-head Linux,
+macOS and Rust platform CI remain a separate delivery gate. This qualification
+closes the reproduced request-capability leakage and tested restoration paths;
+it does not establish arbitrary layout equivalence or actor concurrency safety.
+
+** Checkpoint and contextual execution admission
+
+Request isolation alone does not establish resumability. At parent =36c9f84=,
+=lr-initial-checkpoint= accepts a layout runtime, although =lr-checkpoint= and
+its prefix snapshot carry neither source columns nor branch reference frames.
+The contextual executor uses this checkpoint record and likewise admits a
+self-consistent layout product. The native baseline explicitly constructs both
+objects; it does not claim that a particular continuation corruption was
+observed. Its terminal catalog contains the fixture's actual =word= token, so
+the counterexample is independent of a mismatched scanner declaration.
+
+The LR owner now defines =require-lr-checkpoint-runtime!= and applies it before
+semantic backend selection or checkpoint construction. Contextual preparation
+uses that same requirement before building positions or a scanner plan. The raw
+contextual entry delegates to prepared admission and execution, eliminating its
+separate validation/indexing/scanner path. Both entries consequently own their
+published digest strings; mutation of the caller's product cannot rewrite a
+previously published raw artifact. These are execution requirements derived
+from the existing continuation representation, not new language author slots.
+
+#+begin_src scheme
+;; A continuation must own every value needed to resume execution.
+(def (require-lr-checkpoint-runtime! runtime)
+  (when (lr-runtime-layout? runtime)
+    (error "LR checkpoints require a runtime without layout")))
+
+(def (lr-initial-checkpoint runtime tokens)
+  (require-lr-checkpoint-runtime! runtime)
+  (lr-initial-checkpoint/selected
+   (lr-runtime-for-current-semantic-backend runtime) tokens))
+
+;; Raw and prepared calls share product admission and private plan ownership.
+(parse-source/contextual/prepared
+ (prepare-contextual-parser machine product) source)
+
+;; Full source layout parsing retains its GLR owner. The high-level incremental
+;; entry returns a complete artifact and no reusable checkpoint for this runtime.
+(let-values (((artifact tokens modes snapshots)
+              (parse-source/checkpoints layout-machine source 1)))
+  (and (parse-artifact-valid? artifact)
+       (not tokens) (not modes) (equal? snapshots '#())))
+#+end_src
+
+*** Question: why is this design preferable?
+
+The symbolic production capability is checked by the owner of continuation
+state. Plain checkpoint, contextual preparation and full layout execution
+therefore have explicit, consistent requirements. Scheme procedures reuse one
+admission algorithm and one owned contextual plan; POO/macro declarations still
+lower through the same machine without duplicated author configuration.
+Supporting layout continuations later requires an owned coordinate/frame
+representation with branch semantics, rather than an ambient parameter switch.
+
+*** Question: how is the claim scientifically tested?
+
+The parent control admits both incomplete representations. The repaired control
+requires the same error for initial checkpoints, prepared contextual admission
+and raw contextual admission under both semantic preferences. Independent full
+source controls compare complete artifacts, exact round trips and absence of
+snapshots for single-line success, multiline success and rejected layout input.
+The contextual identity control mutates the original product without freezing
+the reference artifact; ordinary HCL, Unicode and rejection paths must still
+agree with prepared execution. This establishes the tested capability and
+ownership boundary. It does not implement layout continuation capture,
+contextual GLR branch state or prove arbitrary layout grammars balanced.
+
+*** Qualification
+
+The native parent baseline admits both objects and finishes with exit zero and
+=OK= in 19.871 seconds. Two preliminary
+fixture attempts fail on a missing native helper and an undeclared HCL token;
+neither is used as capability evidence. The final fixture uses the actual
+layout grammar's =word= terminal.
+
+The LR producer emits its optimized/static products. Initial consumer admission
+fails because the reused overlay precedes the new interface; the first retry
+still has the same ordering error. With the new overlay placed last in the
+environment setup (and therefore first in the resolved load path), a fresh
+consumer process compiles the source owner and both focused test modules in
+57.451 seconds with exit zero and =OK=. The contextual fixture helper compiles
+in 16.309 seconds. The initial test admission reports its missing native helper
+and is retained as a failed receipt; it is not a passing semantic run.
+
+The final seventeen-suite native matrix passes 167 cases in 23.001 seconds,
+including contextual ownership, layout admission/full-source parity, fragment
+transfer, deferred scanner continuations, both semantic preferences, generated
+products and ten-language ABI bytes. All final
+supervisors retain the five-second real-progress gate, report no rejection
+reason or missing completion output and propagate the child exit code.
+These are reused dependency overlays, not a clean-checkout package build.
+The integrated Org qualifier preserves the historical body and checks 104
+local links and 17 heading targets. No performance benefit is claimed;
+fresh exact-head platform CI is a separate gate.
+
+** Compact request-owned source coordinates
+
+The request capability boundary also identifies a source-size cost in the shared
+engine: layout preparation encoded the source with Gambit's native UTF-8 encoder
+and then stored one boxed-vector slot per byte, including EOF. This allocation
+is incurred even when the significant token stream is short. No language
+declaration or POO metadata can eliminate that engine-owned representation cost.
+
+The retained design uses a =u32vector= where the column bound fits. Every
+character advances a column by at most eight (a tab); newline/return reset it.
+Consequently =8 * string-length(source)= bounds every column, independent of
+UTF-8 byte width. Above the conservative u32 admission bound the same builder
+uses exact Scheme integer slots. Neither path truncates columns or narrows the
+language domain. Queries remain constant-time and continuation-byte offsets
+retain the leading character's column.
+
+A hygienic =defrule= stages the storage operation once into the builder. It
+expands directly to the selected vector setter, avoiding a callback or storage
+dispatch for each byte. Read dispatch is private to the coordinate owner; the
+LR engine and the three author interfaces still consume the same source-column
+semantics. The official native UTF-8 encoder retains character-conversion
+ownership. On a 64-bit VM the column payload falls from eight to four bytes per
+offset; the temporary encoded source remains part of preparation cost.
+
+#+begin_src scheme
+;; A tab advances at most eight columns per source character.
+(def (make-layout-columns source)
+  (let* ((bytes (string->utf8 source)) (size (+ (u8vector-length bytes) 1)))
+    (if (<= (string-length source) (quotient #xffffffff 8))
+      (build-layout-columns bytes (make-u32vector size 0) ##u32vector-set!)
+      (build-layout-columns bytes (make-vector size 0) vector-set!))))
+
+;; Storage is an engine-owned value, not a language-author configuration.
+(parameterize ((current-layout-columns (make-layout-columns source)))
+  (layout-token-column token))
+#+end_src
+
+*** Question: why is this design preferable?
+
+The DSL declares layout semantics; the engine selects a bounded physical
+representation and stages its primitive operation. Scheme's hygienic syntax
+therefore supplies specialization without adding author slots, generic registry
+lookups or per-byte procedure calls. POO remains responsible for extensible
+declarations, while this closed storage choice belongs to the named coordinate
+algorithm. Exact integer storage preserves the mathematical contract outside
+the packed domain without introducing an alternative grammar architecture.
+
+*** Question: how is the claim scientifically tested?
+
+An independent boxed-vector oracle checks every byte, UTF-8 interior and EOF for
+empty input, ASCII, tabs, CR/LF/CRLF and Unicode scalar-width boundaries. Explicit
+controls check 80000-column tab input, Unicode after CRLF, missing request context
+and wide exact-integer reads. Existing layout action guards, complete artifacts,
+GLR branches, nested request restoration and all-language ABI controls qualify
+the consumers of the new value. The native conformance catalog owns the new
+fixture and suite.
+
+The committed [[file:../../t/benchmarks/layout-columns/benchmark.ss][coordinate benchmark]] uses the existing shared batch sampler
+for preparation and complete prepared-GLR products, including lexing, significant
+token selection, recognition and canonical artifact construction. Both storage
+variants must produce equal complete TLA+ artifacts. The workload exposes source
+size with 32768 whitespace characters; it is not a representative language-wide
+request distribution or a claim about GQL latency. Natural collections and
+allocation admission retain the shared owner's policy.
+
+A rejected first candidate traversed source characters with the official
+=:std/string/utf8= length helpers and eliminated the encoded byte vector. Its
+admitted preparation allocation fell from 295897.6 to 131737.6 bytes/call, but
+batch CPU P50 rose from 2.181 to 5.408 ms for ten calls; complete-product batch
+CPU P50 rose from 6.461 to 8.304 ms. Those block observations falsify adoption of
+that traversal on this workload. The retained builder restores native encoding
+and byte traversal; these rejected measurements do not qualify its performance.
+
+Reproduce the current semantic and measurement contracts from the repository
+root with declared dependencies installed:
+
+#+begin_src sh
+gerbil compile -O
+gerbil env gerbil test -v 5 t/layout-column-storage-test.ss t/layout-boundary-test.ss
+gerbil compile -O t/fixtures/layout-columns.ss t/benchmarks/layout-columns/benchmark.ss
+gerbil env gxi -e '(import :gerbil-parser/t/benchmarks/layout-columns/benchmark) (benchmark-layout-columns)'
+#+end_src
+
+Historical local observations are not archived replay receipts. The committed
+workload and assertions are the reproduction entry; exact-head platform CI is
+an additional delivery gate.
+
+*** Native storage qualification and rejected alternatives
+
+The checked u32 writer also regressed preparation CPU (3.450 ms versus 2.202 ms
+for ten calls). It is not retained. The final private writer uses
+=##u32vector-set!=, following the installed Gerbil standard library's
+=std/serde/unmarshal.ss= =defparse-hvector= specialization. The encoder produces
+valid widths, the allocated buffer contains every byte plus EOF, and the proven
+column bound covers every stored value. Only private writes use this primitive;
+public token reads remain checked. Compiler optimization settings are unchanged.
+
+Four sequential native runs change only the layout producer: boxed, packed,
+packed, boxed. All complete-product controls pass. Each component has twenty
+samples of ten calls; all allocation intervals are admitted. Both boxed runs
+allocate 295897.6 bytes per coordinate construction and 512984 bytes per complete
+product. Both packed runs allocate 164609.6 and 381696 bytes respectively: the
+same 131288-byte reduction occurs in preparation and the complete product.
+This is approximately 44.4% and 25.6% less allocation for this padded workload,
+not retained-heap measurement or a language-wide allocation claim.
+
+Packed preparation batch CPU P50 is 1.969/2.019 ms; boxed observations are
+2.145/2.136 ms. Complete-product CPU P50 is 6.000/5.454 ms for packed and
+5.789/5.558 ms for boxed. These observations do not establish a complete-request
+CPU improvement. Adoption is limited to the stable allocation reduction with
+preserved byte coordinates and complete products. The first baseline attempt
+failed the unchanged idle gate because its copied overlay omitted phase-zero
+native artifacts; it is excluded from the completed four-run sequence.
+
+The final native matrix passes 172 cases across eighteen suites in 44.874
+seconds, with propagated exit zero, final =OK= and the unchanged five-second
+real-progress gate. It includes every byte oracle, layout boundaries, full
+ten-language ABI bytes, contextual ownership and fragment/deferred continuations.
+An earlier merged run failed language ABI admission after only the concurrent
+scanner producer was rebuilt. Its exported trie macro had changed representation;
+rebuilding the direct =lr-action-index= consumer restored consistent expansion
+and the entire matrix passed. That failed mixed graph is retained as a build
+qualification failure, not evidence of a packed coordinate mismatch. The native
+coordinate build, final bounded writer and macro consumer compile normally;
+no optimizer setting or watchdog threshold is relaxed. Research and audit links
+are checked by the Scheme qualifier. Clean exact-head CI remains separate.
+
+* One boundary from productions to executable tables
+
+This completes the structural table boundary identified in
+[[file:prepared-lr-action-plans.org::*Complete production admission before execution products][the production admission study]]. Production semantics and LR table structure
+are related obligations with distinct owners. =src/compiler/lr.ss= admits
+production declarations. =src/compiler/lr-table.ss= admits the resulting action
+and goto vectors before indexes or executable products are published.
+
+The source audit at parent =5a6a70b= found that preparation indexed rows without
+checking target ranges or uniqueness. A valid terminal key could conceal an
+out-of-range shift/reduce reference, a singleton fork or duplicate row entries.
+The old association/index helpers selected the first duplicate; that utility
+behavior did not establish canonical table legality.
+
+The shared gate establishes:
+
+- Nonempty action vectors and equally sized goto vectors, with proper rows.
+- Canonical terminal keys, symbolic goto keys and no repeated key within a row.
+- Shift and goto targets within the state domain; reduce targets within the
+  admitted production domain. Numeric references are nonnegative Fixnums.
+- Three-element shifts with the existing precedence contract, two-element
+  reductions, EOF-only acceptance and matching nonassociative terminal metadata.
+- Flat forks with at least two atomic alternatives. Layout guards contain a
+  shift and a reduction or flat reduction fork. Request-generated layout-shift
+  actions are not a published table declaration.
+- Layout guards and layout terminal keys require layout capability derived from
+  admitted productions. Preparation uses the same predicate to enable source
+  columns and request-local frames; table shape alone cannot enable that protocol.
+- Action keys belong to the canonical production terminal catalog (including
+  EOF); goto keys name a declared production LHS. Marked operands retain their
+  base-symbol membership and unused declared rules remain admissible.
+- The graph from state zero has a reachable EOF acceptance. Shift edges in
+  forks/guards and goto edges all participate. Conflict resolution may leave
+  disconnected states; admission preserves their existing identities.
+
+Standalone LR compilation, prepared execution, fused Scheme strategy admission
+and raw-IR Rust publication consume this gate. The source build catalog discovers
+the new production module through the existing PackageSpec. The action validator
+captures state and production domains once per admission; queries retain their
+existing indexes and captured executors. Row and entry objects are returned
+unchanged. As with prepared productions, callers must not mutate admitted IR.
+
+* Scheme witness
+
+#+begin_src scheme
+;; One state and one production: every referenced offset is zero.
+(let ((productions '((0 root ((terminal token word)) concat #f)))
+      (actions '#((((terminal token word) shift 0 #f) ((terminal eof) accept))))
+      (gotos '#(((root . 0)))))
+  (validate-lr-tables productions actions gotos))
+
+;; Each is rejected before preparation or Rust publication.
+(let (productions '((0 root ((terminal token word)) concat #f)))
+  (validate-lr-tables productions '#((((terminal token word) shift 1 #f))) '#(()))
+  (validate-lr-tables productions '#((((terminal token word) reduce 1))) '#(()))
+  (validate-lr-tables productions '#((((terminal token word) fork (reduce 0)))) '#(())))
+;; A separate negative control: ordinary productions cannot publish a guard.
+(validate-lr-tables '((0 root ((terminal token word)) concat #f))
+                   '#((((terminal token word) layout-guard (shift 0 #f) (reduce 0))))
+                   '#(()))
+#+end_src
+
+** Question: why is this design preferable?
+
+The Scheme DSL states grammar meaning; users do not configure table validation,
+index storage or backend dispatch. Structural matching expresses the closed
+action algebra, while a shared row traversal owns domain and uniqueness checks.
+POO strategies inherit the same canonical admission rather than supplying their
+own definition of a legal table. These mechanisms implement the staging boundary
+of the [[file:engine-reduction-generation.org][integrated reduction study]]; they add no author slots or compatibility path.
+
+Layout capability is declared by canonical production meaning: a layout-end
+action or a layout-start/layout-next operand, including marked operands. One
+structural matching function now serves table admission and runtime preparation.
+This uses Scheme's symbolic action algebra to move a protocol obligation into
+the engine, rather than asking grammar authors to duplicate an enable flag.
+
+The table gate preserves original entries, including the identity required by
+GLR receipts and checkpoint execution. Generic association helpers still support
+first-match duplicate lookup as utilities; a canonical parser table cannot use
+that behavior to bypass admission. Each responsibility has its own control.
+
+** Question: how is the claim scientifically tested?
+
+For s states and p productions, every admitted shift/goto target is in [0,s)
+and every admitted reduction is in [0,p). Matching each atomic branch extends
+that invariant to flat forks and guarded reduction alternatives. Uniqueness
+is checked with a preparation-owned equality table, independently for each row.
+These are structural invariants, not a proof of LR conflict resolution or that
+the table recognizes its declared grammar.
+
+Falsifiers include an admitted out-of-range reference or malformed wrapper,
+changed original-entry identity, modified valid artifacts, or a Rust output file
+published after admission failure. Focused index controls test boundaries and
+malformed rows; existing utility controls retain first-match behavior. Full
+generated/GLR artifacts, layout closure and ten-language ABI fixture bytes provide
+independent valid-product controls. Raw Rust publication has separate failure
+controls for target bounds and duplicate keys.
+
+Layout falsifiers additionally include a guard or layout key admitted with plain
+productions, or loss of capability through an operand's field/alias wrapper.
+Positive controls cover end actions, bare start markers and marked next markers;
+the source layout suite exercises actual request columns and frame transitions.
+
+Validation adds a row traversal and per-row equality hash tables; lookup cost
+and hashing literal keys contribute to preparation work. No worst-case total
+cost bound or measured preparation/request benefit is claimed. Reachable
+acceptance is checked below; it does not certify goto completeness, conflict equivalence, lexical
+realizability. Layout correspondence here is a necessary capability condition,
+not proof that markers are balanced or that every guard has the correct fallback.
+Backend-specific capability admission retains its existing owners.
+
+* Production-relative vocabulary and reachable acceptance
+
+This follows the same admission boundary through all four consumers, rather
+than adding a language-specific validator. The =0c46a44= baseline gate admits
+an undeclared token key, an undeclared goto symbol and an isolated cycle with no
+acceptance reachable from state zero. Their numeric offsets and row shapes are
+valid; structural shape alone cannot establish the production/table relationship.
+
+The implementation reuses =production-terminal-catalog= from the LR owner.
+Its index includes EOF at offset zero; Scheme's truth semantics correctly treat
+that zero as present. A separate equality set admits production LHS symbols.
+No second terminal-normalization policy is introduced. Operand actions are
+projected by the existing canonical catalog, so field and alias annotations do
+not change terminal membership. Dead declared rules remain legal composition
+inputs; absent table symbols do not become implicit declarations.
+
+#+begin_src scheme
+(def productions '((0 root ((terminal token word)) concat #f)))
+(def actions '#((((terminal token word) shift 1 #f))
+                (((terminal eof) reduce 0))
+                (((terminal eof) accept))))
+(def gotos '#(((root . 2)) () ()))
+(validate-lr-tables productions actions gotos) ; same vectors and entries
+
+;; An accepting row does not legalize an undeclared grammar symbol.
+(validate-lr-tables productions
+                   '#((((terminal token unknown) reduce 0)
+                       ((terminal eof) accept))) '#(())) ; rejected
+;; An isolated accepting cycle cannot be entered from the initial state.
+(validate-lr-tables productions
+                   '#(() (((terminal token word) shift 1 #f)
+                          ((terminal eof) accept))) '#(() ())) ; rejected
+#+end_src
+
+** Question: why does this exploit Scheme and keep complexity in the engine?
+
+The symbolic IR supplies the vocabulary directly. Structural matching traverses
+the closed shift/fork/layout algebra without another opcode registry or author
+configuration. POO-selected strategies consume one canonical gate before
+execution or publication. The graph worklist uses the installed Gerbil SDK's
+=:std/struct/queue= implementation: typed final queue storage, enqueue/dequeue
+operations and a state-sized visited vector. Each discovered state is enqueued
+at most once. Graph traversal is bounded by states plus action/goto alternatives;
+symbol hashing and terminal-catalog construction remain separate admission costs.
+These mechanisms execute during preparation/publication, not token lookup.
+
+** Question: what does the research prove, and what falsifies this contract?
+
+Knuth's [[https://doi.org/10.1016/S0019-9958(65)90426-2][On the Translation of Languages from Left to Right]] (1965), definitions
+and Section II, separates grammar symbols, derivations and recognizer
+construction. The [[https://harrymoreno.com/assets/greatPapersInCompSci/2.5_-_On_the_translation_of_languages_from_left_to_right-Donald_E._Knuth.pdf][primary paper scan]] is the research source. Our vocabulary check
+and reachable-acceptance check are necessary artifact conditions derived from
+that separation; they do not decide the LR(k) property or prove table/grammar
+equivalence. A reachable goto is an abstract graph edge, not proof of a viable
+runtime reduction stack. No accepted input string is inferred from this graph.
+
+An initially stronger proposal rejected every disconnected state. Actual GQL
+qualification falsifies it at state 1001: static conflict resolution removes
+shift edges while retaining the original state identities. That implementation
+is withdrawn. The final contract checks reachable acceptance and preserves
+disconnected state rows; it neither trims nor renumbers the automaton.
+
+Independent falsifiers include an undeclared key admitted despite an otherwise
+reachable accept, an isolated accepting cycle admitted from state zero, missing
+second-fork or layout-primary edges, and lost marked-operand membership. Positive
+controls retain unused declarations, cycles, goto-only paths and disconnected
+rows beside a reachable acceptance. Runtime rejection and Rust publication use
+the same malformed inputs; publication must neither create a missing file nor
+overwrite an existing sentinel. Existing compiler, layout, fused execution and
+ten-language ABI controls qualify the complete consumer boundary.
+
+* Rust target representability after canonical admission
+
+The next audit follows the same staged contract to the actual Rust model.
+=engine/model.rs= represents syntax aliases as =u16=, state/production references
+as =u32= and each production's dynamic precedence as =i32=. Canonical Scheme
+precedence accepts Integer. The emitter previously printed that integer directly,
+so canonical legality could produce Rust source with an out-of-range literal.
+
+=validate-rust-lr-capability= now runs after shared production/table admission
+and before the output-string buffer. It checks kind/reference domain capacities,
+rejects production-derived layout capability unavailable in the Rust model,
+and checks dynamic precedence against the inclusive signed 32-bit bounds.
+Layout uses the shared production predicate, including marked operands and unused
+rules; it is not a second DSL interpretation or an author-configured feature flag.
+
+#+begin_src scheme
+;; Canonical Scheme legality does not inherit a consumer's fixed-width limit.
+(validate-production-semantics
+ '((0 root () concat (dynamic 1267650600228229401496703205376))))
+
+;; The target owner applies this additional obligation before source emission.
+(let (precedence (production-precedence production))
+  (when (and precedence (eq? (car precedence) 'dynamic)
+             (not (<= -2147483648 (cadr precedence) 2147483647)))
+    (error "Rust LR dynamic precedence exceeds i32 capacity" production)))
+#+end_src
+
+** Question: why does this preserve the Scheme design advantage?
+
+Symbolic productions carry meaning independently of a target's machine widths.
+The engine admits this meaning once; each publication target owns its additional
+representation obligations. Scheme matching and first-class traversal keep that
+boundary explicit without expanding grammar.ss/parser.ss author configuration.
+Both raw IR publication and descriptor publication use the same Rust entry, so
+both paths enforce the target capacity gate. Descriptor policy admission keeps
+its separate owner.
+
+** Question: what evidence establishes the target claim?
+
+The falsifier is Rust source emitted with an out-of-range production precedence.
+Controls cover both exact endpoints, zero, each adjacent overflow and a bignum.
+The same rejected target IR must still prepare under Scheme. An existing output
+file must retain its contents after target rejection; an oversized kind catalog
+must create no file. Layout controls include end actions, start operands and
+marked next operands. Existing ten-language ABI bytes and deterministic source
+controls establish that currently supported products retain their output.
+
+The u32 domain bound is inspected directly against the Rust model; no test
+allocates billions of states or productions. Admission of an individual i32
+precedence alone did not close accumulated branch scores. The runtime obligation
+identified here is addressed by the following checked accumulation contract.
+This is target publication correctness, not a runtime performance claim or
+proof of complete Rust/Scheme semantic equivalence.
+
+** Checked cumulative precedence and global failure
+
+The Rust configuration, completed candidate and public receipt now carry i64
+scores. Individual generated productions retain their admitted i32 representation.
+Reduction computes checked i64 addition before draining values or truncating
+states. Capacity failure returns =dynamic-precedence-overflow= at the current
+source boundary and leaves the configuration unchanged. The same reduction owner
+serves deterministic, contextual and selective GLR execution.
+
+Selective GLR treats this diagnostic as a global failure, like its existing
+artifact and branch-budget failures. Discarding an overflowing branch as a normal
+parse rejection could admit an incorrect lower-scoring winner. Both branch orders
+must fail even when another branch has already completed.
+
+#+begin_src scheme
+;; Integer policy has the same meaning before target representation is chosen.
+(+ 2147483647 2147483647) ; => 4294967294
+(+ -2147483648 -2147483648) ; => -4294967296
+(+ 2147483647 -2147483648) ; => -1
+;; Rust accumulation preserves these values; target capacity failure is explicit,
+;; never a wrap, clamp, panic or silently discarded GLR alternative.
+#+end_src
+
+*** Question: why is this an engine responsibility?
+
+Grammar declarations state precedence meaning. Configuration arithmetic and
+candidate comparison implement that meaning; grammar authors should not configure
+integer widths, exception handling or branch-discard policy. One shared reduction
+operation checks the target's capacity before mutation, and one GLR owner classifies
+the resulting failure. The receipt reports the same wider score that selected the
+winner, with no legacy narrow-score alias.
+
+*** Question: what closes the numerical claim?
+
+Full parser controls cross both i32 limits, preserve branch ordering and retain
+equal-score ambiguity after positive/negative cancellation. Seeded i64 boundary
+controls verify failure before state/value/cursor/score mutation. Internal GLR
+controls put a completed branch before and after an overflowing branch, for both
+positive and negative overflow. Existing complete parse/event/contextual controls
+qualify the shared owner. This closes checked accumulation and propagation within
+the explicit Rust target domain; it does not claim arbitrary-precision Rust scores
+or successful execution of every canonical Scheme Integer grammar.
+
+* Native qualification and evidence boundary
+
+** Production-relative admission closure
+
+The final shared gate and both changed index/publication test modules compile
+natively with optimize/static enabled: 39.392 seconds, exit zero and final =OK=.
+The complete consumer matrix passes 72 cases in 51.872 seconds, exit zero,
+=reason=#f=, no missing receipt and final =OK=. Its eleven modules cover LR
+indexes, stack reduction, semantic preparation, fused reduction, Rust generation,
+layout boundaries, ten-language ABI parity, event programs, unary corridors,
+ranked literals and scanner profiles. The three new table cases include several
+independent graph and symbol witnesses; the publication case checks absent and
+existing files for every malformed input.
+
+The production-shape fixtures now share an already accepting graph. This keeps
+their positive controls independent of the new table gate and prevents malformed
+production/operand tests from succeeding merely because their graph is invalid.
+Existing complete parser controls still use real compiled grammars.
+
+Qualification keeps the five-second idle fence and a 120-second total budget.
+The withdrawn all-states-reachable implementation fails GQL at state 1001:
+27.763 seconds, exit one and =error-output=. A source test run reaches GQL Rust
+source generation but fails the idle fence after 37.865 seconds; it is not a
+success. The changed test modules are then compiled normally, without changing
+production optimization or timeouts. Two subsequent runs expose old empty-graph
+fixtures (24.509 and 18.406 seconds, =error-output=); those are consolidated before
+the successful complete matrix. No parser speedup is inferred from these elapsed
+times. Fresh native module qualification is not clean-checkout exact-head CI.
+
+** Checked accumulation closure
+
+The =ad8c6a3= remote Rust job rejected the inline =score_tests= module under
+=RUST-AGENT-PROJECT-003=. The preceding runtime and Clippy receipts therefore
+did not establish workspace policy admission. The branch-order control now
+lives in [[file:../../rust/gerbil-parser-runtime/tests/unit/precedence_capacity.rs][the dedicated unit-test source]], mounted from the parser with =#[path]=.
+This retains access to private execution state without placing test bodies in
+the production source. No policy severity or ignored-directory setting changes.
+Runtime semantics, workspace source policy and exact-head platform CI are
+independent obligations; all three must be checked before delivery closure.
+
+After relocation, all 145 runtime library cases pass again: 7.720 seconds,
+exit zero, no rejection reason and no missing receipt. The existing workspace
+policy test product, built against the locked =9b95fd6= policy and supplied with
+Cargo's manifest-directory environment, scans the current sources successfully:
+one case, 1.403 seconds, exit zero. This is current-source policy execution,
+not a new clean compilation of the policy tool. Workspace formatting and
+=git diff --check= also pass. The remote failing job is not relabeled a success.
+
+Cold policy-tool compilation attempts hit the unchanged 180-second total fence.
+The first completes log processing after 231.857 seconds with
+=reason=total-timeout=; no success is admitted. Verbose multiline diagnostics
+and an overly broad =Running= filter caused substantial log-processing cost.
+The temporary consumer now samples actual diagnostic lines and preserves test
+results and Cargo completion output. A malformed temporary consumer and an
+initial direct policy execution without =CARGO_MANIFEST_DIR= are also rejected;
+the latter is rerun with Cargo's required environment before the successful
+current-source receipt. These qualification failures are not parser timings.
+
+The final Rust runtime suite passes all 145 cases in 64.892 seconds, exit zero,
+with no rejection reason or missing required output. The warnings-denied Clippy
+library/test gate passes in 52.108 seconds. Workspace formatting is checked
+without rewriting unrelated files. These receipts use the native 1.95 compiler,
+the existing optimized Cargo profile and the unchanged five-second idle fence.
+
+Earlier silent and LLVM-pass-only builds are rejected for idle progress
+(6.245 and 71.450 seconds); an unsupported LLVM diagnostic option is rejected
+by the compiler before compilation. The first complete test execution passes
+144 cases and fails the new ranking control because its declared root kind
+does not match the winning branch. The fixture is corrected before final
+qualification. None of these attempts is a successful receipt.
+
+Official [[https://rustc-dev-guide.rust-lang.org/tracing.html][rustc tracing]] supplies real frontend activity; verified LLVM pass-number
+diagnostics supply backend activity. A temporary Scheme stream consumer samples
+verbose compiler events while preserving errors and test results. It emits no
+timer heartbeat and changes no optimizer setting. Full unsampled tracing has
+substantial output-handling overhead; these diagnostic timings are not engine
+performance evidence.
+
+** Rust target capacity follow-up
+
+The parent native emitter printed all three overflowing precedence controls in
+8.162 seconds, exit zero. The first temporary probe failed on an unbound
+re-exported language binding (9.669 seconds); resolving exports through official
+module import corrected the probe. That first failure is not target evidence.
+
+The final native emitter built in 32.608 seconds. Seven source GxTest suites
+passed all 42 cases in 22.200 seconds, including boundary/prepublication controls
+and twenty accepted/rejected ABI products across ten language entries. Successful
+receipts report exit zero, no rejection reason, no missing required output and
+final =OK= under the unchanged five-second real-progress gate. Exact-head platform
+CI remains separate from these local controls.
+
+After concurrent PR commits through =f75aa18=, the target change is rebased and
+its owner rebuilt (41.740 seconds). Initial cross-checkout qualification fails
+on incomplete compiled test modules; two partial native dependency combinations
+also exit 139 at the arithmetic ABI control. These failures do not qualify the
+rebased graph and are retained in the =rebased-*-test= receipts.
+
+The scanner, action index, LR runtime and machine are then rebuilt sequentially
+in this checkout's dependency environment. Official Scheme expansion emits each
+phase, and SDK Gambit compiles it with real compiler progress options. The final
+native batch receipt is 210.095 seconds, exit zero; the temporary all-pass GCC
+diagnostics produce 6.5 million lines and include substantial supervisor output
+handling. That receipt is neither a package-build benchmark nor parser timing.
+The final
+eleven-suite source run passes 69 cases in 61.918 seconds, exit zero, final =OK=,
+no missing required output and twenty exact ABI products. It includes the merged
+casefold/scanner controls, event execution and budget-one unary continuation
+controls. It does not repeat or relabel the other study's performance results.
+
+** Production-derived layout capability follow-up
+
+At parent =af52bc3=, the native prepared runtime accepted three inconsistent
+controls: plain concat productions paired with a layout guard, a start key or
+a next key. The retained baseline completed in 12.677 seconds with exit zero.
+All four publication owners now pass admitted productions to the table gate;
+the runtime consumes its shared layout predicate rather than a second classifier.
+
+The table/layout/compiler native batch passed in 62.396 seconds. The combined
+runtime/generator attempt failed the unchanged five-second idle gate (exit 137,
+159.927 seconds); an isolated runtime retry also failed (50.044 seconds).
+An overlapping generation attempt failed on an incomplete macro product, so
+consumers were subsequently built in dependency order. These attempts are not
+successful qualification receipts.
+
+Official Gerbil =compiler/driver.ss= makes =gsc-cc-options= ignore ordinary
+CC options for the macro phase. The newly emitted runtime macro source was
+therefore compiled directly with official Gambit and explicit real compiler
+progress options; it passed in 24.709 seconds under the same watchdog. This
+qualification adjustment changes neither engine optimization nor idle limits.
+The subsequent fused Scheme/Rust native batch passed in 44.575 seconds.
+Seven source GxTest suites then passed all 39 cases in 27.894 seconds, with
+complete artifact controls, actual layout requests, rejection before Rust file
+creation and twenty accepted/rejected ABI products across ten language entries.
+Every successful process receipt has exit zero, no rejection reason, no missing
+required output and final =OK=. These are local native receipts, not exact-head
+platform CI or performance measurements.
+
+** Original physical table controls
+
+The retained parent runtime admitted all five malformed table controls in
+16.695 seconds, exit zero. The first temporary baseline probe instead failed
+with a pair error because its quoted vector omitted one row-list level; that
+failure remains recorded and is not target-range evidence. The corrected probe
+uses explicit vector -> row -> entry -> terminal nesting, as do the Rust controls
+and Scheme witness above.
+
+The canonical owner, new table module and LR compiler completed native
+compilation in 112.424 seconds. The runtime, fused Scheme and Rust consumers
+completed in 174.309 seconds. Both receipts report exit zero, no rejection
+reason, no missing required output and final =OK= under the unchanged five-second
+real-progress idle gate and official SDK optimization settings. Build elapsed
+time is not preparation timing or parser throughput evidence.
+
+Seven source GxTest suites passed all 38 cases against the final native owners
+in 78.591 seconds. They cover valid original-entry identity, malformed physical
+tables, utility duplicate behavior, production admission, generated/GLR complete
+artifacts, source layout boundaries, raw Rust file rejection and twenty
+accepted/rejected products across ten language entries matching ABI fixture
+bytes exactly. The complete harness and process receipts both pass; local native
+overlays remain distinct from clean-checkout exact-head platform CI.

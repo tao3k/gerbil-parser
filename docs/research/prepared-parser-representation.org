@@ -1,0 +1,242 @@
+#+title: Prepared parser representation and reduction ownership
+#+startup: overview
+
+Part of [[file:shared-ranked-scanner-execution.org][the integrated execution study]].
+Historical revisions, failed experiments and receipt limits retain their original scope.
+
+* Engine-owned semantic representation of installed entries
+
+The complete-route audit above identifies two independent axes: the prepared
+LR runtime's captured semantic executor and the installed generated entry's
+product. =src/compiler/machine.ss= now makes those obligations queryable through
+=parser-machine-backend-representation=. This is an engine capability contract,
+not another language declaration or a backend-selection policy.
+
+| Entry query | Contract |
+|-------------+----------|
+| prepared | Captured recognition or event-program executor |
+| drive | Installed whole-source driver returns recognition values |
+| source | Installed source specialization returns ParseArtifact or declines with #f |
+| step | Installed active reduction step uses the captured runtime representation |
+| event-step | Separately installed optional event-program reduction step |
+
+Missing optional entries return =#f=. Unknown kinds and non-machine values reject.
+The =step= slot deserves an explicit distinction: on the base recognition runtime
+it holds a recognition step; the selected event runtime captures the admitted
+event step into its active step slot. The separate =event-step= slot describes
+an optional installation on the base runtime, not a claim that every selected
+runtime retains that installation slot. Backend installation admits the same
+closed kind domain before any mutation; digest and duplicate-slot checks retain
+their existing atomic admission behavior.
+
+The representation review found an installation mismatch, not just a missing
+label: recognition =step= declarations previously admitted an event machine.
+The direct machine installer and the full-batch precheck now reject that pairing.
+The batch precheck runs before all mutation, so a valid earlier drive remains
+uninstalled when a later step has the wrong semantic runtime. Existing raw LR
+step operations remain low-level active-step operations; the machine declaration
+owner supplies this generated recognition-entry obligation.
+
+#+begin_src scheme
+;; Preference selects the prepared executor; it does not rewrite generated code.
+(let* ((selected
+         (parameterize ((current-lr-event-program-enabled? #t))
+           (parser-machine-for-current-semantic-backend machine)))
+       (prepared (parser-machine-backend-representation selected 'prepared))
+       (drive (parser-machine-backend-representation selected 'drive)))
+  ;; For an eligible machine with an installed recognition drive:
+  ;; prepared => event-program, drive => recognition.
+  ;; A later parameter change does not change either captured obligation.
+  (values prepared drive))
+#+end_src
+
+** Question: why is this abstraction preferable?
+
+The generated entry kind already expresses an engine responsibility. Deriving
+its representation obligation there avoids another metadata annotation in
+=parser.ss= and another POO wrapper around an ordinary procedure. Captured runtime
+identity supplies the prepared representation. Named closed-domain algorithms
+are appropriate here; the existing CLOS preparation protocol remains responsible
+for backend/capability selection. No generic query, grammar scan or backend
+selection occurs when describing a captured machine.
+
+This slice makes an existing semantic obligation explicit. It does not enable
+event generation for a recognition drive, change the default backend, clear a
+generated entry, alter canonical IR or add another compatibility route.
+
+** Question: what makes the claim testable?
+
+=t/language-surface-test.ss= adds a control that selects an event runtime, installs
+a recognition drive on that selected machine and verifies both distinct products
+are described correctly. The base machine remains unchanged. Switching the
+preference back to recognition must not change the retained event machine's
+reported representation. A source specialization that declines remains a
+ParseArtifact-producing capability with ordinary LR fallback.
+
+The existing =benchmark-lr-request-backends= caller now reports these representation
+obligations alongside requested preference, prepared admission, generated entry
+availability and actual untimed source stages. Its twenty-four routes still
+publish the canonical recognition reference before timing is admitted. This
+combination separates capability from the route actually taken: a source entry
+can decline, and an observed generated-drive stage has its own recognition
+contract. The new fields are emitted outside timed intervals.
+
+The previous =source-recognition= stage is an inclusive interval and cannot by
+itself distinguish a generated drive from ordinary checkpoints. The shared
+=src/runtime/parser.ss= now reports =generated-drive-execution= or
+=prepared-checkpoint-execution= at the actual branch. The benchmark asserts the
+expected completed branch before admitting cost samples. These child intervals
+are nested inside =source-recognition= and must not be added to it as independent
+costs. Disabled observation retains the macro's direct expression path; it does
+not invoke an observer thunk. No token-level tracing is introduced.
+
+The CI-owned =t/language-source-contract-test.ss= checks Arithmetic's actual
+generated-drive branch under both preferences and compares its canonical artifact
+with the unobserved product. GQL accepted, rejected and empty requests retain the
+ordinary checkpoint witness. Existing =t/parse-cost-test.ss= controls preserve
+multiple values, thrown conditions and observer scope. These controls connect
+the declared representation, actual branch and published artifact.
+
+The query describes the engine's admitted obligation; it cannot inspect an
+arbitrary procedure body and prove its semantic correctness. Known generated
+implementations need artifact/field/span equality controls. No new speedup claim
+is made by this change, and a query result alone does not qualify a full request.
+
+** Qualification of the representation contract
+
+The native machine/interface constraint rebuild completes in 32.273 s, and the
+actual route owner/caller rebuild in 31.856 s. The final native interface suite
+passes nine cases (10.707 s); source cost and source-contract suites pass nine
+cases over the native producer (13.255 s). The final native cross-language caller
+validates all twenty-four prepared/public routes in 15.774 s, with two samples
+of two calls per route. Arithmetic reports actual generated-drive execution;
+GQL and FHIRPath report checkpoint execution. All publish the canonical reference
+under both requested preferences. Each gate retains exit 0, final =OK= and the
+five-second idle fence; the caller also emits =LR-REQUEST-BACKENDS-OK=.
+
+These are local product/route controls over the reused dependency closure,
+not a fresh full-package build, a paired CPU comparison or exact-head CI. The
+next measured optimization must preserve the contracts and qualify complete
+requests; this slice supplies their executable admission boundary.
+
+The final rebase incorporates =0a1b326='s paired sampler and negative controls.
+Native sampler/caller rebuilding completes in 51.951 s; the merged caller
+completes twenty ABBA/BAAB groups with two calls per batch in 24.615 s. Twelve
+paired workload summaries cover the twenty-four representation routes, with
+completed actual-branch witnesses and canonical products. Exit 0 and both final
+markers retain the five-second gate. The GQL identical-executor control is stable;
+complete-request benefit admission is =#f=. This smaller-batch run closes merged
+execution qualification, not a new portable performance claim. Historical
+two-sample receipts above are execution controls from the earlier caller.
+
+* Prepared identity reduction elimination
+
+** Scope and rejected alternatives
+
+The first four native comparisons use the production graph at =0a1b326= and
+requested event preference. Each comparison executes candidate/reference/
+reference/candidate children, with twenty batches of twenty calls for three
+languages, sizes 64 and 512, and prepared/full-source boundaries: 19,200 timed
+calls per comparison. Independent materialized GLR and complete canonical
+artifacts admit the products before measurement; every batch checks its result.
+
+Three earlier candidates were withdrawn:
+
+- Borrowing the event stack and applying actions while recursive traversal
+  unwinds removes the source-order operand list. Prepared allocation falls
+  about 9.4% for FHIRPath and 8.6% for Arithmetic at 512 units, but CPU medians
+  and unchanged GQL controls do not establish an acceleration.
+- Empty/unary semantic dispatch avoids the generic reducer and join. Large
+  prepared medians sometimes improve, while small routes and the unchanged
+  generated Arithmetic driver remain variable. It is not retained as a CPU win.
+- A single checked traversal pops both stacks and collects event operands.
+  Allocation is unchanged. Complete-request and prepared CPU comparisons do
+  not justify replacing the existing pop protocol. It is also withdrawn.
+
+These completed comparisons are negative optimization evidence, despite passing
+21 semantic cases each. No backend default or admission margin is changed.
+The first identity candidate then removes its redundant semantic call and stack
+publication, with classification still inside execution. Four native children
+repeat a 48-byte reduction per identity occurrence in this SDK's admitted
+allocation intervals. The later prototypes move that classification to
+preparation; the earlier event-preference receipts are not its default-path CPU
+qualification.
+
+The first prepared marker used =#f= for identity and vectors for other plans.
+Although allocation fell, its default-path comparison repeated a 17.5% CPU
+increase in small prepared FHIRPath (mean of two child medians). That prototype
+is withdrawn. The homogeneous candidate instead interns one valid unary vector.
+Compiler diagnostics distinguish the result: the false-marker helper returns
+=(nullable vector::t)=; the homogeneous helper returns =vector::t=. This supports
+the representation distinction, not a causal explanation for the CPU result.
+
+** Withdrawn preparation proof and execution
+
+=prepare-reduction-plan= first validates the production action and every ordered
+operand-action chain. Exactly one operand with an empty chain uses a shared
+valid unary plan, =(vector '())=. All plans remain source-order vectors. Identity
+is a private pointer-equality proof against that shared prepared plan. No grammar hint,
+loader schema change, public option or language-specific rule is introduced.
+This stages a closed semantic fact, following the engine's existing prepared
+executor and staged operand-fold design.
+
+Execution retains the original semantic value and immutable semantic-stack cell
+for that certified identity. State popping, goto lookup, state publication,
+action counting, budget consumption and recognition capture still occur. There
+is no corridor jump or mutable checkpoint. Decorated and wider productions keep
+the original reducers. The independent GLR implementation remains unchanged.
+Both captured semantic backends share the same proof, even when a generated
+entry independently owns a different representation.
+
+The tests expand identity/decorated RHS widths through 128 and run decorated and
+identity unary chains through depth 16 under both semantic backends. Every
+budget-one pause increments the action count by exactly one; complete artifacts
+match independent GLR and unpaused execution. Existing event tests retain
+Unicode, generated entries, relocation, history edits and retained roots.
+
+** Native artifact and latest-graph admission
+
+The initial HCL test load exposed a stale compiled machine consumer: an older
+inlined event-step getter read the event-reducer slot after the runtime record
+had changed. Rebuilding the machine consumer restores the correct slot before
+any comparison. This is an artifact dependency failure, not a language-parser
+failure or a reason to bypass the generated-entry contract.
+
+Three unary-build attempts stop at the five-second idle fence, with exit 137:
+63.485, 55.941 and 69.529 seconds. GCC diagnostics alone do not establish progress
+through every compiler stage. The existing Scheme native artifact observer and
+GCC saved intermediate products expose actual writes; no synthetic heartbeat or
+larger deadline is introduced. A simplified unary candidate compiles in 30.935
+seconds but is later withdrawn on cost evidence. The prepared identity
+false-marker prototype compiles in 35.073 seconds; the homogeneous candidate
+compiles in 22.007 seconds with the fixed =2591dcd= SDK and GCC.
+
+Before final admission, the checkout incorporates =95de0d9= and =11b2cf1=.
+The changed LR compiler and its consumer rebuild in 25.506 seconds. Machine,
+parser and benchmark consumers rebuild in 56.895 seconds. The final four-module
+source test child passes 23 cases in 14.458 seconds, with exit zero, final =OK=
+and =TEST-SUITE-OK=. An earlier new-test syntax failure is corrected before this
+admission. These are qualified changed-module consumers, not a fresh build of
+all package products or a Rust AOT receipt.
+
+The identity comparison uses the latest caller and default recognition preference.
+Only the LR module prefix changes between children; the fresh compiler, machine,
+parser, sampler and lexical artifacts remain identical. Each child verifies its
+loaded native LR suffix: reference =o6=, homogeneous candidate =o13=; lexical =o6=
+remains fixed. The reference LR source is unchanged between =0a1b326= and
+=11b2cf1=. Heap cap is 3 GiB, total budget 120 seconds and idle budget five seconds.
+Warmup and initial GC follow the unchanged component sampler; naturally occurring
+GC remains in CPU and wall observations. Allocation uses only admitted no-GC
+counter deltas and is reported separately from CPU.
+
+
+The homogeneous identity candidate is also withdrawn from production. Across
+four default-path children, 848 admitted allocation intervals repeat the same
+48-byte saving per identity reduction. An exact Scheme checker verifies the raw
+integer batch deltas, identity counts and zero delta in generated Arithmetic
+source execution. This establishes an allocation result for the prototype only.
+CPU observations remain unstable, including a 16.35% increase in the unchanged
+generated Arithmetic control when averaging child medians. No CPU improvement
+or retained runtime acceleration follows from this result. The wider RHS and
+budget-one identity-chain semantic tests remain useful regression coverage.
+

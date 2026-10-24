@@ -1,0 +1,120 @@
+#+title: Scheme lowering dispatch and source evaluation composition
+
+* Unified boundary
+
+The grammar-language target remains the existing derivation model described in
+[[file:lowering-publication.org][Lowering publication]]. Physical callback agreement alone is not that target.
+The chain is source evaluation, recursive lowering protocol, checked raw
+encoding, and the existing retained LeanPoo construction product. Source schemas
+identify the supported program; schemas do not execute that program.
+
+The source audit exposed three model gaps. First, =case= had no operational
+rule and was incorrectly allowed by the generic procedure-call classifier.
+Second, recognition syntax retained a terminal ID but could not recover its
+literal/token/layout source tag. Third, extracting only the final =case= from
+=lower-to= skipped the local =emit= procedure declaration and its captured scope.
+These are correspondence defects, not demonstrated native parsing failures.
+
+The model now evaluates symbolic =case= selectors once, selects the first
+matching clause and executes its sequence in the selector's resulting heap.
+=case=, =unless= and =def= cannot masquerade as ordinary value calls. Unsupported
+case envelopes fail closed. This is the parser's symbolic-tag fragment, not
+complete general Scheme =case= semantics for arbitrary scalar keys.
+
+* Composition and source ownership
+
+| Source boundary | General theorem | Scope |
+|-----------------+-----------------+-------|
+| Selector and selected body | =Eval.case_inversion=, =Eval.selected_sequence= | Any effectful selector and returning selected sequence; no unselected-body execution premise |
+| Every recursive syntax envelope | =LoweringDispatchSyntax.tagged=, =selector_eval= | Arbitrary depth, n-ary children, annotation payloads and four concrete terminal categories |
+| Missing source information | =tag_not_recoverable= | No function of recognition-only syntax can recover all concrete terminal tags |
+| Three native dispatchers | =lower_selected=, =operand_selected=, =symbol_selected= and their =eval= composition laws | Every supported constructor; expected bodies come from the independent complete source schemas |
+| Atomic source execution | =LoweringSymbolEvaluation.terminal=, =reference=, =terminal_unique= | Actual terminal/reference bodies derive their result and unchanged heap; no supplied branch execution |
+| Existing constructor | =retained_terminal= | The actual returned terminal occupies the same physical CFG row/operand position in the retained LeanPoo product |
+| Stateful operand traversal | =LoweringMapEvaluation.append=, =length=, =deterministic=, =complete_list= | Arbitrary list widths and partitions, one shared heap and one original-list map invocation |
+| Actual traversal source | =fast_eval= | Extracted unobserved =map-children= body, not an independently implemented list walker |
+| Local emission closure | =LoweringEntryEvaluation.captures=, =body_eval= | The complete source body binds =emit= before case evaluation; caller cell references remain captured |
+| Root invocation | =root_lookup=, =root_invoke= | Real root module, argument/default binding, local declaration, selector and selected branch execution |
+
+=Encoding= carries concrete terminal categories, payloads, names, labels,
+precedence metadata and layout options. It does not infer those values from
+normalized IDs or claim that arbitrary payloads are canonically valid.
+=retained_terminal= consumes the existing canonical raw-operand check and
+catalogue lookup, and the existing =ConstructionEncoding.Output=. It does not
+build another automaton, replace the factory, or accept a guessed ordinal.
+
+Adding local declarations also exposed a vacuous premise in the sequence
+uniqueness helper: an evaluation-uniqueness claim alone need not establish that
+its head expression can run. =sequence_cons_unique= now requires the actual head
+evaluation. The existing mutual determinism proof supplies this witness from
+execution rather than inventing it.
+
+* Source-executed precedence prefix
+
+=Eval.parallelLet= evaluates every initializer in the original environment,
+then binds distinct local names together. It does not use sequential =let*=
+visibility or allocate mutable cells for immutable locals. The mutual evaluator
+determinism and physical-store trace induction cover this rule.
+
+=LoweringPrecedenceEvaluation.initializers= executes the real =cadr=/=caddr=
+field reads with arbitrary metadata, including either numeric sign.
+=branch= composes those reads, the parallel binding, the actual dynamic
+precedence guard and the recursive =lower-to= call. Static directions are
+admitted directly; dynamic direction requires the caller's capability. The
+recursive call's evaluation is the induction premise, rather than an execution
+oracle for the complete selected branch. Unsupported dynamic execution is not
+silently admitted by this theorem.
+
+* Parser obligations still open
+
+The complete recursive Scheme-to-protocol simulation is not yet proved.
+The following are parser obligations, not newly declared host premises:
+
+- Generate selected-branch Sequence derivations from the mutual recursive
+  lowering induction, instead of accepting them as composition hypotheses.
+- Execute the remaining field/alias operand-action operations and derive
+  recursive child executions and proof contexts for every constructor.
+- Generate complete recursive branch traces against the now source-executed
+  constructor and emitter in [[file:lowering-emitter-source.org][the shared-heap emission contract]]. Enabled
+  observation closures still require their own operational simulation.
+- Connect observed =map-children= paths and choice proof closures to unobserved
+  execution while retaining path, callback, production and recipe ordering.
+- Derive source normalization and per-input concrete encoding from arbitrary
+  admitted raw grammar inputs, rather than only constructor encodings and
+  finite native reader fixtures.
+
+Installed primitive contracts, ordered map callback behavior, compiler execution,
+reader identities and host GC remain external. The map rule states the ordered
+host contract explicitly; it does not assert that every Scheme implementation
+provides that order. No SDK or Gambit source is modified or built.
+
+The constructor still uses the same LeanPoo retained factory. These source laws
+strengthen its representation boundary; they do not prove AST actions or a CPU
+improvement. Local performance optimization remains deferred.
+
+[[file:lowering-observation-and-metadata.org][Observed source execution and metadata]] now transport all signed ranks,
+execute the real local proof context/root callbacks, and derive finite physical
+store histories from recursive evaluation. Source-dispatch totality and typed
+emission-event correspondence remain separate parser obligations.
+
+* Qualification
+
+Candidate based on =41b0e3f=. Native assertions remain in the original
+=t/lowering-traversal-test.ss= owner using existing parser-test macros.
+The new matrix checks eighteen dispatch shapes with independent production and
+helper counts, observed/unobserved agreement, and declaration order. Rejection
+checks ensure unsupported tags and disallowed dynamic precedence cannot run
+child callbacks.
+
+| Gate | Local result |
+|------+--------------|
+| Standard current-package clean and cold compile | Exit zero, 136.77 seconds, unchanged 180 total / 5 idle |
+| Original four preparation owners | Exit zero, 45.58 seconds, unchanged 90 total / 5 idle |
+| Real grammar witness generation | Exit zero, 12.74 seconds, unchanged 90 total / 5 idle; no generated-data drift |
+| Original sixteen-owner first complete cold aggregate, four workers | Exit zero, 142.64 seconds wall time, unchanged 180 total / 5 idle; traversal owner has nine scenarios/matrices |
+| Complete Lean build and axiom audit | 260 jobs passed; no new axioms or placeholders |
+| Dispatch Quint controls | Six directed controls and 1000 forty-step histories, seed one, passed |
+
+The full Lean build and axiom audit cover the new source laws and existing
+construction/request consumers. Remote CI is checked against the actual PR
+commit separately. These timings are acceptance receipts, not CPU-gain claims.

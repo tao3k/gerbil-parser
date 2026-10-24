@@ -1,67 +1,32 @@
-#!/usr/bin/env gxi
-;;; -*- Gerbil -*-
-;;; Thin package-build entrypoint; the PackageSpec owns project topology.
+#!/usr/bin/env -S timeout --signal=TERM --kill-after=5s 180s gxi
+(import (for-syntax
+          (only-in :std/source this-source-file)
+          (only-in :yuanxu/module-system/building/source-package register-module-build-source!)))
+(begin-syntax
+  (register-module-build-source! (path-directory (this-source-file)) 'gerbil-parser))
 
-(import (only-in :std/build-script defbuild-script)
-        (only-in :asp-gerbil-scheme/building-api
-                 default-exclude-dirs
-                 asp-gerbil-scheme-library-package-prototype
-                 asp-gerbil-scheme-package-spec!))
-
-;; Reference corpora are not Gerbil package sources. clan's native defaults
-;; already exclude t/, .git/, and .gerbil/.
-(def gerbil-parser-exclude-dirs
-  (cons ".data" (cons "target" default-exclude-dirs)))
-
-;; These source files belong to executable and test owners, not the production
-;; library catalog. Keep the boundary declarative so PackageSpec still performs
-;; the single source discovery pass.
-(def gerbil-parser-exclude-modules
-  '("build-gparse.ss"
-    "build-rust-rowan-aot.ss"
-    "generate-rust-rowan.ss"
-    "src/main.ss"
-    "src/cli.ss"
-    "src/ffi/parse-artifact-v1-native.ss"
-    "src/ffi/rust-rowan-aot-v1-native.ss"
-    "src/ffi/rust-rowan-aot-main.ss"
-    "languages/arithmetic/v1/parser-test.ss"
-    "languages/cypher/opencypher-2024-1/parser-test.ss"
-    "languages/gql/iso-39075-2024/parser-test.ss"
-    "languages/gql/iso-39075-2024/query-syntax-test.ss"
-    "languages/hcl/v2-24/parser-test.ss"
-    "languages/fhirpath/v2.0.0/parser-test.ss"
-    "languages/hl7/v2-2.5.1/parser-test.ss"
-    "languages/tla-plus/v1/parser-test.ss"))
-
-;; Gambit compiles loadable modules as Mach-O bundles on Darwin.  The
-;; Homebrew GCC toolchain needs the standard unresolved-symbol policy for an
-;; FFI bundle; the final AOT consumer resolves these symbols when it links the
-;; native runtime.
-(def gerbil-parser-native-ffi-specs
-  (cond-expand
-   (darwin
-    '((gxc: "src/ffi/parse-artifact-v1-native"
-            "-ld-options" "-Wl,-undefined,dynamic_lookup")
-      (gxc: "src/ffi/rust-rowan-aot-v1-native"
-            "-ld-options" "-Wl,-undefined,dynamic_lookup")))
-   (else
-    '((gxc: "src/ffi/parse-artifact-v1-native")
-      (gxc: "src/ffi/rust-rowan-aot-v1-native")))))
-
-;; PackageSpec remains here because the Build API derives project ownership
-;; from this declaration's source location. Its default native projection owns
-;; source discovery; this package entrypoint installs only the reusable library
-;; and FFI products. The optional gparse command is a sibling AOT product in
-;; build-gparse.ss, so library consumers never compile an unused executable.
-(asp-gerbil-scheme-package-spec!
- (gerbil-parser-package-spec
- @ asp-gerbil-scheme-library-package-prototype)
- (spec gerbil-parser-build-spec)
- (exclude-dirs gerbil-parser-exclude-dirs)
- (exclude-modules gerbil-parser-exclude-modules)
- (extra-spec gerbil-parser-native-ffi-specs))
-
-;; Keep the standard multicall entrypoint at top level. std/build-script owns
-;; spec/compile/clean and delegates the projection to one std/make scheduler.
-(defbuild-script (gerbil-parser-build-spec))
+(import (only-in :std/source this-source-file)
+        (only-in :yuanxu/module-system/building/script defbuild-script)
+        (only-in :clan/poo/object .get)
+        (only-in "./init.ss" gerbil-parser.init.exports)
+        (only-in "./build-modules.ss" gerbil-parser-library-modules)
+        (only-in "./src/build-support/compiler-profile.ss" initialize-compiler-build!))
+(def gerbil-parser-ffi-specs
+  (let ((include-option
+         (string-append "-I"
+           (path-strip-trailing-directory-separator
+             (path-normalize (path-expand "include" (path-directory (this-source-file)))))))
+        (link-options (cond-expand
+                       (darwin '("-ld-options" "-Wl,-undefined,dynamic_lookup"))
+                       (else '()))))
+    (map (lambda (module) `(gxc: ,module "-cc-options" ,include-option ,@link-options))
+         '("src/ffi/language-abi" "src/ffi/language-abi-context" "src/ffi/rust-aot-abi"))))
+;; Keep the entire catalog, including FFI options. Core owns source preparation,
+;; spec normalization and the exact handoff; the SDK owns compilation/scheduling.
+(def modules-spec (.get gerbil-parser.init.exports std-make-spec))
+(def retained-spec
+  (append (map path-strip-extension gerbil-parser-library-modules) gerbil-parser-ffi-specs))
+;; Host compiler policy is process-local; Core/SDK own ordinary package recovery.
+(initialize-compiler-build!)
+(defbuild-script (modules-spec retained-spec))
+(export main)

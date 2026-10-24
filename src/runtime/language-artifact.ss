@@ -1,9 +1,9 @@
 ;;; -*- Gerbil -*-
 ;;; Runtime admission boundary for materialized language IR sidecars.
 
-(import (only-in ./identity sha256-text)
+(import (only-in ./identity sha256-bytes)
         (only-in :std/misc/ports read-all-as-u8vector)
-        (only-in :std/encoding/base64 base64-decode)
+        (only-in ./embedded-image unpack-language-artifact-image)
         (only-in :std/string/utf8 utf8->string)
         (only-in :std/encoding/zlib uncompress))
 (export sha256-identity-filename
@@ -14,6 +14,11 @@
 
 (def +compiled-language-artifact-prefix+
   "gerbil-parser/compiled-language-artifacts/")
+
+(def (trace-artifact phase schema count)
+  (when (equal? (getenv "GERBIL_PARSER_LR_TRACE" #f) "1")
+    (displayln "[gerbil-parser-artifact] phase=" phase " schema=" schema " count=" count)
+    (force-output)))
 
 ;; : (-> Datum Boolean)
 (def (sha256-identity? value)
@@ -59,13 +64,18 @@
 (def (decode-compiled-language-artifact
       expected-schema locator compressed origin)
   (validate-compiled-language-artifact-locator expected-schema locator)
+  (trace-artifact 'decode expected-schema (u8vector-length compressed))
   (let* ((relative-path (car locator))
          (expected-digest (cadr locator))
-         (serialized (utf8->string (uncompress compressed)))
-         (actual-digest (sha256-text serialized)))
+         (bytes (uncompress compressed))
+         (_uncompressed (trace-artifact 'uncompressed expected-schema (u8vector-length bytes)))
+         (serialized (utf8->string bytes))
+         (_decoded (trace-artifact 'utf8-decoded expected-schema (string-length serialized)))
+         (actual-digest (sha256-bytes bytes)))
     (unless (equal? actual-digest expected-digest)
       (error "compiled language artifact digest mismatch"
              expected-schema expected-digest actual-digest origin))
+    (trace-artifact 'verified expected-schema (string-length serialized))
     (call-with-input-string
      serialized
      (lambda (port)
@@ -79,6 +89,7 @@
                         (equal? (cdr row) expected-schema)))
            (error "compiled language artifact schema mismatch"
                   expected-schema value))
+         (trace-artifact 'admitted expected-schema (length value))
          value)))))
 
 ;;; Admission is fail-closed: storage location, content identity, complete
@@ -105,13 +116,13 @@
 ;;; AOT language packs carry the same compressed, content-addressed bytes in
 ;;; their module image. Runtime selection therefore consumes the linked
 ;;; language without consulting compiler caches or filesystem sidecars.
-;; : (forall (a) (-> String [String] String [(Pair Symbol a)]))
-;; : (-> String List String Alist)
+;; : (forall (a) (-> String [String] U64Vector [(Pair Symbol a)]))
+;; : (-> String List U64Vector Alist)
 (def (load-compiled-language-artifact/embedded expected-schema locator encoded)
-  (unless (string? encoded)
+  (unless (u64vector? encoded)
     (error "invalid embedded compiled language artifact" expected-schema))
   (decode-compiled-language-artifact
-   expected-schema locator (base64-decode encoded) 'aot-image))
+   expected-schema locator (unpack-language-artifact-image encoded) 'aot-image))
 
 ;; : (forall (a) (-> String [String] [(Pair Symbol a)]))
 ;; : (-> String List Alist)

@@ -1,0 +1,275 @@
+#+title: Shared engine reduction generation
+
+* Scope and ownership
+
+The optimization target is the engine implementation, across language packages.
+Benchmarks and complete language products verify the implementation; they do
+not define a language-specific optimization target. This module follows one
+edge of the canonical grammar -> prepared machine -> semantic reduction ->
+canonical artifact path. It complements the
+[[file:scheme-deflanguage-design-synthesis.org][DSL architecture synthesis]] and
+[[file:lr-request-cost-boundaries.org][complete-request cost study]].
+The [[file:request-owned-lr-stacks.org][request-owned stack experiment]] records a larger
+representation change rejected after matched native measurements, with a
+cross-language benchmark retained for subsequent engine work.
+The subsequent [[file:semantic-sequence-representation.org][semantic sequence study]] follows the same
+request controls into repeated representation validation at action/publication
+boundaries.
+The [[file:unary-reduction-corridors.org][decorated unary corridor study]] distinguishes retained semantic
+actions from the lifetime of their intermediate immutable stack heads.
+The [[file:scheme-reduction-abstractions.org][Scheme reduction abstraction study]] applies official Gerbil staging
+patterns to the shared operand-action interpreter and its preparation contract.
+
+The shared owner is =src/compiler/fused-reduction.ss=. Its checked strategy
+consumes production IDs, RHS operands and field/alias actions from canonical
+Parser IR. It emits both recognition and event reductions. Language authors
+keep declaring syntax and rules; no new language option or public grammar
+composition operation is introduced.
+
+* Repeated stack expressions
+
+Previously the compiler constructed an independent =nth-tail= expression for
+every operand. For a production of width n, the emitted stack-prefix bindings
+contained 2n + n(n-1)/2 =cdr= expressions: n for the state remainder, n for
+the value remainder, and the triangular sum for operand extraction. The
+generator itself repeatedly constructed those nested expression trees.
+
+The new generator walks the semantic stack once in emitted =let*= bindings,
+retaining each suffix needed by the next operand. The state remainder still
+uses one linear expression. Width zero retains the original stack; width one
+needs no intermediate suffix binding. Operand names remain in source order,
+although the stack is consumed from the last RHS operand toward the first.
+
+#+begin_src scheme
+;; Width-three prefix inside a generated reduction clause.
+;; v0, v1, v2 are consumed by the original source-order action expression.
+(let* ((remaining-states (cdr (cdr (cdr states))))
+       (v2 (car semantic-values))
+       (tail2 (cdr semantic-values))
+       (v1 (car tail2))
+       (tail1 (cdr tail2))
+       (v0 (car tail1))
+       (remaining-values (cdr tail1)))
+  ;; The existing offset, field/alias action and goto publication follow here.
+  (values v0 v1 v2 remaining-values remaining-states))
+#+end_src
+
+Why is this design preferable? The canonical compiler shares stack suffixes
+once, instead of requiring grammar authors or individual backends to encode
+their own extraction algorithm. Scheme lexical bindings express that sharing
+directly, and the same generated action algebra serves both semantic backends.
+Why is the claim scientifically testable? For every emitted rule, the test
+counts stack-prefix =cdr= expressions independently of the generator helper and
+requires exactly 2n. It also compares complete artifacts against the generic
+executor, including source order, fields, aliases, precedence and rejection.
+
+* Evidence and limits
+
+The checked-in HCL and Arithmetic reduction modules were regenerated through
+the shared strategy. HCL source changed from 126076 to 125628 bytes; Arithmetic
+from 25310 to 25246. These are source sizes, not native image sizes or runtime
+allocation measurements. The important structural result is removal of the
+quadratic operand-expression construction, not a percentage inferred from
+these two small grammar widths.
+
+Eighteen source cases passed for strategy contracts, both languages' independent
+recognition/event backends and the all-language accepted/rejected ABI byte
+fixture. The receipt is unarchived local execution.
+The generic executor remains the semantic control; generated modules retain
+the same grammar digest and backend admission contracts. The generated state
+and value tails are private implementation bindings.
+
+This does not establish a native speedup. Gambit or the C compiler may already
+share repeated reads during optimization. Native compilation and execution
+qualification must be reported separately, and this study does not reinterpret
+a source-expression bound as a P50/P95 result.
+
+The shared compiler and both emitted modules compiled with official
+=gerbil compile -O=. Native GxTest then passed eight cases, including the
+structural read bound and complete recognition/event artifacts for both language
+families. The child completed in 15.578 seconds, exit zero, with =HARNESS-OK=,
+final =OK=, no supervision reason and no missing receipt. The candidate load
+path was a temporary native overlay; admission traces and
+emitted-source controls are retained in the receipt
+unarchived local execution.
+
+Two earlier native attempts were not admitted: one reached the five-second
+idle gate during untraced test import, and one exposed a stale local
+=parser-test~0.scm= without a usable native stage product. Recompiling the two
+test-language dependencies and using the existing dependency/actual-interface
+trace closed this qualification. No timeout was increased and no new test
+runner was added. This native result is semantic/compilation evidence, not a
+performance result or the PR's remote CI result.
+
+* Prepared recognition reductions borrow the semantic stack
+
+The next implementation owner is =src/runtime/lr-parser.ss=. Previously its
+deterministic generic executor copied a width-n semantic-stack prefix into a
+source-ordered list for every reduction wider than one. =reduce-value= consumed
+that list immediately. Checkpoints and retained fragments require the original
+immutable stack and semantic values, not this transient list.
+
+Preparation now stores reversed RHS operand references once per runtime.
+Recognition reduction borrows the existing stack, bounds the consumed prefix,
+applies each operand's closed field/alias chain in declaration order, and
+prepends the completed operand to restore source order. No language-specific
+branch, new DSL declaration or semantic callback is introduced. The prepared
+references are shared when selecting the event runtime. They cost one vector
+and reversed operand lists at preparation; preparation is excluded from the
+steady-state measurements below and is not claimed to become cheaper.
+
+#+begin_src scheme
+;; Conceptual width-three recognition reduction. The canonical action chains
+;; remain attached to their operands; only the private stack traversal changes.
+(let loop ((operands '(rhs2 rhs1 rhs0))
+           (stack semantic-stack)
+           (children '()))
+  (if (pair? operands)
+    (loop (cdr operands) (cdr stack)
+          (recognition-sequence-append
+           (apply-closed-actions (car operands) (car stack) offset)
+           children))
+    children))
+#+end_src
+
+Why is this design preferable? The engine owns the stack orientation and
+normalizes operand references once. Authors keep declaring source-order syntax
+and rules. Scheme's tail calls consume persistent stack suffixes without
+copying them; the semantic algebra has no user callback whose operand
+evaluation order could become observable. Action order within an operand,
+source order in the product, byte offsets and retained stack identity remain
+explicit obligations. This is a runtime algorithm change, not a request to
+language authors to simplify their grammar manually.
+
+Why is the claim scientifically testable? =t/lr-stack-reduction-test.ss=
+compares complete canonical artifacts with the independent source-order,
+materialized GLR reducer for widths 0, 1, 2, 8 and 32, both semantic backends,
+and chained fields/aliases. Existing nullable, layout and fragment-transfer
+controls cover retained siblings and incremental use. The removal bound is
+the sum of RHS widths for generic deterministic recognition reductions wider
+than one. Unary reductions already borrowed their value; generated reductions
+and GLR are outside this removal bound.
+
+The reusable workload is =t/benchmarks/semantic-stack/benchmark.ss=. It builds
+the same prepared grammar and immutable input tokens once, admits the complete
+product against GLR, warms both reduction-only and reduction-plus-publication
+routes, and reports CPU/allocation statistics for both backends. Grammar
+construction and scanning are deliberately outside these samples. Publication
+is measured separately so that an allocation transfer cannot pass unnoticed.
+
+* Rejected universal reverse-order event construction
+
+The first candidate also prepended event programs while consuming the stack.
+Complete artifacts agreed, but semantic equality did not establish equivalent
+construction cost. =event-program-append= has a sequential append builder;
+right-associated joins can force different chunk/tree work. In sequential
+native baseline/candidate/candidate/baseline runs, width-32 identity operands
+with complete publication had per-call median CPU values of 0.01295, 0.02117,
+0.01493 and 0.01287 ms. This candidate is rejected for the event backend.
+
+The final implementation borrows recognition stack values while preserving
+source-order event reduction and its append builder. These are private backend
+algorithms for the same admitted action algebra, not a legacy DSL branch.
+GLR retains its independent materialized reducer and constructor interning.
+
+The initial native experiment used 20 samples of 100 iterations per route.
+For recognition width 8, complete-product allocation was 7426.08 -> 7042.08
+bytes/call for identity operands and 16514.08 -> 16130.08 for decorated
+operands. Width 32 was 20146.08 -> 18610.08 and 56498.08 -> 54962.08,
+respectively. The same differences held for reduction-only measurements and
+both baseline/candidate pairs. Width one was unchanged. Allocation admission
+excludes samples crossing GC; the fractional constant includes amortized
+measurement overhead. These synthetic grammar numbers are not language
+P50/P95 or Rust FFI performance claims. CPU variation prevents a general
+latency improvement claim.
+
+Initial receipts are unarchived local execution. Keep the negative event result as
+part of the algorithm decision, rather than promote its lower allocations.
+
+* Final implementation qualification
+
+The executor binds the two checked stack suffixes through closed
+=reduction-stack-tail= calls. The macro emits its continuation once and the
+recognition reducer reads the borrowed original values. Event source-order
+materialization uses its own closed prefix procedure. These functions have no
+captured parser request or grammar callback. This also keeps the stack-prefix
+loops outside the large executor continuation during native compilation.
+
+The final module and new test compiled with official Gerbil =-O= and the SDK's
+native C optimization in 16.682 seconds, exit zero, no supervision reason.
+Actual interface and GCC function/pass output supplied progress; the five-second
+idle gate remained unchanged. The receipt is
+unarchived local execution.
+Gambit's [[https://gambitscheme.org/4.9.7/manual/][documented stdio buffering setting]] was used for compiler
+diagnostics so completed output lines are visible immediately. This is I/O
+configuration, not a timer generating progress or a GC/heap workaround.
+
+Seventeen final source cases passed in 5.670 seconds with actual zero exit,
+and two native GLR parity cases passed in 6.746 seconds. Receipts are
+unarchived local execution.
+
+Final sequential native ABBA receipts are
+unarchived local execution. Each completed 20 samples of 100 iterations
+for every route, passed complete-product admission and exited zero. The final
+recognition allocation differences remain 384 and 1536 bytes/call at widths
+8 and 32, in both reduction-only and complete-product routes. Width one and
+every event route retain baseline allocation. For width-32 identity event
+publication, per-call median CPU is 0.01259, 0.01278, 0.01287 and 0.01284 ms;
+the earlier reverse-join candidate's increase is absent here. Other routes
+contain CPU variation, so no general speedup is inferred.
+
+Earlier qualification failures remain failures: source all-language loading
+hit idle and total gates, interrupted compiler variants hit the idle gate,
+and one source invocation attempted to interpret the compiled FFI exit helper.
+The final source test path isolates only that existing native exit helper;
+parser modules remain source-owned. This is not permission to count an =OK=
+marker without process completion. The language test dependencies have a
+separate official native compile receipt,
+unarchived local execution (32.976
+seconds, exit zero), rather than relying on stale test =.scm= products.
+
+The native all-language ABI assertion and generated HCL/Arithmetic controls
+passed nine cases in 38.634 seconds, actual exit zero, =HARNESS-OK= and final
+=OK=. All ten language entries supplied accepted/rejected products: twenty
+byte-for-byte controls against the existing Rust fixture. Candidate LR interface
+admission is recorded in
+unarchived local execution.
+
+These cost and initial native product controls used parent =dd07195=. Before
+publication the checkout advanced to =0906fa3=, including the independent
+result-profile and private word/projection refinements. Thirty-seven source
+integration cases then passed, including the incoming result-profile rules,
+in 26.183 seconds with zero exit and no supervision reason. The receipt is
+unarchived local execution.
+This distinction prevents an earlier compiled overlay from being reported as
+proof of every incoming module. Exact-head clean CI remains separate evidence.
+
+The incoming native refresh initially found an unbound
+=result-projection-parts-field=: compiling its consumer first admitted the old
+local =result-profile.ssi=. Compiling the producer, generator and consumer in
+dependency order succeeded in 22.646 seconds. The refreshed native overlay then
+passed all nine controls and twenty language ABI products again in 14.162
+seconds, zero exit, no supervision reason and no missing final receipt:
+unarchived local execution.
+The package's standard dependency scheduler owns this order in normal builds;
+these isolated compiler calls do not establish a second build system.
+
+* Remaining shared-engine implementation boundary
+
+The [[file:shared-parser-cost-sampling.org][shared sampling owner]] now closes the cross-language measurement dependency
+on the GQL workload module. Selected-derivation counts and independent prepared/
+complete-product controls remain in place; subsequent recognition/reduction
+experiments use one sampler and one allocation/GC attribution contract.
+
+The next implemented preparation boundary and its admission/cost controls are
+documented in [[file:prepared-lr-action-plans.org][prepared LR action plans]].
+
+Follow the same canonical rule/action algebra through generic LR execution,
+generated reductions, retained recognition and canonical event publication.
+Establish which representations must survive for checkpoints, GLR and replay,
+and which can be eliminated for an admitted deterministic execution. Reuse
+the existing semantic backend owner rather than add grammar-level controls.
+Before changing that route, compare accepted and rejected complete products
+across independent language families, and include retained/incremental products
+where the ownership contract requires them. Core work is the compiler/runtime
+change; the corpora and benchmarks are its admission evidence.

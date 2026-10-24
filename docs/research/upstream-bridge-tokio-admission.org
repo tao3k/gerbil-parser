@@ -1,0 +1,325 @@
+#+TITLE: Upstream Bridge Revision and Tokio Admission Boundary
+#+DATE: 2026-10-11
+
+* Revision and consumed code
+
+The Gerbil package declaration, Cargo workspace dependency and Cargo lockfile
+now pin =gerbil-scheme-rust= PR 18 at
+=9cd2604efe2a40d53554ee8ffe38d5a8eff4c79e=, replacing
+=345b172765e5607b09049614d10520c2439dcac3=.
+The standalone parser fixture lockfiles do not contain this dependency.
+
+The parser consumes the upstream Rust IR compiler through
+=gerbil-parser-build-support=, and the Scheme UTF-8 encoder through
+=src/ffi/language-abi-context.ss=. This revision advances the encoder's checked
+output using a local cursor. The public encoder and caller-owned capacity
+contract remain unchanged. Upstream rooted snapshots and numeric/identifier
+bulk conversion APIs are separate capabilities; the parser's GPA1 byte-buffer
+transport does not implicitly consume them.
+
+* Tokio evidence and downstream ownership
+
+At this exact revision, Tokio is a dev dependency of =gerbil-scheme=. Its Tokio
+handoff tests and transport benchmarks qualify requests sent from async callers
+to a dedicated Scheme owner thread. The safe production crate does not expose
+a Tokio parser executor. The active performance benchmark retains bounded mpsc
+and per-request oneshot responses. Receive batching and reused-response-channel
+performance candidates were rejected; functional receive-batching tests do not
+establish a production scheduling speedup.
+
+The parser's =NativeSession= and borrowed language/results remain confined to
+the initialized VM's original OS thread. Any downstream asynchronous adapter
+must create and use them on that owner, bound admission, return owned products,
+and qualify cancellation, shutdown and latency. Tokio worker concurrency alone
+does not establish concurrent Scheme parsing or lower complete-parser CPU.
+
+Pinned primary sources:
+- [[https://github.com/tao3k/gerbil-scheme-rust/blob/9cd2604efe2a40d53554ee8ffe38d5a8eff4c79e/crates/gerbil-scheme/Cargo.toml][Production and development dependency declarations]].
+- [[https://github.com/tao3k/gerbil-scheme-rust/blob/9cd2604efe2a40d53554ee8ffe38d5a8eff4c79e/docs/bridge-numeric-vectors-20261011.org][Bulk conversion and scheduler evidence boundaries]].
+- [[https://github.com/tao3k/gerbil-scheme-rust/blob/9cd2604efe2a40d53554ee8ffe38d5a8eff4c79e/docs/bridge-utf8-tokio-recv-many-20261011.org][Rejected receive-batching performance candidate]].
+- [[https://github.com/tao3k/gerbil-scheme-rust/blob/9cd2604efe2a40d53554ee8ffe38d5a8eff4c79e/scheme/utf8.ss][Consumed checked Scheme encoder]].
+
+* Qualification
+
+Cargo build-support tests validate the consumed upstream IR revision. Existing
+Scheme C ABI tests validate UTF-8 admission and complete artifact parity. The
+complete 64-record scanner/LR, event-publication, ranked-request and UTF-8 CPU
+proofs remain unchanged in the workflow dispatch. CPU includes GC and the strict
+before/after controls remain mandatory.
+
+A passed scanner/LR comparison at the new pin confirms its complete-request
+benefit remains admitted. It is not a comparison of old and new upstream
+revisions and must not be relabeled an incremental Tokio or encoder speedup.
+
+Before publication, upstream advanced from =4d71a12= to =9cd2604=. The added
+composite object APIs do not change the consumed =scheme/utf8.ss= source.
+
+At the preliminary =4d71a12= pin, the local Unicode 64-record complete-request engine proof passed with 20 groups
+and 256 calls per batch: production P50 0.825059, P90 0.878090; before-control
+P10/P90 0.918958/1.048539 and after-control 0.920178/1.065327. Both sides use the
+new upstream encoder. This retains a 17.49% median engine benefit in this local
+workload, not an incremental upstream speed claim. Exit status was zero.
+
+* Rust downstream integration at fbb43ca
+
+This integration stage used the manifest and lockfile pin
+=fbb43ca63d3740cb4e19b26fa2abd1ea3ee4ecdb=. Its additional upstream receipt
+rejects an admission fast path; it does not change the production encoder.
+The earlier qualification above remains historical evidence at its stated pin.
+
+The optional =tokio= feature of =gerbil-parser-ffi= now exposes =TokioParser=.
+It initializes the standalone bundle and retains a single language handle on
+one dedicated OS thread. Bounded mpsc admission and per-request oneshot replies
+follow the upstream qualified ownership design. Admission uses normal async
+reservation; the rejected upstream fast path is not included.
+
+The owner copies the completed GPA1 payload into independent Rust storage,
+releases its C result before publication, and shares an immutable catalog.
+=OwnedParsed= retains the exact source and supports normal artifact views after
+VM shutdown. Native handles and GC-managed Scheme values never cross threads.
+Queued cancelled requests skip execution. An in-flight cancelled request still
+releases its C allocation. Explicit shutdown closes admission and releases the
+language before normal SDK cleanup; dropping all clients drains the queue.
+
+This is an async downstream ownership interface, not evidence of concurrent
+Scheme execution or an incremental CPU speedup. The existing =qualify.ss host=
+entry now includes a real Tokio consumer in a separate one-shot VM process:
+32 concurrent requests, alternating ASCII/Unicode, 64 records per request,
+642 events, syntax rejection, closed admission, and views retained after cleanup.
+Transport unit tests additionally cover queue bounds, queued cancellation and
+shutdown ordering. Rust lint and workspace all-feature gates cover the new API.
+
+Local GCC qualification completed with =NATIVE-HOST-OK= and exit zero. The
+Tokio process completed its 32 full requests, rejection and retained-view checks
+with =RUST-TOKIO-HOST-OK= in 0.332 seconds total process wall time. This is a
+functional receipt, not a matched CPU performance result. Native SDK linking
+required the local OpenSSL library search path; no compiler was replaced.
+
+* Complete Rust request CPU qualification
+
+The Rust consumer now exercises the same independent former scanner/LR kernels
+as the Scheme engine benchmark. A test-only factory prepares the reference
+context, preserving the generated direct reduction step and descriptor identity.
+Both handles live on the same Tokio owner; a benchmark-only routing wrapper
+selects the handle without modifying the production parser or scheduler.
+Both sides use the current upstream UTF-8 encoder and GPA1 row writer.
+
+Every timed request includes Rust source ownership, bounded Tokio admission,
+oneshot completion, C ABI parsing, canonical UTF-8 admission, scanner/LR,
+complete semantic publication, a Rust-owned GPA1 snapshot, C result release,
+full Rust artifact admission, event-count and root traversal and final Rust result drop.
+The source contains 64 assignments: 256 ASCII or 320 Unicode bytes. Every
+accepted payload contains 15,488 bytes, 642 events and 64 root children.
+Complete byte parity also covers empty, rejected and Unicode quoted inputs.
+
+CPU is process user plus system time from =getrusage(RUSAGE_SELF)=, including
+the owner thread, Tokio caller and natural Scheme GC. VM/library startup and
+producer compilation are outside timing. No timed GC is excluded, no sample is
+dropped, and no per-request observer changes the runtime schedule.
+
+The production fixture uses the workspace's release policy: optimization level
+3, thin LTO and overflow checks enabled. The current workload has one owner and eight closed-loop async callers on one
+Tokio executor, with a bounded queue of four. This measures concurrent admission
+and complete requests, not parallel Scheme execution.
+Each of the before, production and after phases has 20 groups. A group has eight
+alternating ABBA/BAAB legs, 256 requests per leg and four legs per side, matching
+the Scheme Benchmark protocol. Each batch must resolve at least one millisecond.
+Nearest-rank P10/P50/P90 use every group. Before/after P10 must be at least 0.90
+and P90 at most 1.10; production P90 must be strictly below 0.95.
+
+** Rejected exploratory receipts
+
+The initial debug run used 64 calls and only two single-batch controls per group.
+Before P10/P90 was 0.716998/1.110200; production P50/P90 0.899910/1.128070;
+after P10/P90 0.870028/1.056283. It was rejected.
+
+Increasing that exploratory debug batch to 512 calls did not admit a benefit:
+before P10/P90 0.856625/1.128430, production P50/P90 0.903464/0.998036,
+after P10/P90 0.756212/1.067461. It was rejected.
+
+Release with the same exploratory control layout produced P50/P90
+0.810413/0.937457, but before P10/P90 0.765034/1.164918 and after P10/P90
+0.774124/1.178976 were unstable. It was also rejected. The final protocol fixes
+the unequal control sampling to match Scheme Benchmark's four-batch-per-side
+sums; it does not relax any acceptance threshold.
+
+** Reproduction and scope
+
+Set =GERBIL_PARSER_RUST_CPU_PROOF=1= and run =gerbil env gxi qualify.ss host=.
+The existing producer owner builds one Scheme library and one release Rust
+consumer, then reuses the same linked host for lifecycle and both CPU processes.
+Build/link and execution retain their existing 90-second limits; execution
+retains a five-second idle limit with real completed-batch output.
+Linux CI applies =taskset= only to the CPU host processes, preserving producer
+build parallelism. The full manual Linux workflow enables both CPU proofs;
+ordinary lifecycle qualification continues using its debug build.
+
+This qualifies whether the earlier scanner/LR algorithm benefit reaches complete
+Rust Tokio/FFI requests. It must not be reported as an incremental benefit from
+the latest upstream revision, or as a Tokio scheduler optimization.
+
+The first eight-leg release run remained rejected: before P10/P90
+0.914546/1.117402, production P50/P90 0.843691/0.922004, after P10/P90
+0.842646/1.175472. Neither production ratios nor profile changes excuse an
+unstable control. A subsequent controlled Darwin experiment explicitly sets
+and verifies the same =QOS_CLASS_USER_INTERACTIVE= request on the caller and
+owner threads before warmup. This is test-only scheduling setup, not a core
+pin or a production API optimization. Linux uses the existing CPU affinity.
+
+The initial Darwin QoS run also remained rejected: before P10/P90
+0.834763/1.084355, production P50/P90 0.837017/0.907827, after P10/P90
+0.925992/1.082593. The after control passed; the before control did not.
+The single-caller warmup experiment used eight balanced legs of 1,024 complete
+requests, 4,096 requests per variant, and hit the existing 90-second limit. It includes natural GC and establishes
+both independent contexts before the unchanged 20-group timed phases. Warmup
+is not selected from timed results and no measured group is discarded.
+
+
+** Concurrent complete-request receipts
+
+The eight-caller, 256-request protocol also reached the 90-second process limit
+before completing its production phase. It was rejected. That bounded
+protocol used 128 requests per leg and eight symmetric warmup legs of 256
+requests (1,024 per variant). All 20 groups in each of the three phases remain
+mandatory, with unchanged percentile and control thresholds. One progress line
+records all eight completed leg costs; no group or GC cycle is removed.
+
+| Workload | Before P10/P90 | Production P50/P90 | After P10/P90 | Admission |
+|----------+----------------+--------------------+---------------+-----------|
+| ASCII 64 records | 0.940151 / 1.013562 | 0.844709 / 0.863701 | 0.981808 / 1.114173 | Rejected: after control |
+| Unicode 64 records | 0.949809 / 1.031382 | 0.836406 / 0.875211 | 0.920825 / 1.033180 | Passed locally |
+
+The Unicode receipt proves a local complete-request CPU benefit for this
+concurrent workload: production P90 is 12.48% lower than the independent engine
+control. The ASCII control failure prevents an ASCII performance claim. These
+measurements precede the final dependency synchronization; they are not an
+exact-head CI receipt or an incremental upstream-revision performance claim.
+
+* Dependency synchronization and parallel CI
+
+The latest inspected bridge PR revision is
+=0c18941cc6b6b7ff0ef3943abdb2b5fac8e92ccb=. Scheme and Cargo pins and the Cargo
+lock agree. Changes since =ce8d781= concern build-launcher environment and
+upstream qualification, not a new parser or Tokio scheduling kernel. The
+concurrent parser PR changes at =461a4bf= were retained, including the explicit
+Darwin FFI compilation policy for the foreign language context.
+
+The failing macOS run at =51bbe88= compared the installed bridge against an
+obsolete hardcoded =345b172= dependency. The contract now derives the expected
+bridge revision from Cargo and verifies the Scheme dependency agrees, while
+retaining the other package-ownership assertions.
+
+CI now has three independent Rust jobs and one preparation producer per Scheme
+platform. Each producer builds parser, commands, conformance, test support,
+FFI fixtures and the standalone language library once. Its consumers run
+semantics, Rust regeneration, FFI lifecycle, and Linux corpus qualification in
+parallel. Manual runs add independent diagnostic jobs and six Linux CPU jobs:
+scanner, events, engine, ranked parser, UTF-8 and complete Rust Tokio requests.
+Ubuntu consumers do not wait for macOS preparation.
+
+Compiled products are transferred inside a tar archive to retain symlinks,
+permissions and mtimes. Admission checks the exact Git head, full SDK digest,
+OS, architecture and workspace path before extraction. The native host uses
+the admitted standalone library instead of compiling it in every consumer.
+The ordinary PR graph has 12 runner jobs; manual qualification adds eight jobs.
+Actual concurrency is subject to the account's runner capacity.
+
+The immutable SDK archive is cached by full SHA-256 and verified on every
+restore. Gerbil package and content-admitted conformance cache keys include that
+SDK digest and dependency identity. Cargo caches include the Rust toolchain,
+platform, lane and manifest/lock identities. Preparation is saved before CPU
+qualification, so a rejected CPU proof cannot discard reusable preparation.
+Each consumer uploads its own qualification logs, including failed runs.
+Existing test gates and bounded child-process deadlines remain in force.
+
+
+Local validation after the final synchronization passed actionlint, original
+CI-gate ownership parity, and the producer/consumer dependency graph. Artifact
+controls rejected mismatched head, SDK, OS, architecture and workspace and
+preserved executable permissions, symlinks and mtimes. The real Scheme product
+contract ran both cases with =BUILD-PRODUCT-CONTRACT-OK=. Rust build-support
+reported eight passed and two intentionally ignored tests; FFI reported seven
+passed tests. Consumer clippy and formatting passed.
+
+Both ordinary library production and consumption of the already prepared
+library completed with =NATIVE-HOST-OK=. The latter reused the shared library
+without another AOT build and completed its 32-request Tokio lifecycle probe
+with =RUST-TOKIO-HOST-OK=. These local results do not replace remote Linux/macOS
+qualification of the committed head.
+
+
+* Single-pass admission and complete ASCII qualification (2026-10-12)
+
+** Structural change
+
+The Rust artifact consumer previously decoded every GPA1 event once to validate
+it and again to construct its navigation index. Field validation also searched
+the open-event stack backwards for its owning node. The production decoder now
+builds navigation while validating the same event, retaining the current owner
+and restoring it when a node closes. Field-owner lookup is constant time. One
+open-event stack supplies both nesting validation and closing-row navigation;
+the separate navigation pass and node stack are removed.
+
+Identity, canonical record, vocabulary, UTF-8, field ownership, nesting and
+coverage checks are retained. Invalid artifacts expose no navigation. Initial
+index reservation is bounded to 1,024 rows; a malicious declared event count
+cannot force a full index allocation before row admission. Larger valid inputs
+grow with admitted records.
+
+The former two-pass decoder is frozen under test support. The optional
+=benchmark-controls= feature makes that independent decoder available to the
+Rust qualification fixture. Normal consumers use single-pass admission. This
+is a test control, not a production compatibility path.
+
+A semantic test compares all navigation entries and admission errors against
+the former implementation for all 20 real native-language fixtures. It also
+corrupts every payload byte independently, tests truncation and mismatched
+sources, and requires identical rejection reasons and event indices.
+
+** Matched full-request evidence
+
+The reference requests use both the independent former scanner/LR kernels and
+the frozen two-pass artifact decoder. Production uses the prepared scanner/LR
+kernels and fused admission. Both retain the same current upstream UTF-8
+encoder, full row writer, source/catalog identities, bounded Tokio owner and
+C allocation ownership. Therefore these results qualify the complete combined
+engine/consumer path; they do not attribute the entire gain to decoder fusion.
+
+The initial fused 128-request ASCII experiment was rejected despite production
+P90 0.855386: before P10/P90 was 0.978785/1.050850, after was
+0.980403/1.102040. Its failed control remains recorded. The fixed qualification
+protocol now uses 256 requests per leg, eight balanced legs per group, 20
+groups per phase and three phases. Warmup remains eight balanced legs of 256
+requests. Thresholds, inclusion of natural GC, all-group admission and the
+90-second process limit are unchanged.
+
+| Complete request | Before P10/P90 | Production P50/P90 | After P10/P90 | Admission |
+|------------------+----------------+--------------------+---------------+-----------|
+| ASCII 64 records | 0.949719 / 1.072802 | 0.836486 / 0.879088 | 0.922525 / 1.036930 | Passed |
+| Unicode 64 records | 0.930487 / 1.045828 | 0.832003 / 0.892620 | 0.963446 / 1.052294 | Passed |
+
+Both independent complete-request processes returned zero and
+=RUST-TOKIO-CPU-PROOF-OK=. ASCII process wall time was 50.021 seconds; Unicode
+was 51.478 seconds. ASCII production P90 CPU was 12.09% lower than the frozen
+combined control; Unicode was 10.74% lower. These are process user+system CPU
+ratios for 64 records, including Tokio/FFI, source allocation, Scheme parse/GC,
+full publication, C result release, Rust admission/traversal and result drop.
+Every timed request checks the complete 15,488-byte snapshot, 642 events and
+64 root children. These are local matched receipts, not remote CI completion.
+
+** CI preparation dependency repair
+
+The =8805047= Ubuntu producer failed before library-object qualification:
+=qualify.ss= imported the uncompiled qualification process module. Moving the
+process-contract tests into a consumer had removed their earlier implicit
+build prerequisite. Preparation now explicitly compiles =build-qualification.ss=
+before its first =qualify.ss= call. This restores build ownership and leaves the
+independent consumer job structure and existing deadlines intact.
+
+
+Final local regression validation passed 171 workspace tests (including the ASP
+source gate), workspace and fixture clippy, formatting, the explicit Scheme
+qualification-boundary build and independent C/Rust/Tokio lifecycle probes.
+The real 32-request Tokio host returned =RUST-TOKIO-HOST-OK= and the complete
+host qualification returned =NATIVE-HOST-OK=. Actionlint accepted the repaired
+producer dependency graph. The latest committed CI remains a separate gate.

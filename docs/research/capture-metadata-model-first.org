@@ -1,0 +1,162 @@
+#+title: Model-first classification of captured recognition metadata
+
+* Paper and code basis
+
+Sperber and Thiemann's [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]], section 3.1.3, motivates
+eliminating redundant constructor/selector work while preserving computations
+and their order. It also discusses transport of multiple results; adding a
+metadata tuple or callback is not assumed free. Wagner and Graham's
+[[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Efficient and Flexible Incremental Parsing]] motivates preserving reuse context
+and charging the checks that support it. Neither paper establishes a speedup
+for our representation; the following obligations come from current code.
+
+At baseline =54746a3b1617639fac05805f6ac9aae4a1861555=,
+[[file:../../src/runtime/lr-parser/recognition.ss][the recognition owner]] reads start, end, token count and terminal yield through
+four separate piece projections during unary reduction capture. Each projection
+classifies the same object as a view, token or fragment. Views recursively
+interpret coordinates and terminal-yield relocation. Base pieces have direct
+fields. The caller invokes no semantic callback between these reads.
+
+The earlier [[file:lr-request-model-foundation.org][request scope model]] rejects unproven cross-reduction metadata
+caching because token vectors and lexemes are mutable. This proposal retains
+no metadata beyond the current synchronous capture operation. Source hashing,
+FFI event coding, scanner policy, LR state/action selection and artifact
+validation are unchanged.
+
+* Model completed before implementation
+
+[[file:../../formal/ParserEngine/Capture.lean][Lean Capture]] adds explicit token, fragment and nested-view representations.
+Tokens have count one; fragment metadata includes empty terminal yields. Start
+and end use integer coordinates, and terminal yield is opaque. Relocation is
+an arbitrary pure function: no associativity, canonicalization or rearrangement
+is assumed for nested views.
+
+=classified_metadata_exact= proves the proposed base classification equals all
+four existing projections. =classified_consumer_exact= transfers that equality
+to an arbitrary pure consumer. The Scheme owner must establish valid piece
+representations, stable local fields and no intervening effects; the theorem
+does not verify mutable object races or the compiler. It does not permit token
+metadata to outlive its existing scope or change observable child identity.
+
+For =b= ordinary unary children and =v= view unary children, count complete
+piece-kind decisions:
+
+#+begin_example
+Existing:  4 * (b + v)
+Candidate: b + 5 * v
+Break-even: v <= 3 * b
+#+end_example
+
+A view retains the old projections and pays one additional outer decision.
+The model therefore includes a view-only regression example. These are logical
+classification counts, excluding accessor validation, scalar loads, native call
+cost, allocation, GC and all other request work. A whole-request CPU claim must
+include those costs and cannot follow from this count alone.
+
+[[file:../../formal/quint/CapturePlan.qnt][Quint CapturePlan]] retains ownership of the immutable capture epoch and
+publication lifecycle. New unary and nullable invalidation histories ensure
+that a local classification change does not justify publication after mutation.
+It does not duplicate the pure metadata algorithm or become a parser oracle.
+Existing request ownership, cancellation and snapshot models retain their own
+scopes. Lean and the locked Quint package passed before the runtime change.
+
+* Rejected engine experiment
+
+The tested unary branch classified a base token or fragment once, then passes its
+existing scalar fields directly to the unchanged fragment constructor. Local
+Gerbil =defrule= syntax keeps that constructor in one source location without
+a new tuple, multiple-value transport, runtime callback or strategy protocol.
+For views, the existing four projections preserve exact recursive behavior.
+The zero-width and wider reduction paths remain unchanged.
+
+This was a generic engine transformation for captured unary productions.
+No language fixture or grammar is altered. The local syntax lives inside the
+existing capture definition, so the historical module-organization gate still
+compares every other runtime execution form unchanged.
+
+* Controls before timing
+
+[[file:../../t/benchmarks/capture-prefix/controls.ss][Capture controls]] compare complete transparent fragments against the frozen
+independent reference across 198 combinations: 11 productions, nine token/
+fragment/empty-fragment representations including nested views and positive/
+negative deltas, and EOF/Unicode lookahead. They check exact yield association,
+source-order children and physical suffix sharing. The controls passed with
+exit zero in 7.605 seconds under the existing 90/5-second watchdog.
+
+The initial expanded control script had an unmatched parenthesis and failed
+compilation before running assertions. It was corrected before any CPU run;
+that setup failure is not a semantic or performance result.
+
+* Actual complete-request distribution
+
+[[file:../../t/benchmarks/capture-prefix/worker.ss][The persistent worker]] counts its real captured tree outside all timed
+intervals. The fresh 64-record ASCII source has 322 reductions:
+
+| Width | Reductions |
+|-------+------------|
+| 0 | 1 |
+| 1 | 193 |
+| 2 | 64 |
+| 4 | 64 |
+
+Among unary children there are 128 tokens, 65 fragments and no views. The model
+therefore predicts 772 versus 193 root piece-kind decisions, a reduction of
+579 such decisions. Both native workers must report identical inventories and
+complete artifact digest. These counts do not establish CPU percentages and
+must not be applied to edited/view-heavy requests.
+
+* Complete-request CPU admission
+
+The baseline image is compiled from the exact baseline Git source with the
+normal SDK compiler and current package pins. The candidate changes only the
+recognition image. The existing two persistent workers verify distinct selected
+recognition-image hashes and identical shared checkpoint, state, parser, session
+and grammar images. No runtime function binding is replaced.
+
+Each timed call constructs a fresh capture-enabled incremental session for 64
+ASCII records, covering scanning, LR execution, capture and artifact publication.
+It compares the complete artifact and validates source binding on every call.
+Independent recognition replay is checked before timing. Expected artifact:
+
+#+begin_example
+sha256:c42a4b2281ad7f1921dcd426606db0a2ccb5cbd9925078e67cd479aea27bf24c
+#+end_example
+
+Process user-plus-system CPU is measured inside each worker. Startup, protocol
+IPC and driver CPU are excluded. Natural GC, equal host QoS, before/after
+reference controls, all groups and the existing 90-second total / 5-second
+silence bounds remain. Five groups per phase each contain 32 alternating legs
+of 256 calls: 122,880 timed complete requests, plus two 256-request warmups.
+The minimum/maximum control ratios must lie in =0.90..1.10=, and candidate P90
+must be below =0.95=. No outliers may be discarded.
+
+* Reproduction
+
+#+begin_src sh
+just formal
+just formal-protocol
+just prepare-capture-reference 54746a3b1617639fac05805f6ac9aae4a1861555 .data/capture-metadata/reference
+just benchmark-capture-prefix .data/capture-metadata/reference/lib
+#+end_src
+
+This qualifies fresh capture-enabled Scheme requests only. Edited requests,
+view-heavy workloads, other grammars, capture-disabled parsing, host RPC and
+Rust/Tokio consumer behavior need separate evidence.
+
+* Negative complete-request result
+
+All 198 semantic controls passed. The complete-request experiment completed
+122,880 timed requests but failed the CPU gate:
+
+| Phase | P10 | P50 | P90 |
+|-------+-----+-----+-----|
+| Before reference/reference | 0.933886 | 1.003465 | 1.056129 |
+| Candidate/reference | 0.961911 | 1.006100 | 1.014672 |
+| After reference/reference | 0.980577 | 1.008979 | 1.051860 |
+
+The controls were stable, but candidate P90 exceeded =0.95= and the median did
+not improve. The supervisor exited 70 at 48.082 seconds with error-output and
+no anchored success receipt. The engine experiment was reverted. The model,
+expanded controls and this negative result remain useful evidence that fewer
+logical classifications alone did not yield complete-request CPU improvement.
+No runtime optimization is claimed or retained from this experiment.

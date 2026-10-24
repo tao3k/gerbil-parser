@@ -1,0 +1,87 @@
+#+title: Lowering declaration callbacks and construction admission
+
+* Contract and discovered mismatch
+
+The paper's nonterminal vocabulary is not the set of production left-hand
+sides. A helper for an empty choice is declared even when it emits no row.
+Likewise a reserved undefined reference is not a declaration. The relevant
+publication order is augmented owner, authored owners in source order, then
+helper callbacks in successful allocation order.
+
+The previous =LoweringProtocol.input= reconstructed declarations from the final
+reverse-cons name store. Membership theorems accepted that list even though it
+reversed the native helper callback order. This was a model correspondence
+defect, not evidence of a native parsing defect or a performance opportunity.
+The constructor now consumes explicit callback events. Its membership laws
+remain valid, and its ordering is additionally derived rather than assumed.
+
+* One composition through the retained constructor
+
+| Boundary | General result | Source or consumer |
+|----------+----------------+--------------------|
+| Successful allocation | =Allocation.bindings= derives the exact cons update | Existing collision-search allocation, including retries |
+| Arbitrary nested calls | =Execution.callbacks= equates declarations and claims, preserving order and multiplicity | Every =bind=, recursive body and continuation in =LoweringCallStack.execute= |
+| Mutable collector order | =Execution.storage= relates reverse physical storage to the chronological callback stream | Includes an arbitrary nonempty initial store |
+| Initial producer state | =callback_bindings= and =callbacks_unique= derive complete, distinct helper callbacks | Arbitrary =LoweringProgram.compile= call trees, not just corpus grammars |
+| Source callback site | =LoweringDeclarationEvaluation.extracted= reads the actual generated =lower-symbol= datum | Existing source extraction and freshness gate |
+| Allocator owner requests | =Execution.requested= retains authored owners through arbitrary recursive bodies and continuations | A physical helper name or expression owner cannot reconstruct this information |
+| Actual Scheme callback | =slot_eval= evaluates =when=, closure invocation, captured-cell read and assignment | Existing =SchemeTableEvaluation= and determinism, with unshadowed =cons= |
+| Arbitrary callback streams | =collect= generates a returning execution and =unique= excludes a different returning result | No bound on stream length; a nonempty previous collector is supported |
+| Shared-heap source calls | =LoweringDeclarationCalls.source_history= and =every_return= alternate real =fresh= evaluation with declaration closure execution | Counter and collector separation is explicit; both use the previous call's heap |
+| Generated source-call input | =generated_history= derives allocator requests from the recursive call tree | No independent request trace is supplied by a caller |
+| Call-tree/collector composition | =generated_collector= executes the generated chronological stream in the actual callback closure | Name encoding remains explicit |
+| Construction admission | =input_callback_order= feeds that stream into =ConstructionGrammar.construct= | Existing retained LeanPoo construction product; no second automaton or wrapper factory |
+
+These callback laws describe the enabled collector used by =lower-grammar=,
+not an assertion that an omitted optional =lower-rules= callback executes.
+
+The augmented owner is added separately by =lower-grammar=. Its fallback
+=fresh 'accept= is not a helper allocation and must not produce a helper callback.
+The native collision matrix checks that separation, including reserved candidate
+names. The recursive matrix checks declaration callbacks before proof bindings,
+exact order and multiplicity, and the same directory returned by =lower-grammar=.
+The failure scenario checks that a rejected declaration callback prevents proof
+observation, recursive emission and a normal result.
+
+* Evidence and remaining boundary
+
+=LoweringDeclarations.qnt= exercises nested zero-row calls, callback failure,
+omission, reversal, duplication and publication after failure. Its bounded
+histories are controls, not the arbitrary-depth proof. Native cases remain in
+the original =t/lowering-traversal-test.ss= owner using existing test macros.
+The complete original sixteen-owner cold aggregate remains the acceptance gate.
+
+This closes callback projection and collector evaluation for the generated
+normal-return protocol. It does not prove the entire actual Scheme dispatcher
+simulates that protocol: =case= dispatch, operand mapping, optional proof
+closures, arbitrary callback effects and interleaving with production emission
+are tracked by the [[file:lowering-scheme-dispatch.org][Scheme dispatch composition]] audit. Its case, map and local closure laws
+are now operational; full recursive branch derivation remains open. In particular, source
+schema equality alone is not that derivation. Exceptional and nonterminating
+callbacks are not claimed to satisfy a returning-execution theorem.
+
+The remaining source simulation must preserve the same cell ownership and
+emission ordering rather than assume a complete allocation/callback trace as
+input. This obligation belongs to the parser. Reader identity, symbol interning,
+compiler execution and host GC behavior remain external premises. Gambit and
+SDK sources are neither modified nor built. No runtime optimization follows
+from this correspondence repair.
+
+* Local qualification
+
+Candidate based on =4f9be51=; these receipts are local evidence, not the CI
+result of the subsequently published commit. Existing limits were unchanged.
+
+| Gate | Result |
+|------+--------|
+| Standard current-package clean and cold compile | Exit zero, 126.41 seconds, 180 total / 5 idle |
+| Original four preparation owners | Exit zero, 42.03 seconds, 90 total / 5 idle |
+| Real grammar witness generation | Exit zero, 10.84 seconds, 90 total / 5 idle; no generated data drift |
+| Original sixteen-owner first full cold aggregate, four workers | Exit zero, 156.23 seconds wall time, 180 total / 5 idle; all sixteen owners passed |
+| Complete Lean build and axiom audit | 254 jobs passed; no added axioms or placeholders |
+| Declaration protocol controls | Six directed tests passed; 1000 histories with forty steps, seed one, no invariant violation |
+
+The native gate includes seven traversal scenarios/matrices and the existing
+full language ABI owner. Neither warm aggregate replay nor a narrower owner
+selection substitutes for this result. This qualification establishes the
+changed correspondence and regression boundary, not end-to-end CPU savings.

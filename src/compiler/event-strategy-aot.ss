@@ -1,7 +1,9 @@
 ;;; -*- Gerbil -*-
 ;;; One pure Scheme line-event algorithm, executable here and lowered to Rust.
 
-(import (only-in ../language/descriptor language-grammar-ir language-grammar-machine)
+(import (only-in ../runtime/source-lines
+                 fold-source-lines source-line-events line-starts-with?)
+        (only-in ../language/descriptor language-grammar-ir language-grammar-machine)
         (only-in ../runtime/identity sha256-text)
         (only-in ./machine parser-machine-grammar-digest)
         (only-in ./rust-syntax
@@ -10,7 +12,7 @@
                  rust-module write-rust-module))
 (export define-line-event-parser event-node event-token line-starts-with?
         compile-line-event-parser generate-line-event-module
-        source-line-events kind-index)
+        source-line-events fold-source-lines kind-index)
 
 (defrules event-node ()
   ((_ kind child ...)
@@ -19,40 +21,6 @@
 (defrules event-token ()
   ((_ kind start end)
    (list (list 'token 'kind start end))))
-
-(def (line-starts-with? line prefix)
-  (and (<= (string-length prefix) (string-length line))
-       (string=? (substring line 0 (string-length prefix)) prefix)))
-
-(def (source-line-events source root visit)
-  (let (size (string-length source))
-    (let loop ((start 0) (cursor 0) (byte-start 0)
-               (reversed (list (list 'start root))))
-      (cond
-       ((= cursor size)
-        (if (= start size)
-          (reverse (cons '(finish) reversed))
-          (let* ((line (substring source start size))
-                 (byte-end (+ byte-start
-                              (u8vector-length (string->utf8 line)))))
-            (reverse (cons '(finish)
-                           (append (reverse (visit line byte-start byte-end))
-                                   reversed))))))
-       ((or (char=? (string-ref source cursor) #\newline)
-            (char=? (string-ref source cursor) #\return))
-        (let* ((after (+ cursor
-                         (if (and (char=? (string-ref source cursor) #\return)
-                                  (< (+ cursor 1) size)
-                                  (char=? (string-ref source (+ cursor 1))
-                                          #\newline))
-                           2 1)))
-               (line (substring source start after))
-               (byte-end (+ byte-start
-                            (u8vector-length (string->utf8 line)))))
-          (loop after after byte-end
-                (append (reverse (visit line byte-start byte-end))
-                        reversed))))
-       (else (loop start (+ cursor 1) byte-start reversed))))))
 
 (def (kind-index grammar name category)
   (let (kinds (cdr (assq 'syntax-kinds (language-grammar-ir grammar))))

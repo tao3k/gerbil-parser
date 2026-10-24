@@ -1,0 +1,10 @@
+;;; Rule-instance ownership is a POO declaration, not a runtime registry.
+(import (only-in :clan/poo/object .ref .slot? object?)
+        (only-in :clan/poo/mop define-type Type. element?))
+(export SourceEventScope source-event-scope?)
+(def (scope-shape? value)
+  (and (object? value) (.slot? value 'kind) (.slot? value 'owner)
+       (eq? (.ref value 'kind) 'source-event-scope)
+       (symbol? (.ref value 'owner))))
+(define-type (SourceEventScope @ Type.) .element?: scope-shape?)
+(def (source-event-scope? value) (element? SourceEventScope value))

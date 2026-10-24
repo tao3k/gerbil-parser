@@ -1,0 +1,525 @@
+//! Execution of the Scheme contextual-scanner-opcodes.v1 data contract.
+#[path = "admission.rs"]
+mod admission;
+#[path = "matching.rs"]
+mod matching;
+#[path = "obligations.rs"]
+mod obligations;
+#[path = "session.rs"]
+mod session;
+use crate::{Diagnostic, ScannedToken};
+use matching::matcher_end;
+pub(crate) use matching::shell_delimiter;
+use obligations::Obligations;
+pub use session::ContextualScanSession;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, OnceLock};
+
+pub const SCANNER_OPCODE_CONTRACT: &str = "gerbil-parser.contextual-scanner-opcodes.v1";
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BalancedPair {
+    pub prefix: &'static str,
+    pub opening: char,
+    pub closing: char,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RegionQuote {
+    pub delimiter: char,
+    pub escaped: bool,
+    pub pairs: &'static [&'static str],
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RegionPair {
+    pub prefix: &'static str,
+    pub opening: char,
+    pub closing: char,
+    pub depth: usize,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ScannerMatcher {
+    Literal(&'static str),
+    Literals(&'static [&'static str]),
+    UnlessPrefix {
+        prefixes: &'static [&'static str],
+        exceptions: &'static [&'static str],
+        child: &'static Self,
+    },
+    LinePrefix {
+        prefix: &'static str,
+        separator: char,
+    },
+    MarkerLineAt(char),
+    BodyLineAt(char),
+    HorizontalWhitespace,
+    Newline,
+    NewlineOne,
+    Identifier,
+    MarkerLine,
+    BodyLine,
+    QuotedString(&'static [&'static str]),
+    RegionWord {
+        stops: &'static [&'static str],
+        quotes: &'static [RegionQuote],
+        pairs: &'static [RegionPair],
+        consume_initial_stop: bool,
+    },
+    BalancedWord {
+        stops: &'static [&'static str],
+        quotes: &'static [&'static str],
+        pairs: &'static [BalancedPair],
+    },
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MarkerPolicy {
+    Raw,
+    ShellQuoteRemoval,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ScannerAction {
+    Keep,
+    ExpectMarker(bool),
+    ExpectMarkerIn {
+        strip_tabs: bool,
+        mode: &'static str,
+    },
+    EnqueueMarkerIn {
+        policy: MarkerPolicy,
+        mode: &'static str,
+    },
+    EnqueueIfExpecting(MarkerPolicy),
+    ActivateNext(&'static str),
+    FinishMarker {
+        base: &'static str,
+        body: &'static str,
+    },
+}
+#[derive(Clone, Copy, Debug)]
+pub struct ScannerRule {
+    pub name: &'static str,
+    pub mode: &'static str,
+    pub form: &'static str,
+    pub matcher: ScannerMatcher,
+    pub rank: i64,
+    pub action: ScannerAction,
+}
+#[derive(Clone, Copy, Debug)]
+pub struct ScannerCell {
+    pub mode: &'static str,
+    pub position: &'static str,
+    pub form: &'static str,
+    pub terminal: &'static str,
+}
+#[derive(Debug)]
+pub struct ScannerSpec {
+    pub opcode_contract: &'static str,
+    pub base_grammar_digest: Option<&'static str>,
+    pub digest: &'static str,
+    pub initial_mode: &'static str,
+    pub modes: &'static [&'static str],
+    pub positions: &'static [&'static str],
+    pub rules: &'static [ScannerRule],
+    pub cells: &'static [ScannerCell],
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct Obligation {
+    pub(super) marker: String,
+    pub(super) strip_tabs: bool,
+    pub(super) quoted: bool,
+}
+/// Scanner indexes admitted once for each immutable generated specification.
+#[derive(Debug)]
+struct ScannerPlan {
+    rules: HashMap<&'static str, Vec<&'static ScannerRule>>,
+    dispatch: HashMap<(&'static str, &'static str), HashMap<&'static str, &'static str>>,
+}
+/// Source-local executor sharing immutable scanner indexes across parses.
+#[derive(Debug)]
+pub struct ContextualScanner<'source> {
+    spec: &'static ScannerSpec,
+    source: &'source str,
+    plan: Arc<ScannerPlan>,
+}
+/// Immutable checkpoint bound to the prepared scanner and exact source.
+#[derive(Clone, Debug)]
+pub struct ScannerCheckpoint<'scanner, 'source> {
+    owner: &'scanner ContextualScanner<'source>,
+    offset: usize,
+    mode: &'static str,
+    pending: Obligations,
+    active: Option<Arc<Obligation>>,
+    expecting: Option<bool>,
+}
+impl ScannerCheckpoint<'_, '_> {
+    fn same_context(&self, other: &ScannerCheckpoint<'_, '_>) -> bool {
+        Arc::ptr_eq(&self.owner.plan, &other.owner.plan)
+            && self.mode == other.mode
+            && self.expecting == other.expecting
+            && self.active == other.active
+            && self.pending.equivalent(&other.pending)
+    }
+    /// Admit identical future scanner decisions for independently reached states.
+    /// Callers must supply the same future parser-position schedule. This does
+    /// not relocate checkpoints or establish parser/subtree equivalence.
+    #[must_use]
+    pub fn converges_with(&self, other: &ScannerCheckpoint<'_, '_>) -> bool {
+        self.same_context(other)
+            && self.owner.source[self.offset..] == other.owner.source[other.offset..]
+    }
+
+    #[must_use]
+    pub fn byte_offset(&self) -> usize {
+        self.offset
+    }
+    #[must_use]
+    pub fn mode(&self) -> &'static str {
+        self.mode
+    }
+    #[must_use]
+    pub fn pending_markers(&self) -> usize {
+        self.pending.len()
+    }
+    #[must_use]
+    pub fn active_marker(&self) -> Option<(&str, bool, bool)> {
+        self.active
+            .as_ref()
+            .map(|o| (o.marker.as_str(), o.strip_tabs, o.quoted))
+    }
+}
+pub(crate) fn error(offset: usize, message: &str) -> Diagnostic {
+    Diagnostic {
+        reason_kind: "contextual-scanner",
+        byte_offset: offset,
+        message: message.into(),
+    }
+}
+impl<'source> ContextualScanner<'source> {
+    pub(crate) fn source_slice(&self, start: usize, end: usize) -> &'source str {
+        &self.source[start..end]
+    }
+    /// # Errors
+    /// Invalid scanner identity, declaration or action target.
+    pub fn new(spec: &'static ScannerSpec, source: &'source str) -> Result<Self, Diagnostic> {
+        let plan = prepare_spec_once(spec)?;
+        Ok(Self { spec, source, plan })
+    }
+    #[must_use]
+    pub fn initial_state(&self) -> ScannerCheckpoint<'_, 'source> {
+        ScannerCheckpoint {
+            owner: self,
+            offset: 0,
+            mode: self.spec.initial_mode,
+            pending: Obligations::default(),
+            active: None,
+            expecting: None,
+        }
+    }
+    /// Re-execute a prefix on both sources under the recorded parser positions.
+    /// Returns a checkpoint owned by this scanner; does not relocate old state
+    /// or establish parser/subtree reuse. External mode changes are not replayed.
+    ///
+    /// # Errors
+    /// Different plans/prefixes, an incomplete schedule or changed lexical decisions.
+    pub fn replay_prefix<'scanner>(
+        &'scanner self,
+        checkpoint: &ScannerCheckpoint<'_, '_>,
+        positions: &[&str],
+    ) -> Result<ScannerCheckpoint<'scanner, 'source>, Diagnostic> {
+        let old = checkpoint.owner;
+        if !Arc::ptr_eq(&self.plan, &old.plan)
+            || self.source.get(..checkpoint.offset) != Some(&old.source[..checkpoint.offset])
+        {
+            return Err(error(
+                checkpoint.offset,
+                "scanner prefix source or plan mismatch",
+            ));
+        }
+        let mut before = old.initial_state();
+        let mut after = self.initial_state();
+        for position in positions {
+            let (a, next_a) = old.step(&before, position)?;
+            let (b, next_b) = self.step(&after, position)?;
+            if next_a.offset > checkpoint.offset || next_a.offset != next_b.offset || a != b {
+                return Err(error(
+                    before.offset,
+                    "scanner prefix lexical decision changed",
+                ));
+            }
+            before = next_a;
+            after = next_b;
+        }
+        if before.offset != checkpoint.offset
+            || !before.same_context(checkpoint)
+            || !before.same_context(&after)
+        {
+            return Err(error(
+                checkpoint.offset,
+                "scanner checkpoint not reproduced by position schedule",
+            ));
+        }
+        Ok(after)
+    }
+    /// # Errors
+    /// A foreign checkpoint or undeclared mode.
+    pub fn with_mode<'scanner>(
+        &'scanner self,
+        state: &ScannerCheckpoint<'scanner, 'source>,
+        mode: &'static str,
+    ) -> Result<ScannerCheckpoint<'scanner, 'source>, Diagnostic> {
+        self.admit(state, self.spec.positions[0])?;
+        if !self.spec.modes.contains(&mode) {
+            return Err(error(state.offset, "undeclared scanner mode"));
+        }
+        let mut next = state.clone();
+        next.mode = mode;
+        Ok(next)
+    }
+    fn admit(
+        &self,
+        state: &ScannerCheckpoint<'_, 'source>,
+        position: &str,
+    ) -> Result<(), Diagnostic> {
+        if !std::ptr::eq(state.owner, self) || !self.spec.positions.contains(&position) {
+            return Err(error(
+                state.offset,
+                "foreign checkpoint or undeclared parser position",
+            ));
+        }
+        Ok(())
+    }
+    /// # Errors
+    /// An ambiguous/unmatched token, foreign checkpoint or unfinished obligation.
+    pub fn step<'scanner>(
+        &'scanner self,
+        state: &ScannerCheckpoint<'scanner, 'source>,
+        position: &str,
+    ) -> Result<(Option<ScannedToken>, ScannerCheckpoint<'scanner, 'source>), Diagnostic> {
+        self.admit(state, position)?;
+        if state.offset == self.source.len() {
+            if state.active.is_some() || !state.pending.is_empty() || state.expecting.is_some() {
+                return Err(error(
+                    state.offset,
+                    "unfinished contextual scanner obligation",
+                ));
+            }
+            return Ok((None, state.clone()));
+        }
+        let mut best: Option<(&ScannerRule, usize)> = None;
+        // Scheme index-rules reverses declaration order; equivalent ties retain that order.
+        for rule in self.plan.rules.get(state.mode).into_iter().flatten() {
+            if let Some(end) = matcher_end(
+                self.source,
+                state.offset,
+                rule.matcher,
+                state.active.as_deref(),
+            )? {
+                if end <= state.offset {
+                    return Err(error(state.offset, "scanner did not advance"));
+                }
+                if let Some((current, current_end)) = best {
+                    if end < current_end || (end == current_end && rule.rank < current.rank) {
+                        continue;
+                    }
+                    if end == current_end && rule.rank == current.rank {
+                        if rule.form != current.form || rule.action != current.action {
+                            return Err(error(state.offset, "ambiguous contextual scanner match"));
+                        }
+                        continue;
+                    }
+                }
+                best = Some((rule, end));
+            }
+        }
+        let (rule, end) =
+            best.ok_or_else(|| error(state.offset, "contextual scanner has no match"))?;
+        let terminal = self
+            .plan
+            .dispatch
+            .get(&(state.mode, position))
+            .and_then(|forms| forms.get(rule.form))
+            .ok_or_else(|| error(state.offset, "missing scanner dispatch"))?;
+        let token = ScannedToken {
+            terminal,
+            start: state.offset,
+            end,
+        };
+        let mut next = state.clone();
+        next.offset = end;
+        apply_action(
+            &mut next,
+            rule.action,
+            &self.source[state.offset..end],
+            state.offset,
+        )?;
+        Ok((Some(token), next))
+    }
+    /// Execute a declaration with one fixed parser position. Dynamic LR positions use step.
+    /// # Errors
+    /// The first scanner diagnostic; unfinished obligations also fail at EOF.
+    pub fn scan(&self, position: &str) -> Result<Vec<ScannedToken>, Diagnostic> {
+        let mut state = self.initial_state();
+        let mut tokens = Vec::new();
+        loop {
+            let (token, next) = self.step(&state, position)?;
+            state = next;
+            if let Some(token) = token {
+                tokens.push(token);
+            } else {
+                return Ok(tokens);
+            }
+        }
+    }
+}
+
+// This cache follows the LR validate_spec_once boundary. A static specification
+// has a process-long identity; input strings and checkpoints never enter it.
+fn prepare_spec_once(spec: &'static ScannerSpec) -> Result<Arc<ScannerPlan>, Diagnostic> {
+    static PLANS: OnceLock<Mutex<HashMap<usize, Arc<ScannerPlan>>>> = OnceLock::new();
+    let key = std::ptr::from_ref(spec) as usize;
+    let mut plans = PLANS
+        .get_or_init(|| Mutex::new(HashMap::new()))
+        .lock()
+        .map_err(|_| error(0, "scanner plan registry poisoned"))?;
+    if let Some(plan) = plans.get(&key) {
+        return Ok(Arc::clone(plan));
+    }
+    let plan = Arc::new(prepare_spec(spec)?);
+    plans.insert(key, Arc::clone(&plan));
+    Ok(plan)
+}
+
+fn prepare_spec(spec: &'static ScannerSpec) -> Result<ScannerPlan, Diagnostic> {
+    if spec.opcode_contract != SCANNER_OPCODE_CONTRACT
+        || !spec.digest.strip_prefix("sha256:").is_some_and(|s| {
+            s.len() == 64
+                && s.bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        })
+        || !spec.modes.contains(&spec.initial_mode)
+        || spec.positions.is_empty()
+    {
+        return Err(error(0, "invalid scanner contract or identity"));
+    }
+    admission::rules(spec)?;
+    let mut dispatch: HashMap<_, HashMap<_, _>> = HashMap::new();
+    for cell in spec.cells {
+        if cell.form.is_empty()
+            || cell.terminal.is_empty()
+            || !spec.modes.contains(&cell.mode)
+            || !spec.positions.contains(&cell.position)
+            || dispatch
+                .entry((cell.mode, cell.position))
+                .or_default()
+                .insert(cell.form, cell.terminal)
+                .is_some()
+        {
+            return Err(error(0, "invalid or duplicate scanner dispatch cell"));
+        }
+    }
+    for rule in spec.rules {
+        if !spec.modes.contains(&rule.mode)
+            || spec.positions.iter().any(|p| {
+                !dispatch
+                    .get(&(rule.mode, *p))
+                    .is_some_and(|forms| forms.contains_key(rule.form))
+            })
+        {
+            return Err(error(0, "scanner rule has no dispatch"));
+        }
+        match rule.action {
+            ScannerAction::ActivateNext(mode)
+            | ScannerAction::ExpectMarkerIn { mode, .. }
+            | ScannerAction::EnqueueMarkerIn { mode, .. }
+                if !spec.modes.contains(&mode) =>
+            {
+                return Err(error(0, "undeclared action mode"));
+            }
+            ScannerAction::FinishMarker { base, body }
+                if !spec.modes.contains(&base) || !spec.modes.contains(&body) =>
+            {
+                return Err(error(0, "undeclared action mode"));
+            }
+            _ => {}
+        }
+    }
+    let mut rules: HashMap<_, Vec<_>> = HashMap::new();
+    for rule in spec.rules.iter().rev() {
+        rules.entry(rule.mode).or_default().push(rule);
+    }
+    Ok(ScannerPlan { rules, dispatch })
+}
+
+fn enqueue_marker(
+    next: &mut ScannerCheckpoint<'_, '_>,
+    policy: MarkerPolicy,
+    word: &str,
+    at: usize,
+) -> Result<(), Diagnostic> {
+    if let Some(strip_tabs) = next.expecting {
+        let (marker, quoted) = match policy {
+            MarkerPolicy::Raw => (word.to_owned(), false),
+            MarkerPolicy::ShellQuoteRemoval => shell_delimiter(word, at)?,
+        };
+        if marker.is_empty() && !quoted {
+            return Err(error(at, "empty deferred delimiter"));
+        }
+        next.pending.push_back(Obligation {
+            marker,
+            strip_tabs,
+            quoted,
+        });
+        next.expecting = None;
+    }
+    Ok(())
+}
+
+fn apply_action(
+    next: &mut ScannerCheckpoint<'_, '_>,
+    action: ScannerAction,
+    word: &str,
+    at: usize,
+) -> Result<(), Diagnostic> {
+    match action {
+        ScannerAction::Keep => {}
+        ScannerAction::ExpectMarkerIn { strip_tabs, mode } => {
+            if next.expecting.is_some() {
+                return Err(error(at, "deferred delimiter already expected"));
+            }
+            next.expecting = Some(strip_tabs);
+            next.mode = mode;
+        }
+        ScannerAction::ExpectMarker(strip) => {
+            if next.expecting.is_some() {
+                return Err(error(at, "deferred delimiter already expected"));
+            }
+            next.expecting = Some(strip);
+        }
+        ScannerAction::EnqueueMarkerIn { policy, mode } => {
+            if next.expecting.is_none() {
+                return Err(error(at, "deferred delimiter not expected"));
+            }
+            enqueue_marker(next, policy, word, at)?;
+            next.mode = mode;
+        }
+        ScannerAction::EnqueueIfExpecting(policy) => {
+            enqueue_marker(next, policy, word, at)?;
+        }
+        ScannerAction::ActivateNext(body) => {
+            if next.expecting.is_some() {
+                return Err(error(at, "missing delimiter before newline"));
+            }
+            if let Some(active) = next.pending.pop_front() {
+                next.active = Some(active);
+                next.mode = body;
+            }
+        }
+        ScannerAction::FinishMarker { base, body } => {
+            if next.active.is_none() {
+                return Err(error(at, "marker closed without active obligation"));
+            }
+            next.active = next.pending.pop_front();
+            next.mode = if next.active.is_some() { body } else { base };
+            next.expecting = None;
+        }
+    }
+    Ok(())
+}

@@ -1,0 +1,789 @@
+#+title: Real Fold cross-statement qualification
+
+* Real Fold cross-statement qualification
+
+Status: whole-engine preflight incomplete; retain local buffer/wire candidate,
+reject slower scan/publication extensions. No promotion, push or full matrix.
+
+** Source checkpoint requested on 2026-10-13
+
+The user requested committing the current task changes before continuing.
+This checkpoint retains source, controls, distinct Lean/Quint obligations and
+negative benchmark records; it is not throughput acceptance. Generated SDKs,
+binaries and temporary logs remain local and are not staged. The existing
+GitHub PR #13 head is 23b1b493135881b3e4c68b68a8e2ba376c32a721;
+the checkpoint starts from 16f539901aeaf231ad65f0236a6c2b60283d5f4e.
+Upstream module-admission work must be preserved during alignment. The
+1000-request 10 ms gate remains open; no full matrix or Automation restart.
+
+Checkpoint 450c27e44845ad9fa477b491fff2bf936fcd1128 is rebased on that
+GitHub head. The sole Justfile conflict retained both independent recipes.
+Post-rebase checks passed: 13 run controls, 8 tape/buffer controls, 6 single-use
+call controls, and 24 retained actual Org AOT controls. The latter reruns the
+qualified retained binary; it does not qualify a newly regenerated upstream
+module-loading closure. The fresh model collector passed Lean and Quint:
+Lean faa7c2ec17f4844c986094f4f84a244115a857f14967a12d792a9f03cf4a1050;
+Quint dd6abc197b27fa3bd83d3f1ad13551cef82c32556b9c6996334c6c94c2b44ba3.
+Model-only collection leaves Scheme/performance joins Missing and execution
+unauthorized, as expected. Initial cache permission and missing Ascent library
+environment failures were setup failures, not passing model runs.
+
+Continuation closes the observed diagnostic-link workflow gap: attribution,
+stall and allocation link recipes now use the existing static object-lock
+precheck, as prepared preflight already does. The existing lock rejection and
+evidence-preservation test passes. This is fail-fast detection, not an atomic
+cross-process lock or a throughput improvement. Links must still run only
+after their owned compilation has completed; no SDK locks are removed.
+
+** Whole-span recognition/state/consumer fusion trial
+
+An architectural span candidate replaces the generated per-byte Scheme loop
+with one synchronous borrowed-buffer leaf. Each source byte is read once for
+stop classification and all isolated reset/increment consumers. The leaf
+produces trailing lengths; Scheme applies carry to the unbounded initial value,
+then executes the original ordered last-byte residual and event consumption.
+No callback, allocation or pointer retention occurs inside the leaf. The
+compiler's existing effect/dependency admission is unchanged; this is NOT
+permission to skip arbitrary triggers or cross consumer/helper/frame effects.
+
+First product =.real-span-leaf= used the checked general traversal entry and
+one local scratch vector per loop, including empty counter sets. Unit controls
+(13 cases), 24 actual complete tapes and source-bound qualification passed:
+Lean fdd4e8de2eca6233347a1f42dffce665b56322280e395c520b99bf4f1f56caf8;
+Quint d5e43e5f69f3defcadad16553e81f3fa9c44997c8b2329a31ff84f1b607dcd17;
+Scheme/AOT 37e36e26535bb1250d58f9491262b34858e5e725f2c107f7c84fd093728950b3.
+Lean proves the finite reset/carry summary; Quint separately models synchronous
+borrow, epoch validity, commit and residual order. Neither proves C storage or
+compiler eligibility; real AOT controls bind those implementation obligations.
+
+Actual SHA a421efa46b073d4bab4ba10accf1fd151ebfe62d437bfef62e9e251ec9e3ad77;
+prepared SHA ba135fea6395b333e3fe81a6c2ce5baff025d2e7c2c35385f4f109891c421fc8.
+The corpus and retained publication control remain byte-identical.
+Four matched ABBA lanes/product, complete 1000 changing tapes each, gate exit70:
+candidate wall37.815/67.181/37.052/36.544 ms; CPU37.711/37.216/36.916/36.533 ms;
+control wall36.636/50.843/36.016/35.916 ms; CPU36.615/37.608/35.974/35.878 ms.
+Candidate wall median37.4335 ms, CPU37.066 ms, RSS26664960 bytes;
+control wall36.326 ms, CPU36.2945 ms, RSS26574848 bytes.
+Candidate P95 52-56 us, P99 66-121 us, throughput14885.16-27364.27 requests/s;
+control P95 53-55 us, P99 71-252 us. All lanes have four GCs. The candidate
+regresses CPU/RSS and is NOT admitted. Its67.181 ms lane has29.965 ms beyond
+process CPU; that difference alone cannot locate the pause or classify GC.
+
+=.span-leaf-stalls-1.log= is diagnostic only: wall40516 us, CPU40496 us,
+complete comparisons1112 us. A captured447 us call has412.226 us GC wall;
+the800 us first call has802 us CPU and no GC. This run does NOT reproduce
+or retrospectively attribute the earlier46.798/67.181 ms slow batches.
+
+Initial test failure was an unbound library name in the isolated test eval,
+fixed by explicit lexical injection (no production eval introduced). Initial
+prepared link correctly rejected an active object lock; initial real-control
+launch preceded binary completion and failed before parsing. All failures
+remain in =.span-leaf-*.log=; their finished retries, not failures, qualify.
+
+Second product =.real-span-entry= removes repeated direct-call admission from
+compiler-proven intervals and removes scratch allocation for zero-counter
+spans. The checked general library entry remains. Installed std/ffi vector
+body macros and Gambit's existing U64 storage macros are used; no kernel/SDK
+changes. Thirteen unit and 24 complete actual controls pass. Source-bound
+collector session80053 and prepared linker session41191 are active at this
+receipt point; do not duplicate them or edit bound sources before completion.
+No second-product performance has yet been admitted. No full20-batch matrix,
+baseline promotion, commit, push, Automation, downstream or SMP admission.
+
+*** Completion and withdrawal of both foreign span candidates
+
+All sessions listed above have ended. Second-product source-bound chain passed:
+Lean89ac43249a0ef1d7b0c5ae3faba367544c500a34068480119b389468dd705d12;
+Quinta128d4353df5aa5b1ed122bf052edd123cf292b574963440b97cd9f7d8791d35;
+Scheme/AOTcf573f72b61fc8114947fd928dba778f56e272ac41768ad5ba8ab2f80dbf4b0c.
+Actuald966ac143a841a6dfd7453cba462541df62710cfee91a50075bc180bfd4ab96d;
+prepared0149b06a61627cde14cbaf86f98a4f2238cc5bec23a34375b2ff3a7145b25a48.
+Four matched complete1000-tape ABBA lanes/product, all gate exit70:
+candidate walls37.148/36.514/36.934/77.678 ms; CPU37.074/36.464/36.823/36.559 ms;
+control walls36.987/35.617/35.986/36.252 ms; CPU36.118/35.555/35.899/36.103 ms.
+Candidate medians wall37.041 ms, CPU36.691 ms, RSS26648576 bytes;
+control wall36.119 ms, CPU36.001 ms, RSS26566656 bytes. Candidate P9552-56 us,
+P9989-116 us, throughput12873.66-27386.76 requests/s. All eight lanes have4 GCs.
+The77.678 ms lane has41.119 ms beyond process CPU; this is NOT a root-cause
+classification or permission to discard the lane. No throughput admission.
+
+Both new scanner/compiler-runtime entries and their production imports were
+removed with narrow reverse patches. Existing single-use call fusion and owned
+tape publication remain; source byte-spans returns to its original implementation.
+Retained scalar controls now include a counter above2^64 and nonzero carry.
+The temporary duplicate Lean counter refinement was replaced by a genuine
+representation obligation built on the existing Fold model. Its first empty
+case proof failed and remains negative evidence in.span-encoding-models.log;
+the corrected proof has no sorry/custom axioms and passes.
+
+Diagnostic-only instrumentation extends the existing request-owned count session,
+not a new runtime/benchmark framework. It emits grouped source visits, isolated
+counter byte visits, spans/buckets and fallback byte transitions; all hooks are
+absent when diagnostics is disabled. Existing two cost tests include weighted
+increments and rejection of negative increments. Compiler/zero controls pass.
+Fresh.real-span-census actual24 controls and the independent1000 complete-tape
+count census pass; output events1017619 is WIRE BYTES, not an event count.
+Diagnostic CPU253.95 ms is instrumented and NOT a performance observation.
+Observed source visits326949, summary byte visits323278, spans45996,
+fallback byte transitions71640. Buckets1/2-4/5-16/>16 =6335/11332/25995/2334.
+Mean7.108 bytes/span;38.410% spans<=4,5.074%>16. Visits can overlap across
+owners and are not unique coverage of the2856770 raw input bytes. Static
+.span-census-static-invariants.log has285 loop occurrences,33 admitted;
+all reported required inline guard cells may be written within their loop.
+Hoisting them unchanged would be unsound. The dependency-write boundaries,
+not a blanket faster byte scanner, are the next execution-region obligation.
+Installed SSAX look-for-str.scm was consulted for sequential recognition and
+partial-match overlap handling; its port API was NOT substituted for byte Fold.
+
+The final retained-source model/AOT join passes:
+Leanfaa7c2ec17f4844c986094f4f84a244115a857f14967a12d792a9f03cf4a1050;
+Quintc1552051fa4f127d2df8054daf9403df42ed22bb3bc80dbb692f902ffdf1348a;
+Scheme/AOT20e0922dee1af8ab72d6c4d9a35d13c990e33cf1bf8ec741b151bd97fe720882.
+Matched-performance remains Missing; executionAuthorized=false. No current
+artifact meets1000/10ms. No full3x20 matrix, promotion, commit, push, kernel/SDK
+change, Automation restart or Org/FFI/Tokio/Python/SMP speed claim.
+Diagnostic build/link sessions12400/34662, census52823 and collector20633 all
+ended; no active matrix exists. An early census control launch failed before
+binary completion, then the completed-binary retry passed. Preserve both logs.
+
+** 2026-10-13 reset/increment run summary rejection and live stall attribution
+
+*** Generated call-region fusion: real implementation, preflight still open
+
+**** Follow-up: exclusive event-tape publication (work in progress)
+
+Production fold-tape-publish! now follows installed std/io/bio/api.ss
+get-memory-output-u8vector: seal owner, clear its byte slot, shrink the privately
+allocated u8vector to used length, and transfer it rather than subu8vector-copy
+the complete tape. No input/header alias or foreign pointer escapes; all
+sealed writers still reject before accessing the cleared slot. This removes
+one publication allocation/copy, not the owner or capacity-growth allocations.
+Shrinking logical length is NOT proof of immediate physical RSS reclamation.
+Existing eight buffer/tape controls include post-growth, zero-size, explicit
+GC, retained bytes and sealed reentry checks; they pass. Actual fresh AOT has
+24 complete tape controls passing. An initial wrong controls pathname failed
+before execution; .owned-publication-real-controls.log preserves that error,
+and the valid retry is .owned-publication-real-controls-retry.log.
+
+Lean owned_publication_prefix models observable prefix equality, not allocation
+or primitive correctness. Quint TapeOwner separately owns seal/transfer/reentry
+lifecycle, with four tests, finite one-step closure and bounded histories.
+First Lean simplification attempt failed; corrected List.take_take proof
+builds successfully without sorry. No failed attempt is admitted as passing.
+Source-bound qualification runs as session45192; sequential prepared/stalls/
+allocation diagnostic links run as session93341. Do not duplicate these jobs
+or modify bound code during qualification. New product .real-owned-publication;
+staged immutable evidence .owned-publication-real-evidence. No timing/large-load
+or allocation improvement qualified yet; prior published baseline unchanged.
+
+Publication-stage completion: sessions45192/93341/11489/60824 ended. Model/AOT
+join passed: Lean372f63ab693316b01db28f9cfb788288410a7c98c25b3367275331e7c6303b6c;
+Quintda0863009441f32fa1920ba2c43c01dd85a60c14954c9a987d068a9e4186c357;
+Scheme/AOT60124fda8e7ce187dc63ce8aa5ef45dd894ecd5962e4ae1c54c373df9973e557.
+Actual org-fold SHA1b753e93b00f4f08214d5430b1a0d68a98418f4b5c6c101283bf3e86053479dd;
+prepared953ae85f308f8471a4d9f7ee09c1a2ec185d9966c31ee0a446d9b3e0283325f0.
+These identities qualify that stage, NOT subsequent single-read source edits.
+
+Allocation subset bytes/request by residue0/1/2 is14608/23456/28528 versus
+15904/24976/31888; denominators332/332/331 versus332/331/332. Reduction is
+1296/1520/3360 bytes per observed no-GC request, not whole-process allocation.
+Logs .owned-publication-allocation.log/.owned-publication-control-allocation.log.
+Eight interleaved1000-request lanes per product retain every result: walls
+candidate38.524/35.534/35.642/36.220/35.549/36.259/35.755/35.268 ms;
+control38.058/36.191/39.826/36.583/38.761/73.321/36.322/36.057 ms.
+Median35.6985 versus37.3205 ms; CPU35.6645 versus36.279 ms. Candidate P95
+50-56 us; P9960-133 us; throughput25957.84-28354.32 requests/s. All complete
+1000 tapes pass; GC4 versus5; all unchanged10ms gates fail. First eight lanes
+have sysctl-denied RSS and time exit1, not complete resource qualification;
+later eight escalated lanes have parser gate exit70 and RSS. RSS medians
+26583040 versus26558464 bytes (candidate slightly higher), not an RSS saving.
+External compiler activity makes peak throughput and tail admission conditional.
+Retain candidate1 wall/P99 regression and control6 wall73.321 ms/P99411 us.
+No full20, publication/push or claimed stable architecture-wide speed admission.
+
+Current AOT stalls diagnostic: wall133.837 ms versusCPU46.434 ms with probes.
+Slowest call monotonic8157 us, CPU319 us, zeroGC and3 involuntary switches;
+other multi-ms rows also show switches withoutGC. Concurrent external compiler
+jobs were observed. This supports non-CPU waiting for those calls, NOT a
+retrospective explanation of the historic46.798 ms batch. Profile sample
+.owned-publication-stack.sample has top-frame counts part14=66, fold-tape=54,
+part17=24, source-lines=11. Module samples are NOT exclusive function costs,
+dynamic scan counts or parser-only percentages; complete tape comparison remains
+in the profile loop. .owned-publication-stack-profile.log confirms complete tapes.
+
+Follow-up single-read production lowering now binds each admitted next byte
+once for membership recognition and all counter consumers. No read at limit,
+no cache and no intervening consumer/source writes. The existing counter control
+also checks one generated next-byte source load for two summaries. Current
+tests/AOT/prepared link run as session92630; no large matrix active. Do not
+duplicate or promote that product before actual AOT/model and matched checks.
+NUL/empty/exact-end scalar-reference cases now pass inside the13-case run
+suite; all24actual single-read tapes pass. Immutable copied AOT is staged at
+.single-read-real-evidence. The second source-bound chain is active separately;
+do not confuse earlier publication identities with this source generation.
+
+Single-read final result: source-bound Leanb64a4528fe3f7b07ca91b892bf421911a41ae3b997136af1e64e81b633dc1d30,
+Quintbcb115adc394796bcc7572785b0bb569041f6132ef2bcf6dc78b6b73fc68285e,
+Scheme/AOT04c51ba78cbca8cd7bc254871d9da59ce67dbf791154f93923e2f50fee4b1ead
+pass, but performance fails. Candidate walls37.200/36.401/36.751/36.410 ms;
+publication-only controls38.752/36.636/35.166/35.982 ms. CPU medians36.5015
+versus36.2355 ms; P50 consistently30 versus29 us. Candidate P9551-53 us,
+P9970-83 us, throughput26881.72-27471.77 requests/s, RSS26574848-26607616B;
+control RSS26460160-26574848B. All8lanes full1000tapes pass, GC4, gateexit70.
+Actual SHA b5a93216c1b16246d711aa7873606ec8d18fda704a7aebdb44228cc244bdc76b;
+prepared70be3ec5f238bfab48d51ec0365592a8b574385710438a7f3c87dd159e410b6a.
+The new let/guard/source-read lowering was withdrawn with a narrow reverse
+patch; independent scalar NUL/empty/end tests are retained. No unrelated dirty
+edits reverted. Publication-only runtime remains an unpromoted candidate.
+Current final-source model/AOT requalification session27278 uses a fresh
+.publication-retained-evidence-controls root and the unchanged real publication
+artifact. Do not restart it or claim old source identities cover this rollback.
+Next architectural candidate must collapse an admitted entire pure source span,
+not introduce another per-byte binding/guard. Counter suffix/initial-state
+semantics and ordered residual/event effects must remain explicit obligations.
+
+Final retained-source qualification session27278 completed exit0 under the
+unchanged240s budget: Leana20290bd26c1a78d545c08eef2b13d7ae2a0dfef9f9bc6bb2043c5b027a5a2f9;
+Quint0f934b1cbb01db6962f6220da494ef6bfe30fc9a45a35b04c4731e868a03608c;
+Scheme/AOT1de91e7e76708a2b2702379a39cee39deffc2530baa0e86bbaf74a0570dca8b5.
+Review still lacks matched-performance and executionAuthorized=false. All owned
+compiler/model/benchmark/OS-sampling processes ended. No matrix active, no push,
+baseline promotion or Automation restart. Live GitHub PR13 head verified still
+16f539901aeaf231ad65f0236a6c2b60283d5f4e (open). Published prepared baseline
+a94f3fb148469e3f3f04bffc89bec90be66d65efcdd32664a8787e844ffa17c0 and
+immutable corpus e9ccee6c366bdc07f733c525634ed9efed2eb1d2932ef93b54f5ba4cd820df40
+remain unchanged; git diff --check passes. Runtime publication benefit remains
+diagnostic/unpromoted and historical46.798ms root cause is NOT established.
+
+
+Head remains 16f539901aeaf231ad65f0236a6c2b60283d5f4e; fixed installed SDK
+1cfb032, unchanged corpus/input indices/independent full tape oracle.
+New event-fold-call-plan.ss counts whole-program private references and fuses
+only single-use expression calls with scalar-reference arguments and bounded
+expanded bodies. Shared consumers, helper frames and effectful argument calls
+retain their boundary. Alpha conversion preserves let/let*/named-loop scope;
+final reachability protects children after rejected speculative expansions.
+The pass is integrated before AOT module partitioning, on production tapes
+only. It introduces no runtime cache, duplicate consumer or event format.
+
+An initial real-generation failure exposed Gerbil single-binding let syntax.
+Retained .single-use-aot-build.log and incomplete .real-single-use; fixed the
+converter and added this syntax to the scope control. Six directed controls
+and 24 complete real AOT tapes now pass on fresh .real-single-use-v2.
+Initial compile/Lean syntax failures remain recorded; none counted as passes.
+
+Current static census: 3310->1300 definitions; 7381->5371 private calls;
+27210->18920 private argument slots; 70->25 event owner assignments.
+Counts are syntactic, not dynamic scans, allocations or CPU shares.
+
+Source-bound complete qualification passed within unchanged 240 s budget:
+Lean 140046f1d390704266b2a069740736f03b580015139290e3422a6fec04166696;
+Quint c628def5c3b8c03d1ba0ca971957b34ab4e213f843f896061993795abf5271a3;
+Scheme/AOT 822ef6711f124d8a2ce6e5ebc39a4801e74b464484433fb6c5bc0dc65825be14.
+Lean splice_call_preserves_order proves ordered region composition under its
+model, not the alpha converter. Quint fused-call history owns extent
+invalidation. No custom axioms or speed-proof claim. Model review still has
+matched-performance missing and executionAuthorized=false.
+
+Actual AOT SHA256 685fcbf700d04bf684b91c7f811501d003a0d1f7e0b7e122227ad220e4721687;
+prepared e39d5ad4448d123f4047413649b2e41d0ffd75d1e548490803c76124d7893d29.
+
+| Lane | Wall ms | P95 us | P99 us | Requests/s | CPU ms | RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| control1 | 44.609 | 64 | 80 | 22417.00 | 44.095 | 28803072 |
+| candidate1 | 37.430 | 55 | 76 | 26716.54 | 37.369 | 26525696 |
+| candidate2 | 46.798 | 51 | 156 | 21368.43 | 36.389 | 26558464 |
+| control2 | 43.357 | 64 | 82 | 23064.33 | 43.322 | 28786688 |
+| candidate3 | 36.032 | 54 | 63 | 27753.11 | 36.022 | 26525696 |
+| control3 | 43.264 | 63 | 93 | 23113.91 | 43.222 | 28786688 |
+| control4 | 44.095 | 65 | 116 | 22678.31 | 43.908 | 28803072 |
+| candidate4 | 36.307 | 53 | 69 | 27542.90 | 36.289 | 26542080 |
+| candidate5 | 37.025 | 55 | 101 | 27008.78 | 36.852 | 26558464 |
+| control5 | 44.349 | 65 | 95 | 22548.42 | 44.182 | 28835840 |
+| control6 | 43.352 | 61 | 96 | 23066.99 | 43.295 | 28803072 |
+| candidate6 | 36.212 | 53 | 83 | 27615.16 | 36.145 | 26574848 |
+
+ABBA/BAAB followed by an additional BAAB diagnostic: six lanes per product,
+1000 changing requests each, all full comparisons pass, all gate exits70.
+These are preflight diagnostics, NOT twenty-batch acceptance or large loads.
+All six candidate CPU times improve against controls; six-lane median CPU
+36.339 vs43.615 ms. Wall medians36.666 vs43.726 ms retain the 46.798 ms
+candidate2 spike (CPU36.389 ms; P99156 us). No retrospective attribution of
+that ~10.4 ms non-CPU gap. Additional reverse controls do not replace it.
+Five collections each; no GC-count improvement or allocation-total claim.
+RSS medians26550272 vs28803072 bytes include retained inputs/oracles/code.
+Call percentiles and comparison-inclusive batch wall remain distinct; this
+is not public Org::parse, FFI graph projection, Rust queues, Python or SMP.
+Another session's parser-quality evidence process was observed during earlier
+qualification; owned compiler jobs had ended before timing. Do not claim an
+isolated-host capacity limit from these diagnostics.
+
+Retain this as an unpromoted implementation candidate: broad CPU/RSS benefit
+observed, but the hard10ms preflight fails and wall/tail regression is retained.
+Published baseline hash unchanged; no push, commit or full20 matrix. Do not
+label scan-count or allocation reduction established from call/RSS counts.
+Serial allocation diagnostics against both existing AOT closures completed
+with complete-tape agreement; all owned build/model/benchmark jobs have ended.
+The no-GC-request subset has identical observed bytes per request:
+fixture residues0/1/2:15904/24976/31888 bytes for candidate and control.
+Candidate denominators332/331/332; control332/332/332. Collections by residue
+are2/2/1 versus2/1/1; CPU sums8.171/11.158/17.941 ms versus
+9.935/12.897/21.082 ms. These diagnostics include observation overhead and
+exclude requests crossing GC; they do not establish total or parser-exclusive
+allocation, lower GC pressure, or performance acceptance. Logs:
+.single-use-allocation.log and .single-use-control-allocation.log.
+The current benefit is call-structure/CPU/code-RSS, not demonstrated allocation
+reduction; direct event allocation remains an explicit open cost.
+No kernel/SDK change, acceptance relaxation or Automation restart.
+
+Next coherent step is lexical dominance of immutable recognition facts across
+dependent consumers, now inside fused regions, plus direct-consumer allocation
+cost. Do not reintroduce an all-idle guard or maintained request cache.
+
+
+*** Whole-engine model and rejected local-transition trial
+
+The optimization unit is now the complete parser engine, not Fold-local guards.
+formal/ParserEngine/Execution.lean models ordered dependent consumers sharing
+immutable recognition facts and invariant-preserving ordered transitions.
+The existing FoldPlan.qnt owns lifecycle/invalidation, not a second semantics
+proof. Lean build passes (40 jobs); FoldPlan has eleven passing cases and the
+existing bounded Quint checks pass. Compiler refinement and whole-request
+dynamic cost attribution remain open; these are not speed or GC proofs.
+
+Local completion-support trial: 13 run controls and 24 complete real AOT tapes
+passed. Main mode guards and 33/285 admitted loops did not change. Generated
+definitions remain 3310; private call sites 7374->7371; owner assignments
+69->70. Static counts cannot establish execution cost reduction.
+
+Source-bound trial receipts (historical after withdrawal):
+Lean 7551302d363bbdc86c8870059c405fa97673cd025dedcd4de392f7da5a25b50b;
+Quint bf9a111d595868549c3f5e69a9e9d54d2dba844978c650f0dd7f41ead4483434;
+Scheme/AOT e564c5d3ef7be0fcbc3fe17c9c6bd1ca7dac2a10a2e3ce31a4aec37c65b54c06.
+Trial AOT 1ad8c00c117674f708eac86424e084daedca6024065a667491119dc092e66963;
+prepared 71ba046e73d315b1d974a8bc9321cec631ef3360da56a780bfa38253cdbcd223.
+All retained under .real-local-transition and .local-transition-*.
+No timeout widening, baseline promotion, commit or push.
+
+| Lane | Wall ms | P95 us | P99 us | Requests/s | CPU ms | RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| control1 | 43.803 | 59 | 121 | 22829.49 | 43.286 | 28819456 |
+| candidate1 | 43.344 | 63 | 119 | 23071.24 | 43.179 | 28803072 |
+| candidate2 | 46.836 | 67 | 129 | 21351.10 | 44.568 | 28868608 |
+| control2 | 43.244 | 62 | 97 | 23124.60 | 43.189 | 28819456 |
+| candidate3 | 42.116 | 63 | 84 | 23743.95 | 42.046 | 28803072 |
+| control3 | 55.164 | 60 | 85 | 18127.76 | 42.611 | 28835840 |
+| control4 | 43.562 | 64 | 95 | 22955.79 | 43.503 | 28819456 |
+| candidate4 | 42.716 | 63 | 89 | 23410.43 | 42.642 | 28803072 |
+
+Serial ABBA/BAAB: all eight lanes completed 1000 full independent comparisons,
+all exits 70, five GCs each. Wall medians 43.030 ms candidate vs 43.683 ms
+control do not qualify a consistent gain: candidate2 regressed; control3 has
+55.164 ms wall vs 42.611 ms CPU. The non-CPU gap is observed, not attributed
+to a specific scheduler/GC cause. No 10 ms admission or full twenty-batch matrix.
+Call P95/P99 and comparison-inclusive batch wall are distinct; RSS includes
+retained input/oracle/code, not Rust capacity. No FFI/public Org/Python/SMP claim.
+
+Withdrawn only this turn's local-support admission/lowering policy. The prior
+selective-table implementation and immutable baseline remain unchanged. The
+source-only invariant checker and directed negative controls remain tooling.
+Restoration session69320 completed exit0: fresh compilation, existing source
+controls and all 13 run controls have final OK. All owned jobs ended.
+Baseline prepared SHA256 remains
+a94f3fb148469e3f3f04bffc89bec90be66d65efcdd32664a8787e844ffa17c0;
+corpus SHA256 remains
+e9ccee6c366bdc07f733c525634ed9efed2eb1d2932ef93b54f5ba4cd820df40.
+No kernel/SDK/Automation changes. Trial source-bound receipts remain historical,
+not qualification of the restored lowering. git diff --check passes.
+
+Next architecture target: jointly plan source recognition facts and consumer
+dependency frontiers across frame/helper boundaries, preserving original
+state/event effect order. Then reduce generated call/return boundaries and
+publication work, not another all-idle guard or maintained runtime cache.
+
+
+*** Continuation: dependency-selected interval execution
+
+Final qualification on head 16f539901aeaf231ad65f0236a6c2b60283d5f4e:
+the fresh aligned retry passed the unchanged 240 s budget. Eleven run controls
+and 24 complete real AOT tape controls pass. Source-bound receipts are Lean
+527fbd50fe56b58580c7588f9198029f6e16515b46db69c041e4acbc5e421f6f,
+Quint bfbed6809deed73f6d12dc61aab981aa37b2e8590319097269fb60c096a84a70,
+and Scheme/AOT a1b6649ca18b0347a653625dfa8a68e2673c672d5ad4f890c697a3bf1c70d29f.
+The earlier timeout below remains a failure, not converted to a pass.
+
+The interval-selected narrow/wide candidate has AOT SHA256
+884f7c9f7ca657393c0667fa8978289af7b3c5f3a5d2db1ed481cd1d8a6b0edc
+and prepared-binary SHA256
+98f8ca51ecb0fd7d31628b1340beb708b83212aed7a80cbfae06b0579981f9ec.
+The unchanged baseline prepared binary is
+a94f3fb148469e3f3f04bffc89bec90be66d65efcdd32664a8787e844ffa17c0;
+input/oracle SHA256 is
+e9ccee6c366bdc07f733c525634ed9efed2eb1d2932ef93b54f5ba4cd820df40.
+All timing lanes use the same installed 1cfb032 SDK, not another session's
+2591dcd build. No SDK rebuild, kernel change or Automation restart occurred.
+
+| Lane | Wall ms | P95 us | P99 us | Requests/s | CPU ms | RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Control 1 | 57.987 | 154 | 275 | 17245.24 | 54.903 | 28770304 |
+| Candidate 1 | 43.931 | 62 | 109 | 22762.97 | 43.781 | 28770304 |
+| Candidate 2 | 43.262 | 63 | 89 | 23114.97 | 43.220 | 28770304 |
+| Control 2 | 42.219 | 59 | 87 | 23686.02 | 42.112 | 28753920 |
+| Candidate 3 | 41.011 | 58 | 63 | 24383.70 | 41.015 | 28803072 |
+| Control 3 | 42.779 | 62 | 73 | 23375.96 | 42.733 | 28753920 |
+| Control 4 | 42.382 | 59 | 65 | 23594.92 | 42.388 | 28803072 |
+| Candidate 4 | 41.871 | 58 | 91 | 23882.88 | 41.856 | 28786688 |
+
+Sequential ABBA/BAAB lanes each compare all 1000 changing inputs against the
+independent complete tape oracle. All comparisons pass; all preflight exits
+are 70 and each lane has five collections. The first control spike is retained.
+Four-lane wall medians are 42.5665 ms candidate and 42.5805 ms control: no stable
+speed improvement is established. No promotion, commit, push or full twenty-
+batch matrix. The 1000-request <=10 ms gate remains failed. All owned processes
+have ended. This candidate replaces the slower unconditional wide policy but
+remains unqualified; published baseline artifacts are unchanged.
+
+P95/P99 are compiled Fold-call durations; wall includes call timing/sample
+recording and full semantic comparison. RSS is whole-process retained inputs,
+oracles and native code, not Rust reserved capacity. This is not public
+Org::parse, Python, Tokio or FFI projection acceptance. Counter deltas across GC
+are not allocation totals. Unsupported SMP remains open/skipped, never passed.
+The next algorithmic gap is dependent active consumer transitions: derive
+local completion/transition support and safe zero-preserving reset witnesses,
+instead of requiring whole-mode inactivity. Do not repeat the rejected wide
+policy or infer speed from static guard counts; no maintained runtime cache.
+
+The new candidate admits ordinary-byte intervals from the complete consumer
+body. A consumer selector is stable only when its read support is disjoint
+from every interval write and exact counter target, it has no observable
+effects, and it does not depend on the changing cursor/current byte. Leaf
+actions are total state-independent overwrites; isolated unconditional exact
+counters retain their existing summary. Source/order boundaries and event
+actions reject interval admission. Conditional counters are not moved into
+unconditional accumulators: their ordinary reset remains under its selector.
+
+For consumers that still require an idle premise, the planner removes one
+support at a time only with a complete admitted transfer witness for the new
+body. This is not equality with the all-idle body: independent active consumers
+may execute their ordered overwrite once at the last ordinary byte. Required
+premises must remain disjoint from all common writes. There is one scanner,
+not a source pass per consumer, no maintained runtime mode/scan cache, and the
+first triggering byte remains unconsumed for the original complete body.
+
+Lean selective_run_last owns conditional-transfer equivalence under untouched
+context. Quint RunPlan adds activeConsumersCanCommitTest to the existing
+commit/residual lifecycle; ConsumerScope retains dependency invalidation.
+These models do not prove the Scheme extractor or physical performance.
+Standalone Lean and Quint pass. Actual AOT and performance remain pending;
+fresh closure .selective-mixed-controls is being validated. No matrix or
+baseline promotion is authorized by these structural results.
+
+Mixed-state AOT 1b5cb5227e65fb936587590b7bf2c6cf490152b0b42619514ad73c9489d5f69b
+and prepared binary 0622b17e8c2d30dd38e4c7371b69d995a709f39b11eed8b7476bcad32b679293
+pass the 24 real tape controls. Source-bound receipts: Lean
+bb2c67a7794241927125a54534a6ff6cd255360e1417e337d77561f77043e3f5;
+Quint c6cb7c5a31bf197a8aee3424a82d5992a636f791ff5ed28fa2c37ae2cc6b47b4;
+Scheme/AOT 3de53a6e9f803f298a105512a82125b64f5aed36a29231a5dec962db016858b4.
+These are historical after subsequent classification-selection edits.
+
+| Lane | Wall ms | P95 us | P99 us | Requests/s | CPU ms | RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Control 1 | 45.051 | 60 | 109 | 22197.07 | 44.604 | 28770304 |
+| Candidate 1 | 47.277 | 63 | 103 | 21151.93 | 47.161 | 28819456 |
+| Candidate 2 | 48.004 | 65 | 123 | 20831.60 | 47.555 | 28868608 |
+| Control 2 | 56.601 | 109 | 312 | 17667.53 | 54.177 | 28803072 |
+| Candidate 3 | 49.267 | 63 | 211 | 20297.56 | 48.168 | 28819456 |
+| Control 3 | 58.144 | 113 | 458 | 17198.68 | 53.361 | 28803072 |
+| Control 4 | 44.004 | 60 | 80 | 22725.21 | 43.990 | 28770304 |
+| Candidate 4 | 46.399 | 62 | 114 | 21552.19 | 46.256 | 28868608 |
+
+All 1000 comparisons per lane pass; all preflights fail (70), five collections
+each. Mixed-state plans reduce guards to 10/8/7 but broaden trigger alphabets
+from 17/16 to 29/21. Stable endpoints show regression despite removing guard
+premises; noisy controls are retained, not used to claim improvement. This
+unconditional wide-alphabet policy is not promoted. The follow-on candidate
+retains narrow and wide precompiled tables, selecting once at interval entry
+from disjoint unchanged consumer support. Both tables share one scanner and
+the same admitted wide transfer; no text/mode cache or additional source pass.
+The selection support must be disjoint from every common write/counter target;
+the narrow alphabet must be a proper subset of the wide alphabet. It is an
+unqualified candidate, pending fresh native controls, AOT and matched timing.
+
+GitHub PR #13 head advanced to 16f539901aeaf231ad65f0236a6c2b60283d5f4e.
+The checkout fast-forwarded to that exact commit, not the local origin's later
+unpublished head. Dirty edits were preserved; collect_models.py was backed up
+as .pre-align-collect-models.py and its additional Fold inputs restored while
+retaining upstream recognition/token inputs. The upstream diff does not alter
+the Fold compiler, its directly imported runtime modules, or preflight code;
+generated AOT imports do not use the changed LR recognition/token/reduction
+path. Existing immutable Fold artifacts are therefore reused, but model/AOT
+source binding is rerun fresh at .selective-tables-aligned-evidence-controls.
+The pre-alignment source-bound receipts are not the new head's qualification.
+The first aligned chain failed its unchanged 240 s conformance budget while
+linking event-fold-controls, after all six source controls and eleven run
+controls passed. Timeout receipt:
+6d5fcbd7735835b5326dbd92c130449f57941a6a48a435dadd9ce8fbdccf1551.
+Another session's parallel parser-quality build was active at timeout. This
+supports possible compiler contention, not proof of a sole cause. The timeout
+is retained as a failure; budget and acceptance are not relaxed. Owned timed-out
+processes exited. A fresh complete retry must wait for compiler contention to
+end; never benchmark under that build or count this receipt as passed.
+
+*** Continuation: consumer-local selector support, not an all-idle guard
+
+The new private implementation adds fold-consumer-state-body to the existing
+zero-state analysis and invokes it at actual for-line-bytes lowering. Its
+initial fact set is empty. An executed unsigned selector's false-positive
+branch, true zero-equality branch, or a literal zero write introduces a fact
+for that consumer only. Unrelated writes preserve it; support writes, opaque
+effects, helpers/bounds and lexical joins invalidate it conservatively. Branch
+merges intersect facts. Each byte starts afresh; no runtime fact table/cache or
+new all-machine guard is emitted. Ordinary-run admission remains separate.
+
+Seven native analysis controls pass, including independent consumers, dependent
+writes and effect barriers. All 24 independent actual Org complete tapes pass
+in .consumer-state-native-controls.log. Static (NOT executed) coverage reports
+285 loops, 4 refined bodies, and 714 -> 672 selector occurrences. This limited
+coverage is not claimed to remove the entire heavily exercised state chain.
+The installed SDK, original IR/corpus and immutable baseline remain unchanged.
+
+Lean adds unsigned-selector and independent-support refinement; Quint's new
+ConsumerScope checks support-local invalidation, barriers and next-byte scope
+across five tests and 1000 seeded bounded traces. These are different duties,
+not duplicated semantics or a full compiler/liveness proof. Both focused
+checks pass. The full source-bound chain is currently running against staged
+.consumer-state-real-evidence and the actual .real-consumer-state product;
+no performance promotion, complete matrix, commit or push is authorized by
+these model results alone. Logs/products have unique .consumer-state-* names.
+The full chain then exits 0; Scheme/actual AOT receipt identity is
+5b86d3642b33a6ba9150acc59c923d3f75b9ce5f8434df6e2756e4c4d256e15b.
+That packet becomes historical upon subsequent source changes.
+
+| Lane | Wall ms | P95 us | P99 us | Requests/s | CPU ms | RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| control 1 | 43.883 | 62 | 95 | 22787.87 | 43.289 | 28786688 |
+| candidate 1 | 43.509 | 64 | 86 | 22983.75 | 43.418 | 28803072 |
+| candidate 2 | 43.223 | 64 | 95 | 23135.83 | 43.168 | 28770304 |
+| control 2 | 42.596 | 61 | 86 | 23476.38 | 42.571 | 28819456 |
+| candidate 3 | 58.390 | 154 | 276 | 17126.22 | 57.711 | 28819456 |
+| control 3 | 42.553 | 62 | 88 | 23500.11 | 42.512 | 28819456 |
+| control 4 | 43.424 | 62 | 95 | 23028.74 | 43.333 | 28819456 |
+| candidate 4 | 43.858 | 64 | 106 | 22800.86 | 43.772 | 28770304 |
+
+All eight strictly serial/awaited lanes compare 1000 complete tapes and fail
+the unchanged gate (exit 70), with five GCs and equal raw allocation counters
+(NOT allocated bytes). No major gain; one reverse lane regresses. Do not promote
+this zero-only integration. Its actual product SHA is
+acd8d77f47bfbf1bcc39b9c42c9e44eb6d959a7606b7eecb5eaef064e491689b;
+prepared SHA 696f8a81db749a1a9504be888cddf418ce56a62137154ffea1e90972c09e854d.
+
+The follow-on consumer-selector implementation tracks executed pure selector
+truth, including positive/Boolean/composite selectors, against each predicate's
+declared read support. Writes invalidate only intersecting support; unknown
+effects discard all knowledge. A branch merge keeps common facts and loop/frame
+handoffs are not recursively specialized under stale facts. No runtime table,
+new admission guard or source-input cache is emitted. New native controls cover
+positive/Boolean facts, independent/dependent writes, barriers, composite event
+order and lexical/iteration scope. Fresh closure .consumer-support-controls and
+actual product .real-consumer-support are the next unqualified owners.
+Five new consumer-support native controls pass with exit 0. All 24 actual Org
+complete tapes also pass. Static (not executed) selector count is 714 -> 669
+over the same four refined bodies; generated helper definitions are 3308,
+not an expansive per-byte specialization. Actual product SHA
+da30c8c2c8be5b316b7885f71ab396e23f664a310864984ba5075b46bfbf0968.
+The original IR remains d37b4b160c9d956a549e86486e0b590b0cbdbf2a273ccb16f683c100d3158c38.
+Lean's disjoint-write theorem explicitly assumes sound extracted predicate
+support; it does NOT prove the Scheme extractor from a source hash. Quint
+checks eligibility scope/invalidation histories, not unsigned mathematics.
+The source-bound chain is running at the unchanged 240-second limit; current
+packet may not be reported passed before it exits. No production promotion.
+
+The full chain subsequently exits 0: Lean e149b7b1521236f473ea82bb38bd763ed3cfc30147da284b7a993b6a3d144dea,
+Quint c7c1effc4c6c5a2e01e136c4f14790026d92815473adbc821edfc0be013e1044,
+Scheme/AOT 85f8bb55417535afbd9299474d9888f00e713c29fcdae7db8a77309c0c679748.
+That staged .consumer-support-real-evidence packet is now historical because
+the following support-minimization source is different. Strict serial results:
+
+| Lane | Wall ms | P95 us | P99 us | Requests/s | CPU ms | RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| control 1 | 42.220 | 59 | 72 | 23685.46 | 41.699 | 28786688 |
+| candidate 1 | 42.123 | 59 | 106 | 23740.00 | 42.066 | 28868608 |
+| candidate 2 | 41.967 | 60 | 87 | 23828.25 | 41.897 | 28852224 |
+| control 2 | 41.218 | 59 | 86 | 24261.25 | 41.197 | 28835840 |
+| candidate 3 | 41.664 | 58 | 65 | 24001.54 | 41.645 | 28835840 |
+| control 3 | 42.205 | 61 | 93 | 23693.88 | 42.158 | 28803072 |
+| control 4 | 41.906 | 61 | 93 | 23862.93 | 41.836 | 28786688 |
+| candidate 4 | 40.876 | 58 | 72 | 24464.23 | 40.841 | 28868608 |
+
+All lanes compare 1000 complete independent tapes, have five GCs and fail the
+10 ms gate (exit 70). These essentially tied results do not qualify major
+state-chain removal or a baseline promotion. Candidate prepared product SHA
+1de980282f1c661e129e22b3560dba688ff17b754d8fa2b031085b8cc37de368.
+
+The follow-on guard-support minimizer drops an external zero premise ONLY
+when rerunning the conservative cofactor without it produces the identical
+ordered IR body. Explicit guard witnesses are not minimized recursively. Eight
+native zero/support controls pass, including elimination of a payload guard
+inside an unreachable consumer. Unnecessary actual guard cells are:
+timestamp-diary-opens, footnote-label-count and export-backend-count. Inline
+ordinary admission drops from 16/12 to 13/10 state guards. This is a structural
+guard-dependency finding, not a measured admission-hit or speed claim.
+
+The earlier exact reset/increment summary is now tested with this minimal
+guard support, not reinstated unchanged. Seven run controls pass; summaries
+cannot be read/written by other common actions or guards, conditionally updated
+or multiply declared. Local accumulators preserve exact counter state and
+publish before the unconsumed triggering residual; no event reorder or runtime
+cache is introduced. Static trigger alphabets become 17/16, with the unrelated
+payload guards removed. Fresh closure .consumer-supported-runs-controls and
+actual .real-consumer-supported-runs have completed correctness qualification,
+but failed performance preflight. Eight zero-state, seven run, five consumer
+and twenty-four actual AOT controls pass. Source-bound model receipts are Lean
+ac8aac991e0171e8741486c3384930cf89a75c7638d3c409c0816c677641612a,
+Quint d424baf94d853dcb4941eb6d0d27e84b3e1502f0514ef8139774d8d81adf46a6,
+Scheme/AOT ddf93974b19a44d1cddf0c2961f6fcaff056dd33ee077b4d3b2fc6f1ae1880df.
+These receipts bind that candidate, not subsequent edits.
+
+Matched A/B/B/A and B/A/A/B, 1000 changing requests each:
+
+| Lane | Wall ms | P95 us | P99 us | Requests/s | CPU ms | RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Control 1 | 44.423 | 61 | 92 | 22510.86 | 43.796 | 28852224 |
+| Candidate 1 | 44.692 | 64 | 171 | 22375.37 | 44.490 | 28934144 |
+| Candidate 2 | 41.504 | 60 | 75 | 24094.06 | 41.489 | 28934144 |
+| Control 2 | 42.465 | 61 | 94 | 23548.80 | 42.413 | 28819456 |
+| Candidate 3 | 41.620 | 60 | 99 | 24026.91 | 41.532 | 28884992 |
+| Control 3 | 43.107 | 63 | 84 | 23198.09 | 43.058 | 28835840 |
+| Control 4 | 42.048 | 61 | 76 | 23782.34 | 42.018 | 28803072 |
+| Candidate 4 | 42.096 | 61 | 96 | 23755.23 | 42.022 | 28884992 |
+
+All lanes compare every independent OEV1 tape and exit 70: the 10 ms gate
+fails. Five GC collections per lane; the raw allocation-counter difference
+is not allocated-byte evidence. No full twenty-batch matrix or promotion.
+Actual artifact SHA256: 368784c6dd09926baf3da40a2e654bb18ada288ae5686a6a32256d856cceaf24.
+Prepared artifact SHA256: f8676ebd8c95e6f332129f96549f888b16a510fd6a467478c5a6f03fc5928a51.
+
+
+PR 13 remains b5e1895c8bc9a79dcb3d4e845130cdc113b7d2be (verified on GitHub).
+No SDK/kernel changes, baseline overwrite, push or automation restart.
+
+The next unqualified experiment is .real-consumer-scalar, compiled from
+.consumer-scalar-controls. Scalar operator trees remain directly in their
+consumer block instead of receiving an artificial helper boundary. Unknown
+calls, scans, allocation and statement bodies remain outlined; evaluation
+order is unchanged. Five calling-convention controls pass. Generated helper
+definitions decrease from 3308 to 3256; this is a static call-boundary count,
+not proof that primitive evaluations or end-to-end latency decreased. Actual
+AOT linking, twenty-four complete-tape controls and the full source-bound
+model chain completed. Lean: 758705c205df2f9d6fb8d4b237a584b7eedb1ac442bf4525cc7dc29c01d72492;
+Quint: 099be0856ab57f4449fa89fe95c0809ed1fe3c59b9edde1701628d2522ee9541;
+Scheme/AOT: 4855cc0e4c5a1fec3ab32387de00188a5d501cf4714081fefcd982895c78563d.
+Actual binary: e6571cbfbbba3fa685faca9cb143434d23ed8e2e97ecc3dbe886afe475d7a376;
+prepared: a79a198dc038973e18fd48110dad1d00a15e0945c7164413635bc242064c123d.
+
+| Lane | Wall ms | P95 us | P99 us | Requests/s | CPU ms | RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Control 1 | 67.527 | 154 | 415 | 14808.89 | 55.885 | 28819456 |
+| Candidate 1 | 90.921 | 140 | 376 | 10998.56 | 49.338 | 30916608 |
+| Candidate 2 | 128.127 | 140 | 283 | 7804.76 | 52.344 | 30883840 |
+| Control 2 | 43.036 | 63 | 77 | 23236.36 | 42.945 | 28753920 |
+| Candidate 3 | 39.846 | 57 | 87 | 25096.62 | 39.780 | 30900224 |
+| Control 3 | 43.475 | 61 | 101 | 23001.73 | 43.386 | 28786688 |
+| Control 4 | 43.518 | 60 | 73 | 22979.00 | 43.528 | 28803072 |
+| Candidate 4 | 41.378 | 57 | 99 | 24167.43 | 40.794 | 30900224 |
+
+Every lane completed all 1000 full semantic comparisons and failed the wall
+gate (exit 70). All had five collections. Mixed CPU/wall behavior does not
+attribute the 90/128 ms stalls to encoding, GC or scheduler internals. Nor is
+the raw allocation-counter decrease an allocated-byte claim. No best-lane
+promotion is justified. The scalar classifier, its test and case-count edit
+were withdrawn after this negative matched result; existing dependency-derived
+calling conventions remain unchanged. All artifacts/logs are retained. This
+model packet is historical after rollback, not qualification of current files.
+Post-withdrawal fresh closure .consumer-rollback-controls builds successfully;
+eight zero-state and four private-call-environment controls pass with final OK.
+All owned compilation, model and timing processes have ended. No matrix is
+active. The baseline and immutable input corpus hashes remain unchanged.
+Remaining open work is selective consumer execution across ordinary spans;
+neither predicate cofactoring nor scalar helper elimination demonstrated the
+required architecture-level throughput. Do not rerun these rejected candidates
+unchanged or treat their static reductions as actual execution-count savings.
+
+The candidate removes unconditional exact current-byte reset/increment machines
+from ordinary-run trigger classification, accumulates their counters locally,
+and publishes them before the unconsumed trigger residual. Other reads/writes,
+conditional execution, duplicate targets and guard dependencies reject admission.
+It is a transition summary, not a request cache or foreign scan. Static inline
+trigger alphabets shrink from 52/53 to 16/17; executed coverage is not inferred.
+Seven native admission controls and 24 independent complete actual Org AOT tapes
+pass. Lean proves the reset/increment run-summary algebra; existing Quint checks
+retain epoch, owner and residual/publication responsibilities. The full existing
+source-bound chain passes at its unchanged 240-second Scheme limit:
+
+- Lean: d7267559381ccb1991e8c82ef6ec2981954cf7adf9d8d682fe903461d77b10db
+- Quint: 7af95f23d99a50f41cc8924fcd14eee3aa3aab7061c823e5d82b2b9eb43d92f2
+- Scheme/actual AOT: 0ca97e6fbbc27638480a7d9f4d213a7086fe903bb91cbc08bfdff19e41d7222a
+
+These observations describe the subsequently REJECTED source version, not the
+restored current engine. Immutable sources and actual product are preserved in
+.counter-summary-real-evidence; .counter-summary-full-evidence-retry.log records
+matched-performance Missing and executionAuthorized=false. The first evidence
+invocation failed before checks because an absolute receipt path was supplied;
+the existing policy requires repository-relative receipt identifiers.
+
+The first .counter-summary-abba-* launch did not explicitly await one yielded
+process before the next request. Treat its timing as diagnostic-only; retain
+its 321.481 ms candidate batch and do not claim strict isolation. The subsequent
+.counter-summary-serial-* run explicitly awaits EVERY child before the next:
+
+| Lane | 1000-request wall ms | P95 us | P99 us | Requests/s | CPU ms | RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| control 1 | 49.831 | 70 | 157 | 20067.8 | 46.700 | 28819456 |
+| candidate 1 | 44.380 | 61 | 89 | 22532.7 | 43.773 | 28852224 |
+| candidate 2 | 43.538 | 62 | 98 | 22968.4 | 43.422 | 28852224 |
+| control 2 | 46.177 | 63 | 185 | 21655.8 | 45.389 | 28786688 |
+| candidate 3 | 43.169 | 62 | 87 | 23164.8 | 43.023 | 28868608 |
+| control 3 | 43.416 | 63 | 101 | 23033.0 | 43.306 | 28819456 |
+| control 4 | 44.172 | 64 | 95 | 22638.8 | 43.886 | 28819456 |
+| candidate 4 | 43.881 | 63 | 110 | 22788.9 | 43.716 | 28852224 |
+
+Every lane compares all 1000 independent complete tapes, has five GCs, and fails
+the unchanged 10 ms preflight (exit 70). Reverse CPU times are essentially tied;
+the candidate offers no substantial qualified gain and retains slightly more
+RSS. The earlier disturbed timing was worse. The candidate admission, scanner,
+test-count and plan-diagnostic edits were withdrawn, preserving the prior
+condition lowering. .rejected-counter-summary-source.diff archives the attempted
+source (also contains pre-existing context changes; NOT a wholesale rollback).
+The pure Lean summary lemma remains only an algebraic contract for future work.
+Existing baseline binary SHA a94f3fb148469e3f3f04bffc89bec90be66d65efcdd32664a8787e844ffa17c0
+is unchanged. Rejected product SHA 891837346cadead2f3b5bd804aaefbc89ce36943e740bade904267b9b236c4be;
+rejected prepared product SHA 842f37e58d5179f96fa89c497f78a7a5b1608dc59abf036384d85830086ca0bb.
+
+Live BASELINE diagnosis, not throughput acceptance, now distinguishes realtime
+and monotonic clocks, parser probes, complete tape comparison, GC CPU/wall and
+voluntary/involuntary switches. The installed official std/os/time.ss uses
+CLOCK_REALTIME; the independent POSIX monotonic probe does not alter that clock
+or the SDK. Four .call-environment-stalls-*.log runs compare all 1000 tapes:
+
+| Run | Batch wall ms | CPU ms | Parser monotonic ms | Tape comparison ms |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 71.491 | 62.702 | 68.028 | 1.268 |
+| 2 | 47.720 | 47.386 | 44.909 | 1.039 |
+| 3 | 111.849 | 71.842 | 108.193 | 1.401 |
+| 4 | 48.670 | 47.593 | 45.910 | 1.014 |
+
+Run 3 input 440 takes 4.908 ms realtime / 4.917 ms monotonic, only 0.438 ms CPU,
+zero GC and two involuntary switches; input 675 takes 4.339/4.351 ms with 0.100 ms
+CPU, zero GC and two involuntary switches. This reproduced class includes OS
+descheduling, not GC or an isolated realtime-clock jump. It does NOT identify
+the historical 142-148 ms batches retroactively, the scheduling competitor,
+or all of the increased CPU cost. Probe overhead is included; no RSS/throughput
+acceptance is inferred from this diagnostic. Diagnostic binary SHA
+a0cee10298a820dffdb4344a863cbfa91e125c2046ad376679d4ef5e13eb216e.
+
+The changing corpus remains e9ccee6c366bdc07f733c525634ed9efed2eb1d2932ef93b54f5ba4cd820df40.
+All 20-batch matrices remain unopened: the 1000-request gate fails. SMP remains
+OPEN/SKIP, not PASS. Rust queues, FFI and Python are outside these engine numbers.
+Next: actual changing-input call census on the RESTORED baseline, rather than
+inferring CPU dominance from the reduced static trigger alphabet. New count
+products are diagnostic-only and may not replace the immutable timing baseline.

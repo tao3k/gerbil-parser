@@ -1,0 +1,98 @@
+#+title: Lowering publication control and construction admission
+
+* Scope in the unified contract
+
+[[file:construction-vocabulary.org][The construction vocabulary audit]] distinguishes producer execution from input
+admission. This module closes the common native emission/publication spine.
+It does not certify every recursive branch of =lower-to= or infer a source DSL
+compiler from an arbitrary supplied emission list.
+
+The grammar production sequence in [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing, section 2]], is
+interpreted through physical native records. Native IDs, origin recipes and
+observer order are representation obligations; paper-level grammar derivations
+alone do not establish them. The existing =Names.Tape= was atomic across
+observation and publication. The actual source calls observers before advancing
+the counter and consing the new production.
+
+* Source-owned publication protocol
+
+[[file:../../../formal/ParserEngine/LoweringPublication.lean][LoweringPublication]] models allocation, optional origin observation, optional
+proof observation, counter increment and list insertion in source order.
+The observer's return/failure is explicit. A successful callback does not commit
+the production; both enabled callbacks must return before local publication.
+
+Four complete declarations are admitted against independent schemas: the
+=make-production= constructor, lexical initial bindings, =emit-production= and
+the final augmentation/reversal expression. The shared =parser-source-data=
+macro extracts them from [[file:../../../src/compiler/lr.ss][the actual source]], and
+[[file:../../../formal/ParserEngine/LoweringPublicationWitness.lean][LoweringPublicationWitness]] establishes their exact correspondence. Altering
+any of these admitted declarations rejects this protocol. This check does not
+validate unrelated recursive branch bodies merely because their enclosing
+file was read.
+
+| Source action | General law | Integration consumer |
+|---------------+-------------+----------------------|
+| Origin callback fails | =origin_failure=, =emission_failed= | No proof callback, increment or store for this attempted production |
+| Proof callback fails | =proof_failure= | Counter and committed prefix remain unchanged |
+| Arbitrary declaration/helper partition | =run_append=, =failed_prefix= | Order composes for any finite emission sequence; a failed prefix skips the suffix |
+| Successful common emitter | =run_state=, =run_count=, =append_ids= | Counter allocation is produced by the emitter, not supplied by branches |
+| Final reverse and augmentation | =successful_ids=, =dense_ids= | Augmentation zero followed by dense native IDs |
+| Values and origin recipes | =append_payloads=, =successful_payloads= | Complete ordered lists remain paired, including duplicate productions |
+| Failed entire run | =failed_not_published=, =failed_not_constructed= | No successful truncated CFG or retained construction result |
+| Successful constructed result | =constructed_fields=, =complete= | Same =ConstructionGrammar= gate and retained LeanPoo factory, actions and physical-read readiness |
+
+The constructor returns the existing dependent construction result; it does not
+rebuild an independent automaton or invent a second certification mechanism.
+The existing origin, reference, augmentation and semantic checks still apply.
+Their success is not inferred solely from contiguous IDs or a callback log.
+
+=tape_commit= and =tape_append= refine successful commits into the existing
+=Names.Tape= rather than introducing an unrelated atomic emission model.
+The tape's observer list and the pending recipes are logical qualification
+witnesses. Disabled native observation need not allocate a recipe, and this
+module does not prove that the unobserved path computes one.
+
+* Explicit remaining producer boundary
+
+The publication executor accepts a finite ordered list of pending values,
+recipes and source occurrences. =run_append= composes any recursive partition
+of this list, but does not derive the list from arbitrary Scheme evaluation.
+Actual branch dispatch, continuation/context recipe construction, private
+helper allocation and dynamic-precedence rejection must still be connected to
+this common protocol by a complete source-control refinement.
+[[file:lowering-traversal.org][The recursive producer]] now generates contexts, recurrences and complete
+emission lists for arbitrary native-shaped syntax and declaration counts. Its
+recipes feed this executor directly and compose with physical realization into
+the existing origin gate. [[file:lowering-physical-execution.org][Scoped physical execution]] now generates names and realization for arbitrary
+admitted syntax. General Scheme evaluator adequacy and exceptional/reentrant
+callbacks remain open; finite native comparisons do not replace those proofs.
+
+Observer outcomes assume termination and preservation of borrowed production
+contents. Callbacks receive the real mutable production objects; arbitrary
+mutation, continuation capture/replay and nonlocal host effects are not proved
+safe by this model. Nested ordinary lowering uses independent lexical state;
+the native test checks this case separately. Primitive allocation, arithmetic,
+list operations, exceptions and compiler behavior retain their external host
+contracts. Gambit is neither modified nor built.
+
+* Qualification
+
+The complete Lean package builds 201 jobs, including explicit axiom reports
+for source admission, failure prefixes, dense IDs, retained payloads and factory
+execution. Only standard Lean logical axioms occur; =tape_append= uses no axioms.
+
+The five affected Scheme owners pass 109 macro-owned cases, using the unchanged
+90-second total and 5-second idle limits. The new owner executes the complete
+source emitter in its lexical counter/list scope with its actual constructor.
+It checks all observer enablement combinations, first/middle/last failure
+positions, exact production identity, callback order and nested lowering.
+An additional matrix runs the real recursive lowerer across native fixtures,
+all principal branch forms, duplicate declarations and reserved-name collisions.
+The existing source-data freshness and construction controls remain active.
+
+[[file:../../../formal/quint/LoweringPublication.qnt][The bounded protocol]] passes nine directed controls and 1,000 histories of
+30 transitions. It distinguishes increment from store and rejects early
+increment, proof-before-origin and publication of a failed prefix. These are
+finite controls, not a proof of arbitrary native evaluation or CPU improvement.
+The architecture remains incomplete and local performance optimization stays
+gated by the shared ledger.

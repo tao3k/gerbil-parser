@@ -2,10 +2,10 @@
 ;;; POO-native contextual parser declarations; no public alist DSL.
 
 (import (only-in :clan/poo/object .o .ref)
-        (only-in :core/types
-                 poo-flow-contract-admit
-                 poo-flow-validation-evidence-accepted?)
-        (only-in :core/object-family/interface
+        (only-in :yuanxu/object-types/contracts
+                 yuanxu-contract-admit
+                 yuanxu-validation-evidence-accepted?)
+        (only-in :yuanxu/object-family/interface
                  defpoo-object-family)
         (only-in ./line-structure-types
                  +line-structure-schema+ +line-structure-kind+
@@ -21,7 +21,7 @@
         make-line-structure make-heading-line make-block-line make-text-line
         make-table-line make-list-line make-key-line
         make-key-value-line make-block-header make-inline-link make-heading-fields
-        line-structure? heading-line? block-line? text-line? key-value-line?
+        line-structure? heading-line? block-line? text-line? key-value-line? table-line? list-line?
         line-structure-heading line-structure-blocks line-structure-text
         line-structure-table line-structure-list line-structure-key-lines
         heading-line-marker heading-line-separator
@@ -67,15 +67,15 @@
 (def KeyLine. (.ref KeyLineContract 'proto))
 
 (def (admit-line! contract candidate)
-  (let (evidence (poo-flow-contract-admit contract candidate #f))
-    (unless (poo-flow-validation-evidence-accepted? evidence)
+  (let (evidence (yuanxu-contract-admit contract candidate #f))
+    (unless (yuanxu-validation-evidence-accepted? evidence)
       (error "invalid POO line-structure declaration"
              (.ref evidence 'diagnostics)))
     candidate))
 
 (def (admitted-line? contract candidate)
-  (poo-flow-validation-evidence-accepted?
-   (poo-flow-contract-admit contract candidate #f)))
+  (yuanxu-validation-evidence-accepted?
+   (yuanxu-contract-admit contract candidate #f)))
 
 (def (make-heading-line marker-value separator-value
                         section-node-value heading-node-value heading-token-value
@@ -312,3 +312,8 @@
   (admitted-line? TextLineContract value))
 (def (key-value-line? value)
   (admitted-line? KeyValueLineContract value))
+(def (table-line? value)
+  (admitted-line? TableLineContract value))
+
+(def (list-line? value)
+  (admitted-line? ListLineContract value))

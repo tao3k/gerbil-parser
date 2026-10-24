@@ -1,0 +1,676 @@
+#+title: Scheme abstractions at the semantic reduction boundary
+
+* One engine boundary, two semantic products
+
+This study connects the [[file:engine-reduction-generation.org][shared reduction generator]] to the
+generic runtime. The canonical operand action chain is shared by recognition
+trees and event programs. Its order, empty-chain identity and preparation
+contract belong to the engine. Backend-specific field and alias construction
+belongs to each semantic product. Language declarations acquire no additional
+operation or configuration.
+
+The earlier [[file:unary-reduction-corridors.org][corridor experiment]] reduced allocation but did not establish
+a consistent complete-request CPU improvement. This refactor addresses the
+maintainability of the action interpreter without reviving that execution path.
+
+* Official source evidence
+
+The installed Gerbil source used for this study is revision =2591dcd=, shipped
+with the locally qualified toolchain. Reproduction starts with the toolchain's
+source tree rather than assuming that an online development branch matches it.
+
+- =src/std/text/parser/ll1.ss=: =ll1-bind= expresses parser composition;
+  =ll1-begin= and =ll1-case= stage control structure; =ll1-char?= uses the
+  =BufferedReader= interface through =using=. The same file retains named
+  =let= loops and conditional expressions in concrete execution algorithms.
+- =src/std/iter/macros.ss=: =for1= validates declaration shape with
+  =syntax-case= and generates callbacks or typed bindings; =for1-dispatch=
+  selects an expansion appropriate to the iterator form.
+- =src/std/vector/vector.ss=: typed procedure and vector arguments define
+  contracts around vector algorithms, while =for= expresses index traversal.
+
+These examples support separate abstractions for composition, representation
+contracts and execution. They do not establish that higher-order calls are
+always faster, or that named loops are poor Scheme style.
+
+* Declarative action admission
+
+The runtime previously embedded list-length checks and a callback in vector
+construction. Preparation now names the two accepted shapes explicitly:
+
+#+begin_src scheme
+(def (operand-action? action)
+  (match action
+    (['field _] #t)
+    (['alias _] #t)
+    (_ #f)))
+#+end_src
+
+The action-chain boundary still requires a proper list. Names retain the
+existing canonical IR contract; this change does not introduce a new name
+restriction. Unknown operations, missing payloads, extra payloads and improper
+chains fail during preparation. Validation remains outside the request loop.
+
+* Stage the shared fold
+
+#+begin_src scheme
+(defrule (define-operand-action-fold fold-name action-step)
+  (def (fold-name value actions offset constructor)
+    (if (pair? actions)
+      (fold-name (action-step (car actions) value offset constructor)
+                 (cdr actions) offset constructor)
+      value)))
+
+(define-operand-action-fold apply-operand-actions apply-operand-action)
+(define-operand-action-fold apply-operand-actions/events apply-operand-action/events)
+#+end_src
+
+The recognition step remains its existing procedure. The event step is a
+hygienic rule that binds the selected action once before its dispatch, keeping
+the previous inline event evaluation. The shared rule emits closed tail loops;
+it does not install a backend callback or capture a request's offset.
+
+* Question: why is this design preferable?
+
+The source now states one action-chain traversal contract and two semantic
+interpretations. Fixing action order or identity requires changing one fold
+definition. The backend operations remain independently readable. Scheme's
+advantage here is hygienic staging of an engine algorithm, beyond merely
+representing declarations as lists. A runtime combinator remains appropriate
+where a caller genuinely supplies a dynamic strategy; these two backend choices
+are already known when the module expands.
+
+This is a local abstraction inside the shared engine. It does not justify
+turning every loop into a macro, adding POO objects to private scalar state, or
+changing the three language-author interfaces.
+
+* Question: why is the claim scientifically testable?
+
+The invariant is =fold(step, seed, actions)= with actions consumed in declaration
+order. Empty chains return the original seed. Existing negative preparation
+tests exercise malformed action shapes. Decorated chains and widths
+=0, 1, 2, 8, 32= compare complete canonical artifacts against the independent
+materialized GLR interpreter, for both recognition and event backends.
+Unary-corridor controls additionally compare bounded checkpoint action counts.
+
+Native compilation verifies the macro expansion, while matched GQL, FHIRPath
+and Arithmetic requests distinguish maintainability from performance. A
+successful source test alone does not establish native request cost. No
+end-to-end speedup is claimed from removing duplicated source text.
+
+* Qualification
+
+- Source controls: 25 cases, final =OK= and exit 0, 13.873 s.
+  Receipt: unarchived local execution.
+- Official native compilation: exit 0, 18.363 s; candidate artifacts live in
+  a temporary native overlay. Inspection of the emitted =.scm=
+  confirms direct recursive calls and inline event operation dispatch.
+- Native controls: five cases, final =OK= and exit 0, 15.143 s.
+  Receipt: unarchived local execution; its
+  interface trace selects the candidate =lr-parser.ssi= explicitly.
+
+Two initial harness attempts are excluded: one named nonexistent test files;
+the other selected a C-FFI ABI module for interpretation and failed with
+=Interpreter does not support ##c-declare=. The final source run uses the
+source-owned ABI alignment control; native qualification remains separate.
+
+** Matched native request costs
+
+Four sequential runs used 20 samples of 20 requests for each route, with the
+same source products, independent GLR admission, toolchain and artifact graph.
+Only the candidate runtime overlay changed. All four runs completed with
+=LR-REQUEST-STACK-OK= and exit 0; elapsed times were 16.655, 16.384, 18.906
+and 16.335 s. Receipts are
+unarchived local execution.
+
+CPU values below are batch CPU P50 divided by 20, in milliseconds per call.
+They are not individual request latency percentiles. Natural collections remain
+in timing; admitted allocation samples exclude collection intervals.
+
+| Route | Baseline 1 | Candidate 2 | Candidate 3 | Baseline 4 | Bytes/call, all runs |
+|-------+------------+-------------+-------------+------------+---------------------|
+| gql-return 64 prepared-lr | 0.2173 | 0.21595 | 0.2273 | 0.2119 | 230932. |
+| gql-return 64 full-source | 0.30345 | 0.30775 | 0.3618 | 0.31085 | 542941.6 |
+| fhirpath-addition 64 prepared-lr | 0.2104 | 0.2128 | 0.2397 | 0.2108 | 255540. |
+| fhirpath-addition 64 full-source | 0.33965 | 0.3383 | 0.44785 | 0.3427 | 695181.6 |
+| arithmetic-addition 64 prepared-lr | 0.09635 | 0.09575 | 0.09765 | 0.094 | 134804. |
+| arithmetic-addition 64 full-source | 0.1457 | 0.14455 | 0.15855 | 0.14145 | 462141.6 |
+| gql-return 512 prepared-lr | 1.75865 | 1.61955 | 1.89055 | 1.5999 | 1894004. |
+| gql-return 512 full-source | 2.64495 | 2.39755 | 2.7127 | 2.4177 | 4330101.6 |
+| fhirpath-addition 512 prepared-lr | 1.6594 | 1.6864 | 1.95235 | 1.66655 | 2104980. |
+| fhirpath-addition 512 full-source | 3.49855 | 3.0926 | 3.4138 | 3.1203 | 5585421.6 |
+| arithmetic-addition 512 prepared-lr | 0.77145 | 0.7646 | 0.76755 | 0.7565 | 1080980. |
+| arithmetic-addition 512 full-source | 1.1478 | 1.18005 | 1.2511 | 1.2851 | 3696477.6 |
+
+All twelve routes retain exactly the same admitted allocation per call. CPU
+results vary: the third run is slower across several routes, while the second
+is near or below the neighboring baseline for many routes. This does not prove
+a speedup or establish a performance equivalence margin. The maintained claim
+is shared source policy with qualified semantics and no added request-time
+closure; stable CPU improvement remains unproved. The independent Arithmetic
+full-source route still uses its generated executor and is a control for costs
+outside the changed generic fold.
+
+* Continue at cohesive engine boundaries
+
+The remaining review follows the same canonical IR -> prepared runtime ->
+execution -> artifact path, rather than a list of surface syntax substitutions.
+Preparation should express admitted representations and backend capabilities.
+Generated and generic reducers should share action policy while retaining
+their independently testable execution strategies. Checkpoint and publication
+ownership should be explicit where mutable lifetime actually matters.
+
+The next performance transformation still requires CPU attribution and matched
+complete products. This abstraction refactor does not resolve that evidence
+gap, and a larger rewrite is not admitted merely because it uses more macros
+or interfaces.
+
+* Completion records and ranking ownership
+
+The next boundary is the selective-GLR result retained by configuration memo
+entries. Previously it was a six-element positional list. Ranking lived inside
+the request executor, traversed token suffixes during comparison and constructed
+a provisional result followed by another copy carrying the completion count.
+
+Official =src/std/text/parser/base.ss= uses final structs for =token= and
+=location= and destructures them with =match/with=. The official
+=src/gerbil/core/contract.ss= =Using= module implements the lexical class binding
+used below. Its syntax admits one typed binding per =using= form; two objects
+use nested scopes.
+
+#+begin_src scheme
+(defstruct lr-completion
+  (root rest score ambiguities winner-reason completion-count remaining-count)
+  final: #t)
+
+(def (ranked-candidate winner reason count)
+  (using (winner : lr-completion)
+    (make-lr-completion winner.root winner.rest winner.score winner.ambiguities
+                        reason count winner.remaining-count)))
+#+end_src
+
+=src/runtime/lr-completion.ss= owns the private completion representation and
+pure comparison policy. Its API exports construction and projections without
+mutation. The executor retains chart ownership, exploration budget, diagnostics,
+ambiguity rejection and request-local counters. =select-candidate= returns a
+representative and an equivalent-merge flag; the executor updates its own merge
+counter. No language declaration acquires another interface or policy switch.
+
+The comparison order remains dynamic score, maximal consumption, then structural
+product equivalence. Distinct equal-ranked products retain their ambiguity in a
+representative so a surrounding higher-scored completion may still win. Total
+completion counts are accumulated even when one candidate outranks the other.
+Cached suffix lengths are copied from the selected record; the engine retains
+immutable token suffixes throughout a parse.
+
+** Question: why is this design preferable?
+
+A named final record exposes the actual result contract and lets Gerbil resolve
+typed slot accesses. A standalone policy can be reviewed without the chart,
+continuation and observability machinery. One final construction carries both
+ranking evidence and completion count. This applies Scheme's type and lexical
+abstraction facilities to a private protocol; POO remains appropriate for the
+extensible public grammar and parser models.
+
+** Question: why is the claim scientifically testable?
+
+Policy controls cover both exploration orders for score and consumption, equal
+structural copies, unequal suffixes, accumulated ambiguity/counts, first-result
+identity and outer-score resolution. Existing parser integration controls cover
+the corresponding complete parse receipts and failures. A benchmark group runs
+four complete prepared GLR requests: equivalent merge, dynamic ranking, fragment
+interning and typed ambiguity rejection, requiring the same complete receipt.
+
+Ordinary full-parse LR completions reach EOF, so their suffix length is zero.
+Caching its length does not by itself establish a large request-time saving.
+The extra record slot and multiple-value result also have a native cost that
+must be measured. Deterministic request controls remain necessary because the
+shared runtime imports the new module even when it does not enter GLR.
+
+** Completion qualification receipts
+
+- 34 source cases: final =OK=, exit 0, 8.222 s, in
+  unarchived local execution.
+- Official native compilation of the producer and consumers: exit 0, 23.260 s,
+  in unarchived local execution.
+- 34 native cases plus the complete GLR scenario and six deterministic source
+  products: all required markers and exit 0, 33.040 s, in
+  unarchived local execution. Interface traces
+  select both candidate =lr-completion.ssi= and =lr-parser.ssi=.
+
+An initial source run exposed an incorrect multi-binding =using= form. It was
+corrected to nested official single-binding scopes before these final receipts;
+the failed run is not counted as qualification.
+
+Four sequential native runs use the same compiled benchmark/scenario modules
+for both engines. The baseline is =31c0667=; the candidate changes only the
+completion module and its executor integration. Each GLR sample contains 100 complete groups; deterministic
+samples contain 20 requests. There are 20 samples per route. Every run requires
+the complete product markers and exit 0, with the existing five-second real
+output watchdog. Elapsed times are 16.475, 16.159, 15.879 and 16.730 s.
+Receipts are
+unarchived local execution.
+
+The table reports batch CPU P50 divided by its iteration count, in ms per group
+or request. Natural collection remains in the measured samples.
+
+| Route | Baseline 1 | Candidate 2 | Candidate 3 | Baseline 4 | Bytes/call |
+|-------+------------+-------------+-------------+------------+------------|
+| selective-glr-completion | 0.01391 | 0.01165 | 0.01215 | 0.01397 | 60381.6 -> 58173.6 |
+| gql-return 64 prepared-lr | 0.2065 | 0.2136 | 0.2127 | 0.2077 | 230932. |
+| gql-return 64 full-source | 0.31365 | 0.30495 | 0.2995 | 0.32 | 542941.6 |
+| fhirpath-addition 64 prepared-lr | 0.2111 | 0.21335 | 0.2123 | 0.2101 | 255540. |
+| fhirpath-addition 64 full-source | 0.3517 | 0.3385 | 0.3384 | 0.34325 | 695181.6 |
+| arithmetic-addition 64 prepared-lr | 0.09345 | 0.09365 | 0.0936 | 0.09435 | 134804. |
+| arithmetic-addition 64 full-source | 0.1396 | 0.1457 | 0.1522 | 0.1412 | 462141.6 |
+| gql-return 512 prepared-lr | 1.6087 | 1.61845 | 1.60085 | 1.6266 | 1894004. |
+| gql-return 512 full-source | 2.32895 | 2.3989 | 2.5245 | 2.96145 | 4330101.6 |
+| fhirpath-addition 512 prepared-lr | 1.6559 | 1.66305 | 1.6552 | 1.66585 | 2104980. |
+| fhirpath-addition 512 full-source | 2.82765 | 3.44985 | 3.3867 | 3.1199 | 5585421.6 |
+| arithmetic-addition 512 prepared-lr | 0.74615 | 0.7507 | 0.75525 | 0.7504 | 1080980. |
+| arithmetic-addition 512 full-source | 1.12015 | 1.16495 | 1.20145 | 1.1272 | 3696477.6 |
+
+The four-request GLR group reduces admitted allocation by exactly 2,208 bytes
+(3.66%). Its two candidate CPU medians are below both baseline medians; the
+mean of the two run medians decreases approximately 14.6%. This is evidence for
+this small complete GLR workload, not for all languages or whole-engine speed.
+The twelve deterministic routes retain exactly the same admitted allocation.
+Their CPU changes are mixed, including higher short GQL prepared and short
+Arithmetic complete-request medians. General CPU non-regression is unproved.
+
+The FHIRPath 512 complete-request batches include nine collection intervals in
+every run. Median CPU over the eleven batches without collection is about
+2.69-2.70 ms/request across all four runs, while the natural-collection P50
+above varies more. This diagnostic helps separate sample composition from
+execution cost; it does not replace the complete-request measurements or blame
+Gambit's collector for an engine design problem.
+
+The existing =t/selective-glr-benchmark-test.ss= gate also passes on the candidate:
+40 samples of 100 four-request groups, wall P95 8.363 ms below the 250 ms
+maximum, final =OK= and exit 0 in 5.365 s. Receipt:
+unarchived local execution.
+
+After integrating the concurrent scanner change =bb53704=, 37 source cases
+pass in 7.369 s. The updated scanner is compiled into the candidate overlay
+(9.308 s), and 37 native cases plus all complete benchmark products pass in
+12.286 s with exit 0 and every required marker. Receipts:
+unarchived local execution.
+These establish combined semantic qualification; the preceding ABBA timings
+remain measurements of the isolated completion refactor against =31c0667=.
+
+The declarative optional Rust AOT generator module list also registers
+=src/runtime/lr-completion= before its =lr-parser= consumer. Default package
+source discovery already admits the new module. No compatibility record or
+additional command/script is introduced.
+The existing build-product contract's two cases pass, final =OK= and exit 0,
+in 2.161 s (unarchived local execution).
+This receipt qualifies the product declaration, not a fresh Rust AOT executable.
+
+Further concurrent Source/Fold commits through =ec4b6b8= are integrated before
+publication. The combined source control expands to 44 cases, including the
+updated event-fold suite and build-product contract: final =OK=, exit 0,
+7.644 s in unarchived local execution.
+The 37-case native receipt above covers the LR/scanner graph, whose production
+dependencies are unchanged by those later Source/Fold commits. It does not
+qualify their new native Source/Fold implementation. Exact-head CI retains
+ownership of the complete published package and optional Rust AOT integration.
+
+* Generic functions as preparation protocols
+
+The available mechanisms have different owners. Gerbil =defmethod= associates
+behavior with a receiver type. Upstream =clan/poo/mop .defgeneric= invokes a
+receiver's prototype slot; it is a single-receiver protocol. The pinned
+=core/poo-clos/interface= provides actual multiple dispatch, =eql=/class/prototype
+specializers, method combinations and generic generations. Treating these as
+one interchangeable mechanism would obscure the extension contract.
+
+Source evidence is =gerbil-poo/mop.ss .defgeneric= and POO Flow Core's
+=poo-clos/{syntax,dispatch,objects}.ss=. In particular,
+=applicable-ranked-methods= computes applicability from an immutable generic
+generation and sorts by =argument-precedence-order=; =compute-effective-method=
+admits protocol hooks. The checked runtime is already a dependency. The parser
+must not implement a second generic registry or method-combination evaluator.
+
+The engine uses receiver protocols for grammar/context role access. The initial
+audit found no CLOS preparation protocol for semantic backends; the LR migration
+below now installs one. The dependency already provided the required mechanism.
+
+** Separate selection from repeated execution
+
+The executable control in =t/generic-dispatch-contract-test.ss= uses the actual
+Core CLOS declaration syntax and ordinary Scheme values:
+
+#+begin_src scheme
+(.defgeneric test-select-semantic-plan (backend capability))
+(.defmethod (test-select-semantic-plan (backend (eql 'event))
+                                     (capability (eql 'plain)))
+  (lambda (value) (list 'event value)))
+
+;; Selection belongs to preparation; the returned kernel is reused.
+(let (kernel (test-select-semantic-plan 'event 'plain))
+  (kernel 'a)
+  (kernel 'b))
+#+end_src
+
+The probe counts method-body selection separately from kernel calls and checks
+that repeated execution does not redispatch. It is a design control, not an
+installed event parser, an allocation benchmark or an implementation of a new
+public grammar operation. Its unsupported-pair rejection is an explicit probe
+contract; it does not change the existing optional event backend fallback.
+
+| Engine boundary | Appropriate generic operation | Prepared result |
+|-----------------+-------------------------------+-----------------|
+| Admitted recognition dialect and semantic backend | Resolve a supported lowering strategy | Checked closed recipe plus derived executor |
+| Result schema and publication target | Resolve encoding/publication strategy | Schema-admitted publication kernel |
+| Open POO authoring role and compiler target | Elaborate inherited behavior | Canonical IR with source origins |
+
+These are independent variation axes. The first migration should move strategy
+selection out of nested runtime branches into one preparation owner, retain
+the prepared runtime's identity, and keep each kernel's traversal explicit.
+Grammar authors continue to use the existing three interfaces. Ordinary values
+are sufficient for fixed strategies; POO/class specialization supports genuine
+extension. A closed scalar algorithm such as completion score comparison does
+not acquire a class hierarchy solely to increase generic usage.
+
+Prepared products must bind the admitted generic generation or immutable method
+snapshot; otherwise changing methods could silently change a retained parser.
+Procedure-valued derived executors must not enter canonical, digest-bearing IR.
+Reusing generic selection requires preserving both constraints before replacing
+the current backend policy.
+
+** Contextual conflict semantics remain an independent contract
+
+Two applicable methods can be more specific on different arguments. Ordinary
+CLOS chooses using argument precedence. Current contextual grammar selection
+uses componentwise dominance: incomparable maximal methods with unequal results
+are an error, while equal results retain both declaration origins.
+
+The executable control tests both behaviors on the same =shell/command=
+intersection. It shows why blindly substituting ordinary primary-method
+selection could hide a grammar conflict. Core's existing generic-protocol and
+method-combination facilities are the appropriate place to express the required
+policy if that resolver migrates; parser-specific conflict admission remains
+explicit. No new dispatch kernel is justified.
+
+** Question: why is this design preferable and testable?
+
+Multiple dispatch states which combinations the engine supports without making
+each caller reproduce a decision tree. Hygienic declarations, POO extensions,
+normal values and prepared kernels can cooperate: the generic owns selection,
+the compiler owns admission, and the executor owns repeated work.
+
+The controls demonstrate actual two-argument selection, fixed-kernel reuse,
+unsupported combinations and the contextual conflict boundary. Production
+migration additionally requires generation invalidation controls, complete
+artifact/diagnostic parity, preparation cost and complete-request benchmarks.
+These executable controls alone do not close that migration or establish its
+performance.
+
+** Generic control qualification
+
+Eight source-client/contextual cases pass over the preloaded pinned native
+Core CLOS dependency: final =OK=, exit 0, 13.951 s, in
+unarchived local execution.
+Official native compilation of the new suite passes in 13.917 s. Its three
+compiled cases then run directly through the native =std/test= harness: final
+=OK=, exit 0, 5.101 s, in
+unarchived local execution.
+
+The first fully interpreted dependency load hit the unchanged five-second
+no-progress watchdog and is excluded. A native harness attempt incorrectly
+addressed the re-exported =TestHarness= as a runtime symbol owned by =base=;
+using the module's normal imported binding fixes that driver error. These
+negative receipts establish neither a generic-dispatch performance result nor
+a defect in Core. Native dependency reuse and source-client qualification are
+separate from a fully interpreted dependency run.
+
+** Production LR preparation: select admitted executors once
+
+=src/runtime/lr-parser.ss= now separates the grammar's semantic capability from
+the request's backend preference. =lr-prepare= validates reduction plans,
+classifies the admitted grammar and selects both executors through the existing
+Core CLOS implementation:
+
+#+begin_src scheme
+(.defgeneric select-lr-semantic-reducer (backend capability))
+(.defmethod (select-lr-semantic-reducer (backend (eql 'recognition)) capability)
+  reduce-value)
+(.defmethod (select-lr-semantic-reducer (backend (eql 'event)) capability)
+  #f)
+(.defmethod (select-lr-semantic-reducer (backend (eql 'event))
+                                     (capability (eql 'plain)))
+  reduce-value/events)
+#+end_src
+
+The general event method denotes unavailable optional execution; the more
+specific =event/plain= method supplies the executor. Layout, dynamic precedence
+and branching grammars retain recognition execution. Unsupported semantic
+actions still fail during reduction-plan validation. No public grammar syntax,
+POO wrapper or alternate generic registry is introduced.
+
+The prepared runtime stores the returned procedure or negative admission.
+=lr-runtime-for-current-semantic-backend= performs constant-size preference and
+identity checks, then obtains or constructs the cached event runtime. It no
+longer traverses the LR action and production tables, including repeated
+requests against an ineligible grammar. Generated step installation invalidates
+future runtime selection while previously retained runtimes keep their executor.
+
+This first protocol is closed and module-private. Core's lowering constructs a
+lexical =poo-clos-generic-binding=; the parser exports neither that binding nor
+the generic. Preparation captures the selected executor itself, so later
+requests do not consult a generic generation. An open extension protocol still
+needs explicit generation admission; this change does not implement one.
+Executors remain derived runtime values, absent from canonical digest-bearing
+grammar and parser IR.
+
+*** Question: why is this abstraction preferable?
+
+Support for a backend/capability combination is a method declaration owned by
+preparation. Callers do not inspect grammar tables or reproduce support rules.
+Ordinary Scheme values suffice for these fixed strategies; actual open authoring
+objects retain their POO interfaces. Multiple dispatch resolves variation while
+named pure algorithms perform capability classification and the fixed reduction
+kernel performs traversal. This assigns each abstraction a concrete job.
+
+*** Question: what makes the claim testable?
+
+=t/lr-semantic-preparation-test.ss= checks preference-independent preparation,
+runtime identity and cache reuse, generated-step replacement without changing
+retained executors, and recognition fallback for dynamic, branching and layout
+grammars. Existing artifact, GLR, empty-reduction and fragment tests supply
+semantic controls. Two generic selections and eligibility scanning now belong
+to preparation even when event execution is not requested. Preparation overhead,
+cold native dependency loading and complete-request performance must therefore
+be measured separately; removing request-time table traversal alone proves no
+end-to-end speedup.
+
+*** Qualification and separated cost observations
+
+The runtime and new contract suite compile natively with final =OK=, exit 0,
+42.902 s. The native =machine= consumer is rebuilt in dependency order, 18.726 s.
+The three compiled preparation cases pass directly through =std/test= in
+14.981 s. Seven source-client suites over the rebuilt native runtime pass
+46 cases in 12.627 s, including artifact parity, empty reductions, GLR,
+layout and incremental fragment controls. All accepted processes retain the
+five-second real-output watchdog and require both successful exit and final
+=OK=. Receipts are unarchived local execution.
+
+The first integration run exposed an old =machine= product whose inlined
+=lr-runtime-event-step= accessor used the preceding record layout. It read the
+new executor slot and incorrectly rejected backend installation. Recompiling
+the consumer resolves the mismatch; this failed run is excluded. Incorrect
+compiler entry names, a delimiter error and an invalid verbosity argument in
+temporary drivers are also excluded. No compatibility accessor is installed.
+
+The existing =t/benchmarks/lr-request-stack/benchmark.ss= now exports a separate
+preparation/selection observation alongside complete-request controls:
+
+#+begin_src scheme
+(benchmark-lr-semantic-preparation 8 3 1000)
+(benchmark-lr-request-stack 8 3)
+#+end_src
+
+Each prepared runtime is warmed before repeated selection. Preparation samples
+include =lr-prepare= and initial backend selection, including construction of
+the selected runtime where admitted. Eight samples observe three preparations
+or 1,000 warmed selections per batch. These observations are not a paired
+baseline/candidate comparison.
+
+| Language | Event admitted | Preparation plus first selection CPU median, ms/call | Warmed selection CPU median, us/call |
+|----------+----------------+-----------------------------------------------------+-------------------------------------|
+| GQL | no | 75.079 | 0.081 |
+| FHIRPath | yes | 1.139 | 0.053 |
+| Arithmetic | yes | 0.565 | 0.054 |
+
+The complete benchmark also validates six cross-language products at 64/512
+units and runs their prepared-recognition/full-source samples. Both benchmark
+markers and final =OK= pass, exit 0, 34.454 s, in
+unarchived local execution.
+Wall observations contain substantial scheduler delay, so no wall-speedup
+claim is admitted. The large GQL preparation cost needs attribution among table
+indexing, mode interning and other preparation work; these measurements do not
+identify its dominant algorithm or attribute it to generic dispatch.
+
+Publication integrates concurrent =aff9375= before delivery. The owned LR,
+machine and benchmark source graph is unchanged by that commit. Rebased native
+preparation controls pass all three cases again: final =OK=, exit 0, 21.962 s,
+in unarchived local execution.
+These reused native products do not qualify the concurrent prefix-family
+implementation; exact-head CI owns the complete merged package and Rust AOT.
+
+* Contextual matcher preparation across modes and source sizes
+
+The adjacent audit covers contextual scanner preparation, closed region plans,
+lexical source capture and source-engine binding. =region-scanner.ss= already
+owns explicit nested frames and a prepared opener index. =source-strategy.ss=
+already admits an owned contextual program and checks its publication owner.
+The concrete duplication is in =contextual-scanner.ss=: equivalent configured
+matchers are lowered separately for each mode, and the short/long source indexes
+repeat source-independent lowering when a large literal catalog is present.
+
+Official Gerbil =std/text/parser/ll1.ss= provides relevant abstraction evidence:
+=ll1-bind= constructs a reader procedure, =ll1-or/list= separates declared
+alternatives from the later reader, and =peeker= interprets specification data
+into predicate procedures. These examples support separating declaration and
+execution; they do not justify caching arbitrary closures. The parser's matcher
+executors take source, offset and contextual state as arguments. Their captured
+configuration belongs to a prepared plan.
+
+** Share executable configuration, preserve rule semantics
+
+The implementation separates =lower-rule-matcher=, =prepare-rule-matcher= and
+=decode-rule=. A private =contextual-matcher-plan= holds an admitted expression
+and executor. One preparation-local equal?-table shares region/guard matcher
+plans across modes and both source-size indexes. Their declaration keys begin
+with opcode symbols; existing literal-trie keys are catalogs of strings. These
+key domains are disjoint. Literal catalogs retain their established short-input
+linear and long-input trie paths. Primitive opcodes retain the compiler's
+existing configuration-free closures directly.
+
+#+begin_src scheme
+;; A hygienic local constructor retains lexical rule metadata without a closure.
+(defrule (finish expression executor)
+  (make-runtime-scan-rule name mode form expression executor rank action))
+(let (plan (prepare-rule-matcher matcher matcher-cache))
+  (finish (contextual-matcher-plan-expression plan)
+          (contextual-matcher-plan-executor plan)))
+#+end_src
+
+The plan takes ownership of closed IR before interning. No process-global cache,
+new grammar declaration, user-visible wrapper or runtime generic dispatch is
+introduced. The preparation table is discarded after the completed indexes own
+their executors. State, pending delimiters and source identity remain request
+owned; rule name, form, rank and action remain distinct records. Canonical IR,
+its digest and opcode meaning are unchanged.
+
+** Question: why is this abstraction preferable?
+
+Matcher configuration and contextual rule policy vary independently. Naming the
+preparation product makes their sharing boundary explicit, while S-expression
+data supplies structural equality and pattern-based lowering. A rule's parser
+position and method origins stay with contextual dispatch. Existing CLOS
+preparation protocols select independent backend/capability axes; this closed
+opcode lowering uses structural =match=. Each mechanism has an identified owner
+and does not impose another configuration interface on a language author.
+
+** Question: how is the claim tested?
+
+The native scanner suite adds a shared =<<= matcher under different ranks,
+actions and modes, checking independent requests and short/long input plans.
+Existing controls cover longest Unicode literals, guards, ambiguity diagnostics,
+IR mutation, deferred delimiters, region nesting and source strategies.
+
+The first all-matcher interning experiment exposed a negative control: primitive
+=identifier=/whitespace executors already have compiler-hoisted closures.
+Wrapping and caching them adds allocation without providing sharing. A second
+experiment bypassed their cache but used a uniform multiple-value return carrier;
+it still added 96 bytes per one-mode preparation and 1,536 bytes at sixteen modes.
+Literal-catalog CPU results were mixed, including a regressed median in that
+second run. The final implementation confines matcher-plan sharing to region
+and guard lowering, preserves the established primitive/literal paths and uses
+a local =defrule= to stage record construction. This is a measured selection
+boundary, rather than an assumption that every Scheme value benefits from
+interning or a uniform return protocol.
+
+Preparation comparison uses exact =f3dff04= scanner source compiled under an
+isolated temporary test namespace. The production package contains no baseline
+or legacy executor. The existing =matched-scale.ss fixture-ir= now accepts an
+optional declared word matcher, enabling the same mode/position fixture to
+exercise identifier, literal-catalog and region configurations. Both native
+implementations consume the same compiled IR and source. Each measured product
+is scanned afterward and checked for equal token kinds, lexemes, byte boundaries
+and final offset. Allocation is admitted only for intervals without collection.
+Alternating ABBA order controls sample order; preparation timing excludes IR
+compilation and scanning. These controls cannot establish whole-parser speedup.
+
+** Native matched controls and qualification
+
+Each run uses four ABBA rounds and three preparations per sample. CPU entries
+are per-preparation medians in milliseconds; byte entries are medians admitted
+only without GC. Both runs validate every resulting scanner product afterward.
+
+| Configuration | Baseline bytes | Candidate bytes | CPU first run old/new | CPU confirmation old/new |
+|---------------+----------------+-----------------+-----------------------+--------------------------|
+| identifier, one mode | 64,709 | 64,709 | 0.0557 / 0.0477 | 0.0573 / 0.0577 |
+| identifier, sixteen modes | 1,986,165 | 1,986,165 | 3.3897 / 3.9307 | 3.2960 / 3.2733 |
+| literal catalog, sixteen modes | 2,647,259 | 2,647,131 | 4.0503 / 3.5953 | 4.2430 / 3.7817 |
+| region, sixteen modes | 6,576,181 | 3,611,723 | 11.1537 / 4.4853 | 9.2747 / 4.8883 |
+
+The confirmation region baseline is 6,576,309 bytes. The two region controls
+reduce preparation allocation by approximately 2.96 MB, or 45%. Identifier CPU
+results are mixed, including a regression in the first sixteen-mode run. They
+support no general CPU improvement claim. The region preparation control is
+narrow: it does not measure scanning, parsing, request latency or application
+throughput. The literal path is retained, rather than redesigned on these data.
+
+Final accepted receipts retain exit 0, final =OK= and the five-second idle gate:
+
+- Native contextual producer compilation: 35.987 s.
+- Native scanner suite and paired benchmark consumer compilation: 22.562 s.
+- Native scanner suite: all 17 cases, 11.410 s.
+- Source suites over the native producer: all 68 cases across contextual,
+  deferred, region, source-scanner and source-strategy suites, 22.113 s.
+- Exact baseline native compilation: 45.282 s.
+- Matched comparison and confirmation: 8.290 s and 19.849 s, both with
+  =MATCHER-COMPARISON-OK= and validated scanned products.
+
+Two final compilation attempts stopped at the idle gate during GCC function
+compilation and are excluded. An earlier combined baseline compilation emitted
+=OK= but had =reason=idle-timeout= and is also excluded. The successful producer
+compile enables actual GCC integrated-register-allocator diagnostics with
+=-fira-verbose=10=, alongside verbose optimization reports. GCC documents that
+values of ten or more send those diagnostics to stderr in its
+[[https://gcc.gnu.org/onlinedocs/gcc/Developer-Options.html][developer options]]. This changes observability, not optimization or the idle
+deadline. No synthetic progress or relaxed timeout is admitted as a receipt.
+
+The source controls load reused native dependency products. They qualify this
+matcher preparation change, not the complete concurrently changing compiler
+package. Exact-head CI owns complete package and Rust AOT qualification after
+publication.
+
+Publication rebases this change onto =b5a3141=, preserving the concurrent
+hygienic ranked-candidate-loop work. That commit changes the regular lexical
+compiler, not this contextual matcher graph. All 17 native contextual cases pass
+again after rebase: 9.655 s, exit 0, =HARNESS-OK= and final =OK=, with the
+five-second gate. Reused native products do not qualify the concurrent compiler
+change; complete merged-head CI remains a separate gate.

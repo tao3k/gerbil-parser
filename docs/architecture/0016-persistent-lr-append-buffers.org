@@ -1,0 +1,189 @@
+#+title: RFC 0016 — Persistent end append for the shared LR/event sequence
+#+startup: overview
+
+* Evidence and target
+
+RFC [[file:0015-unified-lr-semantic-event-sequences.org][0015]] completed a 112-row comparison. The shared DAG and balanced
+publisher retained all semantics and counters, but flat topology requests
+regressed about 13% and flat histories about 17%–19%. Publication itself
+was near canonical, with mixed order results. This motivates a producer
+experiment, rather than claiming that a publication improvement fixes all
+request cost. The canonical production default remains selected.
+
+* Algorithm transfer
+
+[[https://aleksandar-prokopec.com/publications/conc-trees/][Prokopec and Odersky's Conc-Trees]] distinguish balanced concatenation from
+an append organization with amortized constant end operations. This Scheme
+experiment uses an immutable tail block and equal-rank binary carries; it
+is not a complete Conc-Tree implementation and inherits no performance
+ratio or arbitrary persistent branching guarantee.
+
+Small action sequences remain one block until they spill. Every full block
+has 16 semantic leaves. Complete blocks are stored newest
+first with strictly increasing binary ranks. Appending one semantic leaf
+copies at most a 16-reference tail block and one envelope. A full tail is
+carried through equal-rank blocks; each merge retains both old operands.
+If B full blocks are carried along one linear history, the merge count is
+B - popcount(B). Thus carry work is linear in B across that history. No
+previously published tail, digit list, or branch is mutated. Repeatedly
+forking the same carry root may repeat logarithmic carry work. This bound
+is explicitly narrower than arbitrary persistent amortization.
+
+For multi-sequence append, the end buffer is normalized from newest/smallest
+blocks toward older/larger blocks before AVL concatenation. This prevents
+alternating singleton/multiple append from nesting unbounded envelopes.
+A moved sequence remains an opaque position view with zero-sum movement
+provenance; complete token proofs remain in the publisher. Program nodes
+and fields remain opaque semantic leaves with their existing bodies.
+
+* Producer, storage and consumer ownership
+
+Only the private shared sequence join policy changes. LR reductions and
+HCL generated reductions still call the single =event-program-append=.
+Field/alias algebra, exact prepared-runtime and executor identity, lexical
+certificate, token binding, source ownership, and original-production
+projection are unchanged. Traversal visits prefix, chronological completed
+blocks, then tail, retaining the existing depth-64 iterative fallback.
+The materialization visitor and specialized publisher use the same order.
+
+The internal =event-program-append/avl= is an experiment control for the
+previous join policy on the same leaves; it is not a second parser or
+semantic reducer. The production event path uses the end buffer. GLR and
+layout keep their existing backend. The event backend itself stays opt-in.
+
+* Falsifiable qualification
+
+The focused suite retains carry-boundary roots at 16/17, 32/33, 255/256/257
+and 1,024 leaves, forks old roots, compares complete semantic leaves with
+the AVL control and exercises append blocks within a 100-level fallback.
+It also alternates singleton and multi-sequence joins for 3,000 tokens,
+requiring bounded rope height, original token order and immutable operands.
+All previous UTF-8, fields, cancelled moves, 10,000-node publication,
+HCL executor ownership, history/inverse and original-projector checks remain.
+
+The construction harness prebuilds tokens and retains every intermediate
+root for 400/800/1,600 append chains. It separately forks the same carry
+root 128 times at 256/512/1,024 leaves. Both policy orders use 20 samples.
+CPU timing includes construction and root retention, excluding collection,
+semantic checking, token construction and source publication. Post-timing
+collection settles Gambit allocation and retained-live counters; those byte
+receipts include the observation/collection overhead and are not pure
+constructor instruction counts. The same overhead applies to both policies.
+
+Five-second inactivity and 180-second batch gates remain. Native compilation
+has its separate bounded C phase. Constructor improvement alone is not an
+admission result: the full 112 rows must preserve all scalar counters and
+complete independently projected artifacts, and publication must still
+qualify. Same-head backend comparison, production-default impact and remote
+CI remain distinct. Results and remaining gates are recorded below.
+
+* Completed constructor experiment
+
+At source =fc330f3= (runtime unchanged from =51d4787=), the focused native
+suite passed all 65 cases and all native sections were complete. A preceding
+fixture compilation hit the old 30-second limit before executing tests; its
+failed receipt is preserved. The corrected fixture driver independently
+bounds native compilation at 180 seconds, kills only that build process
+group and saves metadata even on failure. Test/benchmark inactivity and
+batch limits remain 5 and 180 seconds.
+
+All 24 constructor rows completed with original token identities and retained
+root checks. Linear retained-root construction improved in both orders:
+
+| Leaves per chain | CPU change order 1 / 2 | Allocated bytes change |
+|------------------+------------------------+------------------------|
+| 400 | -57.81% / -59.86% | -32.08% |
+| 800 | -66.40% / -66.36% | -39.48% |
+| 1,600 | -69.40% / -68.27% | -45.47% |
+
+The eight-chain candidate medians grew approximately 1.1 / 2.2 / 4.4 ms,
+while AVL grew approximately 2.6 / 6.5 / 14 ms. The allocation observations
+and scaling support the targeted linear-append hypothesis. These are
+construction-only results, not parser/request speedups.
+
+Repeated carry-root forks improved CPU about 24%–28%, but allocated bytes
+changed +6.45% / +3.67% / 0% at 256/512/1,024 leaves. This is why neither
+arbitrary persistent constant-time appends nor universal allocation reduction
+is claimed. Publication and complete request qualification follow below.
+
+* Completed publication phase
+
+The final candidate completed all 16 same-token publication rows with full
+artifact equality and 20 samples per row. Relative to independently projected
+canonical roots, flat 400 changed +1.07% / +5.23%, flat 800 -0.95% / +3.50%,
+nested 8 +0.87% / -8.03%, and nested 16 +0.47% / +0.65%. There is no broad
+publication speed claim. These observations are separate from the producer
+experiment; all request and admission results are recorded next.
+
+* Completed request matrix and admission
+
+The complete 112-row matrix at =fc330f3ef67334d6dcfcb2055b13018ab93646e4=
+passed fresh artifact equality, inverse edit equality, independent
+original-production projection and every scalar scanner/transfer counter.
+Of 28 paired workloads, 17 improved in both orders, seven regressed in both
+and four were mixed. Family geometric means relative to same-head canonical:
+
+| Family | Order 1 | Order 2 |
+|--------+---------+---------|
+| Flat topology | +1.96% | +3.06% |
+| Nested topology | -5.05% | -8.47% |
+| Flat six-edit histories | -6.62% | -14.93% |
+| Nested six-edit histories | -6.81% | -5.00% |
+
+This demonstrates that the end-append constructor improvement transfers to
+history requests and some topology requests. It does not establish universal
+request improvement. The flat topology regressions and seven consistently
+slower workloads prevent broad performance/default admission. The production
+default remains canonical, with all original ownership and reuse checks.
+No production-default before/after or remote CI qualification is claimed.
+
+* Next evidence boundary
+
+The current publication phase uses fresh roots, whereas topology edits can
+publish moved reused bodies. It cannot establish publication cost for that
+changed distribution. The next structural investigation should isolate
+publication of captured first/middle/last edited roots with current tokens
+and the original projector, then observe singleton versus multi-sequence
+normalization work during actual LR reductions. This separates the remaining
+moved-publication and normalization hypotheses before another representation
+change. Neither is presented as the sole measured cause of the residual
+flat topology cost.
+
+* Full native boundary
+
+The full native audit completed 59 modules and 495 started cases; 494 passed.
+The sole failure was the existing =GERBIL-PARSER-POO-GRAMMAR-OBJECTS= gate,
+p95 146.752 ms against the unchanged 100 ms ceiling. This observation does
+not establish a causal regression from the append policy; the scenario
+constructs grammar objects and was already failing in the prior experiment.
+The GQL runtime gate passed at p95 131.728 ms against 150 ms. Package/build
+contracts, all newly added semantic cases and every remaining module passed.
+The audit retained its nonzero failure status; it is not a full green receipt.
+
+No threshold changes, push or merge occurred. PR #13 was read-only verified
+at remote head =7c1533356585154c8b5d340f64ffefb289d18907=, already contained
+by the local branch. The source, constructor samples, complete request
+samples, native failure and remaining qualification boundaries are preserved
+for review in this single RFC and its receipt family.
+
+The HCL generated-source check completed with normal exit zero and
+=GENERATED-HCL-STEP-OK= at the same source head. Its executor command and
+log hash are sealed separately. The production default remains canonical.
+
+* Follow-up: checkpoint history integrity
+
+[[file:0017-checkpoint-history-cursor-integrity.org][RFC 0017]] measures actual moved edited roots and native LR construction
+operations. It identifies and repairs a resumed-checkpoint token cursor defect
+that caused tail inverse edits to discard successful incremental work and
+reparse in full. Its operation counts and publication-only measurements have
+separate evidence boundaries from this RFC's constructor and request matrix.
+
+
+* Scheme/ASP verification owner
+
+Execute correctness assertions through the shared native Scheme harness.
+Performance admission uses =t/core-observability-test.ss=,
+=t/gql-runtime-benchmark-test.ss= and =t/incremental-suffix-benchmark-test.ss=,
+with their existing ASP =benchmark.ss= contracts. The repository's =Justfile=
+selects diagnostic microbenchmarks when a specific algorithm phase needs study.
+Workloads, samples and thresholds remain owned by those Scheme sources.

@@ -1,0 +1,380 @@
+#+title: Upstream caller-owned UTF-8 admission in complete parser requests
+
+* Ownership and integration
+
+Both =gerbil.pkg= and the Rust IR dependency pin
+=gerbil-scheme-rust= revision =345b172765e5607b09049614d10520c2439dcac3=.
+The parser imports the actual upstream =scheme/utf8= module; it does not copy
+its encoder or initialize a second Scheme VM. The public Rust and C parse
+signatures, GPA1 format and language declarations remain unchanged.
+
+[[file:../../src/ffi/language-abi-context.ss][Prepared ABI contexts]] own a source-admission procedure. The default proves ASCII and decodes it directly into owned Scheme storage.
+For other bytes it decodes and calls upstream
+=gerbil-rs-encode-utf8-into= to compare the canonical scalar encoding against
+the original bytes. [[file:../../src/ffi/language-artifact-codec.ss][Both fresh and session publication]]
+use that admission before parsing. [[file:../../src/ffi/language-handles.ss][Prepared context registration]] gives each
+handle its existing independent history; it adds no process or VM isolation.
+The private context record is an engine protocol, not a new language DSL slot.
+
+Each nonempty non-ASCII admission allocates stable C storage with capacity four times
+its decoded character count. Upstream writes bounded 256-character chunks,
+retaining Scheme polling and strict Unicode scalar checks. The consumer passes
+a typed =void*= foreign object, not an integer address. Its no-allocation
+comparison leaf borrows the Scheme bytevector body only during that call.
+No Scheme body pointer survives a poll, callback or allocation. =dynamic-wind=
+frees C storage on success and exceptions; empty input requires no allocation.
+Allocation failure and malformed/noncanonical UTF-8 remain errors before result
+publication and history commit. This changes temporary encoding storage, not
+the original source copy or the owned C result lifetime.
+
+The upstream encoder and its pointer contract are primary implementation inputs:
+[[https://github.com/tao3k/gerbil-scheme-rust/blob/345b172765e5607b09049614d10520c2439dcac3/scheme/utf8.ss][Pinned Scheme encoder source]]. Existing parser transport already uses bulk
+=memcpy= for source and GPA1 bytes; reimplementing those copies would not consume
+a missing upstream optimization.
+
+* Complete request experiment
+
+[[file:../../t/benchmarks/language-abi/utf8-cpu.ss][The Scheme Benchmark]] registers two prepared contextual record parsers. The
+reference context independently reproduces the former =utf8->string= plus
+=string->utf8= equality admission. The candidate uses the production upstream
+caller-buffer admission. Grammar, scanner, parser, catalog, byte source and
+expected complete GPA1 payload are shared in meaning. Workloads must be accepted.
+
+Both timed thunks call the actual length-bearing public C parse ABI through
+[[file:../../t/benchmarks/source-edits/abi-call.ss][the existing owned C caller]]. Timing includes input allocation/copy, callback,
+strict admission, contextual parsing, GPA1 encoding, C result allocation/copy,
+readback and all releases. Complete payload equality is checked by the common
+sampler; initialization and context preparation are outside both timed lanes.
+This is a Scheme measurement of the public C path also used by Rust callers,
+not a measurement of Rust wrapper instruction costs.
+
+Twenty groups retain complementary paired order and equal request budgets.
+Every natural collection remains charged to CPU. Identical reference controls
+run before and after the production comparison. Both control P10/P90 bounds
+remain 0.90--1.10; positive benefit additionally requires production P90 below
+0.95 and every timed sub-batch to resolve at least one millisecond. Each fresh
+proof child retains 120 seconds total, five seconds of real-output idle time,
+three GiB maximum heap and typed nonzero rejection. No collection is forced
+between sub-batches, no sample is dropped and GC CPU is not subtracted.
+
+* Local executable receipts
+
+The fixed CI Gerbil 2591dcd/Gambit dcd677c SDK and its GCC toolchain compiled the
+final producers in 8.111 seconds. The complete ABI GxTest suite, including
+Unicode scalar extremes and 256-character boundaries, returned =OK= and exit
+zero in 11.460 seconds. Initial completion followed by an idle kill is retained
+as rejected; the standard disposable-child exit owner closes the final process.
+
+| Complete accepted input | Bytes | Nominal calls | CPU P50 ratio | CPU P90 ratio | Median decrease | Elapsed seconds | Benefit admitted |
+|-------------------------+-------+---------------+---------------+---------------+-----------------+-----------------+------------------|
+| 4096-character ASCII identifier | 4099 | 1024 | 0.889677 | 0.918142 | 11.03% | 46.890 | yes |
+| 4096-character Unicode identifier | 8195 | 1024 | 0.847645 | 0.889088 | 15.24% | 51.331 | yes |
+| 64 complete record assignments | 256 | 256 | 1.003263 | 1.035410 | none proved | 71.737 | no |
+
+ASCII controls have P10/P90 0.957433/1.023836 before and
+0.976223/1.020410 after. Unicode controls have 0.969120/1.022878 before and
+0.987238/1.018941 after. The many-record controls also pass, but its production
+series does not establish positive CPU benefit. A separate no-regression
+obligation requires stable controls and production P90 at most 1.05; it cannot
+be reported as a speedup. Fresh CI verifies both obligations separately.
+
+Two independent 256-call regression children retained continuous real-batch
+progress but hit the unchanged 120-second bound under host scheduling delays.
+Neither is admitted. An equal 128-call experiment completed in 40.993 seconds
+but rejected its before-control P10 of 0.894746; its production P90 of 1.024535
+does not qualify the run. The regression obligation retains the original
+256-call budget and every statistical/control threshold.
+
+The final independent 256-call regression child completed in 71.671 seconds
+with exit zero and =ABI-UTF8-CPU-REGRESSION-OK=. Its control P10/P90 were
+0.940476/1.070487 before and 0.961524/1.039007 after; production P50/P90
+were 0.994419/1.031232. This admits the bounded regression obligation and
+still reports =cpu-benefit: false=. The Rust workspace consumer checks against
+the synchronized pin passed 167 tests with two ignored.
+
+Negative experiments are part of the boundary. The ordinary upstream encoder
+still allocates/fills a maximum-sized Scheme bytevector. With 128 nominal calls,
+ASCII CPU P50/P90 was 0.949521/1.111697 and the controls rejected. With 1024 calls,
+controls passed but production 0.959259/1.032450 did not admit benefit. Its
+Unicode exploratory series also rejected benefit; it is not positive evidence.
+The final caller-owned route removes that temporary Scheme vector rather than
+relaxing the admission rule. A wrong integer-pointer integration was rejected by
+the upstream typed pointer guard and fixed before final semantic qualification.
+
+These receipts qualify the specified complete contextual requests. They do not
+prove every grammar faster, solve the Bash/Tree-sitter gap, or attribute a gain
+to the unlinked upstream Rust runtime. The many-record result makes the limited
+CPU contribution of UTF-8 admission visible when parsing/publication dominates.
+
+* Reproduction and remote closure
+
+Use the normal package dependency/build owners followed by =build-ffi-tests.ss=.
+The compiled entry and its source proof runner are part of that existing owner.
+
+#+begin_src sh
+gerbil env gxi t/benchmarks/language-abi/utf8-proof.ss 20 1024 128 identifier false
+gerbil env gxi t/benchmarks/language-abi/utf8-proof.ss 20 1024 128 identifier true
+gerbil env gxi t/benchmarks/language-abi/utf8-proof.ss 20 256 64 records false regression
+#+end_src
+
+The existing manual performance workflow executes both positive benefit gates
+and the distinct many-record regression obligation on Ubuntu. Ordinary CI keeps
+its ABI, source callback/GC, complete conformance and generated-product checks.
+Exact-head CI remains a separate gate after integration with concurrent PR work.
+
+* Ubuntu integration receipt
+
+The complete request gates on PR revision =30106c5= passed in workflow
+[[https://github.com/tao3k/gerbil-parser/actions/runs/38124481599/attempts/2][Ubuntu attempt 2]]. ASCII production CPU P50/P90 were 0.901757/0.945452
+(9.82% median decrease); Unicode were 0.871052/0.883793 (12.89% decrease).
+Both before/after controls passed. The 64-record request had production
+0.990466/1.022054 and passed the distinct regression obligation; it did not
+admit positive CPU benefit. Complete payload equality and natural GC charging
+remain unchanged.
+
+Attempt 1 rejected an existing public-parser benchmark before-control P10 of
+0.883024; its candidate P90 of 0.867271 was not enough to admit the run.
+Attempt 2 reached the final Scheme suites and caught the existing package
+contract's two-dependency expectation. The integration adds a third actual
+Scheme dependency, so its exact expected dependency list is corrected. These
+attempts do not qualify the full workflow; final closure requires the corrected
+revision's complete Ubuntu job to pass.
+
+* Complete 64-record publication algorithm
+
+The UTF-8-only 64-record result above remains a negative benefit result. The
+next experiment changes the shared GPA1 publication algorithm independently
+of source admission. A request-local diagnostic measured 100 accepted ASCII
+64-record C ABI calls: complete CPU was 54.732 ms, contextual scan/LR drive
+21.860 ms, event validation 2.528 ms and event publication 27.962 ms. The
+publication stage was approximately 51% of complete CPU. These inclusive
+observer measurements locate costs; they are not a paired speedup proof.
+
+The fixed Gerbil SDK's =std/vector/u8vector= integer setters dispatch byte
+order and check each scalar span before shifting/storing each byte. GPA1 rows
+have an invariant 24-byte layout. The shared engine now packs that whole row
+through one bounded synchronous leaf instead of five generic scalar writes.
+The leaf converts unsigned integers before accessing storage, checks the
+bytevector and complete remaining span without offset-addition overflow, and
+writes explicit little-endian bytes. It requires neither aligned stores nor
+host endianness. The Scheme buffer body is borrowed only during the leaf;
+there is no callback, allocation, poll or retained pointer inside it.
+
+Both deferred contextual publication and already materialized Source artifacts
+use the prepared context's row writer. Parsing, two-pass event validation,
+source ownership, canonical IDs, descriptor lookups, publication error
+classification, exact buffer sizing and history commit ownership are preserved.
+No language declarations or scanner rules change. Invalid integer widths and
+short output spans fail before writing any part of the row.
+
+The =events= Benchmark registers two independent public C ABI handles with
+identical production UTF-8 admission and parsing. Its reference context owns
+the former five-setter row writer; its candidate uses whole-row packing. Both
+produce the entire 15,488-byte GPA1 for 64 accepted assignments, including input
+copy, parsing, source hash, publication, C result copy, readback and release.
+Empty, rejected, quoted, CRLF, Unicode and field-bearing products are compared
+byte-for-byte outside timing. The existing 20-group paired CPU admission,
+resolution, natural GC and before/after controls remain unchanged.
+
+The initial ASCII experiment passed with CPU P10/P50/P90
+0.624346/0.642045/0.683865, a 35.80% median decrease. Before-control P10/P90
+were 0.928303/1.037129 and after-control 0.928605/1.047672. The child completed
+in 66.762 seconds with exit zero and =ABI-EVENT-CPU-PROOF-OK=. This receipt
+predates the extra internal bytevector guard; final receipts are recorded below.
+A guard compilation rejected a missing Gambit predicate temporary, and the
+premature Unicode child was stopped. Neither is admitted as final evidence.
+
+Reproduce the independent complete-request proof after the normal builds:
+
+#+begin_src sh
+for unicode in false true; do
+  gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+    --log ".data/ffi-event-records-${unicode}-cpu.log" \
+    --require ABI-EVENT-CPU-PROOF-OK \
+    -- gxi t/benchmarks/language-abi/utf8-proof.ss \
+       20 256 64 records "$unicode" events
+done
+#+end_src
+
+The Ubuntu manual qualification runs these independent proof children in
+addition to the existing UTF-8 obligations. A gain here proves the specified
+complete multi-record requests faster; it does not establish an arbitrary
+language speedup or close the separate Bash/Tree-sitter performance gap.
+
+The final guarded Unicode 64-record child used 320 source bytes and 15,488
+payload bytes. CPU P10/P50/P90 was 0.620822/0.648361/0.690914 (35.16% median
+reduction); controls were 0.946849/1.045681 before and 0.958388/1.046244 after.
+It returned =ABI-EVENT-CPU-PROOF-OK= and exit zero in 68.784 seconds.
+
+The final guarded ASCII child used 256 source bytes and the same 15,488-byte
+complete payload. CPU P10/P50/P90 was 0.615059/0.655528/0.687218 (34.45% median
+reduction); controls were 0.938971/1.043902 before and 0.936834/1.043005 after.
+It returned =ABI-EVENT-CPU-PROOF-OK= and exit zero in 67.669 seconds. The final
+producer compiled with the fixed GCC SDK in 7.991 seconds. All these results
+charge natural GC and retain every sample.
+
+The final complete language ABI suite, including row extremes, adjacent-byte
+sentinels, unsigned overflow and atomic bounds rejection, returned =OK= and
+exit zero in 7.205 seconds. Workflow YAML parsing and patch whitespace checks
+also passed locally; remote qualification is a separate gate.
+
+* ASCII admission proof and first Ubuntu rejection
+
+The first new-head Ubuntu qualification at commit =18e95e6= rejected the
+existing ASCII UTF-8 obligation: controls passed, but complete identifier CPU
+P50/P90 was 0.939820/0.979701. Its P90 fails the unchanged 0.95 benefit limit.
+The new event proof was not reached. The same head passed macOS Scheme and
+Rust AOT qualification. This failed Ubuntu result remains part of the evidence:
+[[https://github.com/tao3k/gerbil-parser/actions/runs/38134751349][First new-head qualification]].
+
+The shared admission now proves canonical ASCII directly. Every byte below
+128 is its unique UTF-8 scalar encoding, including NUL. Bounded byte
+classification admits precisely this subset, then direct scalar stores decode
+it into owned Scheme string storage. This removes generic decoding, redundant
+re-encoding, C scratch allocation and chunked encoder calls. Both ASCII
+classification and copying enforce 4,096-byte leaves and return to Scheme
+between chunks. Copying checks high bits again; a changed non-ASCII byte fails
+admission before result publication. Native string stores follow the fixed
+Gambit header representation. Every
+other byte source still uses the upstream strict scalar encoder and full
+canonical-byte comparison. The proof has no grammar, language, input-length or
+benchmark-specific conditions. Capacity and malformed input checks are retained.
+
+Tests cover classification of all 256 byte values, decoding all 128 ASCII
+scalars, empty input, Unicode chunk/scalar boundaries and noncanonical sources.
+The complete ABI suite returned =OK= and exit zero in 10.972 seconds. The
+candidate was recompiled with GCC in 9.184 seconds. Fresh complete-request
+CPU receipts for this final admission follow; prior row receipts remain scoped
+to their recorded admission implementation.
+
+The first ASCII-classification-only local experiment still rejected benefit:
+P50/P90 was 0.895506/0.951157 with stable controls, and exit was one after
+48.749 seconds. Direct bounded decoding was added instead of changing the
+0.95 limit, dropping observations or increasing the timeout. The final producer
+compiled with GCC in 9.296 seconds. The 4,095/4,096/4,097 and
+8,191/8,192/8,193 boundaries include both pure ASCII and late Unicode fallback.
+
+Final bounded ASCII decoding passed the complete ABI suite in 9.015 seconds.
+The formerly failing complete 4,099-byte identifier obligation now passes:
+CPU P10/P50/P90 is 0.764338/0.813574/0.895873, an 18.64% median decrease.
+Before control P10/P90 is 0.955807/1.052675 and after is 0.988543/1.086949.
+The unchanged 20-group, 1,024-call child returned =ABI-UTF8-CPU-PROOF-OK=
+and exit zero in 53.505 seconds, with natural GC charged.
+
+With final bounded ASCII decoding installed identically in both event lanes,
+the 64-record ASCII proof passes: CPU P10/P50/P90 is
+0.616443/0.647460/0.686067 (35.25% median decrease). Control P10/P90 is
+0.954784/1.056653 before and 0.959466/1.029376 after. The complete 15,488-byte
+payload matches; the unchanged 20-group/256-call child returned
+=ABI-EVENT-CPU-PROOF-OK= and exit zero in 69.144 seconds.
+
+Final Unicode 64-record CPU P10/P50/P90 is 0.621700/0.647574/0.688848
+(35.24% median decrease). Control P10/P90 is 0.968489/1.034803 before and
+0.956032/1.043374 after. The child returned =ABI-EVENT-CPU-PROOF-OK= and
+exit zero in 67.328 seconds. Final full ABI tests, including oversized C leaf
+ranges and short destination sentinels, returned =OK= and exit zero in 6.933
+seconds. These final event proofs compare independent writers with the same
+final admission and the actual complete public C transport.
+
+* Matched ASCII batch resolution
+
+The =4d19730= Ubuntu candidate passed the ASCII benefit limit with production
+P50/P90 0.847186/0.930900. Admission nevertheless correctly rejected control
+P90 values 1.101847 before and 1.100156 after. No result from this run is
+admitted. [[https://github.com/tao3k/gerbil-parser/actions/runs/38136884097][Second new-head qualification]] retains that failure.
+
+Its 960 measured sub-batches include 678 with zero collections and 282 with
+one collection. Collection CPU P90 is 13.644 ms against total sub-batch CPU
+P50 53.318 ms. This exposes sensitivity to whole-collection granularity, in
+addition to possible runner variation. A matched 2,048-call pilot did not solve the control problem: it admitted
+production P50/P90 0.817170/0.880954 but rejected after-control P90 1.111759,
+with exit one at 91.282 seconds. The nominal budgets remain unchanged.
+
+The sampler retains eight full-quanta legs instead of sixteen half-quanta
+legs. Both orders balance constant, linear and quadratic time position, and
+both variants still execute exactly four nominal quanta per observation,
+including odd budgets. This increases each retained timing interval without
+adding requests, extending runtime limits or dropping any sample. All twenty
+groups, natural GC, 0.90--1.10 controls, 0.95 benefit and 120-second child
+limits are retained. The request conservation and position-moment tests cover
+both group parities and even, odd and singleton budgets. Fresh CPU receipts
+qualify the changed sampler before CI admission.
+The
+64-record proof now runs first to produce its independent target evidence
+before the separate UTF-8 obligations.
+
+The full-quanta sampler passed its budget/execution and quadratic-position
+suite with =OK= and exit zero in 26.903 seconds. Its formerly unstable ASCII
+obligation passed at the original 1,024 calls: CPU P10/P50/P90 was
+0.782721/0.822706/0.864566. Control P10/P90 was 0.917876/1.045868 before
+and 0.936697/1.041502 after. All samples and natural GC remain charged;
+=ABI-UTF8-CPU-PROOF-OK= and exit zero arrived in 78.921 seconds. Increased
+wall scheduling delay is retained rather than subtracted from the receipt.
+
+The full-quanta 64-record ASCII experiment retains 20 groups and 256 calls.
+CPU P10/P50/P90 is 0.606520/0.646482/0.677537, a 35.35% median decrease.
+Control P10/P90 is 0.938066/1.027473 before and 0.929851/1.041150 after.
+The complete C ABI/GPA1 proof returned =ABI-EVENT-CPU-PROOF-OK= and exit zero
+in 70.174 seconds, with all natural GC charged.
+
+The full-quanta Unicode 64-record proof also passes at 20 groups/256 calls.
+CPU P10/P50/P90 is 0.615277/0.640854/0.686611 (35.91% median decrease).
+Control P10/P90 is 0.912586/1.038488 before and 0.953002/1.066427 after.
+All complete GPA1 comparisons passed; =ABI-EVENT-CPU-PROOF-OK= and exit zero
+arrived in 79.846 seconds. No CPU or collection observation was removed.
+
+* Linux scheduler control admission
+
+The =0544706= complete ranked-parser gate rejected a fresh Ubuntu control:
+12-clause production P10/P50/P90 was 0.747103/0.883760/0.901997, while
+before-control P10 was 0.862753. Two retained groups show one 1,024-request
+control leg at approximately 160 ms versus ordinary legs near 95 ms, despite
+the same two collections and unchanged 194.8 MiB heap. The collection CPU
+also rose from approximately 33 ms to 52 ms. This is CPU cost variation;
+the evidence does not identify processor migration as its sole cause.
+[[https://github.com/tao3k/gerbil-parser/actions/runs/38140263156][Latest-head rejected control]] retains all samples and exit one.
+
+Linux CPU proof shells now select the first processor from their actual
+allowed processor set and bind themselves with =taskset=. All Scheme children
+inherit that affinity. This removes processor migration as one uncontrolled
+measurement variable without changing production algorithms, GC accounting,
+heap limits, sample admission, request budgets or timeouts. A fresh CI run
+must still pass the original controls; affinity itself is not a CPU benefit
+receipt. The independent 64-record event proof precedes the ranked-parser
+obligations so its target evidence is retained even if another gate rejects.
+
+* Checked tagged row scalars at the Scheme boundary
+
+The =92f68d8= Ubuntu affinity experiment stabilized both 64-record ASCII
+controls (P10/P90 0.967133/1.030082 before, 0.965834/1.033623 after), but
+production P10/P50/P90 0.894996/0.938913/0.966094 failed the unchanged 0.95
+benefit gate. The Linux result is a rejected 6.11% median decrease, not the
+approximately 35% admitted Darwin result. Exit one at 86.506 seconds is
+retained by [[https://github.com/tao3k/gerbil-parser/actions/runs/38141039420][Pinned Linux rejected benefit]].
+
+The shared row writer previously entered seven generic foreign argument
+converters on every event. Upstream =scheme/utf8.ss= already demonstrates a
+checked =##c-code= leaf with tagged fixnum input and disabled interrupts.
+The writer now applies that convention: admit the byte vector, every scalar's
+exact fixnum type, unsigned width and complete 24-byte span before borrowing
+the buffer. The bounded inline body writes one row and retains no pointer.
+Non-fixnum unsigned values, including the full uint64 maximum, retain the
+general integer conversion leaf. The public row representation and full
+C ABI benchmark control remain unchanged.
+
+GCC compiled the checked inline producer in 8.789 seconds. The independent
+language ABI suite passed with final =OK= and exit zero in 10.779 seconds,
+including unaligned unsigned extremes, negative and fractional ids/positions,
+late-field overflow without partial writes, natural collection, source history
+and complete ABI product parity.
+
+The checked inline row writer passes the fresh complete 64-record ASCII
+experiment: CPU P10/P50/P90 is 0.576581/0.622262/0.682581, a 37.77% median
+decrease. Controls are 0.950086/1.050963 before and 0.960248/1.057124 after
+(P10/P90). The proof retains 20 groups and 256 nominal calls, complete GPA1
+parity and natural GC, with =ABI-EVENT-CPU-PROOF-OK= and exit zero in 73.616
+seconds. The matching Unicode experiment also passes: production
+0.602479/0.646371/0.686731, a 35.36% median decrease; before controls
+0.949225/1.061191 and after 0.939566/1.067563. Its marker and exit zero arrive
+in 74.295 seconds. These are local Darwin receipts; Linux admission remains
+a separate exact-head CI obligation.

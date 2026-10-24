@@ -24,6 +24,7 @@
         (only-in :gerbil-parser/t/artifact-publication-cost-test artifact-publication-cost-test)
         (only-in :gerbil-parser/t/artifact-window-publication-test artifact-window-publication-test)
         (only-in :gerbil-parser/t/language-entry-boundary-test language-entry-boundary-test)
+        (only-in :gerbil-parser/t/native-function-boundary-test native-function-boundary-test)
         (only-in :gerbil-parser/t/language-topology-test language-topology-test)
         (only-in :gerbil-parser/t/language-loader-test language-loader-test)
         (only-in :gerbil-parser/t/language-loader-value-test language-loader-value-test)
@@ -62,7 +63,7 @@
                                   lr-conflict-origins-test layout-column-storage-test))
         (cons "publication" (list language-artifact-test artifact-publication-cost-test
                                   artifact-window-publication-test))
-        (cons "entry-boundaries" (list language-entry-boundary-test))
+        (cons "entry-boundaries" (list language-entry-boundary-test native-function-boundary-test))
         (cons "topology" (list language-topology-test))
         (cons "loaders" (list language-loader-test language-loader-value-test))
         (cons "gql" (list antlr4-source-test gql-parser-test))

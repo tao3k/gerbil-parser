@@ -492,6 +492,13 @@ remain unchanged.
 
 * Base package and extension input direction
 
+The package input policy Suite runs through the source test runner and remains
+included in CI's =--remaining-conformance= discovery. Its SDK package-registry
+operations require =gerbil/tools/gxpkg= and =gerbil/tools/env=; the SDK does not
+distribute a static object for the latter. These build-tool controls therefore
+do not belong in the closed native parser runtime image. The test-plan control
+checks this ownership without removing or reducing the policy scenarios.
+
 A registered base package uses the SDK's =pkg-dependents*= graph to identify
 reverse consumers. Their declared namespace outputs are excluded from the base
 compiler footprint, and attempted compiler imports of those namespaces or source

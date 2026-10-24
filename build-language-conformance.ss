@@ -60,7 +60,6 @@
     "t/artifact-window-publication-test"
     "t/language-entry-boundary-test"
     "t/native-function-boundary-test"
-    "t/library-package-policy-test"
     "t/language-topology-test"
     "t/language-loader-test"
     "t/language-loader-value-test"

@@ -238,7 +238,7 @@ jobs:
       - name: Verify process and test ownership controls
         run: |
           gerbil env gxi scripts/tests/process-qualification-test.ss
-          gerbil env gxi scripts/tests/test-plan-test.ss
+          just test-plan
           gerbil env gxi test-processes.ss conformance
       - name: Verify Scheme DSL and POO declaration closure
         id: dsl-research

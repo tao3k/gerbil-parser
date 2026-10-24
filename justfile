@@ -20,6 +20,10 @@ test-file path: build-qualification build-test-support
 
 set shell := ["sh", "-eu", "-c"]
 
+# Test-plan ownership is checked before loading any Parser runtime modules.
+test-plan:
+    timeout --signal=TERM --kill-after=5s 120s {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} scripts/tests/test-plan-test.ss
+
 # Source contracts consume the installed library, without compiling unrelated
 # benchmark helpers. Keep the same pre-import heap and native harness checks.
 test-source-contracts:

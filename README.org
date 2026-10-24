@@ -19,9 +19,12 @@ existing =build-modules.ss= catalog; =build.ss= retains that complete catalog
 and all three FFI specifications, then hands the init-owned =std-make-spec=
 value directly to Core's =defbuild-script= adapter. Core owns source preparation,
 normalization and missing-product checks. The SDK owns scheduling and compilation.
-The publication guard retains every compiled loader, implementation and macro
-product after Core checks it. The explicit source-loader preparation utility is
-not part of this normal package build.
+Core checks every required loader, implementation and macro product before
+returning. A failed build remains a failure; the next native SDK invocation may
+reuse completed units and repair missing ones. Ordinary installation does not
+run the qualification publication wrapper's whole-library pre-clean or issue
+its separate trust receipt. Explicit qualification tools keep that stricter
+receipt boundary and refuse an unissued generation.
 
 =gerbil pkg build github.com/tao3k/gerbil-parser= uses this entry. The existing
 180-second, 2-GiB and four-worker limits are unchanged. Compiler startup/version

@@ -10,8 +10,7 @@
         (only-in :clan/poo/object .get)
         (only-in "./init.ss" gerbil-parser.init.exports)
         (only-in "./build-modules.ss" gerbil-parser-library-modules)
-        (only-in "./src/build-support/compiler-profile.ss" compiler-build-spec)
-        (only-in "./src/build-support/library-publication.ss" publication-build-main))
+        (only-in "./src/build-support/compiler-profile.ss" compiler-build-spec initialize-compiler-build!))
 (def gerbil-parser-ffi-specs
   (let ((include-option
          (string-append "-I" (path-expand "include" (path-directory (this-source-file)))))
@@ -26,5 +25,6 @@
 (def retained-spec
   (compiler-build-spec
     (append (map path-strip-extension gerbil-parser-library-modules) gerbil-parser-ffi-specs)))
+;; Host compiler policy is process-local; Core/SDK own ordinary package recovery.
+(initialize-compiler-build!)
 (defbuild-script (modules-spec retained-spec))
-(set! main (publication-build-main main #f))

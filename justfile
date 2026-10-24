@@ -27,7 +27,8 @@ test-plan:
 # Ordinary installation issues Core products; strict qualification consumers
 # require their separate source/product receipt from this explicit base writer.
 qualify-library:
-    timeout --signal=TERM --kill-after=5s 180s {{ gerbil_test_launcher }} -:max-heap=2G,debug=q build-qualified-library.ss compile
+    # Match the existing CI library-writer budget, including a cold native build.
+    timeout --signal=TERM --kill-after=5s 240s {{ gerbil_test_launcher }} -:max-heap=2G,debug=q build-qualified-library.ss compile
 
 # Read both owners' actual specs without compiling or changing installed products.
 check-build-catalog:

@@ -64,9 +64,12 @@
 (def (package-input-path? policy path)
   (let ((path (normalized path)) (library (package-input-policy-value-library policy)))
     (not (or
-      (let (owner (find (lambda (source) (under? (car source) path))
-                       (package-input-policy-value-sources policy)))
-        (and owner (cdr owner)))
+      ;; Installed products use namespace ownership below, even when the
+      ;; library prefix physically lives inside a linked consumer checkout.
+      (and (not (under? library path))
+           (let (owner (find (lambda (source) (under? (car source) path))
+                            (package-input-policy-value-sources policy)))
+             (and owner (cdr owner))))
       (any (lambda (name)
              (or (under? (path-expand name library) path)
                  (string-prefix?

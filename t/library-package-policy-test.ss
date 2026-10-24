@@ -17,7 +17,7 @@
   (def token (path-strip-directory (make-temporary-file-name "input-policy-")))
   (def parent (path-expand (string-append "qualification.local/" token) (pkg-root-dir)))
   (def checkout (make-temporary-file-name "input-policy-checkout-"))
-  (def output (path-expand "output" parent))
+  (def output (path-expand "output" checkout))
   (def (key name) (string-append "qualification.local/" token "/" name))
   (def (ns name) (string-append token "-" name))
   (def (source name) (path-expand (key name) (pkg-root-dir)))

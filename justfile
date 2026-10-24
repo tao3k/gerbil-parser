@@ -31,7 +31,7 @@ test-source-contracts:
     set -euo pipefail
     mkdir -p .gerbil/test-results
     output_file="$(mktemp .gerbil/test-results/source-contracts.XXXXXX)"
-    suites=(t/build-product-contract-test.ss t/test-style-contract-test.ss t/library-package-policy-test.ss)
+    suites=(t/build-product-contract-test.ss t/test-style-contract-test.ss t/library-package-policy-test.ss t/library-init-test.ss)
     timeout --signal=TERM --kill-after=5s 120s {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} :gerbil/tools/gxtest -v 3 "${suites[@]}" 2>&1 | tee "$output_file"
     if rg 'ERROR (CHECK|CASE|HARNESS|MODULE)|Heap overflow|Stack overflow' "$output_file"; then exit 1; fi
     for suite in "${suites[@]}"; do rg -Fx "MODULE-OK $suite" "$output_file" >/dev/null; done

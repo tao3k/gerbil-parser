@@ -72,7 +72,9 @@ runs:
     - name: Select reproducible macOS tool search path
       if: runner.os == 'macOS'
       run: |
-        ci_path="$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/opt/coreutils/libexec/gnubin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin"
+        just_executable="$(command -v just)"
+        test -x "$just_executable"
+        ci_path="${just_executable%/*}:$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/opt/coreutils/libexec/gnubin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin"
         PATH="$ci_path" command -v just
         PATH="$ci_path" command -v timeout
         echo "PATH=$ci_path" >> "$GITHUB_ENV"

@@ -1,77 +1,36 @@
 ;;; -*- Gerbil -*-
-;;; Language-neutral POO admission for projected graph query contexts.
+;;; Native Records install checked language-owned graph callbacks at admission.
 
-(import (only-in :clan/poo/object .o .ref .slot? object?)
-        (only-in :clan/poo/mop define-type)
-        (only-in :yuanxu/object-types/contracts
-                 YuanxuContract. YuanxuObjectContract.
-                 yuanxu-contract-admit
-                 yuanxu-validation-evidence-accepted?
-                 yuanxu-classification-evidence))
+(import (only-in :clan/poo/object .o .cc)
+        (only-in :clan/poo/mop Fun Any element? validate Type.)
+        (only-in :clan/poo/type Record List Exactly)
+        (only-in :clan/poo/number UInt)
+        (only-in :yuanxu/object-types/contracts YuanxuContract.))
 (export +graph-query-context-kind+
+        GraphQueryRecord GraphQueryAccessor GraphQueryPredicate
         GraphQueryViewContract GraphQueryContextContract
         graph-query-view? graph-query-context?)
 
 (def +graph-query-context-kind+ 'gerbil-parser-graph-query-context)
+(def GraphQueryRecord (Record))
+;; IDs, parents and kinds belong to the language. Predicates follow Scheme's
+;; ordinary truth-value convention; the callback still takes exactly one record.
+(def GraphQueryAccessor (Fun Any <- GraphQueryRecord))
+(def GraphQueryPredicate (Fun Any <- GraphQueryRecord))
+(def GraphQueryViewContract
+  (.cc YuanxuContract. identity: 'gerbil-parser/graph-query-view
+    value-contract:
+    (Record records: (list (List GraphQueryRecord))
+            id-of: (list GraphQueryAccessor)
+            parent-of: (list GraphQueryAccessor)
+            kind-of: (list GraphQueryAccessor))))
+(def GraphQueryIndex (.cc Type. sexp: 'GraphQueryIndex '.element? hash-table?))
+(def GraphQueryContextContract
+  (.cc YuanxuContract. identity: 'gerbil-parser/graph-query-context proto: (.o)
+    value-contract:
+    (Record kind: (list (Exactly +graph-query-context-kind+))
+            view: (list GraphQueryViewContract)
+            index: (list GraphQueryIndex) count: (list UInt))))
 
-(def (classify identity predicate candidate context)
-  (let (accepted? (predicate candidate))
-    (yuanxu-classification-evidence
-     identity candidate accepted?
-     (if accepted? '() (list (list 'expected identity))) context)))
-
-(def (graph-query-view-shape? value)
-  (and (object? value)
-       (.slot? value 'records)
-       (list? (.ref value 'records))
-       (andmap (lambda (slot)
-                 (and (.slot? value slot)
-                      (procedure? (.ref value slot))))
-               '(id-of parent-of kind-of))))
-
-(define-type (GraphQueryViewContract @ YuanxuContract.)
-  identity: 'gerbil-parser/graph-query-view
-  .classify: (lambda (candidate context)
-               (classify 'gerbil-parser/graph-query-view
-                         graph-query-view-shape? candidate context)))
-
-(define-type (GraphQueryContextKind @ YuanxuContract.)
-  identity: 'gerbil-parser/graph-query-context-kind
-  .classify: (lambda (candidate context)
-               (classify 'gerbil-parser/graph-query-context-kind
-                         (lambda (value)
-                           (eq? value +graph-query-context-kind+))
-                         candidate context)))
-
-(define-type (GraphQueryIndex @ YuanxuContract.)
-  identity: 'gerbil-parser/graph-query-index
-  .classify: (lambda (candidate context)
-               (classify 'gerbil-parser/graph-query-index
-                         hash-table? candidate context)))
-
-(define-type (GraphQueryCount @ YuanxuContract.)
-  identity: 'gerbil-parser/graph-query-count
-  .classify: (lambda (candidate context)
-               (classify 'gerbil-parser/graph-query-count
-                         (lambda (value)
-                           (and (exact-integer? value) (>= value 0)))
-                         candidate context)))
-
-(define-type (GraphQueryContextContract @ YuanxuObjectContract.)
-  identity: 'gerbil-parser/graph-query-context
-  proto: (.o)
-  responsibilities:
-  (.o kind: GraphQueryContextKind
-      view: GraphQueryViewContract
-      index: GraphQueryIndex
-      count: GraphQueryCount))
-
-(def (admitted? contract candidate)
-  (yuanxu-validation-evidence-accepted?
-   (yuanxu-contract-admit contract candidate #f)))
-
-(def (graph-query-view? value)
-  (admitted? GraphQueryViewContract value))
-
-(def (graph-query-context? value)
-  (admitted? GraphQueryContextContract value))
+(def (graph-query-view? value) (element? GraphQueryViewContract value))
+(def (graph-query-context? value) (element? GraphQueryContextContract value))

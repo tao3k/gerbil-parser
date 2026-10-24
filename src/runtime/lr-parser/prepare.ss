@@ -1,7 +1,9 @@
 ;;; -*- Gerbil -*-
 ;;; lr-parser: prepare owner. Private execution state and named algorithms.
 
-(import (only-in ../reduction-plan
+(import (only-in :clan/poo/mop validate)
+        (only-in ../function-types ActionSelectorFactory)
+        (only-in ../reduction-plan
                  prepare-lr-reduction-plans)
         (only-in ../../compiler/lr-table
                  validate-lr-tables layout-productions?)
@@ -191,10 +193,11 @@
 ;;; primitive. Immutable grammar tables, semantic plans and modes stay owned.
 ;;; Generated steps cannot bypass the supplied selection procedure.
 (def (lr-runtime-with-action-selector runtime factory)
-  (unless (procedure? factory) (error "LR action selector factory must be a procedure"))
-  (let (selector (factory (lr-runtime-actions runtime) (lr-runtime-action-index runtime)
-                         (lr-runtime-case-insensitive? runtime) (lr-runtime-layout? runtime)))
-    (unless (procedure? selector) (error "LR action selector factory must produce a procedure"))
+  ;; Native Function validates the returned selector recursively. The prepared
+  ;; runtime retains it; generated direct steps cannot bypass the replacement.
+  (let (selector ((validate ActionSelectorFactory factory)
+                 (lr-runtime-actions runtime) (lr-runtime-action-index runtime)
+                 (lr-runtime-case-insensitive? runtime) (lr-runtime-layout? runtime)))
     (make-lr-runtime
      (lr-runtime-productions runtime) (lr-runtime-table runtime)
      (lr-runtime-reduction-widths runtime) (lr-runtime-actions runtime)

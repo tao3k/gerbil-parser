@@ -60,6 +60,7 @@
     "src/runtime/result-plan.ss"
     "src/runtime/significant.ss"
     "src/runtime/funcs.ss"
+    "src/runtime/function-types.ss"
     "src/runtime/event-fold-lines.ss"
     "src/runtime/parser.ss"
     "src/runtime/parse-cost.ss"

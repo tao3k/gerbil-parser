@@ -12,6 +12,36 @@ This is an active implementation and research project. Supported syntax and
 portable products are qualified per language and target; a shared authoring
 interface does not imply complete language coverage or backend parity.
 
+* Native callable extension boundaries
+
+The pinned =gerbil-poo= Function Type owns callback invocation contracts.
+=GraphQueryViewContract= declares its three accessors as native Functions;
+=make-graph-query-context= retains the checked view returned by validation.
+Language-owned IDs and kinds remain ordinary values, and query predicates keep
+Scheme's truth-value convention. Admission does not execute callback bodies.
+
+#+begin_src scheme
+(import :gerbil-parser/graph-query-support
+        (only-in :clan/poo/object .o .ref))
+(def context
+  (make-graph-query-context
+    (.o records: (list (.o id: 'root parent: #f kind: 'section))
+        id-of: (lambda (record) (.ref record 'id))
+        parent-of: (lambda (record) (.ref record 'parent))
+        kind-of: (lambda (record) (.ref record 'kind)))))
+(graph-query-map context 'section (lambda (_) #t))
+#+end_src
+
+=make-source-scanner= installs =SourceScannerStep=, which takes
+=source/offset/context/mode= and returns three values: optional symbolic kind,
+nonnegative end offset and next context. Source-relative progress, EOF and
+worker identity remain scanner invariants. =lr-runtime-with-action-selector=
+uses =ActionSelectorFactory=: native higher-order validation wraps the returned
+=state/token= selector before the prepared runtime retains it. These contracts
+are defined in =src/runtime/function-types.ss= and exercised with refusal,
+multiple-value and nested callback controls in
+=t/native-function-boundary-test.ss=.
+
 * Separate backend baselines
 
 The [[file:t/benchmarks/backend-baseline/README.org][matched backend protocol]] measures the same changing arithmetic sources

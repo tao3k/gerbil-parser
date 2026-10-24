@@ -2,13 +2,16 @@
 ;;; Pure, language-neutral selection over POO projected graph views.
 
 (import (only-in :clan/poo/object .ref)
+        (only-in :clan/poo/mop validate)
+        (only-in ./graph-query-types GraphQueryPredicate)
         (only-in ./graph-query-objects
                  graph-query-context-view graph-query-context-index
                  graph-query-context-count))
 (export graph-query-map graph-query-lineage? graph-query-select)
 
 (def (graph-query-map context kind predicate)
-  (let (view (graph-query-context-view context))
+  (let ((view (graph-query-context-view context))
+        (predicate (validate GraphQueryPredicate predicate)))
     (filter
      (lambda (record)
        (and (equal? ((.ref view 'kind-of) record) kind)

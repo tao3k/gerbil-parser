@@ -2,13 +2,16 @@
 ;;; Immutable source-scanner state for languages whose lexical context changes
 ;;; across token boundaries. A state is a reusable checkpoint for one source.
 
-(import (only-in :std/string/utf8 string-utf8-length)
+(import (only-in :clan/poo/mop validate)
+        (only-in :clan/poo/type String)
+        (only-in ./function-types SourceScannerStep)
+        (only-in :std/string/utf8 string-utf8-length)
         (only-in ./token make-token token-kind token-lexeme token-start token-end)
         (only-in ./contextual-scanner prepare-contextual-scanner contextual-scanner-initial-state
                  contextual-scanner-step contextual-scan-state-character-offset contextual-scan-state-byte-offset
                  contextual-scan-state-source-length contextual-scan-state-common-suffix-length
                  prepare-contextual-scan-suffix contextual-scan-suffix-state))
-(export source-scanner-contextual? source-scanner-driver? source-scanner-for-source? source-scanner-tokens make-source-scanner
+(export SourceScannerStep source-scanner-contextual? source-scanner-driver? source-scanner-for-source? source-scanner-tokens make-source-scanner
         make-contextual-source-scanner source-scanner-initial-state
         source-scanner-step
         source-scan-state?
@@ -31,9 +34,8 @@
   transparent: #t)
 
 (def (make-source-scanner source initial-context step)
-  (unless (and (string? source) (procedure? step))
-    (error "source scanner requires source and scan procedure"))
-  (make-source-scanner-driver source initial-context step))
+  (make-source-scanner-driver (validate String source) initial-context
+                              (validate SourceScannerStep step)))
 
 (def (source-scanner-for-source? scanner source)
   (and (source-scanner-driver? scanner)

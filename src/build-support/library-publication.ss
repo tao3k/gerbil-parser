@@ -194,10 +194,7 @@
             (displayln "LIBRARY-PUBLICATION-READY") (force-output))))
       (finally (device-close lock)))))
 
-(def (publication-build-main compile-main (extension? #t)
-                             pre-build-clean: (pre-build-clean #f))
-  (unless (or (not pre-build-clean) (procedure? pre-build-clean))
-    (error "pre-build cleanup must be a procedure"))
+(def (publication-build-main compile-main (extension? #t))
   (lambda args
     (cond
       ((or (null? args) (equal? (car args) "compile"))
@@ -214,10 +211,9 @@
          (lambda (root)
            (list (if (null? args) '("compile") args) (library-publication-inputs root owner)))
          (not extension?)
-         (or pre-build-clean
-             (lambda (root)
-               (apply compile-main '("clean"))
-               (clean-library-products! root))))))
+         (lambda (root)
+           (apply compile-main '("clean"))
+           (clean-library-products! root)))))
       ((equal? (car args) "clean")
        ;; gerbil clean delegates to this standard std/build-script owner.
        ;; Withdraw admission BEFORE removing products, then run its actual

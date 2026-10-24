@@ -21,10 +21,10 @@ value directly to Core's =defbuild-script= adapter. Core owns source preparation
 normalization and missing-product checks. The SDK owns scheduling and compilation.
 Core checks every required loader, implementation and macro product before
 returning. A failed build remains a failure; the next native SDK invocation may
-reuse completed units and repair missing ones. The existing qualification observer
-keeps its lock, before/after input and product checks and completion receipt,
-without pre-cleaning Core's products. It does not issue C, review or delivery
-authority. Other explicit qualification builders retain their cleanup policy.
+reuse completed units and repair missing ones. Ordinary installation does not
+run the qualification publication wrapper's whole-library pre-clean or issue
+its separate trust receipt. Explicit qualification tools keep that stricter
+receipt boundary and refuse an unissued generation.
 
 Run =gerbil env just qualify-library= before explicit qualification extension
 tools. CI uses this base writer before optional commands and conformance; it

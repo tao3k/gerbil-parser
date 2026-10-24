@@ -32,11 +32,12 @@
                          (string-prefix? (path-expand "static/gerbil-parser__" library) path))))))))
     (list (compiler-gsc-options)
           (map (lambda (name)
-                 (cons name (if (equal? name "PATH")
-                              (canonical-build-search-path (getenv name #f))
-                              (getenv name #f))))
+                 (cons name (cond
+                              ((equal? name "PATH") (canonical-build-search-path (getenv name #f)))
+                              ((equal? name "GAMBOPT") (canonical-build-runtime-options (getenv name #f)))
+                              (else (getenv name #f)))))
                '("GERBIL_GCC" "GERBIL_GSC" "GAMBOPT" "CC" "CFLAGS" "CPPFLAGS" "LDFLAGS" "SDKROOT"
-                 "PATH" "LIBRARY_PATH" "MACOSX_DEPLOYMENT_TARGET" "GERBIL_BUILD_DEBUG"
+                 "PATH" "COMPILER_PATH" "LIBRARY_PATH" "MACOSX_DEPLOYMENT_TARGET" "GERBIL_BUILD_DEBUG"
                  "CORCXXFLAGS_GAMBUILD" "LDFLAGS_GAMBUILD"))
           (preparation-snapshot
            (append sources foreign

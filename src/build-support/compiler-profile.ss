@@ -23,6 +23,16 @@
     ;; the configured SINGLE_HOST define. No optimization level is replaced.
     (setenv "CORCXXFLAGS_GAMBUILD" (compiler-host-options configured))))
 (def (initialize-compiler-build!)
+  ;; A Homebrew SDK must default collect2 to Apple's linker even inside a Nix
+  ;; shell. An explicit compiler search path remains the caller's selection.
+  ;; Other SDK distributions retain their configured native toolchain policy.
+  (cond-expand
+    (darwin
+      (when (and (not (getenv "COMPILER_PATH" #f))
+                 (or (string-prefix? "/opt/homebrew/" (gerbil-home))
+                     (string-prefix? "/usr/local/Cellar/" (gerbil-home))))
+        (setenv "COMPILER_PATH" "/usr/bin")))
+    (else (void)))
   ;; The SDK compiler and std/make read GERBIL_BUILD_CORES directly.
   (initialize-compiler-host!))
 

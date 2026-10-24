@@ -1,6 +1,6 @@
 ;;; PATH identity preserves first-match lookup and every empty component.
 (import :gerbil-parser/language-test-support
-        (only-in :gerbil-parser/src/build-support/build-environment canonical-build-search-path))
+        (only-in :gerbil-parser/src/build-support/build-environment canonical-build-search-path canonical-build-runtime-options))
 
 (deflanguage-parser-tests build-environment-test "SDK build environment identity"
   (engine)
@@ -15,6 +15,22 @@
     (bindings (input (car row)) (expected (cadr row)))
     (equal (canonical-build-search-path input) expected)
     (equal (canonical-build-search-path expected) expected))
+  (matrix "only exact repeated SDK relocation groups collapse"
+    (setup)
+    ((row '((#f #f) ("" "") ("max-heap=1G,max-heap=1G" "max-heap=1G,max-heap=1G")
+            ("~~=a,~~bin=b,~~lib=c,~~=a,~~bin=b,~~lib=c" "~~=a,~~bin=b,~~lib=c")
+            ("~~=a,~~bin=b,~~lib=c,~~=a,~~bin=b,~~lib=c,max-heap=1G"
+             "~~=a,~~bin=b,~~lib=c,max-heap=1G")
+            ("~~=a,~~bin=b,~~lib=c,~~=a,~~bin=b,~~lib=c," "~~=a,~~bin=b,~~lib=c,")
+            ("~~=a,~~bin=b,~~lib=c,~~=a,~~bin=b,~~lib=changed"
+             "~~=a,~~bin=b,~~lib=c,~~=a,~~bin=b,~~lib=changed")
+            ("~~=a,~~bin=b,~~lib=c,~~=a,~~bin=b,~~lib=cd"
+             "~~=a,~~bin=b,~~lib=c,~~=a,~~bin=b,~~lib=cd")
+            ("~~=a,~~lib=c,~~bin=b,~~=a,~~lib=c,~~bin=b"
+             "~~=a,~~lib=c,~~bin=b,~~=a,~~lib=c,~~bin=b"))))
+    (bindings (input (car row)) (expected (cadr row)))
+    (equal (canonical-build-runtime-options input) expected)
+    (equal (canonical-build-runtime-options expected) expected))
   (property "search order and unset PATH remain distinct identities"
     (bindings)
     (equal (equal? (canonical-build-search-path "a:b")

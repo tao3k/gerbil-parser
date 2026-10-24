@@ -9,6 +9,7 @@
          (probe (path-expand "probe" root)))
     (create-directory* root)
     (try
+      (initialize-compiler-build!)
       (run-build-tool (list (getenv "GERBIL_GCC" "gcc")
                            "t/fixtures/compiler-pipe.c" "-o" probe) text?: #t)
       (procedure probe)
@@ -60,6 +61,17 @@
                    (write (list (getenv "GERBIL_BUILD_CORES" #f)
                                 (getenv "CORCXXFLAGS_GAMBUILD" #f)))))))
            "(#f #f)"))
+  (scenario "native linker defaults preserve explicit compiler search paths"
+    (equal (capture-build-text
+             (list "gxi" "-e"
+               (object->string
+                '(begin
+                   (setenv "COMPILER_PATH" "/explicit/compiler-tools")
+                   (setenv "CORCXXFLAGS_GAMBUILD" "-O2")
+                   (eval '(import :gerbil-parser/src/build-support/compiler-profile))
+                   ((eval 'initialize-compiler-build!))
+                   (write (getenv "COMPILER_PATH" #f))))))
+           (object->string "/explicit/compiler-tools")))
   (scenario "compiler evaluation diagnostics preserve zero and multiple values"
     (each (expected) ('(() (first second)))
       (scope ((actual #f))
@@ -94,13 +106,13 @@
            "QUALIFICATION-START\n"))
   (scenario "compiler children inherit the active SDK logical bin mapping"
     (equal (capture-build-text
-             (list (getenv "GERBIL_GSC" "gsc") "-e" "(write (path-expand \"~~bin\"))"))
+             (list (getenv "GERBIL_GSC" (path-expand "bin/gsc" (gerbil-home))) "-e" "(write (path-expand \"~~bin\"))"))
            (object->string (path-expand "~~bin"))))
   (scenario "SDK compilation without per-job C options loads and executes its native result"
     (using (with-compiler-directory) (root)
       (act (initialize-compiler-build!))
       (scope ((output (path-expand "compiler-host.o1" root)))
-        (act (run-build-tool (list (getenv "GERBIL_GSC" "gsc") "-verbose" "-o" output
+        (act (run-build-tool (list (getenv "GERBIL_GSC" (path-expand "bin/gsc" (gerbil-home))) "-verbose" "-o" output
                                   "t/fixtures/compiler-host.scm") text?: #t))
         (equal (file-exists? output) #t)
         (equal (capture-build-text

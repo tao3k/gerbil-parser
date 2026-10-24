@@ -3,8 +3,11 @@
         (only-in :std/misc/ports read-all-as-string))
 (export compiler-progress-expression compiler-c-options compiler-gsc-options compiler-build-spec run-build-tool compiler-host-options call-with-compiler-import-progress initialize-compiler-build!)
 
+;; Keep real compiler/GC progress; GCC -Q dumps every generated function and
+;; per-pass timing even for successful jobs. It is diagnostic output, not a
+;; compiler semantic or optimization option.
 (def compiler-host-suffix
-  " -Wp,-U___SINGLE_HOST,-D___MULTIPLE_HOSTS -v -Q -ftrack-macro-expansion=0")
+  " -Wp,-U___SINGLE_HOST,-D___MULTIPLE_HOSTS -v -ftrack-macro-expansion=0")
 (def (compiler-host-options configured)
   (if (string-suffix? compiler-host-suffix configured) configured
     (string-append configured compiler-host-suffix)))
@@ -73,7 +76,7 @@
   ;; example clan/poo/type) can spend the entire silence window in one GCC pass.
   (string-append options " -U___SINGLE_HOST -D___MULTIPLE_HOSTS"))
 (def (compiler-gsc-options)
-  (list "-verbose" "-cc-options" (compiler-c-options "-v -Q -ftrack-macro-expansion=0")
+  (list "-verbose" "-cc-options" (compiler-c-options "-v -ftrack-macro-expansion=0")
         "-e" compiler-progress-expression))
 
 (def (compiler-build-spec spec)
@@ -85,7 +88,7 @@
            ((and (pair? item) (memq (car item) (list gsc: exe: static-exe:)))
             ;; Executable/link drivers append their own GSC options; do not
             ;; put -e before those options. Keep the same GCC host contract.
-            (append item (list "-verbose" "-cc-options" (compiler-c-options "-v -Q"))))
+            (append item (list "-verbose" "-cc-options" (compiler-c-options "-v"))))
            (else item))) spec))
 
 ;;; std/make expands source interfaces before scheduling their compiler jobs.

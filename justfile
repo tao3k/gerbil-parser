@@ -24,6 +24,11 @@ set shell := ["sh", "-eu", "-c"]
 test-plan:
     timeout --signal=TERM --kill-after=5s 120s {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} scripts/tests/test-plan-test.ss
 
+# Ordinary installation issues Core products; strict qualification consumers
+# require their separate source/product receipt from this explicit base writer.
+qualify-library:
+    timeout --signal=TERM --kill-after=5s 180s {{ gerbil_test_launcher }} -:max-heap=2G,debug=q build-qualified-library.ss compile
+
 # Source contracts consume the installed library, without compiling unrelated
 # benchmark helpers. Keep the same pre-import heap and native harness checks.
 test-source-contracts:

@@ -26,6 +26,10 @@ run the qualification publication wrapper's whole-library pre-clean or issue
 its separate trust receipt. Explicit qualification tools keep that stricter
 receipt boundary and refuse an unissued generation.
 
+Run =gerbil env just qualify-library= before explicit qualification extension
+tools. CI uses this base writer before optional commands and conformance; it
+delegates to the same =build.ss= rather than maintaining another build spec.
+
 =gerbil pkg build github.com/tao3k/gerbil-parser= uses this entry. The existing
 180-second, 2-GiB and four-worker limits are unchanged. Compiler startup/version
 verbosity is disabled; actual SDK compile jobs, compiler errors and GC reports

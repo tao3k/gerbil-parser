@@ -85,7 +85,7 @@ jobs:
           gerbil clean
           # The official env command prepends the package bin directory to PATH.
           # Use it for the base writer as well as every extension writer.
-          GERBIL_BUILD_VERBOSE=1 gerbil env gxi build.ss compile
+          GERBIL_BUILD_VERBOSE=1 gerbil env just qualify-library
           "${GERBIL_GCC:-gcc}" -std=c11 -Wall -Wextra -Werror \
             -fsyntax-only \
             -Iinclude t/ffi-header-smoke.c

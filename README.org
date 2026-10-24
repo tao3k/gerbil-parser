@@ -12,6 +12,12 @@ This is an active implementation and research project. Supported syntax and
 portable products are qualified per language and target; a shared authoring
 interface does not imply complete language coverage or backend parity.
 
+* Native package dependency
+
+The one direct production dependency is Core. Its native declaration owns the
+inherited POO revision; Parser does not repeat that pin. Runtime imports and the
+installed dependency closure retain both public owners.
+
 * Native package build
 
 =init.ss= selects the Parser Module with =yuanxu!=. Its Scope publishes the

@@ -19,8 +19,14 @@
                (list "gxi" "-:max-heap=1G,debug=q"
                      (path-expand "../build.ss" (path-directory (this-source-file))) "spec")
                stdout-redirection: #t coprocess: read))
+       (qualified-spec
+        (run-process
+          (list "gxi" "-:max-heap=1G,debug=q"
+                (path-expand "../build-qualified-library.ss" (path-directory (this-source-file))) "spec")
+          stdout-redirection: #t coprocess: read))
        (names (map cadr spec))
        (seen (make-hash-table)))
+      (equal qualified-spec spec)
       (each (name) (names)
         (equal (hash-key? seen name) #f)
         (act (hash-put! seen name #t)))

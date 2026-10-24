@@ -27,3 +27,4 @@
 ;; Host compiler policy is process-local; Core/SDK own ordinary package recovery.
 (initialize-compiler-build!)
 (defbuild-script (modules-spec retained-spec))
+(export main)

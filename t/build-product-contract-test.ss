@@ -41,8 +41,15 @@
                     #t)
                 #t)
         (equal (and bridge #t)  #t)
-        (equal (cadr (member 'depend: (call-with-input-string package-source read)))
-                (list "github.com/tao3k/yuanxu@44a99d45396d1a23e850105ffe8af442a61b2780"))
+        ;; The package owns revision selection. Check immutable public owners,
+        ;; rather than duplicating a historical dependency pin in this test.
+        (equal (map (lambda (dependency)
+                      (let (match (pregexp-match
+                                    "^github\\.com/tao3k/(gerbil-poo|gebril-yuanxu)@[0-9a-f]{40}$"
+                                    dependency))
+                        (and match (cadr match))))
+                    (cadr (member 'depend: (call-with-input-string package-source read))))
+               '("gerbil-poo" "gebril-yuanxu"))
         (equal (string-contains
                  (call-with-input-file "build.ss" read-all-as-string)
                  "asp-gerbil-scheme") #f)

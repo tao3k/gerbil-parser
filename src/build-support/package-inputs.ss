@@ -4,22 +4,35 @@
         (only-in :gerbil/expander syntax-e core-resolve-module-path))
 (export current-package-input-owner package-input-policy package-input-metadata
         package-input-path? package-input-admit-import!)
-(defstruct package-input-policy-value (namespaces sources metadata library) final: #t)
+(defstruct package-input-policy-value (namespaces sources metadata library project) final: #t)
 (def (normalized path)
   (path-strip-trailing-directory-separator (path-normalize path)))
 (def (under? root path)
   (or (equal? root path) (string-prefix? (string-append root "/") path)))
-(def (namespace package)
-  (let (value (pgetq package: (pkg-plist package) #f))
+(def (local-project-root)
+  ;; The SDK's local environment is <project>/.gerbil. A custom/global prefix
+  ;; has no inferred Project owner and remains conservatively observed.
+  (let* ((environment (normalized (path-directory (pkg-root-dir))))
+         (project (path-directory environment)))
+    (and (string=? (path-strip-directory environment) ".gerbil")
+         (file-exists? (path-expand "gerbil.pkg" project)) (normalized project))))
+(def (metadata-path package project)
+  (if (equal? package ".")
+    (path-expand "gerbil.pkg" project)
+    (path-expand "gerbil.pkg" (path-expand package (pkg-root-dir)))))
+(def (checked-metadata package project)
+  (let* ((actual (call-with-input-file (metadata-path package project) read))
+         (cached (if (equal? package ".")
+                   (parameterize ((current-directory project)) (pkg-plist "."))
+                   (pkg-plist package))))
+    (unless (equal? actual cached)
+      (error "native package metadata cache is stale; use a fresh build process" package))
+    actual))
+(def (namespace package project)
+  (let (value (pgetq package: (checked-metadata package project) #f))
     (unless (and (symbol? value) (not (string-empty? (symbol->string value))))
       (error "registered package has no namespace" package))
     (symbol->string value)))
-(def (metadata-path package)
-  (path-expand "gerbil.pkg" (path-expand package (pkg-root-dir))))
-(def (checked-metadata package)
-  (let (actual (call-with-input-file (metadata-path package) read))
-    (unless (equal? actual (pkg-plist package))
-      (error "native package metadata cache is stale; use a fresh build process" package))))
 (def (current-package-input-owner)
   (let (matches (filter (lambda (package)
                          (equal? (normalized (current-directory))
@@ -29,43 +42,51 @@
       (error "ambiguous native package source owner" matches))
     (and (pair? matches) (car matches))))
 (def (package-input-policy owner root)
-  (def packages (pkg-list))
+  (def project (local-project-root))
+  (def packages (append (if project '(".") '()) (pkg-list)))
   (unless (member owner packages) (error "package input owner is not registered" owner))
-  (for-each checked-metadata packages)
-  ;; The SDK owns traversal and tag handling; no second dependency resolver.
-  (def consumers (pkg-dependents* owner packages))
+  (for-each (lambda (package) (checked-metadata package project)) packages)
+  ;; Include the SDK's own '.' current-package node. No second dependency
+  ;; resolver, synthetic registration or fixed consumer list is introduced.
+  (def consumers
+    (if project
+      (parameterize ((current-directory project)) (pkg-dependents* owner packages))
+      (pkg-dependents* owner packages)))
   (when (member owner consumers) (error "native package dependency cycle" owner))
-  (def namespaces (map namespace consumers))
+  (def namespaces (map (lambda (package) (namespace package project)) consumers))
   (for-each
     (lambda (consumer)
       (for-each
         (lambda (package)
           (unless (member package consumers)
-            (let (other (namespace package))
+            (let (other (namespace package project))
               (when (or (under? consumer other) (under? other consumer))
                 (error "ambiguous package namespace ownership" consumer package))))) packages))
     namespaces)
-  (for-each checked-metadata packages)
   (package-input-policy-value namespaces
-    ;; A linked consumer checkout can contain the package installation itself.
-    ;; The deepest registered source owns a path; an enclosing checkout does
-    ;; not turn its independently registered dependencies into consumer code.
+    ;; Reuse the upstream deepest registered owner rule, including SDK '.'.
+    ;; An enclosing Project or linked consumer never steals nested ownership.
     (list-sort (lambda (left right) (> (string-length (car left)) (string-length (car right))))
       (map (lambda (package)
-             (cons (normalized (path-expand package (pkg-root-dir)))
+             (cons (normalized (if (equal? package ".") project
+                                (path-expand package (pkg-root-dir))))
                    (and (member package consumers) #t))) packages))
-    (map (lambda (package) (cons package (metadata-path package)))
+    (map (lambda (package)
+           (list package (metadata-path package project) (checked-metadata package project)))
          (list-sort string<? packages))
-    (normalized (path-expand "lib" root))))
+    (normalized (path-expand "lib" root)) project))
 (def (package-input-metadata policy)
   (let (metadata (package-input-policy-value-metadata policy))
-    (for-each (lambda (row) (checked-metadata (car row))) metadata)
-    (map cdr metadata)))
+    (for-each
+      (lambda (row)
+        (unless (equal? (checked-metadata (car row) (package-input-policy-value-project policy))
+                        (caddr row))
+          (error "package input metadata changed; use a fresh build process" (car row)))) metadata)
+    (map (lambda (row) (string-copy (cadr row))) metadata)))
 (def (package-input-path? policy path)
   (let ((path (normalized path)) (library (package-input-policy-value-library policy)))
     (not (or
-      ;; Installed products use namespace ownership below, even when the
-      ;; library prefix physically lives inside a linked consumer checkout.
+      ;; Installed products use namespace ownership even inside a consumer.
       (and (not (under? library path))
            (let (owner (find (lambda (source) (under? (car source) path))
                             (package-input-policy-value-sources policy)))

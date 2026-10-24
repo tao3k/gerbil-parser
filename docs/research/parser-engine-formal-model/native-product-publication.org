@@ -505,7 +505,7 @@ admission recomputes that same scope and refuses another source owner. Extension
 and unregistered development writers keep the existing whole-environment view.
 This prevents Parser -> Orgize -> Parser invalidation cycles without treating
 loadable foreign generations as inert compiler outputs or relaxing extension
-review. =just test-package-inputs= runs five SDK-backed controls with the existing
+review. =just test-package-inputs= runs six SDK-backed controls with the existing
 1-GiB / 120-second fence, without bootstrapping Parser to test its own installer.
 
 An extension can explicitly cross from a current package-scoped base to the full
@@ -514,3 +514,13 @@ options/environment must still match before execution; base source support is
 rechecked on return. Source or PATH drift refuses before the builder runs. The
 resulting extension record owns the full view, so later consumer changes once
 again invalidate it. This is a purpose handoff, not a bypass of input admission.
+
+The SDK local environment's current Project also participates through its existing
+="."= package node. It is read from the SDK local =<project>/.gerbil= layout,
+queried in the same reverse graph and included in metadata support. A custom or
+global prefix gets no inferred Project owner. The Project's filesystem envelope
+excludes its dependency environment: containment under the repository must not
+transfer registered dependency ownership to the Project. Both cached registered
+metadata and uncached local-Project metadata are compared with their captured
+values before compiler imports. A fresh-process fixture checks this exact native
+SDK path, import refusal, environment ownership and local metadata drift.

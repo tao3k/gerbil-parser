@@ -1,6 +1,9 @@
 ;;; SDK-backed package direction, runtime generations and pre-expansion refusal.
 (import :gerbil-parser/language-test-support
         (only-in :std/io/tempfile make-temporary-file-name)
+        (only-in :std/source this-source-file)
+        (only-in :std/misc/process run-process)
+        (only-in :std/misc/ports read-all-as-string)
         (only-in :std/error Error?)
         (only-in :gerbil/tools/gxpkg pkg-root-dir)
         (only-in :gerbil/expander current-expander-module-import)
@@ -8,6 +11,7 @@
         (only-in "../src/build-support/compiler-profile.ss" call-with-compiler-import-progress initialize-compiler-build!)
         (only-in "../src/build-support/library-publication.ss" library-publication-inputs
                  call-with-library-publication call-with-library-reader))
+(def policy-source (path-expand "../src/build-support/package-inputs.ss" (path-directory (this-source-file))))
 (def (put path value)
   (create-directory* (path-directory path))
   (call-with-output-file (list path: path truncate: #t)
@@ -50,6 +54,44 @@
           (let (path (path-expand (string-append "lib/" (ns name)) (gerbil-path)))
             (when (file-exists? path) (delete-file-or-directory path #t))))
         '("consumer" "unrelated")))))
+(def (local-project-policy-control!)
+      (def project (make-temporary-file-name "local-project-policy-"))
+      (def environment (path-expand ".gerbil" project))
+      (def project-metadata (path-expand "gerbil.pkg" project))
+      (def output (path-expand "lib/local-project/output.ssi" environment))
+      (def dependency (path-expand "pkg/qualification.local/base/source.ss" environment))
+      (try
+        (put project-metadata "(package: local-project depend: (\"qualification.local/consumer\"))")
+        (put (path-expand "pkg/qualification.local/base/gerbil.pkg" environment) "(package: base)")
+        (put (path-expand "pkg/qualification.local/consumer/gerbil.pkg" environment)
+             "(package: consumer depend: (\"qualification.local/base\"))")
+        (put output "Project output")
+        (put dependency "dependency source")
+        (def code
+          `(begin
+             (import (only-in ,policy-source package-input-policy package-input-path?
+                              package-input-admit-import! package-input-metadata))
+             (setenv "GERBIL_PATH" ,environment)
+             (parameterize ((current-directory ,project))
+               (def policy (package-input-policy "qualification.local/base" ,environment))
+               (when (package-input-path? policy ,output) (error "local Project became an input"))
+               (unless (package-input-path? policy ,dependency) (error "Project stole dependency ownership"))
+               (unless (with-catch (lambda (_) #t)
+                         (lambda () (package-input-admit-import! policy ':local-project/output) #f))
+                 (error "local Project import was accepted"))
+               (call-with-output-file (list path: ,project-metadata truncate: #t)
+                 (lambda (port) (display "(package: changed-project)" port)))
+               (unless (with-catch (lambda (_) #t)
+                         (lambda () (package-input-metadata policy) #f))
+                 (error "local Project metadata drift was accepted"))
+               (displayln "SDK-LOCAL-PROJECT-POLICY-OK"))))
+        (def observed (run-process (list "gxi" "-:max-heap=1G,debug=q" "-e" (object->string code))
+                         directory: project stdout-redirection: #t coprocess: read-all-as-string))
+        (unless (string-contains observed "SDK-LOCAL-PROJECT-POLICY-OK")
+          (error "native local Project probe did not complete" observed))
+        'sdk-local-project-policy-ok
+        (finally (when (file-exists? project) (delete-file-or-directory project #t))))
+)
 (deflanguage-parser-tests library-package-policy-test "Native package publication direction"
   (engine)
   (scenario "SDK transitive consumers are excluded; dependencies and unknown inputs remain"
@@ -201,6 +243,8 @@
                   (path-expand (string-append "lib/" (ns "consumer") "/new.o1") output)
                   "changed"))
               (raises (call-with-library-reader output void) Error?)))))))
+  (scenario "SDK local Project participates without owning its dependency environment"
+    (equal (local-project-policy-control!) 'sdk-local-project-policy-ok))
   (scenario "a reverse consumer cannot claim a dependency's namespace"
     (using
       (with-packages)

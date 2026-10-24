@@ -13,7 +13,9 @@
         (only-in "./src/build-support/compiler-profile.ss" initialize-compiler-build!))
 (def gerbil-parser-ffi-specs
   (let ((include-option
-         (string-append "-I" (path-expand "include" (path-directory (this-source-file)))))
+         (string-append "-I"
+           (path-strip-trailing-directory-separator
+             (path-normalize (path-expand "include" (path-directory (this-source-file)))))))
         (link-options (cond-expand
                        (darwin '("-ld-options" "-Wl,-undefined,dynamic_lookup"))
                        (else '()))))

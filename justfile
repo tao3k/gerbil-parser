@@ -1,23 +1,38 @@
 # Run one native suite with its heap fence established before SDK imports.
 gerbil_test_runtime_options := "-:max-heap=1G,debug=q"
+gerbil_test_launcher := if env('GERBIL_PATH', '') == '' { 'gerbil env gxi' } else { 'gxi' }
 
 # The same SDK helper owner used by CI supplies absolute test-module imports.
 # Its publication guard admits the complete resulting helper generation.
 build-test-support:
-    gerbil env gxi {{ gerbil_test_runtime_options }} build-test-support.ss compile
+    {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} build-test-support.ss compile
 
 test-file path: build-qualification build-test-support
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p .gerbil/test-results
     output_file="$(mktemp .gerbil/test-results/native.XXXXXX)"
-    timeout --signal=TERM --kill-after=5s 120s gerbil env gxi {{ gerbil_test_runtime_options }} :gerbil/tools/gxtest -v 3 "{{ path }}" 2>&1 | tee "$output_file"
+    timeout --signal=TERM --kill-after=5s 120s {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} :gerbil/tools/gxtest -v 3 "{{ path }}" 2>&1 | tee "$output_file"
     if grep -E 'ERROR (CHECK|CASE|HARNESS|MODULE)|Heap overflow|Stack overflow' "$output_file" >/dev/null; then exit 1; fi
     grep -F 'MODULE-OK ' "$output_file" >/dev/null
     grep -F 'HARNESS-OK' "$output_file" >/dev/null
     grep -Fx 'OK' "$output_file" >/dev/null
 
 set shell := ["sh", "-eu", "-c"]
+
+# Source contracts consume the installed library, without compiling unrelated
+# benchmark helpers. Keep the same pre-import heap and native harness checks.
+test-source-contracts:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p .gerbil/test-results
+    output_file="$(mktemp .gerbil/test-results/source-contracts.XXXXXX)"
+    suites=(t/build-product-contract-test.ss t/test-style-contract-test.ss t/library-package-policy-test.ss)
+    timeout --signal=TERM --kill-after=5s 120s {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} :gerbil/tools/gxtest -v 3 "${suites[@]}" 2>&1 | tee "$output_file"
+    if rg 'ERROR (CHECK|CASE|HARNESS|MODULE)|Heap overflow|Stack overflow' "$output_file"; then exit 1; fi
+    for suite in "${suites[@]}"; do rg -Fx "MODULE-OK $suite" "$output_file" >/dev/null; done
+    rg -F 'HARNESS-OK' "$output_file" >/dev/null
+    rg -x 'OK' "$output_file" >/dev/null
 
 # SDK-only package direction controls do not bootstrap the Parser under test.
 test-package-inputs:
@@ -66,7 +81,7 @@ test-process-contracts: build-process-fixture
     gerbil env gxi t/fixtures/qualification/process-controls.ss "$PWD/.data/process-controls/fixture"
 
 build-qualification:
-    gerbil env gxi {{ gerbil_test_runtime_options }} build-qualification.ss compile
+    {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} build-qualification.ss compile
 
 # Focused native suites; test-all discovers the same suites once.
 test-qualification-suites: build-qualification

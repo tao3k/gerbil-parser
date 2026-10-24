@@ -44,6 +44,7 @@
     (scope ((flags (compiler-host-options "-O2 -pipe")))
       (equal (string-prefix? "-O2 -pipe " flags) #t)
       (equal (compiler-host-options flags) flags)
+      (equal (member "-v" (string-split flags #\space)) #f)
       (equal (member "-Q" (string-split flags #\space)) #f)
       (equal (member "-verbose" (compiler-gsc-options)) #f)
       (scope ((macros (capture-build-text

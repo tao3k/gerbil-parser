@@ -5,7 +5,7 @@
         (only-in :std/os/device device-close)
         "./preparation-snapshot.ss" "./compiler-profile.ss"
         "./build-environment.ss"
-        "./loader-products.ss" "./package-inputs.ss")
+        "./package-inputs.ss")
 (export call-with-library-publication library-publication-inputs publication-build-main call-with-library-reader)
 
 (def (publication-root path)
@@ -203,9 +203,11 @@
               (policy (and owner (package-input-policy owner (gerbil-path)))))
         (call-with-library-publication (gerbil-path)
          (lambda (root)
+           ;; Core/SDK products remain intact after their completeness check.
+           ;; Deleting native loaders here would immediately invalidate the
+           ;; producer's result and force every later repair to rebuild them.
            (call-with-compiler-import-progress (lambda () (apply compile-main args))
-             (if policy (lambda (path) (package-input-admit-import! policy path)) void))
-           (prepare-library-loader-products! root))
+             (if policy (lambda (path) (package-input-admit-import! policy path)) void)))
          (lambda (root)
            (list (if (null? args) '("compile") args) (library-publication-inputs root owner)))
          (not extension?)

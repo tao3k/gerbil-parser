@@ -12,6 +12,22 @@ This is an active implementation and research project. Supported syntax and
 portable products are qualified per language and target; a shared authoring
 interface does not imply complete language coverage or backend parity.
 
+* Native package build
+
+=init.ss= selects the Parser Module with =yuanxu!=. Its Scope publishes the
+existing =build-modules.ss= catalog; =build.ss= retains that complete catalog
+and all three FFI specifications, then hands the init-owned =std-make-spec=
+value directly to Core's =defbuild-script= adapter. Core owns source preparation,
+normalization and missing-product checks. The SDK owns scheduling and compilation.
+The publication guard retains every compiled loader, implementation and macro
+product after Core checks it. The explicit source-loader preparation utility is
+not part of this normal package build.
+
+=gerbil pkg build github.com/tao3k/gerbil-parser= uses this entry. The existing
+180-second, 2-GiB and four-worker limits are unchanged. Compiler startup/version
+verbosity is disabled; actual SDK compile jobs, compiler errors and GC reports
+remain visible. No SDK source or installed toolchain is modified.
+
 * Native callable extension boundaries
 
 The pinned =gerbil-poo= Function Type owns callback invocation contracts.

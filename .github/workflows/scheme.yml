@@ -35,6 +35,9 @@ jobs:
       GERBIL_RELEASE_ROOT: ${{ github.workspace }}/.ci/gerbil-release/${{ inputs.gerbil-label }}
       GERBIL_SDK_SHA256: ${{ inputs.release-sha256 }}
       GERBIL_PREPARED_HEAD: ${{ github.sha }}
+      # std/make defaults to serial compilation when this is absent. Bound
+      # cold catalog compilation without changing the writer's 240s deadline.
+      GERBIL_BUILD_CORES: 2
     steps:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0

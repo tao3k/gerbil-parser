@@ -87,8 +87,9 @@
                    source start (source-scan-state-context state) mode)))
       (if kind
         (begin
-          (unless (and (symbol? kind) (integer? end)
-                       (< start end) (<= end length))
+          ;; SourceScannerStep already checks kind and UInt end. The scanner
+          ;; owns only the relative progress and source-bound relation.
+          (unless (and (< start end) (<= end length))
             (error "source scanner did not advance" kind start end))
           (let* ((lexeme (substring source start end))
                  (byte-end (+ (source-scan-state-byte-offset state)

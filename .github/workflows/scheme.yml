@@ -89,7 +89,7 @@ jobs:
           # Use it for the base writer as well as every extension writer.
           # The strict cold writer must pass with two workers and180s.
           # A higher SDK default cannot substitute for that gate.
-          GERBIL_BUILD_VERBOSE=1 gerbil env just qualify-library
+          GERBIL_BUILD_CORES=2 GERBIL_BUILD_VERBOSE=1 gerbil env just qualify-library
           "${GERBIL_GCC:-gcc}" -std=c11 -Wall -Wextra -Werror \
             -fsyntax-only \
             -Iinclude t/ffi-header-smoke.c

@@ -64,6 +64,11 @@ runs:
       shell: bash
     - name: Install native task tool
       uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad
+      # The action chooses between CARGO_HOME/bin and .install-action/bin.
+      # Scope a fresh Cargo home to this installer so every job uses the latter,
+      # regardless of whether its runner image ships Homebrew or user Rustup.
+      env:
+        CARGO_HOME: ${{ runner.temp }}/parser-ci-tools
       with:
         tool: just
     # The prepared generation binds PATH. macOS runner images carry optional
@@ -74,9 +79,11 @@ runs:
       run: |
         just_executable="$(command -v just)"
         test -x "$just_executable"
-        ci_path="${just_executable%/*}:$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/opt/coreutils/libexec/gnubin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin"
+        test "$just_executable" = "$HOME/.install-action/bin/just"
+        ci_path="$HOME/.install-action/bin:$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/opt/rustup/bin:/opt/homebrew/opt/coreutils/libexec/gnubin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin"
         PATH="$ci_path" command -v just
         PATH="$ci_path" command -v timeout
+        PATH="$ci_path" rustc --version
         echo "PATH=$ci_path" >> "$GITHUB_ENV"
       shell: bash
     - name: Cache immutable SDK archive

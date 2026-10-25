@@ -2,7 +2,9 @@
         (only-in :std/io/tempfile make-temporary-file-name)
         (only-in :std/misc/process process-error?)
         (only-in :std/sync/wg make-wg wg-add! wg-wait!)
-        (only-in :gerbil/expander current-expander-module-import)
+        (only-in :gerbil/expander current-expander-module-import current-expander-module-eval)
+        (only-in :std/sync/channel make-channel channel-put channel-get)
+        (only-in :std/text/pregexp pregexp-match)
         (only-in :gerbil-parser/src/build-support/compiler-profile run-build-tool compiler-host-options compiler-gsc-options initialize-compiler-build! call-with-compiler-import-progress))
 
 (def (with-compiler-probe procedure)
@@ -28,6 +30,30 @@
     (create-directory* root)
     (try (procedure root)
          (finally (delete-file-or-directory root #t)))))
+
+;; Synthetic crossed callbacks test interval bookkeeping, not compiler speed.
+(def (overlapping-evaluation-output)
+  (def started (make-channel))
+  (def finish-a (make-channel))
+  (def finish-b (make-channel))
+  (call-with-output-string
+    (lambda (output)
+      (parameterize
+        ((current-output-port output)
+         (current-expander-module-eval
+           (lambda (name)
+             (channel-put started name)
+             (channel-get (if (eq? name 'a) finish-a finish-b)) name)))
+        (call-with-compiler-import-progress
+          (lambda ()
+            (let (a (spawn (lambda () ((current-expander-module-eval) 'a))))
+              (channel-get started)
+              (let (b (spawn (lambda () ((current-expander-module-eval) 'b))))
+                (channel-get started)
+                (channel-put finish-a #t) (thread-join! a)
+                ;; B remains active after A, so lexical nesting alone loses it.
+                (thread-sleep! .15)
+                (channel-put finish-b #t) (thread-join! b)))))))))
 
 ;; Compiler initialization changes the SDK's process-wide worker settings.
 
@@ -56,6 +82,10 @@
                           (lambda () ((current-expander-module-import) ':gerbil/core #f))
                           (lambda (_) (raise sentinel))))) sentinel) #t))
       (equal entered #f)))
+  (scenario "overlapping evaluation accounting retains the trailing worker interval"
+    (scope ((output (overlapping-evaluation-output)))
+      (scope ((match (pregexp-match "evaluation-active-s=([-+.0-9eE]+)" output)))
+        (equal (and match (>= (string->number (cadr match)) .14) #t) #t))))
   (scenario "byte output retains pressure fragments and arbitrary bytes"
     (using (with-compiler-probe) (probe)
       (equal (capture-build-bytes (list probe "--burst")) (make-u8vector 262144 120))

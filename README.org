@@ -562,8 +562,8 @@ finding is suppressed by the production/development split.
 
 The strict writer still has two workers,180 seconds and a2GiB maximum.
 =COMPILER-INTERFACES= retains real completed imports and now reports cumulative
-admission and reporting cost. =COMPILER-COST= reports outer evaluation cost
-without counting nested evaluations twice. The fields are diagnostic and are
+admission and reporting cost. =COMPILER-COST= reports the union of active evaluation intervals
+without counting nested or concurrent evaluations twice. The fields are diagnostic and are
 not an additive cost partition, admission receipt or liveness heartbeat.
 Checks still precede imports; compiler values/exceptions and trace restoration
 are preserved. The direct source API control passes; the latest four-module
@@ -576,3 +576,7 @@ excluding checkout credentials and SDK files. The failure archive has no prepare
 restore identity and cannot be loaded by the prepared-products restore action.
 The always-run CI log artifact also retains these failed products. Archives and
 raw logs remain execution artifacts, never source-control or reuse credentials.
+
+Compiler cost counters use short locks around updates only; no lock is retained
+across an importer, evaluator or output operation. The crossed-worker synthetic
+control keeps the trailing active interval after the first worker returns.

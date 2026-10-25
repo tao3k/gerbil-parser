@@ -4,7 +4,7 @@ gerbil_test_launcher := if env('GERBIL_PATH', '') == '' { 'gerbil env gxi' } els
 
 # The same SDK helper owner used by CI supplies absolute test-module imports.
 # Its publication guard admits the complete resulting helper generation.
-build-test-support:
+build-test-support: build-test-driver
     {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} build-test-support.ss compile
 
 test-file path: build-qualification build-test-support
@@ -45,7 +45,7 @@ check-build-catalog:
 
 # Source contracts consume the installed library, without compiling unrelated
 # benchmark helpers. Keep the same pre-import heap and native harness checks.
-test-source-contracts:
+test-source-contracts: build-test-driver
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p .gerbil/test-results

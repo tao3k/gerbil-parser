@@ -110,7 +110,7 @@ test-compiler-process: qualify-library build-qualification
     set -euo pipefail
     mkdir -p .gerbil/test-results
     output_file="$(mktemp .gerbil/test-results/compiler-process.XXXXXX)"
-    timeout --signal=TERM --kill-after=5s 120s {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} :gerbil/tools/gxtest -v 3 t/compiler-process-test.ss 2>&1 | tee "$output_file"
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" timeout --signal=TERM --kill-after=5s 120s {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} :gerbil/tools/gxtest -v 3 t/compiler-process-test.ss 2>&1 | tee "$output_file"
     if rg 'ERROR (CHECK|CASE|HARNESS|MODULE)|Heap overflow|Stack overflow' "$output_file"; then exit 1; fi
     rg -Fx 'MODULE-OK t/compiler-process-test.ss' "$output_file" >/dev/null
     rg -F 'HARNESS-OK' "$output_file" >/dev/null

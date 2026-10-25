@@ -1,12 +1,12 @@
-;;; Base-package input policy on the SDK's existing reverse dependency graph.
+;;; Base-package input policy on Gerbil's existing reverse dependency graph.
 ;;; Consumers are outputs of this package, never implicit compiler inputs.
 (import (only-in :gerbil/expander syntax-e core-resolve-module-path))
 (export current-package-input-owner package-input-policy package-input-metadata
         package-input-path? package-input-admit-import!)
-;; Unscoped publication readers do not query the package graph. Load the SDK's
+;; Unscoped publication readers do not query the package graph. Load Gerbil's
 ;; existing manager only when a graph operation is actually requested; retain
 ;; its own cache, metadata checks, reverse-dependency semantics and failures.
-(def (sdk-package-call name . arguments)
+(def (gerbil-package-call name . arguments)
   (load-module "gerbil/tools/gxpkg")
   (apply (eval name) arguments))
 
@@ -16,21 +16,21 @@
 (def (under? root path)
   (or (equal? root path) (string-prefix? (string-append root "/") path)))
 (def (local-project-root)
-  ;; The SDK's local environment is <project>/.gerbil. A custom/global prefix
+  ;; Gerbil's local environment is <project>/.gerbil. A custom/global prefix
   ;; has no inferred Project owner and remains conservatively observed.
-  (let* ((environment (normalized (path-directory (sdk-package-call 'gerbil/tools/gxpkg#pkg-root-dir))))
+  (let* ((environment (normalized (path-directory (gerbil-package-call 'gerbil/tools/gxpkg#pkg-root-dir))))
          (project (path-directory environment)))
     (and (string=? (path-strip-directory environment) ".gerbil")
          (file-exists? (path-expand "gerbil.pkg" project)) (normalized project))))
 (def (metadata-path package project)
   (if (equal? package ".")
     (path-expand "gerbil.pkg" project)
-    (path-expand "gerbil.pkg" (path-expand package (sdk-package-call 'gerbil/tools/gxpkg#pkg-root-dir)))))
+    (path-expand "gerbil.pkg" (path-expand package (gerbil-package-call 'gerbil/tools/gxpkg#pkg-root-dir)))))
 (def (checked-metadata package project)
   (let* ((actual (call-with-input-file (metadata-path package project) read))
          (cached (if (equal? package ".")
-                   (parameterize ((current-directory project)) (sdk-package-call 'gerbil/tools/gxpkg#pkg-plist "."))
-                   (sdk-package-call 'gerbil/tools/gxpkg#pkg-plist package))))
+                   (parameterize ((current-directory project)) (gerbil-package-call 'gerbil/tools/gxpkg#pkg-plist "."))
+                   (gerbil-package-call 'gerbil/tools/gxpkg#pkg-plist package))))
     (unless (equal? actual cached)
       (error "native package metadata cache is stale; use a fresh build process" package))
     actual))
@@ -42,22 +42,22 @@
 (def (current-package-input-owner)
   (let (matches (filter (lambda (package)
                          (equal? (normalized (current-directory))
-                                 (normalized (path-expand package (sdk-package-call 'gerbil/tools/gxpkg#pkg-root-dir)))))
-                       (sdk-package-call 'gerbil/tools/gxpkg#pkg-list)))
+                                 (normalized (path-expand package (gerbil-package-call 'gerbil/tools/gxpkg#pkg-root-dir)))))
+                       (gerbil-package-call 'gerbil/tools/gxpkg#pkg-list)))
     (when (and (pair? matches) (pair? (cdr matches)))
       (error "ambiguous native package source owner" matches))
     (and (pair? matches) (car matches))))
 (def (package-input-policy owner root)
   (def project (local-project-root))
-  (def packages (append (if project '(".") '()) (sdk-package-call 'gerbil/tools/gxpkg#pkg-list)))
+  (def packages (append (if project '(".") '()) (gerbil-package-call 'gerbil/tools/gxpkg#pkg-list)))
   (unless (member owner packages) (error "package input owner is not registered" owner))
   (for-each (lambda (package) (checked-metadata package project)) packages)
-  ;; Include the SDK's own '.' current-package node. No second dependency
+  ;; Include Gerbil's own '.' current-package node. No second dependency
   ;; resolver, synthetic registration or fixed consumer list is introduced.
   (def consumers
     (if project
-      (parameterize ((current-directory project)) (sdk-package-call 'gerbil/tools/gxpkg#pkg-dependents* owner packages))
-      (sdk-package-call 'gerbil/tools/gxpkg#pkg-dependents* owner packages)))
+      (parameterize ((current-directory project)) (gerbil-package-call 'gerbil/tools/gxpkg#pkg-dependents* owner packages))
+      (gerbil-package-call 'gerbil/tools/gxpkg#pkg-dependents* owner packages)))
   (when (member owner consumers) (error "native package dependency cycle" owner))
   (def namespaces (map (lambda (package) (namespace package project)) consumers))
   (for-each
@@ -70,12 +70,12 @@
                 (error "ambiguous package namespace ownership" consumer package))))) packages))
     namespaces)
   (package-input-policy-value namespaces
-    ;; Reuse the upstream deepest registered owner rule, including SDK '.'.
+    ;; Reuse the upstream deepest registered owner rule, including Gerbil '.'.
     ;; An enclosing Project or linked consumer never steals nested ownership.
     (list-sort (lambda (left right) (> (string-length (car left)) (string-length (car right))))
       (map (lambda (package)
              (cons (normalized (if (equal? package ".") project
-                                (path-expand package (sdk-package-call 'gerbil/tools/gxpkg#pkg-root-dir))))
+                                (path-expand package (gerbil-package-call 'gerbil/tools/gxpkg#pkg-root-dir))))
                    (and (member package consumers) #t))) packages))
     (map (lambda (package)
            (list package (metadata-path package project) (checked-metadata package project)))

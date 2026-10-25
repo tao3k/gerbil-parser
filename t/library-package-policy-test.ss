@@ -1,4 +1,4 @@
-;;; SDK-backed package direction, runtime generations and pre-expansion refusal.
+;;; Gerbil-backed package direction, runtime generations and pre-expansion refusal.
 (import :gerbil-parser/language-test-support
         (only-in :std/io/tempfile make-temporary-file-name)
         (only-in :std/source this-source-file)
@@ -84,10 +84,10 @@
                (unless (with-catch (lambda (_) #t)
                          (lambda () (package-input-metadata policy) #f))
                  (error "local Project metadata drift was accepted"))
-               (displayln "SDK-LOCAL-PROJECT-POLICY-OK"))))
+               (displayln "GERBIL-LOCAL-PROJECT-POLICY-OK"))))
         (def observed (run-process (list "gxi" "-:max-heap=1G,debug=q" "-e" (object->string code))
                          directory: project stdout-redirection: #t coprocess: read-all-as-string))
-        (unless (string-contains observed "SDK-LOCAL-PROJECT-POLICY-OK")
+        (unless (string-contains observed "GERBIL-LOCAL-PROJECT-POLICY-OK")
           (error "native local Project probe did not complete" observed))
         'sdk-local-project-policy-ok
         (finally (when (file-exists? project) (delete-file-or-directory project #t))))
@@ -101,21 +101,21 @@
               (error "package manager loaded without a graph request"))
             (current-package-input-owner)
             (unless (assoc "gerbil/tools/gxpkg" (list-modules))
-              (error "graph request did not use the SDK manager"))
+              (error "graph request did not use the Gerbil manager"))
             (unless (with-catch Error?
                       (lambda ()
                         (package-input-policy "qualification.invalid/unregistered" (gerbil-path))
                         #f))
-              (error "unknown SDK graph owner was accepted"))
+              (error "unknown Gerbil graph owner was accepted"))
             (write 'sdk-deferred-package-policy-ok)))
     (call-with-input-string
       (run-process (list "gxi" "-:max-heap=1G,debug=q" "-e" (object->string code))) read)))
 
 (deflanguage-parser-tests library-package-policy-test "Native package publication direction"
   (engine)
-  (scenario "SDK graph loading is deferred and unknown owners remain refused"
+  (scenario "Gerbil graph loading is deferred and unknown owners remain refused"
     (equal (deferred-sdk-policy-control!) 'sdk-deferred-package-policy-ok))
-  (scenario "SDK transitive consumers are excluded; dependencies and unknown inputs remain"
+  (scenario "Gerbil transitive consumers are excluded; dependencies and unknown inputs remain"
     (using
       (with-packages)
       (key ns source output declare)
@@ -264,7 +264,7 @@
                   (path-expand (string-append "lib/" (ns "consumer") "/new.o1") output)
                   "changed"))
               (raises (call-with-library-reader output void) Error?)))))))
-  (scenario "SDK local Project participates without owning its dependency environment"
+  (scenario "Gerbil local Project participates without owning its dependency environment"
     (equal (local-project-policy-control!) 'sdk-local-project-policy-ok))
   (scenario "a reverse consumer cannot claim a dependency's namespace"
     (using

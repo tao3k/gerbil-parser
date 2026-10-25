@@ -1,4 +1,4 @@
-;;; Native consumers must bind the same physical generation as the SDK loader.
+;;; Native consumers must bind the same physical generation as the Gerbil loader.
 (import (only-in :gerbil/runtime/loader __find-library-module))
 (export native-module-object native-module-link-options)
 
@@ -19,7 +19,7 @@
                  (andmap (lambda (digit) (and (char>=? digit #\0) (char<=? digit #\9)))
                          (string->list (substring extension 2 (string-length extension))))
                  (equal? (path-normalize (path-strip-extension selected)) expected))
-      (error "native link has no owned SDK-selected object" module selected))
+      (error "native link has no owned Gerbil-selected object" module selected))
     selected))
 
 (def (native-module-link-options modules)

@@ -70,7 +70,7 @@
                (let (number (string->number (car fields)))
                  (and (real? number) (>= number 0) (loop (cdr fields)))))))))
 
-;; Compiler initialization changes the SDK's process-wide worker settings.
+;; Compiler initialization changes the Gerbil's process-wide worker settings.
 
 (deflanguage-parser-tests compiler-process-test "compiler process streams"
   (engine (exclusive #t))
@@ -109,7 +109,7 @@
   (scenario "text diagnostics decode UTF-8 split across child writes"
     (using (with-compiler-probe) (probe)
       (equal (capture-build-text (list probe "--utf8-fragment")) "λ")))
-  (scenario "the configured GCC profile overrides a later SDK host define without changing optimization"
+  (scenario "the configured GCC profile overrides a later Gerbil host define without changing optimization"
     (scope ((flags (compiler-host-options "-O2 -pipe")))
       (equal (string-prefix? "-O2 -pipe " flags) #t)
       (equal (compiler-host-options flags) flags)
@@ -212,11 +212,11 @@
                         'gerbil-parser/t/support/qualification/process#receipt-present?)))
                       (error "runtime qualification service was not loaded"))))))
            "QUALIFICATION-START\n"))
-  (scenario "compiler children inherit the active SDK logical bin mapping"
+  (scenario "compiler children inherit the active Gerbil logical bin mapping"
     (equal (capture-build-text
              (list (getenv "GERBIL_GSC" (path-expand "bin/gsc" (gerbil-home))) "-e" "(write (path-expand \"~~bin\"))"))
            (object->string (path-expand "~~bin"))))
-  (scenario "SDK compilation without per-job C options loads and executes its native result"
+  (scenario "Gerbil compilation without per-job C options loads and executes its native result"
     (using (with-compiler-directory) (root)
       (act (initialize-compiler-build!))
       (scope ((output (path-expand "compiler-host.o1" root)))

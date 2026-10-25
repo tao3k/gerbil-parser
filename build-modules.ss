@@ -166,7 +166,6 @@
     "src/build-support/preparation-snapshot.ss"
     "src/build-support/library-publication.ss"
     "src/build-support/package-inputs.ss"
-    "src/build-support/loader-products.ss"
     "src/modules/loader.ss"
     "src/modules/parser/list-event-funs.ss"
     "src/modules/parser/source-event-scope-objects.ss"

@@ -1,9 +1,9 @@
-;;; Stable search identity for nested invocations of the SDK environment tool.
+;;; Stable search identity for nested invocations of the Gerbil environment tool.
 (export canonical-build-search-path canonical-build-runtime-options)
 
 (def (canonical-build-search-path value)
   (if (not value) #f
-    ;; The SDK splitter omits a final empty entry. Restore it explicitly: an
+    ;; The Gerbil splitter omits a final empty entry. Restore it explicitly: an
     ;; empty PATH component denotes the current directory, not an absent path.
     (let* ((parts (string-split value #\:))
            (parts (if (or (zero? (string-length value)) (string-suffix? ":" value))
@@ -16,7 +16,7 @@
               (drop-leading (cdr rest)) rest)))
         ":"))))
 
-;; SDK command nesting repeats its exact leading home/bin/lib relocation group.
+;; Gerbil command nesting repeats its exact leading home/bin/lib relocation group.
 ;; Applying that same group again has no effect. Preserve every other option,
 ;; including order, heap flags, changed mappings and a trailing separator.
 (def (canonical-build-runtime-options value)

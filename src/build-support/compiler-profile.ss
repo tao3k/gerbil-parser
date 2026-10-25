@@ -1,6 +1,7 @@
 ;;; Compiler execution and host policy shared by library and static owners.
 (import (only-in :std/misc/process run-process)
-        (only-in :std/misc/ports read-all-as-string))
+        (only-in :std/misc/ports read-all-as-string)
+        (only-in :yuanxu/ops/progress copy-process-output))
 (export compiler-progress-expression compiler-c-options compiler-gsc-options compiler-build-spec run-build-tool compiler-host-options call-with-compiler-import-progress initialize-compiler-build!)
 
 ;; Keep real compiler/GC progress; GCC -Q dumps every generated function and
@@ -13,8 +14,8 @@
     (string-append configured compiler-host-suffix)))
 (def (initialize-compiler-host!)
   ;; Gerbil intentionally removes -cc-options from macro-phase jobs. Use the
-  ;; SDK's supported build environment for BOTH phases, preserving configured
-  ;; flags verbatim. The SDK dump runs without compiling or changing anything.
+  ;; supported Gerbil build environment for BOTH phases, preserving configured
+  ;; flags verbatim. The Gerbil dump runs without compiling or changing anything.
   (let (configured
         (or (getenv "CORCXXFLAGS_GAMBUILD" #f)
             (run-process
@@ -26,9 +27,9 @@
     ;; the configured SINGLE_HOST define. No optimization level is replaced.
     (setenv "CORCXXFLAGS_GAMBUILD" (compiler-host-options configured))))
 (def (initialize-compiler-build!)
-  ;; A Homebrew SDK must default collect2 to Apple's linker even inside a Nix
+  ;; A Homebrew Gerbil must default collect2 to Apple's linker even inside a Nix
   ;; shell. An explicit compiler search path remains the caller's selection.
-  ;; Other SDK distributions retain their configured native toolchain policy.
+  ;; Other Gerbil distributions retain their configured native toolchain policy.
   (cond-expand
     (darwin
       (when (and (not (getenv "COMPILER_PATH" #f))
@@ -36,10 +37,10 @@
                      (string-prefix? "/usr/local/Cellar/" (gerbil-home))))
         (setenv "COMPILER_PATH" "/usr/bin")))
     (else (void)))
-  ;; The SDK compiler and std/make read GERBIL_BUILD_CORES directly.
+  ;; The Gerbil compiler and std/make read GERBIL_BUILD_CORES directly.
   (initialize-compiler-host!))
 
-;; GC and SDK module jobs provide actual progress. Do not combine Gambit
+;; GC and Gerbil module jobs provide actual progress. Do not combine Gambit
 ;; -verbose function enumeration with this unbuffered diagnostic port: every
 ;; generated binding otherwise becomes synchronous build I/O.
 ;; Report actual compiler GC work while large immutable images are lowered.
@@ -53,28 +54,12 @@
   (run-process command stdout-redirection: #t stderr-redirection: #t
     coprocess:
     (lambda (process)
-      (close-output-port process)
-      (let (output (current-output-port))
-        (if text?
-          ;; The parser-test harness owns a string pipe. Decode incrementally
-          ;; through the SDK port, including UTF-8 split between child writes.
-          (let (buffer (make-string 8192))
-            (let loop ()
-              (let (count (read-substring buffer 0 (string-length buffer) process 1))
-                (unless (zero? count)
-                  (write-substring buffer 0 count output) (force-output output)
-                  (loop)))))
-          ;; Byte capture preserves arbitrary bytes without text conversion.
-          (let (buffer (make-u8vector 8192))
-            (let loop ()
-              (let (count (read-subu8vector buffer 0 (u8vector-length buffer) process 1))
-                (unless (zero? count)
-                  (write-subu8vector buffer 0 count output) (force-output output)
-                  (loop))))))))))
+      (copy-process-output process (current-output-port) #f #f
+        mode: (if text? 'text 'bytes)))))
 
 (def (compiler-c-options options)
   ;; The owned static closure includes dependencies as well as test modules.
-  ;; Keep GCC optimization and the SDK's tail-call contract while compiling
+  ;; Keep GCC optimization and Gerbil's tail-call contract while compiling
   ;; each generated procedure as a separate C host. A single module host (for
   ;; example clan/poo/type) can spend the entire silence window in one GCC pass.
   (string-append options " -U___SINGLE_HOST -D___MULTIPLE_HOSTS"))
@@ -97,7 +82,7 @@
 ;;; std/make expands source interfaces before scheduling their compiler jobs.
 ;;; Report completed imports, not elapsed-time heartbeats, while that real work
 ;;; runs. Report each optimizer-interface boundary; a stuck import still
-;;; trips the existing idle fence. Preserve the SDK importer and its failures.
+;;; trips the existing idle fence. Preserve the Gerbil importer and its failures.
 (def (call-with-compiler-import-progress procedure (admit-import void))
   (let ((importer (gx#current-expander-module-import))
         (evaluate (gx#current-expander-module-eval))

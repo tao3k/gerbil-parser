@@ -24,9 +24,9 @@ installed dependency closure retain both public owners.
 existing =build-modules.ss= catalog; =build.ss= retains that complete catalog
 and all three FFI specifications, then hands the init-owned =std-make-spec=
 value directly to Core's =defbuild-script= adapter. Core owns source preparation,
-normalization and missing-product checks. The SDK owns scheduling and compilation.
+normalization and missing-product checks. Gerbil owns scheduling and compilation.
 Core checks every required loader, implementation and macro product before
-returning. A failed build remains a failure; the next native SDK invocation may
+returning. A failed build remains a failure; the next native Gerbil invocation may
 reuse completed units and repair missing ones. Ordinary installation does not
 run the qualification publication wrapper's whole-library pre-clean or issue
 its separate trust receipt. Explicit qualification tools keep that stricter
@@ -41,8 +41,36 @@ two-worker and2GiB maximum heap limits remain. The Parser package compiler,
 strict base writer, qualification-helper builder and catalog query no longer
 have a180-second cutoff. Focused test/idle and evidence-custody fences remain
 separate and unchanged. Compiler startup/version
-verbosity is disabled; actual SDK compile jobs, compiler errors and GC reports
-remain visible. No SDK source or installed toolchain is modified.
+verbosity is disabled; actual Gerbil compile jobs, compiler errors and GC reports
+remain visible. No Gerbil source or installed toolchain is modified.
+
+** Build responsibility boundary
+
+Gerbil is the default compiler and standard build toolchain. Parser declares
+its modules, FFI specifications and necessary compiler options. Yuanxu selects
+the existing Module and adapts its =std-make-spec= to =defbuild-script=.
+There is no separate Parser compiler framework.
+
+| Owner | Responsibility |
+|-------+----------------|
+| Parser =build-modules.ss=, =modules/parser=, =init.ss= and =build.ss= | One module catalog, Module selection and the three FFI specifications |
+| Gerbil =std/make= and compiler | Scheduling, compilation and standard product generation |
+| Core module-system building | Selected source preparation, normalized build spec and required-product checks |
+| Core Ops =copy-process-output= | Shared line/text/byte output pump; standard =run-process= owns process execution |
+| Parser compiler profile | Necessary host/options policy and a thin process invocation adapter |
+
+The unused loader-product scanner and its catalog entry are removed. Parser no
+longer classifies generated compiler wrappers to delete them after compilation.
+The runtime module loader is a different, used component and remains intact.
+
+The remaining qualification publication and conformance preparation wrappers
+still duplicate lifecycle responsibilities. They are a migration backlog, not
+the target architecture. Replace them through the same init-owned Core build
+projection, with actual build-entry source, retained roots, FFI inputs and owned
+outputs bound to issuance and restoration. Do not create a second selection,
+repurpose test-only publication authority, or treat an ordinary successful build
+as a qualification receipt. Reader exclusion, missing-product refusal, changed
+input refusal and failed-build refusal must survive that replacement.
 
 * Native callable extension boundaries
 
@@ -504,8 +532,8 @@ POO policy. See [[file:docs/architecture/0006-rust-aot.org][Rust AOT design]] an
 
 * Build and try
 
-Use the repository's Gerbil SDK environment and dependencies pinned in
-=gerbil.pkg=. Scheme compilation uses the SDK's GCC configuration.
+Use the repository's Gerbil environment and dependencies pinned in
+=gerbil.pkg=. Scheme compilation uses Gerbil's GCC configuration.
 
 #+begin_src sh
 gxpkg deps --install
@@ -554,10 +582,10 @@ language or a general comparison with tree-sitter.
   [[file:docs/architecture/0003-parse-artifact.org][ParseArtifact design]]
 
 * Development dependencies
-The production package uses the Gerbil SDK build entry and has no ASP runtime
+The production package uses the Gerbil build entry and has no ASP runtime
 dependency. Run =just prepare-dev= before development tests and optional Rust
 compiler tools. ASP is pinned in =dev/gerbil.pkg=. =just check-policy= compares
-all production SDK targets with the original native source discovery declaration
+all production Gerbil targets with the original native source discovery declaration
 and applies the existing source policy to those same inputs. No test or policy
 finding is suppressed by the production/development split.
 
@@ -576,7 +604,7 @@ reported accepted. Complete native/CI validation remains required.
 
 On strict failure, the original status is retained. A separate bounded custody
 action records source/revision metadata and archives installed lib/bin/products,
-excluding checkout credentials and SDK files. The failure archive has no prepared
+excluding checkout credentials and Gerbil files. The failure archive has no prepared
 restore identity and cannot be loaded by the prepared-products restore action.
 The always-run CI log artifact also retains these failed products. Archives and
 raw logs remain execution artifacts, never source-control or reuse credentials.
@@ -591,6 +619,6 @@ On2026-10-25, Core/Yuanxu PR19 head is
 =0353d86ac017442506e89617e86e6ef778a3111e=. =gerbil.pkg= already selects
 that exact immutable revision; POO stays inherited from Core. This alignment
 is checked rather than replacing the pin with a floating branch. Only Parser
-build-entry cutoffs are removed; Core/Yuanxu, SDK, other packages and test
+build-entry cutoffs are removed; Core/Yuanxu, Gerbil, other packages and test
 resource policies are not changed. A completed build after this policy change
 is evaluated under the new policy, never re-labelled as passing the old180s SLO.

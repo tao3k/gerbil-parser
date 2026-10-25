@@ -239,7 +239,7 @@
               (policy (and owner (package-input-policy owner (gerbil-path)))))
         (call-with-library-publication (gerbil-path)
          (lambda (root)
-           ;; Core/SDK products remain intact after their completeness check.
+           ;; Core/Gerbil products remain intact after their completeness check.
            ;; Deleting native loaders here would immediately invalidate the
            ;; producer's result and force every later repair to rebuild them.
            (call-with-compiler-import-progress (lambda () (apply compile-main args))

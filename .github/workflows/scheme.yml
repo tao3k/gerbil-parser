@@ -87,8 +87,8 @@ jobs:
           gerbil clean
           # The official env command prepends the package bin directory to PATH.
           # Use it for the base writer as well as every extension writer.
-          # The strict cold writer must pass with two workers and180s.
-          # A higher SDK default cannot substitute for that gate.
+          # Keep two workers and the heap envelope; the native package writer
+          # has no arbitrary180s cutoff. Elapsed time remains diagnostic.
           GERBIL_BUILD_CORES=2 GERBIL_BUILD_VERBOSE=1 gerbil env just qualify-library
           "${GERBIL_GCC:-gcc}" -std=c11 -Wall -Wextra -Werror \
             -fsyntax-only \

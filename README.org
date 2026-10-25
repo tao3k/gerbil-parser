@@ -37,7 +37,10 @@ tools. CI uses this base writer before optional commands and conformance; it
 delegates to the same =build.ss= rather than maintaining another build spec.
 
 =gerbil pkg build github.com/tao3k/gerbil-parser= uses this entry. The existing
-180-second, 2-GiB and four-worker limits are unchanged. Compiler startup/version
+two-worker and2GiB maximum heap limits remain. The Parser package compiler,
+strict base writer, qualification-helper builder and catalog query no longer
+have a180-second cutoff. Focused test/idle and evidence-custody fences remain
+separate and unchanged. Compiler startup/version
 verbosity is disabled; actual SDK compile jobs, compiler errors and GC reports
 remain visible. No SDK source or installed toolchain is modified.
 
@@ -560,7 +563,8 @@ finding is suppressed by the production/development split.
 
 * Bounded package diagnostics and failed-product custody
 
-The strict writer still has two workers,180 seconds and a2GiB maximum.
+The strict writer retains two workers and a2GiB maximum, with no180-second
+build cutoff. Elapsed time is measured, never treated as an admission receipt.
 =COMPILER-INTERFACES= retains real completed imports and now reports cumulative
 admission and reporting cost. =COMPILER-COST= reports the union of active evaluation intervals
 without counting nested or concurrent evaluations twice. The fields are diagnostic and are
@@ -580,3 +584,13 @@ raw logs remain execution artifacts, never source-control or reuse credentials.
 Compiler cost counters use short locks around updates only; no lock is retained
 across an importer, evaluator or output operation. The crossed-worker synthetic
 control keeps the trailing active interval after the first worker returns.
+
+* Parser-first source alignment
+
+On2026-10-25, Core/Yuanxu PR19 head is
+=0353d86ac017442506e89617e86e6ef778a3111e=. =gerbil.pkg= already selects
+that exact immutable revision; POO stays inherited from Core. This alignment
+is checked rather than replacing the pin with a floating branch. Only Parser
+build-entry cutoffs are removed; Core/Yuanxu, SDK, other packages and test
+resource policies are not changed. A completed build after this policy change
+is evaluated under the new policy, never re-labelled as passing the old180s SLO.

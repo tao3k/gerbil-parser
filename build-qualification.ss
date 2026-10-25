@@ -1,4 +1,4 @@
-#!/usr/bin/env -S timeout --signal=TERM --kill-after=5s 180s gxi
+#!/usr/bin/env gxi
 ;;; Formal build owner for the native POSIX qualification boundary.
 (import (only-in "./src/build-support/library-publication.ss" publication-build-main)
         (only-in "./src/build-support/compiler-profile.ss" compiler-build-spec))

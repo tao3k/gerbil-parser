@@ -43,8 +43,11 @@
       bytes)
     (finally (thread-terminate! reader) (close-port capture)))))
 (def (main fixture)
- (let (directory (make-temporary-file-name "parser-process-controls-"))
+ (create-directory* ".data/process-controls")
+ (let ((directory (make-temporary-file-name
+                    (path-expand ".data/process-controls/run-"))) (complete? #f))
   (create-directory directory)
+  (displayln "PROCESS-CONTROL-EVIDENCE " directory) (force-output)
   (try
    (def (run mode (budget 1.5) (idle 0.8))
     (run-observed-process [fixture mode] (path-expand (string-append mode ".log") directory)
@@ -58,17 +61,27 @@
                            (path-expand (string-append "cold-" (number->string index) ".log") directory)
                            timeout: 3 idle-timeout: 1.5))))
               '(0 1 2 3 4 5)))
-    (for-each
-     (lambda (worker)
-      (let (result (thread-join! worker))
+    ;; Join and record every real outcome before checking the cohort. A first
+    ;; failure must not hide the other cold starts or erase their child logs.
+    (let (results (map thread-join! workers))
+     (for-each
+      (lambda (result index)
+        (displayln "PROCESS-CONTROL-COLD index=" index
+          " exit=" (process-result-status result)
+          " reason=" (process-result-reason result)
+          " phase=" (process-result-phase result)
+          " elapsed=" (process-result-elapsed result)) (force-output))
+      results '(0 1 2 3 4 5))
+     (for-each
+      (lambda (result)
        (check (and (= (process-result-status result) 0)
                    (not (process-result-reason result))
                    (receipt-present? "^NATIVE-EXEC-IDENTITY-OK$"
                                      (utf8->string (process-result-output result))))
               'concurrent-cold-identity (process-result-status result)
               (process-result-reason result) (process-result-phase result)
-              (process-result-elapsed result))))
-     workers))
+              (process-result-elapsed result)))
+      results)))
    (displayln "PROCESS-CONTROL-OK concurrent-cold-identity count=6") (force-output)
    ;; The process contract must not consume an unrelated caller notification.
    (thread-send (current-thread) '(caller-notification))
@@ -155,5 +168,9 @@
                                   (103 102 102) (200 10 200) (201 200 200)) 100))
     (check (and (member 100 (cadr plan)) (member 102 (cadr plan)) (andmap (lambda (group) (member group '(100 102))) (cadr plan))) 'owned-groups-only))
    (displayln "PROCESS-OWNERSHIP-CONTROLS-OK") (force-output)
-   (finally (delete-file-or-directory directory #t))))
+   (set! complete? #t)
+   (finally
+     (if complete? (delete-file-or-directory directory #t)
+       (begin (displayln "PROCESS-CONTROL-FAILED-EVIDENCE " directory)
+              (force-output))))))
  (exit 0))

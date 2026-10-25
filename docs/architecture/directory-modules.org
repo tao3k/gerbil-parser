@@ -82,3 +82,13 @@ identity from schema.ss rather than repeating its value.
 Full native inventory comparison remains in the existing development CI gate.
 The source unit checks public/ABI/phase boundaries and actual interoperability;
 it does not repeat a complete package scan inside a bounded test owner.
+
+* Named Record Types
+
+Each Scope field shape is declared once with native POO =define-type= and
+=Record=. =Fun= supplies compact fixed signatures; =Function= remains only for
+optional signatures. The Record owns inheritance, defaults, construction and
+normalization. Objects reuse its prototype through the existing Contract proto
+association. =YuanxuContract= adds only publication identity, contextual
+admission and evidence; it references the named Record instead of redeclaring
+its fields. This follows the existing POO class-publication mechanism.

@@ -1,10 +1,14 @@
-;;; Public compiler service contract; Scheme syntax stays in its existing facade.
-(import (only-in :clan/poo/object .o .cc)
-        (only-in :clan/poo/mop Function Any Bool)
+;;; The native Record owns field types, inheritance, defaults and normalization.
+(import (only-in :clan/poo/object .cc .get)
+        (only-in :clan/poo/mop define-type Fun Any)
         (only-in :clan/poo/type Record)
         (only-in :yuanxu/object-types/contracts YuanxuContract.))
-(export CompilerScopeContract)
+(export CompilerScope CompilerScopeContract)
+
+(define-type CompilerScope
+  (Record compile-grammar: [(Fun Any <- Any)]))
+
+;; Core adds contextual admission/evidence; it does not redeclare the fields.
 (def CompilerScopeContract
-  (.cc YuanxuContract. identity: 'compiler/scope proto: (.o)
-       value-contract: (Record
-        compile-grammar: (list (Function (list Any) (list Any))))))
+  (.cc YuanxuContract. identity: 'compiler/scope
+       proto: (.get CompilerScope proto) value-contract: CompilerScope))

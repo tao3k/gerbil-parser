@@ -1,13 +1,17 @@
-;;; Public build-support service contract; Scheme syntax stays in its existing facade.
-(import (only-in :clan/poo/object .o .cc)
-        (only-in :clan/poo/mop Function Any Bool)
+;;; The native Record owns field types, inheritance, defaults and normalization.
+(import (only-in :clan/poo/object .cc .get)
+        (only-in :clan/poo/mop define-type Fun Any)
         (only-in :clan/poo/type Record)
         (only-in :yuanxu/object-types/contracts YuanxuContract.))
-(export BuildSupportScopeContract)
+(export BuildSupportScope BuildSupportScopeContract)
+
+(define-type BuildSupportScope
+  (Record initialize-build!: [(Fun Any)]
+          compiler-gsc-options: [(Fun Any)]
+          compiler-build-spec: [(Fun Any <- Any)]
+          native-module-link-options: [(Fun Any <- Any)]))
+
+;; Core adds contextual admission/evidence; it does not redeclare the fields.
 (def BuildSupportScopeContract
-  (.cc YuanxuContract. identity: 'build-support/scope proto: (.o)
-       value-contract: (Record
-        initialize-build!: (list (Function (list Any) '()))
-        compiler-gsc-options: (list (Function (list Any) '()))
-        compiler-build-spec: (list (Function (list Any) (list Any)))
-        native-module-link-options: (list (Function (list Any) (list Any))))))
+  (.cc YuanxuContract. identity: 'build-support/scope
+       proto: (.get BuildSupportScope proto) value-contract: BuildSupportScope))

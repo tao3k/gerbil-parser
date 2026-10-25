@@ -55,6 +55,21 @@
                 (thread-sleep! .15)
                 (channel-put finish-b #t) (thread-join! b)))))))))
 
+;; Match the complete diagnostic record while allowing the clock's decimal or
+;; exponent notation. Missing fields, malformed/negative costs and extra output
+;; must not become acceptable by ignoring COMPILER-COST altogether.
+(def (compiler-cost-output? output events)
+  (let (match (pregexp-match
+               (string-append "^" events
+                 "COMPILER-COST imports=0 admission-s=([-+.0-9eE]+)"
+                 " report-s=([-+.0-9eE]+) evaluation-active-s=([-+.0-9eE]+)"
+                 " total-s=([-+.0-9eE]+)\n$") output))
+    (and match (equal? (car match) output)
+         (let loop ((fields (cdr match)))
+           (or (null? fields)
+               (let (number (string->number (car fields)))
+                 (and (real? number) (>= number 0) (loop (cdr fields)))))))))
+
 ;; Compiler initialization changes the SDK's process-wide worker settings.
 
 (deflanguage-parser-tests compiler-process-test "compiler process streams"
@@ -133,19 +148,55 @@
     (each (expected) ('(() (first second)))
       (scope ((actual #f))
         (equal
+          (compiler-cost-output?
+            (call-with-output-string
+              (lambda (output)
+                (parameterize
+                  ((current-output-port output)
+                   (gx#current-expander-module-eval (lambda (_) (apply values expected))))
+                  (set! actual
+                    (call-with-values
+                      (lambda ()
+                        (call-with-compiler-import-progress
+                          (lambda () ((gx#current-expander-module-eval) 'probe))))
+                      list)))))
+            "COMPILER-EVALUATE probe\nCOMPILER-EVALUATED probe\n")
+          #t)
+        (equal actual expected))))
+  (scenario "compiler cost diagnostics reject incomplete or invalid records"
+    (scope ((events "COMPILER-EVALUATE probe\nCOMPILER-EVALUATED probe\n")
+            (cost "COMPILER-COST imports=0 admission-s=0. report-s=1e-6 evaluation-active-s=.2 total-s=2.1E-1\n"))
+      (equal (compiler-cost-output? (string-append events cost) events) #t)
+      (each (invalid)
+        ((list events
+               (string-append events "COMPILER-COST imports=0\n")
+               (string-append events "COMPILER-COST imports=0 admission-s=e report-s=0. evaluation-active-s=0. total-s=0.\n")
+               (string-append events "COMPILER-COST imports=0 admission-s=-1 report-s=0. evaluation-active-s=0. total-s=0.\n")
+               (string-append events cost cost)
+               (string-append events cost "unexpected output\n")))
+        (equal (compiler-cost-output? invalid events) #f))))
+  (scenario "compiler evaluation exceptions retain diagnostics and restore callbacks"
+    (scope ((sentinel (list 'evaluation-refusal))
+            (importer (current-expander-module-import))
+            (evaluate (current-expander-module-eval))
+            (actual #f))
+      (equal
+        (compiler-cost-output?
           (call-with-output-string
             (lambda (output)
               (parameterize
                 ((current-output-port output)
-                 (gx#current-expander-module-eval (lambda (_) (apply values expected))))
+                 (current-expander-module-eval (lambda (_) (raise sentinel))))
                 (set! actual
-                  (call-with-values
+                  (with-catch identity
                     (lambda ()
                       (call-with-compiler-import-progress
-                        (lambda () ((gx#current-expander-module-eval) 'probe))))
-                    list)))))
-          "COMPILER-EVALUATE probe\nCOMPILER-EVALUATED probe\n")
-        (equal actual expected))))
+                        (lambda () ((current-expander-module-eval) 'probe)))))))))
+          "COMPILER-EVALUATE probe\n")
+        #t)
+      (equal (eq? actual sentinel) #t)
+      (equal (eq? (current-expander-module-import) importer) #t)
+      (equal (eq? (current-expander-module-eval) evaluate) #t)))
   (scenario "qualification runtime services do not request compiler interfaces"
     (equal (capture-build-text
              (list "gxi" "-e"

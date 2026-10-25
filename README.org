@@ -557,3 +557,22 @@ compiler tools. ASP is pinned in =dev/gerbil.pkg=. =just check-policy= compares
 all production SDK targets with the original native source discovery declaration
 and applies the existing source policy to those same inputs. No test or policy
 finding is suppressed by the production/development split.
+
+* Bounded package diagnostics and failed-product custody
+
+The strict writer still has two workers,180 seconds and a2GiB maximum.
+=COMPILER-INTERFACES= retains real completed imports and now reports cumulative
+admission and reporting cost. =COMPILER-COST= reports outer evaluation cost
+without counting nested evaluations twice. The fields are diagnostic and are
+not an additive cost partition, admission receipt or liveness heartbeat.
+Checks still precede imports; compiler values/exceptions and trace restoration
+are preserved. The direct source API control passes; the latest four-module
+source-contract attempt reaches its120s boundary without completing and is not
+reported accepted. Complete native/CI validation remains required.
+
+On strict failure, the original status is retained. A separate bounded custody
+action records source/revision metadata and archives installed lib/bin/products,
+excluding checkout credentials and SDK files. The failure archive has no prepared
+restore identity and cannot be loaded by the prepared-products restore action.
+The always-run CI log artifact also retains these failed products. Archives and
+raw logs remain execution artifacts, never source-control or reuse credentials.

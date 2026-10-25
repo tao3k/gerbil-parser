@@ -2,6 +2,7 @@
         (only-in :std/io/tempfile make-temporary-file-name)
         (only-in :std/misc/process process-error?)
         (only-in :std/sync/wg make-wg wg-add! wg-wait!)
+        (only-in :gerbil/expander current-expander-module-import)
         (only-in :gerbil-parser/src/build-support/compiler-profile run-build-tool compiler-host-options compiler-gsc-options initialize-compiler-build! call-with-compiler-import-progress))
 
 (def (with-compiler-probe procedure)
@@ -32,6 +33,29 @@
 
 (deflanguage-parser-tests compiler-process-test "compiler process streams"
   (engine (exclusive #t))
+  (scenario "compiler observation preserves values, exceptions and trace restoration"
+    (equal (call-with-values
+             (lambda () (call-with-compiler-import-progress (lambda () (values 'left 'right))))
+             list)
+           '(left right))
+    (scope ((sentinel (list 'compiler-observation-refusal))
+            (trace (getenv "GERBIL_PARSER_LR_TRACE" #f)))
+      (equal (eq? (with-catch identity
+                    (lambda () (call-with-compiler-import-progress (lambda () (raise sentinel)))))
+                  sentinel) #t)
+      (equal (getenv "GERBIL_PARSER_LR_TRACE" #f) trace)))
+  (scenario "compiler observation retains admission before the protected native importer"
+    (scope ((entered #f) (sentinel (list 'admission-refusal))
+            (original (current-expander-module-import)))
+      (parameters
+        ((current-expander-module-import
+           (lambda args (set! entered #t) (apply original args))))
+        (equal (eq? (with-catch identity
+                      (lambda ()
+                        (call-with-compiler-import-progress
+                          (lambda () ((current-expander-module-import) ':gerbil/core #f))
+                          (lambda (_) (raise sentinel))))) sentinel) #t))
+      (equal entered #f)))
   (scenario "byte output retains pressure fragments and arbitrary bytes"
     (using (with-compiler-probe) (probe)
       (equal (capture-build-bytes (list probe "--burst")) (make-u8vector 262144 120))

@@ -27,8 +27,17 @@ test-plan:
 # Ordinary installation issues Core products; strict qualification consumers
 # require their separate source/product receipt from this explicit base writer.
 qualify-library:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    status=0
     # Keep the package deadline, including cold native compilation.
-    timeout --signal=TERM --kill-after=5s 180s {{ gerbil_test_launcher }} -:max-heap=2G,debug=q build-qualified-library.ss compile
+    timeout --signal=TERM --kill-after=5s 180s {{ gerbil_test_launcher }} -:max-heap=2G,debug=q build-qualified-library.ss compile || status=$?
+    if [ "$status" -ne 0 ]; then
+      # A separate bounded custody operation cannot turn failure into admission.
+      archive="$PWD/.data/package-failures/strict-$(date -u +%Y%m%dT%H%M%SZ)-$$.tar.gz"
+      timeout --signal=TERM --kill-after=5s 180s bash tools/ci/prepared-products.sh failure "$archive" "$status" || echo "FAILED-PRODUCTS-CAPTURE-FAILED status=$status" >&2
+    fi
+    exit "$status"
 
 # Read both owners' actual specs without compiling or changing installed products.
 check-build-catalog:

@@ -102,33 +102,56 @@
   (let ((importer (gx#current-expander-module-import))
         (evaluate (gx#current-expander-module-eval))
         (completed 0) (started (##current-time-point))
+        (admission-seconds 0.) (report-seconds 0.) (evaluation-seconds 0.)
+        (evaluation-depth 0)
         (trace (getenv "GERBIL_PARSER_LR_TRACE" #f)))
+    (def (report . fields)
+      (def before (##current-time-point))
+      (apply displayln fields) (force-output)
+      (set! report-seconds (+ report-seconds (- (##current-time-point) before))))
     (try
       (unless trace (setenv "GERBIL_PARSER_LR_TRACE" "1"))
       (parameterize
         ((gx#current-expander-module-import
           (lambda (path reload?)
             ;; Admission precedes expansion and every initializer.
-            (admit-import path)
+            (let (before (##current-time-point))
+              (begin0 (admit-import path)
+                (set! admission-seconds
+                  (+ admission-seconds (- (##current-time-point) before)))))
             (let (context (importer path reload?))
               (set! completed (+ completed 1))
               (when (or (zero? (modulo completed 64))
                         (and (string? path) (string-suffix? ".ssxi.ss" path))
                         (and (symbol? path) (string-suffix? ".ssxi.ss" (symbol->string path))))
-                (displayln "COMPILER-INTERFACES completed=" completed " last=" path
-                           " elapsed-ms=" (inexact->exact (floor (* 1000 (- (##current-time-point) started)))))
-                (force-output))
+                (report "COMPILER-INTERFACES completed=" completed " last=" path
+                           " elapsed-ms=" (inexact->exact (floor (* 1000 (- (##current-time-point) started))))
+                           " admission-s=" admission-seconds " report-s=" report-seconds))
               context)))
          (gx#current-expander-module-eval
           (lambda (module)
             (let (name (if (or (gx#module-context? module) (gx#prelude-context? module))
                           (gx#expander-context-id module) module))
-              (displayln "COMPILER-EVALUATE " name) (force-output)
-              (call-with-values
-                (lambda () (evaluate module))
-                (lambda results
-                  (displayln "COMPILER-EVALUATED " name) (force-output)
-                  (apply values results)))))))
+              (report "COMPILER-EVALUATE " name)
+              (let ((before (##current-time-point)) (outer? (zero? evaluation-depth)))
+                (set! evaluation-depth (+ evaluation-depth 1))
+                (try
+                  (call-with-values
+                    (lambda () (evaluate module))
+                    (lambda results
+                      (report "COMPILER-EVALUATED " name)
+                      (apply values results)))
+                  (finally
+                    (set! evaluation-depth (- evaluation-depth 1))
+                    ;; Only outer evaluations count, never overlapping nested work.
+                    (when outer?
+                      (set! evaluation-seconds
+                        (+ evaluation-seconds (- (##current-time-point) before)))))))))))
         (procedure))
       (finally
+        (displayln "COMPILER-COST imports=" completed
+          " admission-s=" admission-seconds " report-s=" report-seconds
+          " outer-evaluation-s=" evaluation-seconds
+          " total-s=" (- (##current-time-point) started))
+        (force-output)
         (unless trace (setenv "GERBIL_PARSER_LR_TRACE"))))))

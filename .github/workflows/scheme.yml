@@ -36,7 +36,7 @@ jobs:
       GERBIL_SDK_SHA256: ${{ inputs.release-sha256 }}
       GERBIL_PREPARED_HEAD: ${{ github.sha }}
       # std/make defaults to serial compilation when this is absent. Bound
-      # cold catalog compilation without changing the writer's 240s deadline.
+      # cold catalog compilation without changing the package's 180s deadline.
       GERBIL_BUILD_CORES: 2
     steps:
       - name: Checkout gerbil-parser
@@ -88,7 +88,9 @@ jobs:
           gerbil clean
           # The official env command prepends the package bin directory to PATH.
           # Use it for the base writer as well as every extension writer.
-          GERBIL_BUILD_VERBOSE=1 gerbil env just qualify-library
+          # SDK activation exports its own machine-wide core count. The cold
+          # writer owns a two-worker budget, including its retained compiler IR.
+          GERBIL_BUILD_CORES=2 GERBIL_BUILD_VERBOSE=1 gerbil env just qualify-library
           "${GERBIL_GCC:-gcc}" -std=c11 -Wall -Wextra -Werror \
             -fsyntax-only \
             -Iinclude t/ffi-header-smoke.c

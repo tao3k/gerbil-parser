@@ -92,8 +92,29 @@
         'sdk-local-project-policy-ok
         (finally (when (file-exists? project) (delete-file-or-directory project #t))))
 )
+(def (deferred-sdk-policy-control!)
+  (let (code
+         `(begin
+            (import (only-in :std/error Error?)
+                    (only-in ,policy-source current-package-input-owner package-input-policy))
+            (when (assoc "gerbil/tools/gxpkg" (list-modules))
+              (error "package manager loaded without a graph request"))
+            (current-package-input-owner)
+            (unless (assoc "gerbil/tools/gxpkg" (list-modules))
+              (error "graph request did not use the SDK manager"))
+            (unless (with-catch Error?
+                      (lambda ()
+                        (package-input-policy "qualification.invalid/unregistered" (gerbil-path))
+                        #f))
+              (error "unknown SDK graph owner was accepted"))
+            (write 'sdk-deferred-package-policy-ok)))
+    (call-with-input-string
+      (run-process (list "gxi" "-:max-heap=1G,debug=q" "-e" (object->string code))) read)))
+
 (deflanguage-parser-tests library-package-policy-test "Native package publication direction"
   (engine)
+  (scenario "SDK graph loading is deferred and unknown owners remain refused"
+    (equal (deferred-sdk-policy-control!) 'sdk-deferred-package-policy-ok))
   (scenario "SDK transitive consumers are excluded; dependencies and unknown inputs remain"
     (using
       (with-packages)

@@ -2,7 +2,7 @@
 (import :gerbil-parser/language-test-support
         (only-in :clan/poo/object .o)
         (only-in :std/source this-source-file)
-        (only-in :std/misc/process run-process)
+        (only-in :gerbil-parser/src/build-support/compiler-profile run-build-tool)
         (only-in :std/io/tempfile make-temporary-file-name)
         (only-in :clan/poo/mop element?)
         (only-in "../modules/parser/types.ss" ParserScopeContract)
@@ -25,11 +25,11 @@
                (force-output (current-error-port)))))))))
 (def (query-spec entry)
   ;; Native inherited stderr bypasses the Worker's Scheme output pipe. Keep
-  ;; the spec in a private data file and forward actual child diagnostics via
-  ;; the SDK coprocess so completed imports reach the existing idle observer.
-  (let ((status #f) (spec-file (make-temporary-file-name "parser-build-spec-")))
+  ;; the spec in a private data file and use the existing streaming build-tool
+  ;; adapter so actual diagnostics reach the existing idle observer.
+  (let (spec-file (make-temporary-file-name "parser-build-spec-"))
     (try
-      (run-process
+      (run-build-tool
         (list "gxi" "-:max-heap=1G,debug=q" "-e" spec-import-progress
               "-L" (path-expand entry (path-directory (this-source-file)))
               "-e" (object->string
@@ -42,18 +42,7 @@
                          ;; test-child exit. Native teardown is not spec work.
                          (load-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
                          ((eval 'gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process#test-child-process-exit!) 0))))
-        stdout-redirection: #t stderr-redirection: #t
-        coprocess:
-          (lambda (process)
-            (let loop ()
-              (let (line (read-line process))
-                (unless (eof-object? line)
-                  (display line (current-error-port))
-                  (newline (current-error-port))
-                  (force-output (current-error-port))
-                  (loop)))))
-        check-status: (lambda (code _settings) (set! status code)))
-      (unless (zero? status) (error "native spec query failed" entry status))
+        text?: #t)
       (call-with-input-file spec-file
         (lambda (input)
           (let (spec (read input))

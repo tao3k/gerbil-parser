@@ -512,7 +512,7 @@ regenerate-language-abi-fixtures: build-qualification
       -e '(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)) (test-child-process-exit! 0)'
 
 build-test-driver:
-    gerbil env gxi build-test-driver.ss compile
+    {{ gerbil_test_launcher }} build-test-driver.ss compile
 
 build-ffi-tests:
     gerbil env gxi build-ffi-tests.ss compile

@@ -28,5 +28,8 @@
   (append (map path-strip-extension gerbil-parser-library-modules) gerbil-parser-ffi-specs))
 ;; Host compiler policy is process-local; Core/SDK own ordinary package recovery.
 (initialize-compiler-build!)
-(defbuild-script (modules-spec retained-spec))
+;; Bound retained Gerbil expansion state independently of the SDK's Gambit/C
+;; executor. Respect a smaller configured budget, including serial builds.
+(defbuild-script (modules-spec retained-spec)
+  parallelize: (min 2 (string->number (getenv "GERBIL_BUILD_CORES" "0"))))
 (export main)

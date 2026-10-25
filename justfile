@@ -27,8 +27,8 @@ test-plan:
 # Ordinary installation issues Core products; strict qualification consumers
 # require their separate source/product receipt from this explicit base writer.
 qualify-library:
-    # Match the existing CI library-writer budget, including a cold native build.
-    timeout --signal=TERM --kill-after=5s 240s {{ gerbil_test_launcher }} -:max-heap=2G,debug=q build-qualified-library.ss compile
+    # Keep the package deadline, including cold native compilation.
+    timeout --signal=TERM --kill-after=5s 180s {{ gerbil_test_launcher }} -:max-heap=2G,debug=q build-qualified-library.ss compile
 
 # Read both owners' actual specs without compiling or changing installed products.
 check-build-catalog:
@@ -105,8 +105,16 @@ test-qualification-suites: build-qualification
 test-process-admission: build-qualification
     GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil env gxi scripts/tests/process-qualification-test.ss
 
-test-compiler-process:
-    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil test -v 3 t/compiler-process-test.ss
+test-compiler-process: qualify-library build-qualification
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p .gerbil/test-results
+    output_file="$(mktemp .gerbil/test-results/compiler-process.XXXXXX)"
+    timeout --signal=TERM --kill-after=5s 120s {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} :gerbil/tools/gxtest -v 3 t/compiler-process-test.ss 2>&1 | tee "$output_file"
+    if rg 'ERROR (CHECK|CASE|HARNESS|MODULE)|Heap overflow|Stack overflow' "$output_file"; then exit 1; fi
+    rg -Fx 'MODULE-OK t/compiler-process-test.ss' "$output_file" >/dev/null
+    rg -F 'HARNESS-OK' "$output_file" >/dev/null
+    rg -x 'OK' "$output_file" >/dev/null
 
 # Cache admission uses the same macro owner and shared runtime as CI.
 test-preparation:

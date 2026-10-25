@@ -1,7 +1,6 @@
 #!/usr/bin/env gxi
 ;;; Link the real Rust static consumer through Gerbil's normal build owner.
-(import (only-in "./src/build-support/library-publication.ss" publication-build-main)
-        (only-in "./src/build-support/compiler-profile.ss" compiler-build-spec))
+(import (only-in "./src/build-support/compiler-profile.ss" compiler-build-spec))
 (import (only-in "./src/build-support/native-links.ss" native-module-link-options)
         (only-in :std/build-script defbuild-script)
         (only-in :std/source this-source-file))
@@ -22,9 +21,9 @@
   force: #t
   verbose: 9)
 
-(let (sdk-main main)
- (set! main (publication-build-main
+(let (compiler-main main)
+ (set! main
   (lambda args
     (parameterize ((current-rust-linking?
                     (or (null? args) (member (car args) '("compile" "spec")))))
-      (apply sdk-main args))))))
+      (apply compiler-main args)))))

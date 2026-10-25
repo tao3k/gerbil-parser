@@ -20,12 +20,5 @@
     (control 'overlapping-ownership (lambda () (rejected? (lambda () (validate-test-suite-ownership! '(a-test) '(a-test) '(a-test))))))
     (control 'unowned-export (lambda () (rejected? (lambda () (validate-test-suite-ownership! '(a-test) '() '(a-test b-test))))))
     (control 'source-selection (lambda () (equal? (filter (lambda (name) (source-test-suite-selected? name '(a-test))) '(a-test b-test helper)) '(b-test))))
-    (control 'repository-plan (lambda () (> (length (conformance-covered-test-files)) 0)))
-    ;; SDK package metadata controls need the live SDK environment. They must
-    ;; remain in --remaining-conformance rather than pulling gxpkg/env tools
-    ;; (which have no distributed static object) into the native runtime image.
-    (control 'package-policy-source-owner
-      (lambda ()
-        (not (member "t/library-package-policy-test.ss"
-                     (conformance-covered-test-files))))))
+    (control 'repository-plan (lambda () (> (length (conformance-covered-test-files)) 0))))
   (displayln "OK"))

@@ -40,7 +40,7 @@ jobs:
     steps:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-      - name: Activate immutable Gerbil SDK
+      - name: Activate Gerbil compiler
         uses: ./.github/actions/gerbil-setup
         with:
           release-os: ${{ inputs.release-os }}
@@ -106,38 +106,24 @@ jobs:
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/conformance-preparation-imports.log --require TEST-SUITE-OK \
             -- gxi t/fixtures/tla-sany-differential/test-suite.ss \
-              t/conformance-preparation-test.ss t/build-owner-import-test.ss
+              t/build-owner-import-test.ss
       - name: Compile reusable Scheme library objects
         run: |
-          gerbil env gxi qualify.ss run --library-write --timeout 240 --idle-timeout 5 \
+          gerbil env gxi qualify.ss run --timeout 240 --idle-timeout 5 \
             --log .data/native-library-objects.log --require COMPILED-LIBRARY-OBJECTS-READY \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!)' \
             -e '(call-with-compiled-interface-trace (lambda () (load "build-language-conformance-link.ss") (eval (quote (main "library-objects"))))) (exit 0)'
-      - name: Restore conformance preparation
-        id: conformance-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
-        with:
-          path: .gerbil/conformance-store
-          key: parser-conformance-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.release-sha256 }}-${{ hashFiles('gerbil.pkg', 'dev/gerbil.pkg') }}-${{ github.sha }}
-          restore-keys: |
-            parser-conformance-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.release-sha256 }}-${{ hashFiles('gerbil.pkg', 'dev/gerbil.pkg') }}-
       - name: Compile language conformance modules
         run: |
           GERBIL_BUILD_VERBOSE=1 GERBIL_PARSER_LR_TRACE=1 \
-            gerbil env gxi qualify.ss run --library-write --timeout 240 --idle-timeout 5 \
+            gerbil env gxi qualify.ss run --timeout 240 --idle-timeout 5 \
               --log .data/language-conformance-build.log \
               -- gxi build-conformance.ss
-      - name: Save admitted conformance preparation
-        if: steps.conformance-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
-        with:
-          path: .gerbil/conformance-store
-          key: parser-conformance-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.release-sha256 }}-${{ hashFiles('gerbil.pkg', 'dev/gerbil.pkg') }}-${{ github.sha }}
       - name: Compile Scheme test support
         run: GERBIL_BUILD_VERBOSE=1 gerbil env gxi build-test-support.ss compile
       - name: Prepare gxtest source owners
         run: |
-          gerbil env gxi qualify.ss run --library-write --timeout 240 --idle-timeout 5 \
+          gerbil env gxi qualify.ss run --timeout 240 --idle-timeout 5 \
             --log .data/gxtest-source-prepare.log \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!)' \
             -e '(call-with-compiled-interface-trace (lambda () (load "build-language-conformance.ss") (eval (quote (prepare-gxtest!))))) (exit 0)'
@@ -183,7 +169,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           fetch-depth: 0
-      - name: Activate immutable Gerbil SDK
+      - name: Activate Gerbil compiler
         uses: ./.github/actions/gerbil-setup
         with:
           release-os: ${{ inputs.release-os }}
@@ -308,7 +294,7 @@ jobs:
     steps:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-      - name: Activate immutable Gerbil SDK
+      - name: Activate Gerbil compiler
         uses: ./.github/actions/gerbil-setup
         with:
           release-os: ${{ inputs.release-os }}
@@ -322,7 +308,7 @@ jobs:
           path: ${{ runner.temp }}/scheme-products
       - name: Admit prepared Scheme products
         run: bash tools/ci/prepared-products.sh restore "$RUNNER_TEMP/scheme-products/scheme-products.tar.gz"
-      - name: Record macOS SDK mapping baseline
+      - name: Record macOS Gerbil mapping baseline
         if: runner.os == 'macOS'
         run: |
           mkdir -p .data
@@ -483,7 +469,7 @@ jobs:
             "$generated"
           rustfmt --edition 2024 "$generated"
           cmp "$generated" "$fixture/src/generated/records.rs"
-      - name: Diagnose macOS SDK mapping failure
+      - name: Diagnose macOS Gerbil mapping failure
         if: failure() && runner.os == 'macOS'
         timeout-minutes: 1
         run: |
@@ -511,7 +497,7 @@ jobs:
     steps:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-      - name: Activate immutable Gerbil SDK
+      - name: Activate Gerbil compiler
         uses: ./.github/actions/gerbil-setup
         with:
           release-os: ${{ inputs.release-os }}
@@ -556,7 +542,7 @@ jobs:
             --log .data/rust-native-build.log --compiler-outputs "$PWD/target/debug" \
             -- cargo build --locked --manifest-path t/fixtures/rust-language-abi/Cargo.toml
           GERBIL_PARSER_RUST_NATIVE_ARCHIVE="$PWD/target/debug/librust_language_abi_fixture.a" \
-            GERBIL_BUILD_VERBOSE=1 gerbil env gxi qualify.ss run --library-write \
+            GERBIL_BUILD_VERBOSE=1 gerbil env gxi qualify.ss run \
             --timeout 90 --idle-timeout 30 --log .data/rust-native-link.log \
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-test-imports "build-rust-ffi-tests.ss")' \
             -e '(call-with-compiled-interface-trace (lambda () (load "build-rust-ffi-tests.ss") (eval (quote (main "compile")))))'
@@ -598,7 +584,7 @@ jobs:
     steps:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-      - name: Activate immutable Gerbil SDK
+      - name: Activate Gerbil compiler
         uses: ./.github/actions/gerbil-setup
         with:
           release-os: ${{ inputs.release-os }}
@@ -659,7 +645,7 @@ jobs:
     steps:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-      - name: Activate immutable Gerbil SDK
+      - name: Activate Gerbil compiler
         uses: ./.github/actions/gerbil-setup
         with:
           release-os: ${{ inputs.release-os }}
@@ -723,7 +709,7 @@ jobs:
     steps:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-      - name: Activate immutable Gerbil SDK
+      - name: Activate Gerbil compiler
         uses: ./.github/actions/gerbil-setup
         with:
           release-os: ${{ inputs.release-os }}

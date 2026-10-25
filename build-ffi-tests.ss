@@ -1,7 +1,6 @@
 #!/usr/bin/env gxi
 ;;; Compile the C ABI consumer with the standard module build owner.
-(import (only-in "./src/build-support/library-publication.ss" publication-build-main)
-        (only-in "./src/build-support/compiler-profile.ss" compiler-build-spec))
+(import (only-in "./src/build-support/compiler-profile.ss" compiler-build-spec))
 (import (only-in "./src/build-support/native-links.ss" native-module-link-options)
         (only-in :std/build-script defbuild-script)
         (only-in :std/source this-source-file))
@@ -79,5 +78,3 @@
         (if compile?
           (for-each (lambda (spec) (apply (ffi-build-phase spec) args)) ffi-specs)
           (apply sdk-main args)))))))
-
-(set! main (publication-build-main main))

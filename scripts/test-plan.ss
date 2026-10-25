@@ -1,3 +1,9 @@
+;;; Source-only test bodies belong to the existing conformance declaration.
+(def (conformance-source-only? name)
+  (or (string-suffix? "-test" name)
+      (member name '("t/fixtures/language-entries"
+                     "t/generate-language-abi-alignment" "t/conformance-main"
+                     "t/benchmarks/versioned-languages/all-languages"))))
 (def (test-plan-unique? values)
   (let loop ((rest values) (seen '()))
     (or (null? rest)

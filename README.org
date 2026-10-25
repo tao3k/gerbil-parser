@@ -20,57 +20,37 @@ installed dependency closure retain both public owners.
 
 * Native package build
 
-=init.ss= selects the Parser Module with =yuanxu!=. Its Scope publishes the
-existing =build-modules.ss= catalog; =build.ss= retains that complete catalog
-and all three FFI specifications, then hands the init-owned =std-make-spec=
-value directly to Core's =defbuild-script= adapter. Core owns source preparation,
-normalization and missing-product checks. Gerbil owns scheduling and compilation.
-Core checks every required loader, implementation and macro product before
-returning. A failed build remains a failure; the next native Gerbil invocation may
-reuse completed units and repair missing ones. Ordinary installation does not
-run the qualification publication wrapper's whole-library pre-clean or issue
-its separate trust receipt. Explicit qualification tools keep that stricter
-receipt boundary and refuse an unissued generation.
+Gerbil is the default compiler and standard build toolchain. =init.ss= selects
+Parser with =yuanxu!=; its Scope publishes the existing =build-modules.ss=
+catalog. =build.ss= hands the complete catalog and all three FFI specifications
+through the same init-owned =std-make-spec= to Core's =defbuild-script= adapter.
+Core owns selected-source preparation, normalization and required-product
+checks; Gerbil =std/make= owns scheduling and compilation.
 
-Run =gerbil env just qualify-library= before explicit qualification extension
-tools. CI uses this base writer before optional commands and conformance; it
-delegates to the same =build.ss= rather than maintaining another build spec.
+=gerbil pkg build github.com/tao3k/gerbil-parser= uses this entry. The
+=qualify-library= recipe also invokes =build.ss= directly. Optional command,
+FFI and test build entries keep their existing Gerbil declarations and compiler
+options. No Parser publication wrapper or package-input policy sits around them.
+Ordinary build completion is not a separately issued review or delivery approval.
+Qualification records actual command results and required test markers.
 
-=gerbil pkg build github.com/tao3k/gerbil-parser= uses this entry. The existing
-two-worker and2GiB maximum heap limits remain. The Parser package compiler,
-strict base writer, qualification-helper builder and catalog query no longer
-have a180-second cutoff. Focused test/idle and evidence-custody fences remain
-separate and unchanged. Compiler startup/version
-verbosity is disabled; actual Gerbil compile jobs, compiler errors and GC reports
-remain visible. No Gerbil source or installed toolchain is modified.
+The prefix-wide library snapshot, reverse-dependent/namespace policy,
+reader/writer publication barrier, separate qualified-build wrapper and copied
+conformance cache are removed together. There is no scan of all installed
+packages to manufacture Parser input ownership. Conformance preparation invokes
+the existing declared module and link owners; source-only test classification
+belongs to =scripts/test-plan.ss=. That script does not manage a cache.
 
-** Build responsibility boundary
+=src/build-support= retains compiler options and the necessary native-object
+link adapter. The shared byte/text output pump is owned by existing Core Ops;
+Gerbil =run-process= retains process execution and failure propagation. No
+Gerbil/compiler source or installed toolchain is modified.
 
-Gerbil is the default compiler and standard build toolchain. Parser declares
-its modules, FFI specifications and necessary compiler options. Yuanxu selects
-the existing Module and adapts its =std-make-spec= to =defbuild-script=.
-There is no separate Parser compiler framework.
-
-| Owner | Responsibility |
-|-------+----------------|
-| Parser =build-modules.ss=, =modules/parser=, =init.ss= and =build.ss= | One module catalog, Module selection and the three FFI specifications |
-| Gerbil =std/make= and compiler | Scheduling, compilation and standard product generation |
-| Core module-system building | Selected source preparation, normalized build spec and required-product checks |
-| Core Ops =copy-process-output= | Shared line/text/byte output pump; standard =run-process= owns process execution |
-| Parser compiler profile | Necessary host/options policy and a thin process invocation adapter |
-
-The unused loader-product scanner and its catalog entry are removed. Parser no
-longer classifies generated compiler wrappers to delete them after compilation.
-The runtime module loader is a different, used component and remains intact.
-
-The remaining qualification publication and conformance preparation wrappers
-still duplicate lifecycle responsibilities. They are a migration backlog, not
-the target architecture. Replace them through the same init-owned Core build
-projection, with actual build-entry source, retained roots, FFI inputs and owned
-outputs bound to issuance and restoration. Do not create a second selection,
-repurpose test-only publication authority, or treat an ordinary successful build
-as a qualification receipt. Reader exclusion, missing-product refusal, changed
-input refusal and failed-build refusal must survive that replacement.
+Two workers and the existing heap limits remain. Parser package/helper/catalog
+build entries have no 180-second cutoff; focused test, idle and failure-evidence
+limits remain unchanged. Failure archives preserve the original status and
+cannot be restored as successful prepared products. CI's existing transport
+identity remains distinct from compiler correctness and review authorization.
 
 * Native callable extension boundaries
 
@@ -613,12 +593,11 @@ Compiler cost counters use short locks around updates only; no lock is retained
 across an importer, evaluator or output operation. The crossed-worker synthetic
 control keeps the trailing active interval after the first worker returns.
 
-* Parser-first source alignment
+* Parser-first source alignment history
 
-On2026-10-25, Core/Yuanxu PR19 head is
-=0353d86ac017442506e89617e86e6ef778a3111e=. =gerbil.pkg= already selects
-that exact immutable revision; POO stays inherited from Core. This alignment
-is checked rather than replacing the pin with a floating branch. Only Parser
+An earlier 2026-10-25 alignment used Core/Yuanxu PR19 head
+=0353d86ac017442506e89617e86e6ef778a3111e=. The current =gerbil.pkg= owns
+the selected immutable revision; POO remains inherited from Core. Only Parser
 build-entry cutoffs are removed; Core/Yuanxu, Gerbil, other packages and test
 resource policies are not changed. A completed build after this policy change
 is evaluated under the new policy, never re-labelled as passing the old180s SLO.

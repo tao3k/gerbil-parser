@@ -3,9 +3,7 @@
 (import (only-in :std/build-script defbuild-script)
         (only-in :std/source this-source-file)
         (only-in :std/list/list delete-duplicates/hash)
-        (only-in "./src/build-support/preparation-cache.ss" conformance-source-only?)
-        (only-in "./src/build-support/compiler-profile.ss" compiler-build-spec)
-        (only-in "./src/build-support/library-publication.ss" publication-build-main))
+        (only-in "./src/build-support/compiler-profile.ss" compiler-build-spec))
 (include "scripts/test-plan.ss")
 (export shared-test-build-spec main)
 
@@ -40,4 +38,3 @@
                        (else '()))))
           '())))))
 (defbuild-script (shared-test-build-spec #t))
-(set! main (publication-build-main main))

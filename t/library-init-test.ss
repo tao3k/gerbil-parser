@@ -60,10 +60,8 @@
   (scenario "the init-owned projection preserves every library and FFI target"
     (sequential
       ((spec (query-spec "../build.ss"))
-       (qualified-spec (query-spec "../build-qualified-library.ss"))
        (names (map cadr spec))
        (seen (make-hash-table)))
-      (equal qualified-spec spec)
       (each (name) (names)
         (equal (hash-key? seen name) #f)
         (act (hash-put! seen name #t)))

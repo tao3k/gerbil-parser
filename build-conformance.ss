@@ -1,11 +1,14 @@
 #!/usr/bin/env gxi
-;;; Native preparation entry. The content admission owner performs compilation.
+;;; Prepare the declared conformance modules with the existing Gerbil build/link owners.
 (displayln "CONFORMANCE-PREPARATION-START") (force-output)
 (load "t/fixtures/tla-sany-differential/preload.ss")
 (prefer-compiled-interfaces!)
 (gc-report-set! #t)
-(call-with-compiled-interface-trace
- (lambda () (load "scripts/preparation-cache.ss")))
 (def (main)
-  (prepare-conformance!)
+  (call-with-compiled-interface-trace
+    (lambda ()
+      (load "build-language-conformance.ss")
+      (eval '(compile-static-conformance!))
+      (load "build-language-conformance-link.ss")
+      (eval '(main))))
   (exit 0))

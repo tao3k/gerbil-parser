@@ -1,8 +1,6 @@
 #!/usr/bin/env gxi
 ;;; Closed native conformance and source gxtest have distinct artifact owners.
-(import (only-in "./src/build-support/library-publication.ss" publication-build-main)
-        (only-in "./src/build-support/compiler-profile.ss" compiler-build-spec initialize-compiler-build!)
-        (only-in "./src/build-support/preparation-cache.ss" conformance-source-only?)
+(import (only-in "./src/build-support/compiler-profile.ss" compiler-build-spec initialize-compiler-build!)
         (only-in "./build-test-support.ss" shared-test-build-spec))
 (import (only-in :std/build-script defbuild-script)
         (only-in :std/make make make-clean)
@@ -101,7 +99,7 @@
      (displayln "STATIC-TEST-SCHEME " module) (force-output)
      (compile-module (string-append module ".ss")
        [output-dir: (path-expand "lib" (getenv "GERBIL_PATH"))
-        ;; Stage test construction with the SDK optimizer before native
+        ;; Stage test construction with the Gerbil optimizer before native
         ;; lowering to reduce generated host size and compiler work. Keep
         ;; every assertion and the native tail-call compilation policy.
         optimize: #t generate-ssxi: #t static: #t keep-scm: #t
@@ -121,7 +119,7 @@
    (filter shared-test-module? conformance-modules)))
 (def (compile-static-conformance!)
   ;; The shared native graph is scheduled once by std/make. Only catalog
-  ;; helpers belong to this preparation receipt; extra source-test helpers
+  ;; helpers belong to this declaration; extra source-test helpers
   ;; remain the sibling build-test-support owner's products.
   (initialize-compiler-build!)
   (make (shared-test-build-spec #f)
@@ -141,13 +139,6 @@
              (map (lambda (module) `(copy: ,(string-append module ".scm"))) modules))
      libdir: (path-expand "lib" (getenv "GERBIL_PATH"))
      srcdir: (path-directory (this-source-file)))))
-(import (only-in "./src/build-support/library-publication.ss"
-                 call-with-library-publication library-publication-inputs))
-(def (prepare-gxtest!)
-  (call-with-library-publication (gerbil-path)
-    (lambda (_stage) (prepare-gxtest-content!))
-    (lambda (root) (list '("compile") (library-publication-inputs root))) #f))
+(def (prepare-gxtest!) (prepare-gxtest-content!))
 ;; Developer multicall build retains the standard native shared-module owner.
 (defbuild-script (compiler-build-spec (compiled-spec conformance-modules)) optimize: #t)
-
-(set! main (publication-build-main main))

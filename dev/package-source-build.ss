@@ -1,5 +1,5 @@
 #!/usr/bin/env gxi
-;;; Observe each SDK import and declaration before installing the standard main.
+;;; Observe each Gerbil import and declaration before installing the standard main.
 ;;; Syntax objects retain this file's locations for PackageSpec and std/make.
 ;;; Diagnostics use stderr; spec/meta stdout stays machine-readable.
 (def (main . arguments)
@@ -25,7 +25,6 @@
             (
               (import (only-in :std/source this-source-file)
                       (only-in :std/build-script defbuild-script)
-                      (only-in "../src/build-support/library-publication.ss" publication-build-main)
                       (only-in :asp-gerbil-scheme/building-api
                                default-exclude-dirs
                                asp-gerbil-scheme-library-package-prototype
@@ -40,14 +39,13 @@
               ;; library catalog. Keep the boundary declarative so PackageSpec still performs
               ;; the single source discovery pass.
               (def gerbil-parser-exclude-modules
-                '("init.ss" "build-qualified-library.ss"
+                '("init.ss"
                   "build-qualification.ss" "qualify.ss" "build-conformance.ss"
                   "test-processes.ss"
                   "scripts/tests/process-qualification-test.ss"
                   "scripts/tests/history-commit-test.ss"
                   "scripts/generate-source-parser.ss"
                   "scripts/generate-reductions.ss"
-                  "scripts/preparation-cache.ss"
                   "scripts/test-plan.ss"
                   "scripts/tests/test-plan-test.ss"
                   "scripts/tests/conformance-runner-test.ss"
@@ -111,9 +109,6 @@
               ;; spec/compile/clean and delegates the projection to one std/make scheduler.
               (defbuild-script (gerbil-parser-build-spec))
 
-              ;; The standard compiler owns the in-place build. Admission is withdrawn until
-              ;; every job succeeds and the source-bound input snapshot is unchanged.
-              (set! main (publication-build-main main #f))
             )))))
     (report "BUILD-ENTRY " arguments))
   (apply (eval 'main) arguments))

@@ -1,7 +1,7 @@
 #!/usr/bin/env gxi
 ;;; Native qualification entry; declarations own process contracts.
 (displayln "QUALIFICATION-START") (force-output)
-;;; The CLI consumes runtime procedures, never macro interfaces. SDK loading
+;;; The CLI consumes runtime procedures, never macro interfaces. Gerbil loading
 ;;; remains authoritative; the shared adapter handles source-only wrappers.
 (load-module "gerbil-parser/src/modules/loader")
 (def load-runtime-service (eval 'gerbil-parser/src/modules/loader#load-parser-module))
@@ -15,7 +15,7 @@
 (def process-result-reason (eval 'gerbil-parser/t/support/qualification/process#process-result-reason))
 (def receipt-present? (eval 'gerbil-parser/t/support/qualification/process#receipt-present?))
 (def (run-process-cli arguments)
-  (let loop ((arguments arguments) (budget 60) (idle #f) (log #f) (receipts '()) (compiler-outputs #f) (library-write? #f))
+  (let loop ((arguments arguments) (budget 60) (idle #f) (log #f) (receipts '()) (compiler-outputs #f))
     (unless (pair? arguments) (error "missing qualification command"))
     (let (flag (car arguments))
       (cond
@@ -24,13 +24,11 @@
         (let* ((started (##current-time-point))
                (run (lambda ()
                       (let (remaining (- budget (- (##current-time-point) started)))
-                        (unless (> remaining 0) (error "library admission exhausted process budget"))
+                        (unless (> remaining 0) (error "qualification process budget exhausted"))
                         (run-observed-process (cdr arguments) log timeout: remaining idle-timeout: idle
                           observe: (if compiler-outputs ((profile-value "gerbil-parser/t/support/qualification/compiler-output"
                             'gerbil-parser/t/support/qualification/compiler-output#compiler-output-observer) compiler-outputs) void)))))
-               (result (if library-write? (run)
-                         ((profile-value "gerbil-parser/src/build-support/library-publication"
-                           'gerbil-parser/src/build-support/library-publication#call-with-library-reader) (gerbil-path) run))))
+               (result (run)))
           (let (missing (filter (lambda (pattern)
                                  (not (receipt-present? pattern (utf8->string (process-result-output result))))) receipts))
             (let (expired? (>= (- (##current-time-point) started) budget))
@@ -39,17 +37,15 @@
             (exit (cond ((or expired? (member (process-result-reason result) '(total-timeout idle-timeout))) 124)
                         ((or (process-result-reason result) (pair? missing) (not (zero? (process-result-status result)))) 1)
                         (else 0)))))))
-       ((equal? flag "--library-write")
-        (loop (cdr arguments) budget idle log receipts compiler-outputs #t))
        ((member flag '("--timeout" "--idle-timeout" "--log" "--require" "--compiler-outputs"))
         (unless (pair? (cdr arguments)) (error "missing option value" flag))
         (let (value (cadr arguments))
-          (cond ((equal? flag "--timeout") (loop (cddr arguments) (string->number value) idle log receipts compiler-outputs library-write?))
-                ((equal? flag "--idle-timeout") (loop (cddr arguments) budget (string->number value) log receipts compiler-outputs library-write?))
-                ((equal? flag "--log") (loop (cddr arguments) budget idle value receipts compiler-outputs library-write?))
-                ((equal? flag "--compiler-outputs") (loop (cddr arguments) budget idle log receipts value library-write?))
-                (else (loop (cddr arguments) budget idle log (cons value receipts) compiler-outputs library-write?)))))
-       ((equal? flag "--full-output") (loop (cdr arguments) budget idle log receipts compiler-outputs library-write?))
+          (cond ((equal? flag "--timeout") (loop (cddr arguments) (string->number value) idle log receipts compiler-outputs))
+                ((equal? flag "--idle-timeout") (loop (cddr arguments) budget (string->number value) log receipts compiler-outputs))
+                ((equal? flag "--log") (loop (cddr arguments) budget idle value receipts compiler-outputs))
+                ((equal? flag "--compiler-outputs") (loop (cddr arguments) budget idle log receipts value))
+                (else (loop (cddr arguments) budget idle log (cons value receipts) compiler-outputs)))))
+       ((equal? flag "--full-output") (loop (cdr arguments) budget idle log receipts compiler-outputs))
        (else (error "unknown process contract option" flag))))))
 
 (def (local-cli arguments)

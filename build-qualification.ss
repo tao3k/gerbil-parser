@@ -1,7 +1,6 @@
 #!/usr/bin/env gxi
 ;;; Formal build owner for the native POSIX qualification boundary.
-(import (only-in "./src/build-support/library-publication.ss" publication-build-main)
-        (only-in "./src/build-support/compiler-profile.ss" compiler-build-spec))
+(import (only-in "./src/build-support/compiler-profile.ss" compiler-build-spec))
 (import (only-in :std/build-script defbuild-script)
         (only-in :std/source this-source-file))
 (defbuild-script
@@ -16,5 +15,3 @@
    (gxc: "t/support/qualification/environment")
    (gxc: "t/support/qualification/performance")
    (gxc: "t/support/qualification/plans"))))
-
-(set! main (publication-build-main main))

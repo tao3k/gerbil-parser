@@ -1,9 +1,9 @@
-# Run one native suite with its heap fence established before SDK imports.
+# Run one native suite with its heap fence established before Gerbil imports.
 gerbil_test_runtime_options := "-:max-heap=1G,debug=q"
 gerbil_test_launcher := if env('GERBIL_PATH', '') == '' { 'gerbil env gxi' } else { 'gxi' }
 
-# The same SDK helper owner used by CI supplies absolute test-module imports.
-# Its publication guard admits the complete resulting helper generation.
+# The same Gerbil helper owner used by CI supplies absolute test-module imports.
+# Gerbil owns helper compilation through its declared build spec.
 build-test-support: build-test-driver
     {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} build-test-support.ss compile
 
@@ -24,14 +24,14 @@ set shell := ["sh", "-eu", "-c"]
 test-plan:
     timeout --signal=TERM --kill-after=5s 120s {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} scripts/tests/test-plan-test.ss
 
-# Ordinary installation issues Core products; strict qualification consumers
-# require their separate source/product receipt from this explicit base writer.
+# Build the declared production library before running qualification.
+# Core and Gerbil own compilation and product checks; this does not issue approval.
 qualify-library:
     #!/usr/bin/env bash
     set -euo pipefail
     status=0
     # Let the native compiler finish; package elapsed time is diagnostic, not admission.
-    {{ gerbil_test_launcher }} -:max-heap=2G,debug=q build-qualified-library.ss compile || status=$?
+    {{ gerbil_test_launcher }} -:max-heap=2G,debug=q build.ss compile || status=$?
     if [ "$status" -ne 0 ]; then
       # A separate bounded custody operation cannot turn failure into admission.
       archive="$PWD/.data/package-failures/strict-$(date -u +%Y%m%dT%H%M%SZ)-$$.tar.gz"
@@ -50,24 +50,11 @@ test-source-contracts: build-test-driver
     set -euo pipefail
     mkdir -p .gerbil/test-results
     output_file="$(mktemp .gerbil/test-results/source-contracts.XXXXXX)"
-    suites=(t/build-product-contract-test.ss t/test-style-contract-test.ss t/library-package-policy-test.ss t/library-init-test.ss)
+    suites=(t/build-product-contract-test.ss t/test-style-contract-test.ss t/library-init-test.ss)
     timeout --signal=TERM --kill-after=5s 120s {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} :gerbil/tools/gxtest -v 3 "${suites[@]}" 2>&1 | tee "$output_file"
     if rg 'ERROR (CHECK|CASE|HARNESS|MODULE)|Heap overflow|Stack overflow' "$output_file"; then exit 1; fi
     for suite in "${suites[@]}"; do rg -Fx "MODULE-OK $suite" "$output_file" >/dev/null; done
     rg -F 'HARNESS-OK' "$output_file" >/dev/null
-    rg -x 'OK' "$output_file" >/dev/null
-
-# SDK-only package direction controls do not bootstrap the Parser under test.
-test-package-inputs:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    mkdir -p .gerbil/test-results
-    output_file="$(mktemp .gerbil/test-results/package-inputs.XXXXXX)"
-    timeout --signal=TERM --kill-after=5s 120s gerbil {{ gerbil_test_runtime_options }} env gxi {{ gerbil_test_runtime_options }} :gerbil/tools/gxtest -v 5 t/library-package-policy-test.ss 2>&1 | tee "$output_file"
-    if rg 'ERROR (CHECK|CASE|HARNESS|MODULE)|Heap overflow|Stack overflow' "$output_file"; then exit 1; fi
-    rg -Fx 'MODULE-OK t/library-package-policy-test.ss' "$output_file" >/dev/null
-    rg -F 'HARNESS-OK' "$output_file" >/dev/null
-    rg '^CASE-OK ' "$output_file" >/dev/null
     rg -x 'OK' "$output_file" >/dev/null
 
 # Same native gxtest suite values, linked before the bounded runtime gate.
@@ -124,10 +111,6 @@ test-compiler-process: qualify-library build-qualification
     rg -Fx 'MODULE-OK t/compiler-process-test.ss' "$output_file" >/dev/null
     rg -F 'HARNESS-OK' "$output_file" >/dev/null
     rg -x 'OK' "$output_file" >/dev/null
-
-# Cache admission uses the same macro owner and shared runtime as CI.
-test-preparation:
-    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=3G,debug=q" gerbil env gxi t/fixtures/tla-sany-differential/test-suite.ss --workers 4 t/preparation-cache-test.ss
 
 # Build the shared helper through its compiled module owner before loading source suites.
 test-workers output=".data/worker-controls": build-qualification
@@ -186,7 +169,7 @@ test-fold-statement-scans output load_path:
     rg '^CASE-OK |^HARNESS-OK|^OK$' "{{output}}/fold-statement-scans-test.log"
     rg --quiet '^OK$' "{{output}}/fold-statement-scans-test.log"
 
-# Rebuild package dependencies only; installed SDK and global libraries stay read-only.
+# Rebuild package dependencies only; installed Gerbil and global libraries stay read-only.
 test-fold-buffer-consumer output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/byte-spans.ss src/runtime/source-lines.ss src/runtime/fold-tape.ss t/event-strategy-fixture.ss t/fold-tape-test.ss t/fold-buffer-consumer-test.ss
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/fold-tape-test.ss t/fold-buffer-consumer-test.ss > "{{output}}/fold-buffer-consumer-test.log" 2>&1
@@ -378,7 +361,7 @@ qualify-fold-plan output load_path:
     just link-event-fold-controls "{{output}}" "{{load_path}}"
     just test-event-fold-controls "{{output}}" "{{load_path}}"
 
-# Copy immutable generated artifacts, not dependency manifests or SDK state.
+# Copy immutable generated artifacts, not dependency manifests or Gerbil state.
 test-fold-call-plan output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/compiler/event-fold-call-plan.ss t/fold-call-plan-test.ss
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/fold-call-plan-test.ss > "{{output}}/fold-call-plan-test.log" 2>&1
@@ -386,7 +369,7 @@ test-fold-call-plan output load_path:
     rg --quiet '^OK$' "{{output}}/fold-call-plan-test.log"
     ! rg --quiet 'ERROR|FAILED|FAILURE' "{{output}}/fold-call-plan-test.log"
 
-# Copy immutable generated artifacts, not dependency manifests or SDK state.
+# Copy immutable generated artifacts, not dependency manifests or Gerbil state.
 stage-real-fold-evidence source output:
     test ! -e "{{output}}"
     mkdir -p "{{output}}"
@@ -621,7 +604,7 @@ benchmark-contextual-deferred delimiters="512" samples="5": build-qualification
 test-local suite="rust" gerbil_path=".gerbil": build-qualification
     gerbil env gxi qualify.ss local --suite {{quote(suite)}} --gerbil-path {{quote(gerbil_path)}}
 
-# Pure Rust projection semantics: no Scheme SDK compilation or runtime startup.
+# Pure Rust projection semantics: no Scheme Gerbil compilation or runtime startup.
 [private]
 test-graph-projection:
     cargo test --locked -p gerbil-parser-runtime --lib structural_lines_tests::graph_cases -- --list | rg --quiet 'prepared_graph_projection_reuses_admission_across_changing_documents: test'
@@ -676,7 +659,7 @@ test-fold-call-environment output load_path:
     rg '^CASE-OK |^HARNESS-OK|^OK$' "{{output}}/fold-call-environment-test.log"
     rg --quiet '^OK$' "{{output}}/fold-call-environment-test.log"
 
-# Materialize the exact manifest pin from existing objects; no SDK/network build.
+# Materialize the exact manifest pin from existing objects; no Gerbil/network build.
 prepare-locked-lean-dependency source:
     test ! -e formal/.lake/packages/LeanPoo
     git -C "{{source}}" cat-file -e "$(jq -r '.packages[] | select(.name == "LeanPoo") | .rev' formal/lake-manifest.json)^{commit}"
@@ -736,7 +719,7 @@ evidence-engine:
 formal-protocol:
     npm --prefix formal/quint test
 
-# SDK-owned module caching, source changes and initializer failure recovery.
+# Gerbil-owned module caching, source changes and initializer failure recovery.
 test-module-loading: build-qualification
     gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/module-loading-controls.log --require '^TEST-SUITE-OK modules=1$' -- gxi t/fixtures/tla-sany-differential/test-suite.ss --workers 4 t/module-loading-test.ss
 
@@ -750,7 +733,7 @@ prepare-formal-protocol:
 test-history-commit: build-qualification
     gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/history-commit-controls.log --require HISTORY-COMMIT-CONTROLS-OK -- gxi scripts/tests/history-commit-test.ss
 
-# Frozen Git source, normal SDK compiler, shared immutable request dependencies.
+# Frozen Git source, normal Gerbil compiler, shared immutable request dependencies.
 prepare-capture-reference revision output=".data/selector-input/reference" scope="selector-input":
     mkdir -p {{quote(output)}}/project
     git archive {{quote(revision)}} gerbil.pkg src | tar -x -C {{quote(output)}}/project

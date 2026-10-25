@@ -3,7 +3,7 @@
 
 (import (only-in :std/string/utf8
                  string-utf8-length)
-        (only-in ../../compiler/machine
+        (only-in ../machine
                  parser-machine-grammar-digest parser-machine-ir parser-machine-runtime)
         (only-in ../parser-ir-data
                  parser-ir-ref)

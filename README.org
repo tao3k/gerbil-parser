@@ -601,3 +601,5 @@ the selected immutable revision; POO remains inherited from Core. Only Parser
 build-entry cutoffs are removed; Core/Yuanxu, Gerbil, other packages and test
 resource policies are not changed. A completed build after this policy change
 is evaluated under the new policy, never re-labelled as passing the old180s SLO.
+
+See [[file:docs/architecture/directory-modules.org][directory Module and build ownership]] for the init-to-std/make chain.

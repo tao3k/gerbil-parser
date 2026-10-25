@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Optional in-process actor boundary; importing this library starts no threads.
 (import :std/actor
-        (only-in ../compiler/machine parser-machine?)
+        (only-in ./machine parser-machine?)
         (only-in ./parser parse-source))
 (export spawn-parser-actor parser-actor-parse parser-actor-stop!)
 

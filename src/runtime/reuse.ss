@@ -3,7 +3,7 @@
 (import (only-in ./source-index source-index-count make-source-index-cursor
                  source-index-cursor-copy source-index-cursor-token source-index-cursor-mode
                  source-index-cursor-rank source-index-cursor-next! source-index-cursor-seek!)
-        (only-in ../compiler/machine parser-machine-runtime parser-machine-trivia parser-machine-lexical-modes-compatible?)
+        (only-in ./machine parser-machine-runtime parser-machine-trivia parser-machine-lexical-modes-compatible?)
         (only-in ./lexer scan-source-token)
         (only-in ./probe make-source-probe-cache source-probe-scan source-probe-take!
                  current-lr-lexical-plan-reuse-enabled?)

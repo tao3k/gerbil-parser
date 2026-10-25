@@ -4,7 +4,6 @@
         (only-in :std/misc/process run-process)
         (only-in :std/misc/ports read-all-as-string)
         (only-in :std/build-script defbuild-script)
-        (only-in "../build-modules.ss" gerbil-parser-library-modules)
         (only-in :asp-gerbil-scheme/src/build-api/policy-runner
                  asp-gerbil-scheme-run-selected-policy))
 (export main)
@@ -29,19 +28,17 @@
     (let ((production (canonical (spec "build.ss")))
           (discovered (canonical (spec "dev/package-source-build.ss"))))
       (unless (equal? production discovered)
-        (error "production catalog differs from native source discovery"
+        (error "selected Module projection differs from native source discovery"
           (filter (lambda (item) (not (member item discovered))) production)
-          (filter (lambda (item) (not (member item production))) discovered)))))
-  (displayln "PARSER-BUILD-CATALOG-OK"))
+          (filter (lambda (item) (not (member item production))) discovered)))
+      (displayln "PARSER-BUILD-CATALOG-OK")
+      (map (lambda (target) (string-append (cadr target) ".ss")) production))))
 (def (main . args)
   (if (equal? args '("check-catalog"))
     (check-library-catalog!)
     (begin
       (when (or (null? args) (equal? (car args) "compile"))
-        (check-library-catalog!)
-        (parameterize ((current-directory (path-expand ".." (path-directory (this-source-file)))))
-          (asp-gerbil-scheme-run-selected-policy
-            (append gerbil-parser-library-modules
-              '("src/ffi/language-abi.ss" "src/ffi/language-abi-context.ss"
-                "src/ffi/rust-aot-abi.ss")))))
+        (let (selected-sources (check-library-catalog!))
+          (parameterize ((current-directory (path-expand ".." (path-directory (this-source-file)))))
+            (asp-gerbil-scheme-run-selected-policy selected-sources))))
       (apply build-development args))))

@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Runtime-only projection from lossless tokens to parser-significant tokens.
 
-(import (only-in ../compiler/machine parser-machine-trivia))
+(import (only-in ./machine parser-machine-trivia))
 (export parser-significant-tokens parser-significant-joined)
 
 ;; : (-> ParserMachine (List Token) (List Token))

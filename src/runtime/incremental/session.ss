@@ -3,7 +3,7 @@
 
 (import (only-in ../source-index
                  source-index-count source-index-slice make-source-index-builder source-index-builder-token! source-index-builder-shared! source-index-builder-finish)
-        (only-in ../../compiler/machine
+        (only-in ../machine
                  parser-machine-grammar-digest parser-machine-trivia parser-machine-for-current-semantic-backend)
         (only-in ../artifact
                  make-success-parse-artifact parse-artifact-success?)

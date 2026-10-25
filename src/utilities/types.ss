@@ -1,0 +1,16 @@
+(import (only-in :clan/poo/object .o .cc)
+        (only-in :clan/poo/mop Function Any Bool)
+        (only-in :clan/poo/type Record String List OrFalse)
+        (only-in :clan/poo/number Integer)
+        (only-in :yuanxu/object-types/contracts YuanxuContract.))
+(export UtilitiesScopeContract)
+(def UtilitiesScopeContract
+  (.cc YuanxuContract. identity: 'utilities/scope proto: (.o)
+       value-contract:
+       (Record append-unique: (list (Function (list (List Any)) (list (List Any) Any)))
+               merge-keyed-row: (list (Function (list Any) (list (List Any) Any Any Any)))
+               ascii-whitespace?: (list (Function (list Bool) (list Any)))
+               string-prefix-at?: (list (Function (list Bool) (list String String Integer)))
+               string-index-from: (list (Function (list (OrFalse Integer)) (list String String)
+                                                   optional: (list Integer)))
+               text-lines: (list (Function (list (List Any)) (list String))))))

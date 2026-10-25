@@ -3,7 +3,7 @@
 
 (import (only-in ../probe
                  current-lr-lexical-plan-reuse-enabled?)
-        (only-in ../../compiler/machine
+        (only-in ../machine
                  parser-machine-runtime parser-machine-trivia parser-machine-lexical-modes-compatible?)
         (only-in ../artifact
                  make-same-width-token-artifact make-shifted-token-artifact make-certified-window-artifact parse-artifact-events parse-artifact-success?)

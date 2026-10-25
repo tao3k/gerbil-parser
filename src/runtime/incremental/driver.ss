@@ -5,7 +5,7 @@
                  string-utf8-length)
         (only-in ../source-index
                  source-index-count source-index-height source-index-end source-index-slice make-source-index-builder source-index-builder-token! source-index-builder-shared! source-index-builder-finish source-index-builder-fresh source-index-builder-shared source-index-builder-chunks source-index-builder-mode-chunks make-source-index-cursor source-index-cursor-token source-index-cursor-mode source-index-cursor-rank source-index-cursor-next! source-index-cursor-seek!)
-        (only-in ../../compiler/machine
+        (only-in ../machine
                  parser-machine-runtime)
         (only-in ../artifact
                  parse-artifact-ref parse-artifact-success?)

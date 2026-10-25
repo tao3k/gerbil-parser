@@ -1,6 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Runtime-small immutable identity and generated-artifact descriptor.
 
+(import (only-in ../schema +language-grammar-schema+))
+
 (export +language-grammar-schema+
         language-grammar?
         make-language-grammar language-grammar-with-identity
@@ -16,7 +18,6 @@
         language-parser-policy-identity language-parser-policy-branch-budget
         language-parser-policy-cst-validator require-portable-language-policy!)
 
-(def +language-grammar-schema+ "gerbil-parser.language-grammar.v1")
 
 (defstruct language-grammar
   (schema language version contract grammar ir machine observability)

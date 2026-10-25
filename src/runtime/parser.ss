@@ -4,7 +4,7 @@
 (import (only-in :std/string/utf8 string-utf8-length)
         (only-in ./parse-cost with-parser-cost-stage)
         (only-in ./parser-ir-data parser-ir-ref)
-        (only-in ../compiler/machine
+        (only-in ./machine
                  call-with-parser-machine-source parser-machine-grammar-digest parser-machine-ir
                  parser-machine-parse parser-machine-runtime
                  parser-machine-trivia parser-machine-direct-drive

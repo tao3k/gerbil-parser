@@ -1,0 +1,84 @@
+#+TITLE: Directory Modules and the Parser Build
+#+LANGUAGE: en
+
+* Ownership
+
+=init.ss= selects the nine real =src/*= subsystem publications through one
+Yuanxu =load-modules= window. Each has a typed service Scope, existing service
+prototype, Config binding selecting that prototype, and Interface declaration.
+Config does not invent settings or initialize parsers. Root =build.ss= consumes
+the same init-owned =std-make-spec= and explicitly invokes the build-support
+Scope's existing host initialization method. Gerbil =std/make= remains the
+compiler and job-scheduling owner; parallelism remains capped at two workers.
+
+| Module | Published service / owned additional entries |
+|--------+----------------------------------------------|
+| build-support | Compiler-option and native-link functions; explicit host initialization |
+| compiler | Grammar normalization; generator/build public entries and dynamic Scheme emitter |
+| ffi | Original schema-owned ABI versions; three C leaves with include/link options |
+| grammar | Grammar and lexical expression predicates; grammar-authoring facade |
+| language | Schema-owned format identities, supported language/adaptor public entries |
+| modules | Graph-query services, parser public/graph facades and existing runtime loader |
+| runtime | Structural artifact services; native execution/incremental/recovery/actor/event entries |
+| testing | Test-form admission, published test/assertion/witness extension APIs |
+| utilities | Existing pure list and string functions |
+
+* One build projection
+
+Module =Build= declarations contribute owner-relative =roots= for additional
+native leaves and optional package-relative =library-roots= for supported public
+entrypoints. Core's existing =package-library-spec= derives actual native imports
+from those entrypoints without running their runtime initializers. Core checks
+package/source correspondence, confines regular sources, captures their current
+bytes and preserves explicit native compiler options. Build roles themselves are
+phase-bound inputs and are not installed as runtime modules.
+
+This replaces =build-modules.ss= and the former =modules/parser= catalog-forwarding
+publication. Public entry declarations are not copies of every private file.
+The independent development PackageSpec audit compares its native source
+inventory with the selected projection, excluding the seven phase-only Build
+roles. Its legacy =check-catalog= command/marker remains compatible with callers;
+it no longer imports or maintains a production source catalog. Development
+policy consumes the verified projection rather than another membership list.
+
+* Execution and compatibility
+
+Machine/lexical execution now belongs to =src/runtime/{machine,lexical-expression,
+lexical-lexer}.ss=. Runtime consumers use that owner directly. The old compiler
+paths re-export the implementations so existing Scheme imports remain valid.
+No parser algorithm or ABI version changes. FFI Scope reads versions from
+=src/schema.ss=; it does not interpret C declarations or initialize handles while
+selecting a Module. C leaves are compiled at the explicit Build boundary.
+
+Native Scheme imports determine compiler dependencies. Module =requires= is for
+injected Scope services; a source import is not mechanically duplicated there.
+The Core shared-source reentry guard remains active. Public library compilation
+uses the native compiler graph instead of evaluating library runtime code in the
+Scope reader.
+
+* Qualification boundary
+
+Source/Scope checks, native import coverage, compilation, cold/recovery behavior
+and Linux/macOS CI are independent gates. A warm result is not cold qualification.
+Old cleanup CI cannot qualify the directory-Module refactor. Existing heap and
+test/process limits remain; Parser's removed 180-second build cap is not restored.
+
+* Source and compiled value boundary
+
+Scope functions must accept values that are valid across the source projection
+and compiled-product boundary. Private source wrappers create distinct nominal
+Gerbil struct types. Therefore machine execution and nominal language descriptors
+remain in the existing compiled Gerbil APIs; Scope does not claim to accept
+those opaque values. Runtime Scope validates/roundtrips structural ParseArtifact
+data, Language Scope publishes schema-owned format identities, and Compiler
+Scope accepts the existing open POO grammar protocol.
+
+The entry test actually parses arithmetic through the compiled facade, validates
+and roundtrips its result through Runtime Scope, and normalizes the compiled POO
+grammar through Compiler Scope. A nominal cross-world diagnostic failed before
+this boundary was corrected. The language descriptor now imports its format
+identity from schema.ss rather than repeating its value.
+
+Full native inventory comparison remains in the existing development CI gate.
+The source unit checks public/ABI/phase boundaries and actual interoperability;
+it does not repeat a complete package scan inside a bounded test owner.

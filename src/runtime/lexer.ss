@@ -1,6 +1,6 @@
 ;;; Thin execution boundary over an AOT-generated lexer machine.
 
-(import (only-in ../compiler/machine parser-machine-lex call-with-parser-machine-source))
+(import (only-in ./machine parser-machine-lex call-with-parser-machine-source))
 (export lex-source
         lex-source-from
         scan-source-token)

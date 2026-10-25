@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Deterministic recovery search beside fail-closed ParseArtifact v1.
 
-(import (only-in ../compiler/machine
+(import (only-in ./machine
                  parser-machine-grammar-digest parser-machine-ir
                  parser-machine-runtime)
         (only-in ./parser-ir-data parser-ir-ref)

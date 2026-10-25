@@ -95,7 +95,7 @@ test-process-contracts: build-process-fixture
     gerbil env gxi t/fixtures/qualification/process-controls.ss "$PWD/.data/process-controls/fixture"
 
 build-qualification:
-    {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} build-qualification.ss compile
+    timeout --signal=TERM --kill-after=5s 180s {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} build-qualification.ss compile
 
 # Focused native suites; test-all discovers the same suites once.
 test-qualification-suites: build-qualification

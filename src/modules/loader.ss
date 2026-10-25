@@ -1,5 +1,5 @@
-;;; Closed SDK loader programs and evaluator-safe replay for package products.
-;;; SDK cache, errors and native implementation selection remain authoritative.
+;;; Compiler-generated loader programs and evaluator-safe wrapper replay.
+;;; Gerbil cache, errors and implementation selection remain authoritative.
 (import (only-in :gerbil/runtime/loader __find-library-module)
         (only-in :gerbil/runtime/init __scheme-source))
 (export compiled-dependencies compiled-wrapper-forms read-compiled-dependencies
@@ -25,7 +25,7 @@
              (loop (cdr rest) (foldl cons reversed dependencies)))))))
 
 (def (read-compiled-dependencies source (native? #f))
-  ;; Inspection failure means SDK delegation, not successful admission. Always
+  ;; Inspection failure means Gerbil delegation, not successful admission. Always
   ;; call load-module afterward so its native selection, errors and state win.
   (with-catch (lambda (_) #f)
     (lambda ()
@@ -43,8 +43,8 @@
     (and entry (or (eq? (cdr entry) 'builtin) (string? (cdr entry))))))
 
 (def (owned-source-wrapper? module selected)
-  ;; Only admitted package products with a compiler interface qualify. The
-  ;; caller's publication reader owns byte identity for the entire operation.
+  ;; Classify the generated wrapper by its selected installation path and
+  ;; compiler interface. This is a structural test, not a byte-identity seal.
   (and (string-prefix? "gerbil-parser/" module)
        (not (string-contains module "~"))
        (string-suffix? ".scm" selected)
@@ -66,14 +66,14 @@
                        (else #f))))))))
 
 (def (load-ready-source-wrapper module selected dependencies)
-  ;; Match the SDK's raw Scheme source mode, retaining its module cache.
+  ;; Match the Gerbil's raw Scheme source mode, retaining its module cache.
   ;; Never let a fresh initializer inherit this evaluator switch.
   (unless (settled-source-wrapper? dependencies)
     (error "source wrapper dependencies are not settled" module))
   (parameterize ((__scheme-source selected)) (load-module module)))
 
 (def (load-parser-module module (visiting #f) (observe (lambda (_phase _module) (void))))
-  ;; SDK states remain authoritative, including loading and failed states.
+  ;; Gerbil states remain authoritative, including loading and failed states.
   (let ((visiting (or visiting (make-table test: equal?))) (source-plan #f))
     (unless (table-ref visiting module #f)
       (table-set! visiting module #t)

@@ -13,9 +13,15 @@
 (def (check-library-catalog!)
   (parameterize ((current-directory (path-expand ".." (path-directory (this-source-file)))))
     (def (spec script)
-      (call-with-input-string
+      (def output
         (run-process (list "gxi" "-:max-heap=1G,debug=q" script "spec")
-          stdout-redirection: #t coprocess: read-all-as-string) read))
+          stdout-redirection: #t coprocess: read-all-as-string))
+      (call-with-input-string output
+        (lambda (input)
+          (def value (read input))
+          (unless (and (list? value) (eof-object? (read input)))
+            (error "native spec command must publish exactly one list datum" script output))
+          value)))
     ;; Core normalizes native source targets to extensionless identities. Keep
     ;; every compiler option in this independent source-discovery comparison.
     (def (canonical targets)

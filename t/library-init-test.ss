@@ -28,7 +28,7 @@
                (write completed (current-error-port))
                (newline (current-error-port))
                (force-output (current-error-port)))))))))
-(def (query-spec entry)
+(def (query-spec entry (noise? #f))
   ;; Native inherited stderr bypasses the Worker's Scheme output pipe. Keep
   ;; the spec in a private data file and use the existing streaming build-tool
   ;; adapter so actual diagnostics reach the existing idle observer.
@@ -39,6 +39,12 @@
               "-L" (path-expand entry (path-directory (this-source-file)))
               "-e" (object->string
                       `(begin
+                         ,@(if noise?
+                             '((def actual-modules-spec modules-spec)
+                               (set! modules-spec
+                                 (lambda (roots)
+                                   (displayln "SPEC-PREPARATION-NOISE")
+                                   (actual-modules-spec roots)))) '())
                          (call-with-output-file ,spec-file
                            (lambda (output)
                              (parameterize ((current-output-port output))
@@ -51,7 +57,7 @@
       (call-with-input-file spec-file
         (lambda (input)
           (let (spec (read input))
-            (unless (and (not (eof-object? spec)) (eof-object? (read input)))
+            (unless (and (list? spec) (eof-object? (read input)))
               (error "native spec query did not publish one datum" entry))
             spec)))
       (finally (when (file-exists? spec-file) (delete-file spec-file))))))
@@ -81,6 +87,10 @@
       (equal ((.get runtime parse-artifact-valid?) '((schema . "invalid"))) #f)
       (equal ir (compiled.compile-grammar arithmetic-grammar))
       (equal (.get language language-grammar-schema) +language-grammar-schema+)))
+  (scenario "spec preparation diagnostics cannot corrupt the data channel"
+    (sequential ((spec (query-spec "../build.ss" #t)))
+      (equal (and (list? spec) (pair? spec)) #t)
+      (equal (and (assoc "src/utilities/types" (map cdr spec)) #t) #t)))
   (scenario "init projection preserves public entries and ABI boundaries"
     (sequential
       ((spec (query-spec "../build.ss"))

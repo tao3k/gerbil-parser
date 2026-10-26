@@ -133,3 +133,11 @@ owned that product input. The corrected build entry prepares only the benchmark
 and research program static inputs. It does not restore static Suite compilation,
 manual Harness execution, timers or nested tests. This separate product boundary
 must pass before remote qualification is considered complete.
+
+Cohort119 at2cdc733 corrects that product input ownership: native research
+preparation/link passes in199.80 seconds with the unchanged240-second/idle5 gate,
+two compiler workers and2GiB. All five standalone program controls pass in22.46
+seconds. No clean, timeout increase or Suite executor is used. Full183-module
+native coverage and standard package build are recorded at the preceding runtime-
+identical a7dd4d9; the subsequent code change only supplies the research benchmark
+static input. Current-head Linux/macOS CI remains an independent open gate.

@@ -4,6 +4,7 @@
         (only-in :std/test check check-exception)
         (only-in :std/misc/process run-process)
         (only-in :std/string/misc string-trim-eol)
+        (only-in :std/misc/ports read-all-as-string)
         (only-in :clan/poo/object .ref)
         (only-in ../language/entry parse-language-source)
         (only-in ../language/tlc qualify-language-tlc-model tla-plus-model-receipt->alist)
@@ -13,7 +14,10 @@
 (def (call-with-tool-test-directory procedure)
   (let* ((template (path-expand "gerbil-parser-model-test.XXXXXX" (getenv "TMPDIR" "/tmp")))
          (directory (string-trim-eol (run-process ["mktemp" "-d" template]))))
-    (unwind-protect (procedure directory)
+    ;; This fixture must establish an actual owned directory before preparing
+    ;; tool inputs. The native harness reports the assertion, not a timer.
+    (unwind-protect
+      (begin (check (file-type directory) => 'directory) (procedure directory))
       (when (file-exists? directory) (delete-file-or-directory directory #t)))))
 
 (def (write-test-file path text)
@@ -35,12 +39,16 @@
      (let ((spec (path-expand (string-append model ".tla") directory))
            (cfg (path-expand (string-append model ".cfg") directory))
            (executable (path-expand "tool-fixture" directory)))
-       (write-test-file spec source) (write-test-file cfg config)
+       (write-test-file spec source)
+       (check (call-with-input-file spec read-all-as-string) => source)
+       (write-test-file cfg config)
+       (check (call-with-input-file cfg read-all-as-string) => config)
        (unless (eq? (car tool) 'unresolved)
          (write-test-file executable
                           (string-append "#!/bin/sh\nprintf '%s' " (shell-quote-data (cadr tool))
                                          "\nexit " (number->string (caddr tool)) "\n"))
-         (run-process ["chmod" "+x" executable]))
+         (run-process ["chmod" "+x" executable])
+         (check (file-exists? executable) => #t))
        (tla-plus-model-receipt->alist
         (qualify-language-tlc-model (.ref loader 'descriptor) spec cfg
           tlc: (if (eq? (car tool) 'unresolved) "this-tool-must-not-be-resolved" executable)

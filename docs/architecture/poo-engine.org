@@ -214,3 +214,26 @@ Cohort101 passes all19 compiler-process cases in31.02s. This does not qualify
 native library teardown. Core PR19 remains0e3c1f8 (the declared pin), inheriting
 POO29c58aa9; the observed POO PR13 head3793685 is a separate reference and is not
 misrepresented as the installed dependency. This slice needs no newer POO API.
+
+* Linux product fixture refusal and test-owned mutation
+
+Final-head CI40285030288 at7bb870c refuses language-product-test idle5 inside one
+compound fixture call. Its complete log is retained; the blocking native stack
+is unavailable. Isolated local cohort103 passes22.20s and is not called a repair.
+The model fixture now asserts its actual directory and source/config contents
+and executable publication through the existing test harness before qualification.
+These are real input-closure boundaries; no periodic progress is introduced.
+
+The semantic backend owner also contributes a method generation to the public
+engine generic. It now declares existing engine(exclusive #t) metadata so this
+mutation cannot overlap other test owners. The runner remains configured for two
+workers; existing negative exclusivity/ownership controls remain. This corrects
+an actual isolation boundary, without claiming an unobserved causal connection
+to the historical Linux pause. Matching final-head CI must qualify the candidate.
+
+Updated native conformance compile/link passes122.87s under the unchanged240/idle5
+fence. Product plus backend ownership cohort104 passes2 owners/8 cases in21.29s:
+product completion precedes TEST-SUITE-EXCLUSIVE modules=1 and all7 backend cases.
+Previous-head7bb870c remote CI finishes11 enabled jobs successful and only Linux
+semantics refused at language-product idle5; macOS semantics succeeds. New complete
+source/native qualification and a fresh head's CI remain separate gates.

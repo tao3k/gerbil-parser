@@ -32,7 +32,9 @@
     (car (reduce-lr-stack-plan (vector-ref plan 0)
            (list (list (make-recognition-child #f (make-token 'word "x" 2 3)))) 9))))
 (deflanguage-parser-tests semantic-backend-test "prototype-composed LR semantic preparation"
-  (engine)
+  ;; This owner contributes methods to the shared engine generic. Use the
+  ;; existing declaration so generation mutation cannot overlap other owners.
+  (engine (exclusive #t))
     (scenario "native inheritance and a neutral mixin change actual node semantics"
       (scope ((node (plan-root (prepare-lr-reduction-plans ComposedBackend. (vector model-production)))))
         (equal (recognition-node-kind node) 'Decorated)

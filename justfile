@@ -63,7 +63,7 @@ test-runtime-organization:
 
 # Research fixture Suites use the same native test entry.
 test-research-suites:
-    gerbil test -v 3 t/fixtures/language-pack-research/package-expression-parser-test.ss t/fixtures/language-pack-research/package-parameter-inferred-parser-test.ss t/fixtures/language-pack-research/package-parameter-retained-parser-test.ss t/fixtures/language-pack-research/list-parser-test.ss t/fixtures/runtime-record-assignments/languages/records/parser-test.ss
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=3G,debug=q" gerbil test -v 3 t/fixtures/language-pack-research/package-expression-parser-test.ss t/fixtures/language-pack-research/package-parameter-inferred-parser-test.ss t/fixtures/language-pack-research/package-parameter-retained-parser-test.ss t/fixtures/language-pack-research/list-parser-test.ss t/fixtures/runtime-record-assignments/languages/records/parser-test.ss
 
 # Public native declaration lowering; test-all discovers this suite once.
 test-line-events output load_path:

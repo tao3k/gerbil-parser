@@ -26,6 +26,11 @@ name: Prepared Scheme qualification
         type: string
 permissions:
   contents: read
+env:
+  # Native qualified imports: compiled products before the package source parent.
+  GERBIL_PATH: ${{ github.workspace }}/.gerbil
+  GERBIL_LOADPATH: ${{ github.workspace }}/.gerbil/lib:${{ github.workspace }}/..
+  GERBIL_BUILD_CORES: 2
 jobs:
   prepare:
     name: Prepare Scheme (${{ inputs.release-os }})

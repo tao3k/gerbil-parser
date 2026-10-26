@@ -114,3 +114,13 @@ sufficient for native Gerbil test acceptance.
 Local cohort116: dev/build.ss check-catalog passes (50.67 seconds); isolated
 event-program Suite passes (13.38 seconds). This does not establish full native
 closure or remote Linux/macOS acceptance for the subsequent executor removals.
+
+Cohort117: five affected native modules, five research fixture modules and the
+isolated policy module pass. Complete native discovery reports183 MODULE-OK
+receipts but is rejected: qualification-output's intentional error cleanup calls
+ps, which this execution sandbox denies (Operation not permitted). Native Gerbil
+reports ERROR CASE and ERROR HARNESS and does not exit; the failed process was
+then terminated externally, preserving its log. This is not a passing full run.
+Requalification needs host process-topology access with the same two build workers,
+heap ceilings and native total deadlines. No source assertion or cleanup policy
+is relaxed to hide that environment refusal. Exact-head CI remains required.

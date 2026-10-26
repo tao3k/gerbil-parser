@@ -93,6 +93,16 @@
           (raises (selector 0 #f) TypeError?)))
       (raises ((validate ActionSelectorFactory (lambda _ (lambda _ #f))) '#(42) '#() #f #f) TypeError?)
       (raises ((validate ActionSelectorFactory (lambda _ (lambda _ #f))) '#() '#(42) #f #f) TypeError?))
+    (scenario "actual shift actions retain precedence metadata"
+      (each (precedence) ('(#f (none 0) (left 2) (right -1) (dynamic 3)))
+        (sequential ((answer (list '(terminal token word) 'shift 1 precedence))
+                (selector ((validate ActionSelectorFactory (lambda _ (lambda _ answer))) '#() '#() #f #f)))
+          (equal (selector 0 #f) answer)))
+      (each (answer) ('(((terminal token word) shift 1)
+                        ((terminal token word) shift 1 opaque)
+                        ((terminal token word) shift 1 (left "2"))))
+        (scope ((selector ((validate ActionSelectorFactory (lambda _ (lambda _ answer))) '#() '#() #f #f)))
+          (raises (selector 0 #f) TypeError?))))
     (scenario "cyclic action branches do not become a selector result"
       (sequential ((branch (list 'fork #f)))
         (act (set-car! (cdr branch) branch))

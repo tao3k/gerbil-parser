@@ -72,3 +72,8 @@ without import or harness errors. A complete2GiB experiment overflows the manage
 heap; it is retained as a refusal. Restore the existing3GiB full-entry ceiling
 and relocate the former Case heap selection to a native module Fixture. This is
 configuration/lifecycle reuse, not a new test dispatcher or raised heap ceiling.
+
+The package-spec Fixture now calls the real build declaration's spec API in a
+native expander context. It restores its temporary noisy projection even on
+failure. It starts no process, performs no compilation and owns no output/exit
+protocol. Its former generated GXI/preload/data-file executor is removed too.

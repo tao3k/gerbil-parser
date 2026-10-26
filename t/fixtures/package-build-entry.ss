@@ -1,73 +1,26 @@
-;;; External package-entry fixture; native SDK owns discovery and compilation.
-(import (only-in :gerbil-parser/src/build-support/compiler-profile run-build-tool)
-        (only-in :std/io/tempfile make-temporary-file-name))
+;;; Fixture for the build declaration's spec API, not a child build/test entry.
+(import (only-in :gerbil/expander import-module current-expander-context eval-syntax))
 (export query-spec)
-;; Imports are not the only work after the native entry is expanded. Forward
-;; Core's actual read/parse/projection events during spec projection too. Cache
-;; hits, elapsed-time observations and request-only events cannot emit progress.
-(def spec-source-progress
-    '(begin
-       (import (only-in :yuanxu/module-system/source/admission current-module-source-observer))
-       (let ((prior (current-module-source-observer)) (completed 0))
-         (current-module-source-observer
-           (lambda (kind amount)
-             (when prior (prior kind amount))
-             (when (or (memq kind '(reads compiler-identity-reads role-parses
-                                     publication-preparation-walks public-preparation-walks))
-                       (and (pair? kind) (memq (car kind)
-                         '(reader-projection-end reader-compile-end reader-eval-end))))
-               (set! completed (+ completed 1))
-               (when (or (= completed 1) (zero? (modulo completed 64)))
-                 (display "BUILD-SPEC-SOURCE " (current-error-port))
-                 (write completed (current-error-port))
-                 (newline (current-error-port))
-                 (force-output (current-error-port)))))))))
+
 (def (query-spec root entry (noise? #f))
-  ;; Native inherited stderr bypasses the Worker's Scheme output pipe. Keep
-  ;; the spec in a private data file and use the existing streaming build-tool
-  ;; adapter so actual diagnostics reach the existing idle observer.
-  (let (spec-file (make-temporary-file-name "parser-build-spec-"))
-    (try
-      (run-build-tool
-        (list "env" "-u" "GERBIL_LOADPATH" "gxi" "-:max-heap=1G,debug=q"
-              ;; Install the existing source/compiled loader observers before
-              ;; expanding the observer helper's own import. Otherwise that
-              ;; entire cold dependency load is invisible to the idle owner.
-              "-e" (object->string
-                     `(begin (load ,(path-expand "t/fixtures/tla-sany-differential/preload.ss" root))
-                             (prefer-compiled-interfaces!)
-                             (call-with-module-evaluation-trace
-                               (lambda ()
-                                 (eval '(import (only-in :gerbil-parser/src/build-support/compiler-profile
-                                                        call-with-compiler-import-progress)))))))
-              "-e" (object->string
-                `(begin
-                   ;; Reuse the actual compiler observer, including evaluator
-                   ;; work, instead of a second import-only implementation.
-                   (parameterize ((current-output-port (current-error-port)))
-                     (call-with-compiler-import-progress
-                       (lambda ()
-                         (eval ',spec-source-progress)
-                         (load ,(path-expand entry root))
-                         (eval
-                           '(begin
-                              ,@(if noise?
-                                  '((def actual-modules-spec modules-spec)
-                                    (set! modules-spec
-                                      (lambda (roots)
-                                        (displayln "SPEC-PREPARATION-NOISE")
-                                        (actual-modules-spec roots)))) '())
-                              (call-with-output-file ,spec-file
-                                (lambda (output)
-                                  (parameterize ((current-output-port output))
-                                    (main "spec"))))))))
-                     (load-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
-                     ((eval 'gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process#test-child-process-exit!) 0)))))
-        text?: #t)
-      (call-with-input-file spec-file
-        (lambda (input)
-          (let (spec (read input))
-            (unless (and (list? spec) (eof-object? (read input)))
-              (error "native spec query did not publish one datum" entry))
-            spec)))
-      (finally (when (file-exists? spec-file) (delete-file spec-file))))))
+  (let (context (import-module (path-expand entry root) #f #t))
+    (parameterize ((current-expander-context context))
+      (let ((original (eval-syntax 'modules-spec))
+            (replace! (eval-syntax '(lambda (value) (set! modules-spec value)))))
+        (try
+          (when noise?
+            (replace! (lambda (roots)
+                        (displayln "SPEC-PREPARATION-NOISE")
+                        (original roots))))
+          (let (output
+                 (call-with-output-string
+                   (lambda (port)
+                     (parameterize ((current-output-port port))
+                       (eval-syntax '(main "spec"))))))
+            (call-with-input-string output
+              (lambda (input)
+                (let (spec (read input))
+                  (unless (and (list? spec) (eof-object? (read input)))
+                    (error "native build spec did not publish one list datum" entry))
+                  spec))))
+          (finally (replace! original)))))))

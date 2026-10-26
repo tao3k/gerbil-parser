@@ -35,8 +35,10 @@ checkout/worktree with the package name and the existing native package prefix.
 This is source-layout alignment, not a second compiler environment.
 
 Compilation remains configured for two workers and its existing2GiB heap. The
-native test entry uses Core's default2GiB Case policy within the former3GiB test
-ceiling. The existing15-minute full-entry wall limit remains. Native gxtest has
+native complete test entry retains the existing3GiB process ceiling. The three
+modules with Core-profiled Cases declare native test-setup!/test-cleanup! Fixture
+hooks which select the same shared-process Case heap ceiling; Core continues to
+own duration, growth, sampling, cancellation and failure policy. The existing15-minute full-entry wall limit remains. Native gxtest has
 no Worker option; do not emulate one in Parser. Historical shared-Worker and
 per-Worker90/idle5 results are archived, not relabeled as native harness results.
 External product/process idle controls remain at their existing owners.
@@ -64,3 +66,9 @@ complete native discovery; syntax rejection of retired scheduling options;
 existing product/process negative controls; native AOT semantic groups and program
 entries; Linux/macOS exact-head CI. Mathematical engine laws and LeanPoo revision
 remain unchanged by this execution-owner cleanup.
+
+The canonical51a2a32 checkout passes the policy2 Cases and4 affected native Suites
+without import or harness errors. A complete2GiB experiment overflows the managed
+heap; it is retained as a refusal. Restore the existing3GiB full-entry ceiling
+and relocate the former Case heap selection to a native module Fixture. This is
+configuration/lifecycle reuse, not a new test dispatcher or raised heap ceiling.

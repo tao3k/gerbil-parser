@@ -264,7 +264,7 @@ jobs:
         timeout-minutes: 15
         run: |
           GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD/.." \
-            GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=2G,debug=q" GERBIL_PARSER_LR_TRACE=1 \
+            GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=3G,debug=q" GERBIL_PARSER_LR_TRACE=1 \
             gerbil env gxi qualify.ss run --timeout 900 \
               --log .data/native-gerbil-test.log --require "^OK$" -- \
               gerbil test -v 3 t/... languages/...

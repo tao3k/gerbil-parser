@@ -1,3 +1,6 @@
+;;; Native module Fixture selects the existing Core Case budget for this Suite.
+(import (only-in ./fixtures/case-profile test-setup! test-cleanup!))
+(export test-setup! test-cleanup!)
 ;;; Engine admission controls for the public language-test DSL.
 (import (only-in :gerbil-parser/languages/arithmetic/parser-test arithmetic-test-language)
         (only-in :gerbil-parser/languages/hcl/parser-test hcl-test-language)

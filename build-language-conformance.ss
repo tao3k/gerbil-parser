@@ -88,11 +88,15 @@
   (map (lambda (module)
          `(gxc: ,module "-cc-options" "-v -Q")) modules))
 (def (compile-research-entry!)
-  ;; Standalone research programs are products, never Suite executors.
-  (compile-module "t/research-main.ss"
-    [output-dir: (path-expand "lib" (getenv "GERBIL_PATH"))
-     optimize: #t generate-ssxi: #t static: #t keep-scm: #t
-     invoke-gsc: #f verbose: #f]))
+  ;; Source-only product inputs need static Scheme before native executable
+  ;; closure discovery. No Suite body belongs to this product compilation.
+  (for-each
+    (lambda (module)
+      (compile-module (string-append module ".ss")
+        [output-dir: (path-expand "lib" (getenv "GERBIL_PATH"))
+         optimize: #t generate-ssxi: #t static: #t keep-scm: #t
+         invoke-gsc: #f verbose: #f]))
+    '("t/benchmarks/versioned-languages/all-languages" "t/research-main")))
 (def (compile-static-conformance!)
   ;; The shared native graph is scheduled once by std/make. Only catalog
   ;; helpers belong to this declaration; extra source-test helpers

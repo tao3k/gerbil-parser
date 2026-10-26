@@ -22,7 +22,7 @@ set shell := ["sh", "-eu", "-c"]
 
 # Test-plan ownership is checked before loading any Parser runtime modules.
 test-plan:
-    timeout --signal=TERM --kill-after=5s 120s gerbil {{ gerbil_test_runtime_options }} test -v 3 scripts/tests/test-plan-test.ss
+    gerbil env gxi qualify.ss run --timeout 120 --log .data/test-plan.log --require "^OK$" -- gerbil {{ gerbil_test_runtime_options }} test -v 3 scripts/tests/test-plan-test.ss
 
 # Build the declared production library before running qualification.
 # Core and Gerbil own compilation and product checks; this does not issue approval.

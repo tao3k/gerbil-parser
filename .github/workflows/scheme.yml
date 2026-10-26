@@ -562,7 +562,7 @@ jobs:
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-module "gerbil-parser/t/fixtures/ffi/language-probe")' \
             -e '(import :gerbil-parser/t/fixtures/ffi/language-probe) (main)'
       - name: Verify independent C and Rust lifecycle
-        run: GERBIL_BUILD_CORES=4 GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" gerbil env gxi qualify.ss host
+        run: GERBIL_BUILD_CORES=2 GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" gerbil env gxi qualify.ss host
       - name: Upload qualification logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -857,7 +857,7 @@ jobs:
         env:
           GERBIL_PARSER_RUST_CPU_PROOF: '1'
           GERBIL_PARSER_NATIVE_HOST_LIBRARY: ${{ github.workspace }}/.gerbil/ci/libparsernative.so
-        run: GERBIL_BUILD_CORES=4 GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" gerbil env gxi qualify.ss host
+        run: GERBIL_BUILD_CORES=2 GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" gerbil env gxi qualify.ss host
       - name: Upload qualification logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

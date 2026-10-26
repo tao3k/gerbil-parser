@@ -15,7 +15,10 @@
 (def (timeout-probe! name code expected budget idle)
   (let (result (observe name code budget idle))
     (check (process-result-reason result) => expected)
-    (check (not (zero? (process-result-status result))) => #t)))
+    (check (not (zero? (process-result-status result))) => #t)
+    ;; A bootstrap refusal is not evidence that the child reached EOF.
+    (displayln "PROCESS-CONTROL-PHASE " name " reason=" expected
+               " phase=" (process-result-phase result)) (force-output)))
 (def process-qualification-test
   (test-suite "native process qualification admission"
     (test-case "normal exit retains its actual status"

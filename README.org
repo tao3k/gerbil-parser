@@ -653,3 +653,10 @@ The source Scope fixture selects its source root only during exclusive Scope
 construction and restores the native load path on success or exception. It does
 not register a source-first root during shared test-owner admission: doing so
 would reinitialize public nominal Types beside installed constructors.
+
+The package spec fixture reuses call-with-compiler-import-progress for both
+native import and evaluator work, and forwards Core's real source read/reader
+phase events after expansion. Cache hits and elapsed-time observations cannot
+emit progress. The observer binds its diagnostic output port at entry so nested
+spec datum redirection cannot capture diagnostic records. Existing total90/idle5
+controls remain; no timer or second builder is added.

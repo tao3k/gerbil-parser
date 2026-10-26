@@ -84,7 +84,8 @@
 ;;; runs. Report each optimizer-interface boundary; a stuck import still
 ;;; trips the existing idle fence. Preserve the Gerbil importer and its failures.
 (def (call-with-compiler-import-progress procedure (admit-import void))
-  (let ((importer (gx#current-expander-module-import))
+  (let ((progress-output (current-output-port))
+        (importer (gx#current-expander-module-import))
         (evaluate (gx#current-expander-module-eval))
         (completed 0) (started (##current-time-point))
         (admission-seconds 0.) (report-seconds 0.) (evaluation-seconds 0.)
@@ -92,7 +93,8 @@
         (trace (getenv "GERBIL_PARSER_LR_TRACE" #f)))
     (def (report . fields)
       (def before (##current-time-point))
-      (apply displayln fields) (force-output)
+      (parameterize ((current-output-port progress-output))
+        (apply displayln fields) (force-output))
       (with-lock cost-mutex
         (lambda () (set! report-seconds (+ report-seconds (- (##current-time-point) before))))))
     (try
@@ -144,9 +146,10 @@
                           (+ evaluation-seconds (- (##current-time-point) evaluation-start))))))))))))
         (procedure))
       (finally
-        (displayln "COMPILER-COST imports=" completed
-          " admission-s=" admission-seconds " report-s=" report-seconds
-          " evaluation-active-s=" evaluation-seconds
-          " total-s=" (- (##current-time-point) started))
-        (force-output)
+        (parameterize ((current-output-port progress-output))
+          (displayln "COMPILER-COST imports=" completed
+            " admission-s=" admission-seconds " report-s=" report-seconds
+            " evaluation-active-s=" evaluation-seconds
+            " total-s=" (- (##current-time-point) started))
+          (force-output))
         (unless trace (setenv "GERBIL_PARSER_LR_TRACE"))))))

@@ -55,6 +55,24 @@
                 (thread-sleep! .15)
                 (channel-put finish-b #t) (thread-join! b)))))))))
 
+;; The helper captures both streams; the declarative case emits no raw output.
+(def (nested-data-output)
+  (def datum #f)
+  (def diagnostics
+    (call-with-output-string
+      (lambda (output)
+        (parameterize
+          ((current-output-port output)
+           (current-expander-module-eval (lambda (_) '(selected module))))
+          (call-with-compiler-import-progress
+            (lambda ()
+              (set! datum
+                (call-with-output-string
+                  (lambda (data)
+                    (parameterize ((current-output-port data))
+                      (write ((current-expander-module-eval) 'data-channel))))))))))))
+  (values diagnostics datum))
+
 ;; Match the complete diagnostic record while allowing the clock's decimal or
 ;; exponent notation. Missing fields, malformed/negative costs and extra output
 ;; must not become acceptable by ignoring COMPILER-COST altogether.
@@ -85,6 +103,11 @@
                     (lambda () (call-with-compiler-import-progress (lambda () (raise sentinel)))))
                   sentinel) #t)
       (equal (getenv "GERBIL_PARSER_LR_TRACE" #f) trace)))
+  (scenario "compiler diagnostics cannot corrupt a nested data channel"
+    (scope-values (((diagnostics datum) (nested-data-output)))
+      (equal (compiler-cost-output? diagnostics
+               "COMPILER-EVALUATE data-channel\nCOMPILER-EVALUATED data-channel\n") #t)
+      (equal datum "(selected module)")))
   (scenario "compiler observation retains admission before the protected native importer"
     (scope ((entered #f) (sentinel (list 'admission-refusal))
             (original (current-expander-module-import)))

@@ -103,6 +103,33 @@
                     (lambda () (call-with-compiler-import-progress (lambda () (raise sentinel)))))
                   sentinel) #t)
       (equal (getenv "GERBIL_PARSER_LR_TRACE" #f) trace)))
+  (scenario "completed native imports are observable before a batch reaches64"
+    (scope ((calls 0) (actual #f) (output #f))
+      (act (set! output
+        (call-with-output-string
+          (lambda (port)
+            (parameterize ((current-output-port port)
+                           (current-expander-module-import
+                             (lambda (_path _reload?) (set! calls (+ calls 1)) calls)))
+              (call-with-compiler-import-progress
+                (lambda ()
+                  (set! actual (map (lambda (_) ((current-expander-module-import) ':probe #f)) '(a b c))))))))))
+      (equal actual '(1 2 3))
+      (each (count) ('(1 2 3))
+        (equal (and (string-contains output
+          (string-append "COMPILER-INTERFACES completed=" (number->string count) " last=")) #t) #t))))
+  (scenario "an import exception cannot manufacture a completed-operation event"
+    (scope ((sentinel (list 'import-refusal)) (actual #f) (output #f))
+      (act (set! output
+        (call-with-output-string
+          (lambda (port)
+            (parameterize ((current-output-port port)
+                           (current-expander-module-import (lambda _ (raise sentinel))))
+              (set! actual (with-catch identity
+                (lambda () (call-with-compiler-import-progress
+                  (lambda () ((current-expander-module-import) ':probe #f)))))))))))
+      (equal (eq? actual sentinel) #t)
+      (equal (and (string-contains output "COMPILER-INTERFACES completed=") #t) #f)))
   (scenario "compiler diagnostics cannot corrupt a nested data channel"
     (scope-values (((diagnostics datum) (nested-data-output)))
       (equal (compiler-cost-output? diagnostics

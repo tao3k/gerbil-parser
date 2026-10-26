@@ -113,12 +113,12 @@
               (def count
                 (with-lock cost-mutex
                   (lambda () (set! completed (+ completed 1)) completed)))
-              (when (or (zero? (modulo count 64))
-                        (and (string? path) (string-suffix? ".ssxi.ss" path))
-                        (and (symbol? path) (string-suffix? ".ssxi.ss" (symbol->string path))))
-                (report "COMPILER-INTERFACES completed=" count " last=" path
-                           " elapsed-ms=" (inexact->exact (floor (* 1000 (- (##current-time-point) started))))
-                           " admission-s=" admission-seconds " report-s=" report-seconds))
+              ;; A batch of64 successful imports can span the idle window even
+              ;; though no individual import is blocked. Report each completed
+              ;; native operation; failed/in-flight imports still emit no completion.
+              (report "COMPILER-INTERFACES completed=" count " last=" path
+                         " elapsed-ms=" (inexact->exact (floor (* 1000 (- (##current-time-point) started))))
+                         " admission-s=" admission-seconds " report-s=" report-seconds)
               context)))
          (gx#current-expander-module-eval
           (lambda (module)

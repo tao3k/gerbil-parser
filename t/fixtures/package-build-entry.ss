@@ -30,10 +30,18 @@
     (try
       (run-build-tool
         (list "env" "-u" "GERBIL_LOADPATH" "gxi" "-:max-heap=1G,debug=q"
+              ;; Install the existing source/compiled loader observers before
+              ;; expanding the observer helper's own import. Otherwise that
+              ;; entire cold dependency load is invisible to the idle owner.
+              "-e" (object->string
+                     `(begin (load ,(path-expand "t/fixtures/tla-sany-differential/preload.ss" root))
+                             (prefer-compiled-interfaces!)
+                             (call-with-module-evaluation-trace
+                               (lambda ()
+                                 (eval '(import (only-in :gerbil-parser/src/build-support/compiler-profile
+                                                        call-with-compiler-import-progress)))))))
               "-e" (object->string
                 `(begin
-                   (import (only-in :gerbil-parser/src/build-support/compiler-profile
-                                    call-with-compiler-import-progress))
                    ;; Reuse the actual compiler observer, including evaluator
                    ;; work, instead of a second import-only implementation.
                    (parameterize ((current-output-port (current-error-port)))

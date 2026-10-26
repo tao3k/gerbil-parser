@@ -1,44 +1,42 @@
-;;; Exercise production process contracts with real native children.
-(load "test-processes.ss")
-(import (only-in :gerbil-parser/t/support/qualification/process
-                 run-observed-process process-result-reason process-result-status process-result-phase))
-(def make-case
-  (eval '(lambda (name command expected marker budget idle)
-            (process-case name command expected marker budget idle))))
+;;; Real process fixtures; native Gerbil test owns Suite execution.
+(import :std/test
+        (only-in :gerbil-parser/t/support/qualification/process
+                 run-observed-process run-qualified! process-result-reason
+                 process-result-status process-result-phase))
+(export process-qualification-test test-setup!)
 (def root (path-expand ".data/process-qualification-controls"))
-(create-directory* root)
-(def (probe name code expected marker budget idle)
-  (qualify-process!
-   (make-case name ["gxi" "-e" code] expected marker budget idle) root))
-(def (reject! name thunk)
-  (unless (with-catch (lambda (_) #t) (lambda () (thunk) #f))
-    (error "negative process control was accepted" name))
-  (displayln "PROCESS-CONTROL-OK " name) (force-output))
-(unless (= 17 (probe "exit-status" "(exit 17)" 17 #f 2 1))
-  (error "normal exit status changed"))
-(displayln "PROCESS-CONTROL-OK exit-status")
-(probe "fragments" "(display \"fragment\") (force-output) (display \"diagnostic\" (current-error-port)) (force-output (current-error-port)) (exit 0)"
-       0 "fragmentdiagnostic" 2 1)
-(displayln "PROCESS-CONTROL-OK partial-output")
-(reject! "wrong-exit" (lambda () (probe "wrong-exit" "(exit 17)" 0 #f 2 1)))
-(reject! "missing-marker" (lambda () (probe "missing-marker" "(exit 0)" 0 "MISSING" 2 1)))
+(def (test-setup!) (create-directory* root))
+(def (observe name code budget idle)
+  (run-observed-process ["gxi" "-e" code] (path-expand name root)
+    timeout: budget idle-timeout: idle))
+(def (admit name code marker)
+  (run-qualified! ["gxi" "-e" code] (path-expand name root)
+    timeout: 2 idle-timeout: 1 require: (if marker [marker] '())))
 (def (timeout-probe! name code expected budget idle)
-  (let (result (run-observed-process ["gxi" "-e" code] (path-expand name root)
-                                    timeout: budget idle-timeout: idle))
-    (unless (and (eq? (process-result-reason result) expected)
-                 (not (zero? (process-result-status result))))
-      (error "wrong process timeout classification" name expected result))
-    (displayln "PROCESS-CONTROL-OK " name " reason=" expected
-               " phase=" (process-result-phase result)) (force-output)))
-(timeout-probe! "idle-timeout" "(thread-sleep! 2) (exit 0)" 'idle-timeout 2 0.1)
-;; Keep the original total budget; remove the competing idle fence from this
-;; directed total-timeout case so bootstrap latency cannot satisfy the wrong test.
-(timeout-probe! "total-timeout"
- "(let loop () (display \".\") (force-output) (thread-sleep! 0.02) (loop))" 'total-timeout 0.15 #f)
-;; Total time includes bootstrap and process-status after EOF. Record the actual
-;; phase; a bootstrap rejection is not evidence that the child reached its close.
-(timeout-probe! "closed-output-timeout"
- "(close-output-port (current-output-port)) (close-output-port (current-error-port)) (thread-sleep! 2) (exit 0)"
- 'total-timeout 0.15 #f)
-(displayln "PROCESS-QUALIFICATION-CONTROLS-OK") (force-output)
-(exit 0)
+  (let (result (observe name code budget idle))
+    (check (process-result-reason result) => expected)
+    (check (not (zero? (process-result-status result))) => #t)))
+(def process-qualification-test
+  (test-suite "native process qualification admission"
+    (test-case "normal exit retains its actual status"
+      (let (result (observe "exit-status" "(exit 17)" 2 1))
+        (check (process-result-status result) => 17)
+        (check (process-result-reason result) => #f)))
+    (test-case "fragmented stdout and stderr retain one receipt"
+      (admit "fragments"
+        (object->string '(begin (display "fragment") (force-output) (display "diagnostic" (current-error-port)) (force-output (current-error-port)) (exit 0)))
+        "fragmentdiagnostic"))
+    (test-case "unexpected nonzero exit is rejected"
+      (check-exception (admit "wrong-exit" "(exit 17)" #f) exception?))
+    (test-case "missing output receipt is rejected"
+      (check-exception (admit "missing-marker" "(exit 0)" "MISSING") exception?))
+    (test-case "idle silence retains its original timeout classification"
+      (timeout-probe! "idle-timeout" "(thread-sleep! 2) (exit 0)" 'idle-timeout 2 0.1))
+    (test-case "active output cannot defeat the total deadline"
+      (timeout-probe! "total-timeout"
+        (object->string '(let loop () (display ".") (force-output) (thread-sleep! 0.02) (loop)))
+        'total-timeout 0.15 #f))
+    (test-case "total budget covers bootstrap and status after EOF"
+      (timeout-probe! "closed-output-timeout"
+        "(close-output-port (current-output-port)) (close-output-port (current-error-port)) (thread-sleep! 2) (exit 0)"
+        'total-timeout 0.15 #f))))

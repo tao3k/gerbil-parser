@@ -1,16 +1,10 @@
-;;; Actual same-owner callback re-entry, not a simulated parser lifecycle.
-(displayln "HISTORY-COMMIT-START") (force-output)
-(load "t/fixtures/tla-sany-differential/preload.ss")
-(prefer-compiled-interfaces!)
-(preload-module "gerbil-parser/src/ffi/language-handles")
-(preload-module "gerbil-parser/languages/bash/parser")
-(preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
+;;; Native callback history Suite; CI/development owns execution.
+(import :std/test)
 (import (only-in :gerbil-parser/src/ffi/language-handles
                 register-language! release-language! language-handle-parse
                 language-handle-parse/publish language-handle-scan-counts language-handle-count
                 language-handle-descriptor)
-        (only-in :gerbil-parser/languages/bash/parser bash-source-language)
-        (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!))
+        (only-in :gerbil-parser/languages/bash/parser bash-source-language))
 (def (require! value message) (unless value (error message)))
 (def (fails? thunk) (with-catch (lambda (_) #t) (lambda () (thunk) #f)))
 (def (counts handle)
@@ -18,6 +12,10 @@
 (def initial "cat <<A\nα\nA\necho end\n")
 (def nested "echo猫 <<A\nα\nA\necho end\n")
 (def outer "unrelated\n")
+(export history-commit-test)
+(def history-commit-test
+  (test-suite "callback history commit admission"
+    (test-case "nested, failed, rejected and released histories retain ownership"
 (def baseline (language-handle-count))
 
 (for-each
@@ -86,4 +84,5 @@
   (displayln "HISTORY-RELEASE-OK") (force-output))
 (require! (= baseline (language-handle-count)) "history controls leaked handles")
 (displayln "HISTORY-COMMIT-CONTROLS-OK") (force-output)
-(test-child-process-exit! 0)
+
+)))

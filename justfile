@@ -101,7 +101,7 @@ test-qualification-suites: build-qualification
 
 # Exercise the downstream admission caller after support-module relocation.
 test-process-admission: build-qualification
-    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil env gxi scripts/tests/process-qualification-test.ss
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil env gxi qualify.ss run --timeout 90 --log .data/process-qualification-suite.log --require "^OK$" -- gerbil test -v 3 scripts/tests/process-qualification-test.ss
 
 test-compiler-process: qualify-library build-qualification
     #!/usr/bin/env bash
@@ -742,7 +742,7 @@ prepare-formal-protocol:
 
 # Same-owner callbacks cannot overwrite a newer committed Source history.
 test-history-commit: build-qualification
-    gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/history-commit-controls.log --require HISTORY-COMMIT-CONTROLS-OK -- gxi scripts/tests/history-commit-test.ss
+    gerbil env gxi qualify.ss run --timeout 90 --log .data/history-commit-controls.log --require HISTORY-COMMIT-CONTROLS-OK --require "^OK$" -- gerbil test -v 3 scripts/tests/history-commit-test.ss
 
 # Frozen Git source, normal Gerbil compiler, shared immutable request dependencies.
 prepare-capture-reference revision output=".data/selector-input/reference" scope="selector-input":

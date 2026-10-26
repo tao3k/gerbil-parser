@@ -207,9 +207,9 @@ jobs:
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-module "gerbil-parser/t/benchmarks/capture-prefix/controls") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process") (eval (quote (import :gerbil-parser/t/benchmarks/capture-prefix/controls :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process))) (eval (quote (verify-capture-prefix!))) (eval (quote (test-child-process-exit! 0)))'
       - name: Verify callback history commit admission
         run: |
-          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
-            --log .data/history-commit-controls.log --require HISTORY-COMMIT-CONTROLS-OK \
-            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-test-imports "scripts/tests/history-commit-test.ss")' scripts/tests/history-commit-test.ss
+          gerbil env gxi qualify.ss run --timeout 90 \
+            --log .data/history-commit-controls.log --require HISTORY-COMMIT-CONTROLS-OK --require "^OK$" \
+            -- gerbil test -v 3 scripts/tests/history-commit-test.ss
       - name: Verify Scheme source proof input is current
         run: gerbil env gxi t/generate-walk-source-witness.ss check formal/ParserEngine/SourceData.lean
       - name: Verify source dependency proof input is current
@@ -228,7 +228,7 @@ jobs:
         run: gerbil env gxi scripts/generate-source-parser.ss check :gerbil-parser/languages/hcl/grammar src/compiler/hcl-source.ss
       - name: Verify process and test ownership controls
         run: |
-          gerbil env gxi scripts/tests/process-qualification-test.ss
+          just test-process-admission
           just test-plan
       - name: Verify compiler policy with native Gerbil test
         run: |

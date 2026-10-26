@@ -126,7 +126,7 @@ test-harness-refusal: build-qualification
         echo 'native failed Suite was incorrectly accepted' >&2
         exit 1
     fi
-    rg 'ERROR (CHECK|CASE|HARNESS)' .data/native-harness-failure.log >/dev/null
+    grep -E 'ERROR (CHECK|CASE|HARNESS)' .data/native-harness-failure.log >/dev/null
     echo 'GERBIL-HARNESS-REFUSAL-OK'
 
 # Compile the suite's own fixtures, not only its import declarations.

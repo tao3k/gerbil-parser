@@ -513,7 +513,7 @@ build-ffi-tests:
 
 test-language-abi-alignment: build-qualification build-test-driver build-ffi-tests
     mkdir -p .data
-    gerbil env gxi qualify.ss run --timeout 180 --idle-timeout 5 --log .data/language-abi-alignment-test.log --require '^OK$' -- gerbil test -v 5 t/language-abi-alignment-test.ss
+    gerbil env gxi qualify.ss run --timeout 180 --log .data/language-abi-alignment-test.log --require '^OK$' -- gerbil test -v 5 t/language-abi-alignment-test.ss
     test "$(grep -c '^NATIVE-ALIGNMENT-CASE ' .data/language-abi-alignment-test.log)" = 20
     grep -q '^CASE-OK accepted and rejected language products match the Rust fixture exactly$' .data/language-abi-alignment-test.log
     grep -q '^OK$' .data/language-abi-alignment-test.log

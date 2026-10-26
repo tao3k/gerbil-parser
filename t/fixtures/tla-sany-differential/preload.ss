@@ -205,15 +205,3 @@
                       (for-each (lambda (entry) (preload-import-set entry source))
                                 (cdr form)))
                     (loop)))))))))))
-
-;;; Use the SDK's own native test driver and exit status. Only admission
-;;; observation is shared with the complete aggregate; no suites are replaced.
-(def (run-observed-sdk-tests! . arguments)
-  (gc-report-set! #t)
-  (call-with-module-evaluation-trace
-    (lambda ()
-      (preload-module "gerbil/tools/gxtest")
-      (preload-runtime-module
-        "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
-      (let (status (apply (eval 'gerbil/tools/gxtest#main) arguments))
-        ((eval 'gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process#test-child-process-exit!) status)))))

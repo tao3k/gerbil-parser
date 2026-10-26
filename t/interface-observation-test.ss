@@ -45,7 +45,7 @@
       (list calls (interface-report-count output "INTERFACE-IMPORT ")))))
 
 (deflanguage-parser-tests interface-observation-test "SDK interface observation"
-  (engine (exclusive #t))
+  (engine)
   (property "warm lookups, failure identity, retries and reloads preserve SDK dispatch"
     (bindings)
     (equal (interface-retry-observation) '(5 #t #t #t 3 1)))

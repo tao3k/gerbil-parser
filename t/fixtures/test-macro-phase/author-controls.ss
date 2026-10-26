@@ -17,7 +17,7 @@
 (def +compiler-loaded+
   (and (assoc "gerbil-parser/src/compiler/language-declaration" (list-modules)) #t))
 (deflanguage-parser-tests test-macro-author-test "author declaration phase"
-  (engine (exclusive #t))
+  (engine)
   (property "source declaration activates its service and retains parsing semantics"
     (bindings (artifact (parse-source phase-control-parser "123")))
     (equal +compiler-loaded+ #t)

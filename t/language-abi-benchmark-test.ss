@@ -7,7 +7,7 @@
         (only-in :gerbil-parser/t/fixtures/ffi/language-probe parse-native-batch parse-native-sized-batch create-native-handle)
         (only-in :gerbil-parser/src/ffi/language-handles release-language!))
 (deflanguage-parser-tests language-abi-benchmark-tests "native language C performance"
-  (engine (exclusive #t) (affinity language-abi-runtime))
+  (engine)
     (scenario "scaled UTF-8 C calls preserve whole-call allocation observations"
       (scope ((handle (create-native-handle)))
         (wind

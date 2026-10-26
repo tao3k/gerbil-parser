@@ -11,7 +11,6 @@
 (include "scripts/test-plan.ss")
 (def conformance-modules
   '("t/fixtures/fixture-release"
-    "t/fixtures/tla-sany-differential/worker-control"
     "t/fixtures/grammar-composition-models"
     "t/fixtures/language-pack-research/package-expression-runtime"
     "t/fixtures/language-pack-research/composition-history"
@@ -128,17 +127,5 @@
         optimize: #t)
   ;; Test bodies remain source-only here; their native objects belong to the link owner.
   (compile-static-tests!))
-(def (prepare-gxtest-content!)
-  ;; gxtest owns source test evaluation. The closed executable already owns
-  ;; native conformance bodies; production parser modules remain native.
-  ;; Remove only source-only test interfaces, using std/make's own output map,
-  ;; so gxtest imports their Scheme sources rather than an incomplete product.
-  (let (modules (filter shared-test-module? conformance-modules))
-    (make-clean
-     (append (compiled-spec modules)
-             (map (lambda (module) `(copy: ,(string-append module ".scm"))) modules))
-     libdir: (path-expand "lib" (getenv "GERBIL_PATH"))
-     srcdir: (path-directory (this-source-file)))))
-(def (prepare-gxtest!) (prepare-gxtest-content!))
 ;; Developer multicall build retains the standard native shared-module owner.
 (defbuild-script (compiler-build-spec (compiled-spec conformance-modules)) optimize: #t)

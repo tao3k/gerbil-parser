@@ -103,9 +103,9 @@ jobs:
         run: gerbil env gxi build-qualification.ss compile
       - name: Verify conformance preparation imports
         run: |
-          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
-            --log .data/conformance-preparation-imports.log --require TEST-SUITE-OK \
-            -- gxi t/fixtures/tla-sany-differential/test-suite.ss --workers 2 \
+          gerbil env gxi qualify.ss run --timeout 90 \
+            --log .data/conformance-preparation-imports.log --require "^OK$" \
+            -- gerbil test -v 3 \
               t/build-owner-import-test.ss
       - name: Compile reusable Scheme library objects
         run: |
@@ -121,12 +121,6 @@ jobs:
               -- gxi build-conformance.ss
       - name: Compile Scheme test support
         run: GERBIL_BUILD_VERBOSE=1 gerbil env gxi build-test-support.ss compile
-      - name: Prepare gxtest source owners
-        run: |
-          gerbil env gxi qualify.ss run --timeout 240 --idle-timeout 5 \
-            --log .data/gxtest-source-prepare.log \
-            -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!)' \
-            -e '(call-with-compiled-interface-trace (lambda () (load "build-language-conformance.ss") (eval (quote (prepare-gxtest!))))) (exit 0)'
       - name: Compile FFI Scheme fixtures once
         run: GERBIL_BUILD_VERBOSE=1 gerbil env gxi build-ffi-tests.ss compile
       - name: Prepare standalone language library once
@@ -232,6 +226,11 @@ jobs:
           gerbil env gxi scripts/tests/process-qualification-test.ss
           just test-plan
           gerbil env gxi test-processes.ss conformance
+      - name: Verify compiler policy with native Gerbil test
+        run: |
+          gerbil env gxi qualify.ss run --timeout 90 \
+            --log .data/compiler-policy-native.log --require "^OK$" -- \
+            gerbil test -v 3 t/fixtures/compiler-policy.ss
       - name: Verify Scheme DSL and POO declaration closure
         id: dsl-research
         run: gerbil env gxi test-processes.ss research .data/dsl-research
@@ -254,21 +253,21 @@ jobs:
             -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (call-with-compiled-interface-trace (lambda () (eval (quote (import :gerbil-parser/t/benchmarks/source-edits/benchmark))) (eval (quote (verify-callback-gc)))))'
       - name: Verify isolated test macro phase ownership
         run: |
-          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
-            --log .data/test-macro-phase.log --require TEST-SUITE-OK \
-            -- gxi t/fixtures/tla-sany-differential/test-suite.ss --workers 2 \
+          gerbil env gxi qualify.ss run --timeout 90 \
+            --log .data/test-macro-phase.log --require "^OK$" \
+            -- gerbil test -v 3 \
               t/fixtures/test-macro-phase/controls.ss \
               t/fixtures/test-macro-phase/loader-controls.ss \
               t/fixtures/test-macro-phase/vocabulary-controls.ss \
               t/fixtures/test-macro-phase/author-controls.ss
-      - name: Verify shared-runtime Worker controls
-        run: gerbil env gxi test-processes.ss workers
       - name: Run Scheme tests
         timeout-minutes: 15
         run: |
-          GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
-            GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=3G,debug=q" GERBIL_PARSER_LR_TRACE=1 \
-            gerbil env gxi t/fixtures/tla-sany-differential/test-suite.ss --workers 2 --remaining-conformance t languages
+          GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD/.." \
+            GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=2G,debug=q" GERBIL_PARSER_LR_TRACE=1 \
+            gerbil env gxi qualify.ss run --timeout 900 \
+              --log .data/native-gerbil-test.log --require "^OK$" -- \
+              gerbil test -v 3 t/... languages/...
       - name: Verify native command
         run: |
           gerbil env gparse help

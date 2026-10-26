@@ -24,7 +24,7 @@
   (sha256-text (call-with-output-string (lambda (port) (write datum port)))))
 
 (deflanguage-parser-tests bound-ir-index-test "Bound IR indexed admission"
-  (engine (exclusive #t))
+  (engine)
     (scenario "empty reference digest reuse keeps independent caller-owned strings"
       (sequential ((grammar (grammar-ir '((Left node ()) (Right node ())) '()))
              (result (bind-grammar-ir grammar "empty-reference-copy" '()))

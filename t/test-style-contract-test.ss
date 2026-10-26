@@ -179,7 +179,7 @@
     (equal (parser-test-form-admitted? '(define test-worker-affinity 'runtime)
              '(test-worker-exclusive? test-worker-affinity)) #f)
     (equal (parser-test-form-admitted?
-             '(deflanguage-parser-tests owner "owner" (engine (exclusive #t))
+             '(deflanguage-parser-tests owner "owner" (engine)
                 (property "value" (bindings) (equal 1 1)))
              '(test-worker-exclusive? test-worker-affinity)) #t)
     (equal (parser-test-form-admitted? '(quote (def test-worker-exclusive? #t))

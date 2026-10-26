@@ -19,7 +19,7 @@
     (force-output)))
 
 (deflanguage-parser-tests opencypher-large-query-benchmark-tests "openCypher large-query complexity scenario"
-  (engine (exclusive #t))
+  (engine)
     (scenario "one hundred clauses remain linear at full scale"
       (equal (benchmark-contract-valid? benchmark-path)  #t)
       (scope ((algorithm-receipt (opencypher-large-query-scenario)))

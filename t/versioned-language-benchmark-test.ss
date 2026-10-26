@@ -32,7 +32,7 @@
           (error "official corpus benchmark parse failed" (syntax-fixture-id fixture))))) (cdr group))) benchmark-corpus))
 
 (deflanguage-parser-tests versioned-language-benchmark-tests "versioned language benchmark"
-  (engine (exclusive #t))
+  (engine)
     (scenario "HCL, GQL, openCypher, and TLA+ share the parser performance contract"
       (equal (benchmark-contract-valid? benchmark-path)  #t)
       (act (parse-language-batch))

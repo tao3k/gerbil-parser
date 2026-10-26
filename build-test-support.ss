@@ -17,8 +17,7 @@
           (append (filter (lambda (module) (not (conformance-source-only? module)))
                           (cadr catalog))
                   (if extra?
-                    '("t/fixtures/tla-sany-differential/worker-control"
-                      "t/abi-datum-support" "t/line-structure-assertions"
+                    '("t/abi-datum-support" "t/line-structure-assertions"
                       "t/benchmarks/lr-request-stack/derivation"
                       "t/benchmarks/lr-request-stack/lookahead"
                       "t/scenarios/performance/selective-glr/scenario"

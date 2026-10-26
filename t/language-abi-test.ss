@@ -28,7 +28,7 @@
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-events parse-artifact-ref)
         (only-in :gerbil-parser/src/compiler/language-pack generate-language-pack))
 (deflanguage-parser-tests language-abi-tests "independent language native admission"
-  (engine (exclusive #t) (affinity language-abi-runtime))
+  (engine)
     (scenario "bounded GPA1 rows preserve little endian widths and adjacent bytes"
       (scope ((bytes (make-u8vector 26 170)))
         (act (write-abi-row! bytes 1 4294967295 2147483648 18446744073709551615 0 4294967295))

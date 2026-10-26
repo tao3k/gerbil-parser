@@ -21,7 +21,7 @@
   (write-program (path-expand name namespace) write-datum 'unexecuted-product))
 
 (deflanguage-parser-tests native-link-test "SDK-selected physical native inputs"
-  (engine (exclusive #t))
+  (engine)
   (scenario "consumer resolves after producer publication, rather than pinning the first object"
     (using (with-native-link-root) (root namespace)
       (act (native-link-product namespace "entry~0.scm"))

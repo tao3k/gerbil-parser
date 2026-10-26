@@ -12,7 +12,7 @@ test-file path: build-qualification build-test-support
     set -euo pipefail
     mkdir -p .gerbil/test-results
     output_file="$(mktemp .gerbil/test-results/native.XXXXXX)"
-    timeout --signal=TERM --kill-after=5s 120s {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} :gerbil/tools/gxtest -v 3 "{{ path }}" 2>&1 | tee "$output_file"
+    timeout --signal=TERM --kill-after=5s 120s gerbil {{ gerbil_test_runtime_options }} test -v 3 "{{ path }}" 2>&1 | tee "$output_file"
     if grep -E 'ERROR (CHECK|CASE|HARNESS|MODULE)|Heap overflow|Stack overflow' "$output_file" >/dev/null; then exit 1; fi
     grep -F 'MODULE-OK ' "$output_file" >/dev/null
     grep -F 'HARNESS-OK' "$output_file" >/dev/null
@@ -51,7 +51,7 @@ test-source-contracts: build-test-driver
     mkdir -p .gerbil/test-results
     output_file="$(mktemp .gerbil/test-results/source-contracts.XXXXXX)"
     suites=(t/build-product-contract-test.ss t/test-style-contract-test.ss t/library-init-test.ss)
-    timeout --signal=TERM --kill-after=5s 120s {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} :gerbil/tools/gxtest -v 3 "${suites[@]}" 2>&1 | tee "$output_file"
+    timeout --signal=TERM --kill-after=5s 120s gerbil {{ gerbil_test_runtime_options }} test -v 3 "${suites[@]}" 2>&1 | tee "$output_file"
     if rg 'ERROR (CHECK|CASE|HARNESS|MODULE)|Heap overflow|Stack overflow' "$output_file"; then exit 1; fi
     for suite in "${suites[@]}"; do rg -Fx "MODULE-OK $suite" "$output_file" >/dev/null; done
     rg -F 'HARNESS-OK' "$output_file" >/dev/null
@@ -106,16 +106,15 @@ test-compiler-process: qualify-library build-qualification
     set -euo pipefail
     mkdir -p .gerbil/test-results
     output_file="$(mktemp .gerbil/test-results/compiler-process.XXXXXX)"
-    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" timeout --signal=TERM --kill-after=5s 120s {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} :gerbil/tools/gxtest -v 3 t/compiler-process-test.ss 2>&1 | tee "$output_file"
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" timeout --signal=TERM --kill-after=5s 120s gerbil {{ gerbil_test_runtime_options }} test -v 3 t/compiler-process-test.ss 2>&1 | tee "$output_file"
     if rg 'ERROR (CHECK|CASE|HARNESS|MODULE)|Heap overflow|Stack overflow' "$output_file"; then exit 1; fi
     rg -Fx 'MODULE-OK t/compiler-process-test.ss' "$output_file" >/dev/null
     rg -F 'HARNESS-OK' "$output_file" >/dev/null
     rg -x 'OK' "$output_file" >/dev/null
 
-# Build the shared helper through its compiled module owner before loading source suites.
-test-workers output=".data/worker-controls": build-qualification
-    gerbil compile -O t/fixtures/tla-sany-differential/worker-control.ss
-    gerbil env gxi test-processes.ss workers "{{output}}"
+# Fresh native harness owns policy initialization; it is not a nested Suite child.
+test-compiler-policy: qualify-library build-qualification
+    gerbil env gxi qualify.ss run --timeout 90 --log .data/compiler-policy-native.log --require "^OK$" -- gerbil test -v 3 t/fixtures/compiler-policy.ss
 
 # Compile the suite's own fixtures, not only its import declarations.
 build-fold-attribution output load_path:
@@ -502,7 +501,7 @@ build-ffi-tests:
 
 test-language-abi-alignment: build-qualification build-test-driver build-ffi-tests
     mkdir -p .data
-    gerbil env gxi qualify.ss run --timeout 180 --idle-timeout 5 --log .data/language-abi-alignment-test.log --require '^OK$' -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (run-observed-sdk-tests! "-v" "5" "t/language-abi-alignment-test.ss")'
+    gerbil env gxi qualify.ss run --timeout 180 --idle-timeout 5 --log .data/language-abi-alignment-test.log --require '^OK$' -- gerbil test -v 5 t/language-abi-alignment-test.ss
     test "$(grep -c '^NATIVE-ALIGNMENT-CASE ' .data/language-abi-alignment-test.log)" = 20
     grep -q '^CASE-OK accepted and rejected language products match the Rust fixture exactly$' .data/language-abi-alignment-test.log
     grep -q '^OK$' .data/language-abi-alignment-test.log
@@ -721,7 +720,7 @@ formal-protocol:
 
 # Gerbil-owned module caching, source changes and initializer failure recovery.
 test-module-loading: build-qualification
-    gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/module-loading-controls.log --require '^TEST-SUITE-OK modules=1$' -- gxi t/fixtures/tla-sany-differential/test-suite.ss --workers 4 t/module-loading-test.ss
+    gerbil env gxi qualify.ss run --timeout 90 --log .data/module-loading-controls.log --require '^OK$' -- gerbil test -v 3 t/module-loading-test.ss
 
 benchmark-module-loading mode="generation": build-qualification
     gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/module-loading-{{mode}}.log --require '^MODULE-LOADING-CPU-PROOF-OK {{mode}}$' -- gxi t/benchmarks/module-loading/benchmark.ss {{mode}}

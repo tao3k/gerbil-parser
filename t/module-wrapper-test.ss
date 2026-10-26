@@ -21,7 +21,7 @@
                     (eq? recovered (eval 'parser-wrapper-recovered))))))))))
 
 (deflanguage-parser-tests module-wrapper-test "closed SDK loader wrappers"
-  (engine (exclusive #t))
+  (engine)
   (property "closed extraction preserves order and rejects incomplete plans"
     (bindings)
     (equal (compiled-dependencies '(begin (load-module "first") (begin (load-module "second") (begin))))

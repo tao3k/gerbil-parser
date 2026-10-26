@@ -237,3 +237,7 @@ product completion precedes TEST-SUITE-EXCLUSIVE modules=1 and all7 backend case
 Previous-head7bb870c remote CI finishes11 enabled jobs successful and only Linux
 semantics refused at language-product idle5; macOS semantics succeeds. New complete
 source/native qualification and a fresh head's CI remain separate gates.
+
+* Current execution ownership
+
+[[file:gerbil-test-ownership.org][Native Gerbil test/build ownership]] supersedes the private Worker, nested policy probe and preload/harness plans recorded above. Historical pass/fail receipts remain historical.

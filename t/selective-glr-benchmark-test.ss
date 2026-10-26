@@ -21,7 +21,7 @@
     (force-output)))
 
 (deflanguage-parser-tests selective-glr-benchmark-tests "selective GLR completion scenario"
-  (engine (exclusive #t))
+  (engine)
     (scenario "static and dynamic forks retain complete bounded evidence"
       (equal (benchmark-contract-valid? benchmark-path)  #t)
       (scope ((algorithm-receipt (selective-glr-scenario)))

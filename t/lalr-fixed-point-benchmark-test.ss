@@ -18,7 +18,7 @@
       (loop (- remaining 1)))))
 
 (deflanguage-parser-tests lalr-fixed-point-benchmark-tests "LALR fixed-point performance scenario"
-  (engine (exclusive #t))
+  (engine)
     (scenario "classic grammars retain exactly-once LR(0) state visits"
       (equal (benchmark-contract-valid? benchmark-path)  #t)
       (scope ((algorithm-receipt (lalr-fixed-point-scenario)))

@@ -15,6 +15,7 @@
     (list 'quote
       (list
         (rejects #'(deflanguage-parser-tests bad "bad" (engine) (scenario "bad" (continue missing 1))))
+        (rejects #'(deflanguage-parser-tests bad "bad" (engine (exclusive #t)) (property "bad" (bindings) (equal 1 1))))
         (rejects #'(deflanguage-parser-tests bad "bad" (engine (exclusive 1)) (property "bad" (bindings) (equal 1 1))))
         (rejects #'(deflanguage-parser-tests bad "bad" (engine (affinity 1)) (property "bad" (bindings) (equal 1 1))))
         (rejects #'(deflanguage-parser-tests bad "bad" (engine (exclusive #t) (exclusive #f)) (property "bad" (bindings) (equal 1 1))))
@@ -108,12 +109,11 @@
         (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (model-receipt "bad" "Model" "source" "config" (unresolved) 1 (unknown #f))))
         (rejects #'(deflanguage-parser-tests bad "bad" (loader #f) (model-receipt "bad" "Model" "source" "config" (unresolved) 1)))))))
 (deflanguage-parser-tests language-test-syntax-test "language parser test declarations"
-  (engine (exclusive #f))
+  (engine)
     (scenario "unknown, empty, malformed and duplicate declarations reject during expansion"
       (scope ((results (invalid-test-declarations)))
         (equal (pair? results) #t)
-        (equal (andmap (lambda (result) result) results) #t))
-      (equal test-worker-exclusive? #f)))
+        (equal (andmap (lambda (result) result) results) #t))))
 
 (def owner-calls 0)
 (def source-calls 0)

@@ -30,7 +30,7 @@
   (report-test-progress! "GQL-BATCH-OK parses=" +parse-count+))
 
 (deflanguage-parser-tests gql-runtime-benchmark-tests "ISO GQL parser runtime benchmark"
-  (engine (exclusive #t))
+  (engine)
     (scenario "one hundred GQL parses satisfy the runtime contract"
       (equal (benchmark-contract-valid? benchmark-path)  #t)
       (act (parse-gql-batch))

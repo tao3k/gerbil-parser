@@ -55,7 +55,7 @@
        arithmetic-parser-ir))
 
 (deflanguage-parser-tests rust-runtime-generation-test "Rust AOT generation"
-  (engine (exclusive #t))
+  (engine)
     (scenario "Rust target admits exact i32 precedence boundaries"
       (each (value) ('(-2147483648 0 2147483647))
          (scope ((source (rust-runtime-module-source

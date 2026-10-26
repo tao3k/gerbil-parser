@@ -35,7 +35,7 @@
    "SP : [ \\t\\r\\n]+ -> channel(HIDDEN);\n"))
 
 (deflanguage-parser-tests antlr4-source-tests "ANTLR4 grammar source"
-  (engine (exclusive #t))
+  (engine)
     (scenario "a complete grammar catalog preserves parser and lexer owners"
       (scope ((source (parse-antlr4-source "tiny" "v1" "commit" tiny-grammar)))
         (equal (antlr4-source-name source)  "Tiny")

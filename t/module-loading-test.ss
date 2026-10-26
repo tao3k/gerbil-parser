@@ -34,7 +34,7 @@
   (with-catch (lambda (_) #t) (lambda () (thunk) #f)))
 
 (deflanguage-parser-tests module-loading-test "official module loading"
-  (engine (exclusive #t))
+  (engine)
   (scenario "source snapshots reject changes and failures and recover the last content"
     (using (with-module-file ".ss") (file)
       (raises (language-module-descriptor file) (lambda (_) #t))

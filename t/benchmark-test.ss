@@ -25,7 +25,7 @@
   (report-parser-batch! 1000))
 
 (deflanguage-parser-tests parser-benchmark-tests "standard parser benchmark"
-  (engine (exclusive #t))
+  (engine)
     (scenario "paired observations conserve requests and balance quadratic leg position"
       (each (calls) ('(1 2 3 25 256 768))
          (each (group) ('(0 1))

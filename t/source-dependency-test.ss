@@ -26,7 +26,7 @@
       (finally (##global-var-set! cell previous)))))
 
 (deflanguage-parser-tests source-dependency-test "complete source dependency admission"
-  (engine (exclusive #t))
+  (engine)
   (scenario "declaration reading retains complete forms and rejects ambiguity"
     (equal (call-with-input-string "'(def (wanted) ignored) (def (other) 0) (def (wanted x) x 'tail)"
              (lambda (port) (read-source-definition-port port 'wanted)))

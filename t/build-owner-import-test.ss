@@ -18,7 +18,7 @@
         read-all))))
 
 (deflanguage-parser-tests build-owner-import-test "independent build owner declarations"
-  (engine (exclusive #t))
+  (engine)
   (matrix "each owner expands without earlier CLI imports"
     (setup)
     ((owner '("build-gparse.ss" "build-qualification.ss" "build-rust-runtime-aot.ss"

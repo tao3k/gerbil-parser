@@ -58,7 +58,7 @@
 (deflanguage-parser-tests library-init-test "native Core library projection"
   ;; Role evaluation and native source registration use the process expander.
   ;; Retain two Workers; this owner declares its existing exclusive capability.
-  (engine (exclusive #t))
+  (engine)
   (scenario "actual service Scopes validate and reject malformed values"
     (sequential
       ((utilities (selected-test-scope 'utilities))

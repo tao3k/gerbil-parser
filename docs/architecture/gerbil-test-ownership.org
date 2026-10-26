@@ -1,0 +1,66 @@
+#+TITLE: Gerbil Test and Build Ownership
+#+LANGUAGE: en
+
+* Execution boundary
+
+CI and development commands invoke gerbil test and gerbil build. A test module
+publishes Suite, Case and Fixture values. It must not launch another test round.
+Process fixtures which exercise a product subprocess or the compiler's stream
+API are different subjects; they do not select or execute test suites.
+
+Core already publishes TestingScript, module-test-file-source,
+module-test-execution and Fixture lifecycle policy. Use those existing facilities
+when a selected Module requires source admission or resource policy. Do not
+invent a Parser equivalent, synthetic source guard, evaluator launcher or harness.
+
+* Removed responsibilities
+
+- compiler-policy-output and its generated gxi expressions, data files and forced
+  child exit are removed. Two policy Cases live in t/fixtures/compiler-policy.ss,
+  explicitly executed by the CI/development native test command.
+- test-suite.ss, suite-runtime.ss, private Worker scheduling/affinity/exclusivity
+  fixtures and execution metadata are removed. Ordinary declarations lower to
+  native std/test values; the native harness owns discovery and execution.
+- run-observed-sdk-tests! no longer wraps gxtest in a Parser function. Preparation
+  no longer deletes test interfaces to force a private source execution route.
+- CI and development source-test callers use gerbil test. The native build.ss
+  still declares the actual Core/std-make projection; no new builder is added.
+
+* Native inputs and policy
+
+Native qualified test imports require the package's source parent in
+GERBIL_LOADPATH, or correctly compiled dependencies. A checkout whose leaf is
+not gerbil-parser must not be concealed by a custom module loader. Use a normal
+checkout/worktree with the package name and the existing native package prefix.
+This is source-layout alignment, not a second compiler environment.
+
+Compilation remains configured for two workers and its existing2GiB heap. The
+native test entry uses Core's default2GiB Case policy within the former3GiB test
+ceiling. The existing15-minute full-entry wall limit remains. Native gxtest has
+no Worker option; do not emulate one in Parser. Historical shared-Worker and
+per-Worker90/idle5 results are archived, not relabeled as native harness results.
+External product/process idle controls remain at their existing owners.
+
+Native gxtest loads selected modules before reporting the harness. Applying the
+old dispatcher's output-idle rule to that pre-harness phase refuses cohorts108
+and110, even after standard Suite compilation. Those refusals are retained;
+no heartbeat/preloader is restored. Native total deadlines and explicit final
+OK/error admission apply at CI/development entry boundaries.
+
+* Acceptance and current gaps
+
+The fresh native policy Suite passes2 Cases in4.99s at2GiB through the existing
+90-second qualification entry. A prior native negative run returned process0
+while reporting ERROR CASE/HARNESS, so process status alone is insufficient;
+the existing admission gate requires an exact final OK and rejects errors.
+
+The first complete native compatibility run is diagnostic, not a pass: it
+exposes missing qualified source imports under the noncanonical local checkout
+and default2GiB Case policy versus a3GiB process. Align source lookup and the
+existing Core policy; do not patch native loading or add a runner.
+
+Required gates: standard package build; native policy2 Cases; affected Suites;
+complete native discovery; syntax rejection of retired scheduling options;
+existing product/process negative controls; native AOT semantic groups and program
+entries; Linux/macOS exact-head CI. Mathematical engine laws and LeanPoo revision
+remain unchanged by this execution-owner cleanup.

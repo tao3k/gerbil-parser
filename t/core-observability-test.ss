@@ -39,7 +39,7 @@
         grammars)))
 
 (deflanguage-parser-tests core-observability-tests "Core observability for parser grammar objects"
-  (engine (exclusive #t))
+  (engine)
     (property "runtime observation imports only the POO debug boundary"
       (bindings (source
             (call-with-input-file

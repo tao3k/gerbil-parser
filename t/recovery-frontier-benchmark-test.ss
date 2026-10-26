@@ -15,7 +15,7 @@
     (error "LR failure-frontier recovery scenario failed")))
 
 (deflanguage-parser-tests recovery-frontier-benchmark-tests "LR failure-frontier recovery complexity scenario"
-  (engine (exclusive #t))
+  (engine)
     (scenario "one hundred operands reuse the accepted LR prefix"
       (equal (benchmark-contract-valid? benchmark-path)  #t)
       (scope ((algorithm-receipt (recovery-frontier-scenario)))

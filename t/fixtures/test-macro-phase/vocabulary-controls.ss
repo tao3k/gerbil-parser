@@ -13,7 +13,7 @@
          "gerbil-parser/src/compiler/source-language")))
 
 (deflanguage-parser-tests vocabulary-phase-test "compiled vocabulary phase boundary"
-  (engine (exclusive #t))
+  (engine)
   (property "compiled vocabularies do not initialize author services"
     (bindings)
     (equal +author-services-loaded+ '(#f #f #f #f)))

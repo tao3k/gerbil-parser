@@ -15,7 +15,7 @@
     (error "incremental suffix convergence scenario failed")))
 
 (deflanguage-parser-tests incremental-suffix-benchmark-tests "incremental suffix convergence complexity scenario"
-  (engine (exclusive #t))
+  (engine)
     (scenario "one hundred operands resume and reuse both sides of the edit"
       (equal (benchmark-contract-valid? benchmark-path)  #t)
       (scope ((algorithm-receipt (incremental-suffix-scenario)))

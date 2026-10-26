@@ -101,8 +101,8 @@
       (let (files (if (equal? suite "gql")
                     '("t/gql/runtime-benchmark-test.ss" "t/gql/benchmark-profile-test.ss" "t/gql/actor-test.ss")
                     '("t/ffi-test.ss" "t/build-product-contract-test.ss" "t/language-abi-test.ss" "t/language-abi-benchmark-test.ss")))
-       (run suite (append '("gxi" "t/fixtures/tla-sany-differential/test-suite.ss") files) #f
-            [(string-append "TEST-SUITE-OK modules=" (number->string (length files))) "^OK$"]))))) suites)
+       (run suite (append '("gerbil" "test" "-v" "3") files) #f
+            (append (map (cut string-append "MODULE-OK " <>) files) '("^OK$"))))))) suites)
   (displayln "LOCAL-NATIVE-OK " (string-join suites ",")) (force-output)))
 (def (qualify-event-fold! binary directory)
  (let* ((log (path-expand "compiled-test.log" directory))

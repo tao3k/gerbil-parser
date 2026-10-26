@@ -11,7 +11,7 @@
       (check-language-abi-entry arithmetic-language source artifact accepted?))))
 
 (deflanguage-parser-tests product-runtime-test "runtime product capability context"
-  (engine (exclusive #t))
+  (engine)
   (scenario "accepted native product does not require GXI syntax evaluation"
     (scope ((source-mode (__scheme-source)))
       (matches bind-language-abi procedure?)

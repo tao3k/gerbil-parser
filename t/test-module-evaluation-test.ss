@@ -67,7 +67,7 @@
       (finally (set-load-path! prior) (delete-file-or-directory directory #t)))))
 
 (deflanguage-parser-tests test-module-evaluation-test "selected compiled evaluation"
-  (engine (exclusive #t))
+  (engine)
   (scenario "cold chained initialization reports real work within the idle fence"
     (using (with-cold-evaluation) (module root left right)
       (act (evaluate-observed-module module gx#core-eval-module))

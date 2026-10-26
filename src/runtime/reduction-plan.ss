@@ -1,6 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Prepared semantic kernels; the LR driver owns stacks and branch admission.
-(import (only-in :yuanxu/poo-clos/interface .defgeneric .defmethod)
+(import (only-in :clan/poo/object .o .ref)
+        (only-in :yuanxu/poo-clos/interface .defgeneric .defmethod)
         (only-in :std/vector/vector vector-map/index)
         (only-in ../compiler/lr production-rhs operand-actions)
         (only-in ./recognition make-recognition-fragment)
@@ -10,7 +11,10 @@
         (only-in ./event-reduce event-children-field event-children-alias)
         (only-in ./event-program event-program-append))
 (export prepare-lr-reduction-plans reduce-lr-stack-plan reduce-lr-vector-plan
-        reduce-lr-source-plan reduce-lr-event-plan source-operand-offsets)
+        reduce-lr-source-plan reduce-lr-event-plan source-operand-offsets
+        LRSemanticBackend. RecognitionSemantics. EventSemantics.
+        resolve-lr-semantic-backend select-lr-action-factory
+        select-lr-action-factory$poo-clos-generic)
 
 ;;; An empty marked operand is anchored at the next semantic input boundary,
 ;;; or the production's lookahead boundary when no later value has a start.
@@ -37,24 +41,30 @@
 (def (event-alias-kernel name)
   (lambda (value offset _constructor) (event-children-alias name value offset)))
 
-;;; The backend catalog is closed and private. Resolve its generic choices
-;;; once at module initialization; grammar preparation binds only rule names.
-(.defgeneric select-lr-action-factory (backend kind))
-(.defmethod (select-lr-action-factory (backend (eql 'recognition)) (kind (eql 'field)))
-  make-recognition-field-kernel)
-(.defmethod (select-lr-action-factory (backend (eql 'recognition)) (kind (eql 'alias)))
-  make-recognition-alias-kernel)
-(.defmethod (select-lr-action-factory (backend (eql 'event)) (kind (eql 'field)))
-  event-field-kernel)
-(.defmethod (select-lr-action-factory (backend (eql 'event)) (kind (eql 'alias)))
-  event-alias-kernel)
+;;; Semantic families are native prototypes. Library extensions inherit and
+;;; compose them; Core owns applicability, precedence, method combination and
+;;; generic generations. Symbol aliases retain the existing API only.
+(def LRSemanticBackend. (.o))
+(def RecognitionSemantics. (.o (:: @ LRSemanticBackend.) name: 'recognition))
+(def EventSemantics. (.o (:: @ LRSemanticBackend.) name: 'event))
+(def semantic-backend-aliases
+  (.o recognition: RecognitionSemantics. event: EventSemantics.))
+(def (resolve-lr-semantic-backend backend)
+  (if (symbol? backend) (.ref semantic-backend-aliases backend) backend))
 
-(def +recognition-action-factories+
-  (cons (select-lr-action-factory 'recognition 'field)
-        (select-lr-action-factory 'recognition 'alias)))
-(def +event-action-factories+
-  (cons (select-lr-action-factory 'event 'field)
-        (select-lr-action-factory 'event 'alias)))
+(.defgeneric select-lr-action-factory (backend kind))
+(.defmethod (select-lr-action-factory
+              (backend (prototype RecognitionSemantics.)) (kind (eql 'field)))
+  make-recognition-field-kernel)
+(.defmethod (select-lr-action-factory
+              (backend (prototype RecognitionSemantics.)) (kind (eql 'alias)))
+  make-recognition-alias-kernel)
+(.defmethod (select-lr-action-factory
+              (backend (prototype EventSemantics.)) (kind (eql 'field)))
+  event-field-kernel)
+(.defmethod (select-lr-action-factory
+              (backend (prototype EventSemantics.)) (kind (eql 'alias)))
+  event-alias-kernel)
 
 (def (prepare-operand-actions field alias actions)
   (and (pair? actions)
@@ -76,13 +86,14 @@
     plan))
 
 (def (prepare-lr-reduction-plans backend table)
-  (let (factories (case backend
-                   ((recognition) +recognition-action-factories+)
-                   ((event) +event-action-factories+)
-                   (else (error "unknown LR semantic backend" backend))))
+  (let* ((selected (resolve-lr-semantic-backend backend))
+         (field (select-lr-action-factory selected 'field))
+         (alias (select-lr-action-factory selected 'alias)))
+    ;; Resolve methods once per preparation, not once forever at module load
+    ;; and not for every operand. Retained plans keep these actual callables.
     (vector-map/index
      (lambda (_index production)
-       (prepare-reduction-plan (car factories) (cdr factories) production)) table)))
+       (prepare-reduction-plan field alias production)) table)))
 
 ;;; The deterministic executor consumes the immutable semantic stack directly.
 ;;; Each prepared field/alias chain retains declaration order. Prepending each

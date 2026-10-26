@@ -1,0 +1,140 @@
+#+TITLE: POO Parser Engine Organization
+#+LANGUAGE: en
+
+* Goal and source baseline
+
+POO owns engine composition, preparation and extension. Contracts admit those
+objects; they are not the architecture itself. Concrete private state remains
+Gerbil structs/vectors where its ownership and execution properties require it.
+This is a staged object engine: choose/compose methods, prepare actual kernels,
+then execute the retained kernels with request-local context.
+
+LeanPoo PR13 is pinned at f329baeda2b624353d3919ed02486630ebd040fd through the
+normal Lake declaration and lockfile. Its 17 upstream checks pass at inspection.
+Parser's existing 273-target proof package builds with that revision without a
+Lean toolchain change. SemanticPreparation additionally imports the new upstream
+MethodCompilation laws instead of duplicating continuation composition proofs.
+Gerbil POO/Core remain on the declared dependency chain; no direct POO dependency
+or compiler patch is introduced to use APIs already provided by Core.
+
+* Engine responsibilities
+
+| Concern | Existing files | POO responsibility | Concrete representation / boundary |
+|---------+----------------+--------------------+------------------------------------|
+| Grammar families | modules/parser/{types,objects}.ss | Prototype inheritance, declaration composition and typed publication | Shared Record; semantic normalizer owns grammar meaning |
+| Compiler stages | compiler/{normalize,lr-compiler,lr-lookahead}.ss | Compose/select stage capabilities and builders; prepare once | FIRST/lookahead bitsets, worklists and native indexes retain their algorithms |
+| Semantic backends | runtime/reduction-plan.ss; lr-parser/prepare.ss | Native prototype families and Core multi-argument method selection | Retained callable plans, never generic lookup for every token |
+| Scanner and lexical policy | runtime/source-scanner.ss; lexical-lexer.ss | Context/Mode-specific strategy composition and preparation | Worker-owned nominal scan/checkpoint structs and byte offsets |
+| Runtime and reuse | runtime/lr-parser/{state,checkpoint,transfer}.ss | Explicit creation/rebind/recovery coordination and capability compatibility | Exact runtime/executor identity, private stacks and snapshots |
+| Artifact/query projection | modules/parser/graph-query-*.ss | Caller-selected Row/Id/Kind and compatible collection operations | Typed Map/index policy; stable ordering and reference closure remain domain obligations |
+| Module/source lifecycle | init.ss; subsystem Types/Config/Build | Core Context/Scope, selection and normalized publication | Core source admission and Gerbil std/make retain authority |
+| Verification | formal/ParserEngine; native/source tests | Reuse LeanPoo inheritance/method/selection laws with explicit host premises | Source-currentness, native semantics, resource gates and research measurements stay distinct |
+
+A hot-path struct is not an alternative object system. It is the engine-owned
+representation selected by the object protocol. Replacing every vector/bitset
+with a generic collection or redispatching on every character would not establish
+better engine organization or a performance improvement.
+
+* First engine slice: semantic family preparation
+
+RecognitionSemantics. and EventSemantics. inherit LRSemanticBackend. using native
+POO prototypes. The public generic includes its Core-generated generic binding so separately
+compiled method declarations use the actual framework admission/generation owner.
+Core prototype specializers implement field/alias factory
+selection and semantic reducer selection. Derived recognition backends and
+neutral mixins participate in the same native precedence and generic generation;
+Parser does not linearize again or maintain its own method registry/cache.
+
+prepare-lr-reduction-plans accepts a backend object. The existing recognition/
+event symbols resolve through one native alias object for compatibility. The
+closed case selector and module-initialization factory-pair cache are removed.
+Actual factories are selected once for each preparation and retained in the
+operand plans. Native field/alias operand syntax remains the declared grammar
+vocabulary, not a license to accept arbitrary opcodes.
+
+lr-prepare accepts an optional recognition backend. A Core prototype-specialized
+preparation method forms both plans and reducer. Wrong representation families
+fail before runtime publication. Custom recognition semantics do not silently
+switch to the builtin event interpretation when the optional preference is on;
+paired event semantics require an explicit later compatibility design.
+
+This slice exercises inheritance, multiple-prototype composition, method
+specialization and plan lowering in actual LR execution. It does not claim full
+compiler/scanner/checkpoint protocol refactoring. The compiled lr-parser facade
+publishes canonical backend prototypes; a source-private Scope object must not
+be advertised as interchangeable with those nominal runtime families.
+
+* Selection, execution and revision boundaries
+
+Library publishes family prototypes, method contributions and accepted data
+languages. A future Profile selects the canonical compiled backend reference and
+its compatible methods/policies. Scenario binds actual grammar, source and
+request inputs. Current optional lr-prepare selection is implemented; a complete
+Profile/Scenario orchestrator is not claimed.
+
+Preparation consumes that selection plus validated tables/capabilities and
+retains the chosen callables. Requests supply fresh offsets, constructors,
+scanning context and tokens. Checkpoints keep exact runtime/executor identity;
+a new method contribution requires new preparation, not in-place reinterpretation
+of an old checkpoint. Captured callable values do not freeze arbitrary mutable
+state read by user callbacks. Mixed representation families and effectful custom
+callbacks require explicit admission/compatibility policies before wider use.
+
+* Continuation of the complete refactor
+
+1. Align LeanPoo and establish the first native semantic-family slice.
+2. Compose compiler preparation stages through existing generic/method facilities;
+   bind complete program/source footprints and stage-specific rejection policies.
+3. Organize scanner/context/lexical-policy families through the same preparation
+   boundary, retaining nominal worker ownership and byte/character correspondence.
+4. Organize runtime construction, checkpoint compatibility and recovery as explicit
+   POO operations while retaining the private concrete machine state.
+5. Select typed graph/catalog/index backends using actual key equivalence,
+   transactional update and ordering needs; qualify allocation/cost separately.
+6. Connect selected declarations and all source/native/formal witnesses to the
+   project's Library/Profile/Scenario capture and review/delivery architecture.
+
+Each step requires positive/negative source and native controls, independent
+proof-input checks and exact-head Linux/macOS CI. Faster construction, method
+cache reuse and generic collections are research comparisons until measured under
+matched source, worker, heap, startup/recovery and negative-control conditions.
+No universal speedup or whole-engine equivalence follows from the pure laws.
+
+* Current qualification gap
+
+The previous80cd0f6 macOS source run refuses library-build-entry-test at idle5,
+after actual compiler-import reports. That failure and source trace are retained.
+The native spec query's completed-operation reporting and the actual unreported
+interval must be examined independently. A new Lean pin, engine slice or retry
+cannot retroactively explain the missing native stack or qualify that failure.
+
+See [[file:poo-engine.d2][engine organization diagram]].
+
+The first engine model now builds278 targets with latest LeanPoo. It reuses
+composeContinuations_foldr and proves ordered kernel application and fresh request
+context. These are pure staging results, not proof of arbitrary backend callback
+effects, Core native dispatch implementation or machine-code behavior.
+
+* Executed candidate controls
+
+The first native engine writer passes396.73s; after public generic-binding
+exports and observation changes, the native writer passes408.91s and the existing
+qualification writer passes20.08s. Both retain two workers/2GiB and no Parser
+package deadline. Six backend cases pass, including actual LR parsing, inherited
+and composed prototypes, preparation-only method lookup, retained old callables
+after a new method contribution, and wrong-family rejection.
+
+The spec fixture now installs its existing loader/evaluator observers before
+expanding the observer helper's own cold import. The existing compiler observer
+reports each completed native import instead of withholding up to63 completions.
+A paired source-body probe records old0/new3 completion events for the same three
+successful calls; failing imports emit no completion. This isolates a reporting
+coarseness defect, not a retrospective native-stack explanation for every old
+pause. No timer, heartbeat, alternate builder or resource relaxation is added.
+Real spec plus compiler-process control passes two owners/19 cases in104.91s,
+including data-channel isolation, multiple/zero values, original exceptions and
+negative completion controls. Matching complete source and fresh CI remain gates.
+
+Baseline80cd0f6 CI completes11 pass/1 macOS semantics fail/5 conditional skips;
+its library spec idle5 refusal stays retained. The latest Lean pin and new engine
+code are a separate candidate until their own final-head qualification completes.

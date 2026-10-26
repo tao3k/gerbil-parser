@@ -4,7 +4,8 @@
 (import (only-in :clan/poo/mop validate)
         (only-in ../function-types ActionSelectorFactory)
         (only-in ../reduction-plan
-                 prepare-lr-reduction-plans)
+                 prepare-lr-reduction-plans RecognitionSemantics. EventSemantics.
+                 resolve-lr-semantic-backend)
         (only-in ../../compiler/lr-table
                  validate-lr-tables layout-productions?)
         (only-in :std/vector/vector
@@ -26,7 +27,7 @@
         (only-in "./reduction.ss"
                  reduce-value reduce-value/events))
 (export install-lr-runtime-direct-step!
-        select-lr-semantic-reducer
+        select-lr-semantic-reducer select-lr-semantic-reducer$poo-clos-generic
         lr-semantic-capability
         lr-runtime-event-program?
         install-lr-runtime-event-step!
@@ -48,21 +49,32 @@
   (lr-runtime-owned-stack?-set! runtime #f)
   (lr-runtime-event-runtime-set! runtime #f))
 
-;;; Closed preparation protocol: ordinary values specialize two independent
-;;; axes. Capture the selected procedures in the runtime, never redispatch in
-;;; a request or reduction. These methods are private and cannot evolve through
-;;; a public extension API; retained runtimes own their admitted executors.
+;;; Preparation resolves native prototype methods along two independent axes.
+;;; Runtime requests keep the admitted callables; method contributions affect
+;;; future preparation and never cause request-time generic redispatch.
 (.defgeneric select-lr-semantic-reducer (backend capability))
 
-(.defmethod (select-lr-semantic-reducer (backend (eql 'recognition)) capability)
+(.defmethod (select-lr-semantic-reducer (backend (prototype RecognitionSemantics.)) capability)
   reduce-value)
 
-(.defmethod (select-lr-semantic-reducer (backend (eql 'event)) capability)
+(.defmethod (select-lr-semantic-reducer (backend (prototype EventSemantics.)) capability)
   #f)
 
-(.defmethod (select-lr-semantic-reducer (backend (eql 'event))
+(.defmethod (select-lr-semantic-reducer (backend (prototype EventSemantics.))
                                           (capability (eql 'plain)))
   reduce-value/events)
+
+;; Existing symbol callers delegate through the same native families.
+(.defmethod (select-lr-semantic-reducer (backend (eql 'recognition)) capability)
+  (select-lr-semantic-reducer RecognitionSemantics. capability))
+(.defmethod (select-lr-semantic-reducer (backend (eql 'event)) capability)
+  (select-lr-semantic-reducer EventSemantics. capability))
+
+(.defgeneric prepare-lr-recognition-semantics (backend table capability))
+(.defmethod (prepare-lr-recognition-semantics
+              (backend (prototype RecognitionSemantics.)) table capability)
+  (values (prepare-lr-reduction-plans backend table)
+          (select-lr-semantic-reducer backend capability)))
 
 ;;; Grammar eligibility belongs to preparation, including negative admission.
 ;;; It is independent of the request's optional backend preference.
@@ -114,7 +126,7 @@
       (lr-runtime-event-runtime-set! runtime selected)
       selected))))
 
-(def (lr-prepare spec)
+(def (lr-prepare spec (semantic-backend RecognitionSemantics.))
   (let* ((productions (validate-production-semantics (lr-spec-ref spec 'productions) (lr-spec-ref spec 'declarations)))
          (actions (lr-spec-ref spec 'actions))
          (gotos (lr-spec-ref spec 'gotos))
@@ -131,12 +143,14 @@
                    (lambda (row) (map car row))
                    (lambda (terminals id)
                      (make-lr-lexical-mode id terminals)))))
-      (let* ((table (production-table productions))
-             (plans (prepare-lr-reduction-plans 'recognition table))
+      (let* ((backend (resolve-lr-semantic-backend semantic-backend))
+             (table (production-table productions))
              (capability (lr-semantic-capability table actions dynamic? layout?))
              (case-insensitive? (lr-spec-ref spec 'case-insensitive?))
              (action-index (index-action-rows actions case-insensitive?))
              (goto-index (association-row-vector->index gotos)))
+        (let-values (((plans reducer)
+                      (prepare-lr-recognition-semantics backend table capability)))
         (make-lr-runtime
          productions
          table
@@ -152,10 +166,14 @@
          layout?
          modes
          mode-catalog
-         #f (select-lr-semantic-reducer 'recognition capability)
-         (select-lr-semantic-reducer 'event capability) #f #f plans
+         #f reducer
+         ;; An inherited/custom recognition backend has not supplied a matching
+         ;; event interpretation. Preserve its semantics instead of substituting
+         ;; the builtin event family when the optional preference is enabled.
+         (and (eq? backend RecognitionSemantics.)
+              (select-lr-semantic-reducer EventSemantics. capability)) #f #f plans
          (make-lr-action-selector actions action-index case-insensitive? layout?)
-         (not layout?) (prepare-lr-goto-columns table goto-index) (void))))))
+         (not layout?) (prepare-lr-goto-columns table goto-index) (void)))))))
 
 ;;; Token terminals are admitted symbols. Specialize the owned row shape once;
 ;;; first duplicate entries and exact action-pair identity remain unchanged.

@@ -8,7 +8,7 @@ warningAsError = true
 [[require]]
 name = "LeanPoo"
 git = "https://github.com/tao3k/lean-poo.git"
-rev = "8561a3ef8120101f956855d128d44ff9507c6703"
+rev = "f329baeda2b624353d3919ed02486630ebd040fd"
 
 [[lean_lib]]
 name = "ParserEngine"

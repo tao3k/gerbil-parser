@@ -22,7 +22,7 @@
         (and (memq form (quote (:gerbil-parser/language-support/development
                                :gerbil-parser/language-support/fixture
                                :gerbil-parser/language-test-support
-                               :gerbil-parser/language-build-support))) #t))
+                               :gerbil-parser/language-build-support ./fixtures))) #t))
        (else #f)))
 ;;; Parser declarations use one public slot vocabulary, with no metadata sugar.
 (def (canonical-parser-declaration? form)
@@ -40,7 +40,7 @@
  (and (list? form) (pair? form)
       (or (eq? (car form) 'export)
           (and (eq? (car form) 'import)
-               (or (eq? interface 'tests) (not (development-import? form))))
+               (or (memq interface '(tests fixtures)) (not (development-import? form))))
           (and (eq? (car form) 'def) (eq? interface 'parser)
                (= (length form) 3) (symbol? (cadr form))
                (not (and (pair? (caddr form)) (eq? (caaddr form) 'lambda))))
@@ -62,8 +62,9 @@
                           defsyntax-antlr4-source defsyntax-javacc-source defsyntax-iso-bnf-source))
              ((parser) '(deflanguage-parser-loader deflanguage-parser-receipt deflanguage-model-entry deflanguage-projection
                          defsyntax-javacc-source))
-             ((tests) '(defsyntax-fixture defsyntax-corpus deflanguage-development-loader deflanguage-parser-tests))))))))
-(deflanguage-parser-tests language-topology-test "three-interface language authoring contract"
+             ((fixtures) '(defsyntax-fixture defsyntax-corpus deflanguage-development-loader))
+             ((tests) '(deflanguage-parser-tests))))))))
+(deflanguage-parser-tests language-topology-test "grammar, parser, Fixture and Suite authoring contract"
   (engine)
   (property "reject procedure definitions and unrestricted parser tests"
       (bindings)
@@ -73,6 +74,16 @@
       (equal (authoring-form? (quote (defsyntax-corpus corpus)) (quote grammar))  #f)
       (equal (authoring-form? (quote (deflanguage-development-loader entry)) (quote parser))  #f)
       (equal (authoring-form? (quote (import :gerbil-parser/language-support/development)) (quote parser))  #f))
+  (property "Fixture sharing cannot cross production or Suite boundaries"
+      (bindings)
+      (equal (and (authoring-form? '(import ./fixtures) 'parser) #t) #f)
+      (equal (and (authoring-form? '(import ./fixtures) 'grammar) #t) #f)
+      (equal (and (authoring-form? '(import ./fixtures) 'tests) #t) #t)
+      (equal (and (authoring-form? '(defsyntax-corpus corpus) 'fixtures) #t) #t)
+      (equal (and (authoring-form? '(deflanguage-development-loader entry) 'fixtures) #t) #t)
+      (equal (and (authoring-form? '(deflanguage-parser-tests suite) 'fixtures) #t) #f)
+      (equal (and (authoring-form? '(defsyntax-corpus corpus) 'tests) #t) #f)
+      (equal (and (authoring-form? '(def (run) #t) 'fixtures) #t) #f))
   (property "parser declarations reject legacy metadata and descriptor aliases"
       (bindings)
       (equal (and (authoring-form? '(deflanguage-parser-loader x (grammar old syntax) (parse parse-x) (metadata '())) 'parser) #t)  #f)
@@ -93,23 +104,23 @@
    (each (head) ('(deflanguage-projection deflanguage-source defregion-plan defscanner-profile defresult-profile defpart-profile defcommand-profile defbinding-profile))
      (equal (and (authoring-form? (list head 'backend) 'grammar) #t)  #f))
    (equal (and (authoring-form? '(defgrammar-syntax (loop kind) (node kind)) 'grammar) #t)  #t))
-  (scenario "every pack exposes three interfaces with declarative private syntax modules"
+  (scenario "every pack separates shared Fixtures and Suites from production syntax"
    (each (language) ((filter (lambda (name) (eq? (file-info-type (file-info (path-expand name "languages"))) 'directory))
             (directory-files "languages")))
       (sequential ((root (path-expand language "languages"))
              (files (scheme-files root))
              (interfaces (map (lambda (name) (path-expand name root))
-                          '("grammar.ss" "parser.ss" "parser-test.ss")))
+                          '("grammar.ss" "parser.ss" "fixtures.ss" "parser-test.ss")))
              (private (filter (lambda (file) (not (member file interfaces))) files)))
        (equal (andmap (lambda (file) (string-prefix? (path-expand "syntax/" root) file)) private)  #t)
        (each (file) (private)
          (equal (andmap (lambda (form)
            (and (memq (car form) '(import export deflanguage defgrammar-syntax deftext-profile))
                 (authoring-form? form 'grammar) #t)) (forms file))  #t))
-       (each (row) ('(("grammar.ss" . grammar) ("parser.ss" . parser) ("parser-test.ss" . tests)))
+       (each (row) ('(("grammar.ss" . grammar) ("parser.ss" . parser) ("fixtures.ss" . fixtures) ("parser-test.ss" . tests)))
          (equal (andmap (lambda (form) (and (authoring-form? form (cdr row)) #t))
                         (forms (path-expand (car row) root)))  #t))
        (equal (andmap (lambda (name) (and (member (path-expand name root) files) #t))
-                      '("grammar.ss" "parser.ss" "parser-test.ss"))  #t)
+                      '("grammar.ss" "parser.ss" "fixtures.ss" "parser-test.ss"))  #t)
        (equal (and (declaration? (path-expand "parser.ss" root) 'deflanguage-parser-loader) #t)  #t)
        (equal (and (declaration? (path-expand "parser-test.ss" root) 'deflanguage-parser-tests) #t)  #t)))))

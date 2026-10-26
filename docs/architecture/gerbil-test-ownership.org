@@ -210,3 +210,17 @@ its normal build prerequisite, under a PATH containing no rg: exit0 and exact
 GERBIL-HARNESS-REFUSAL-OK in86.96s. This closes the command-entry omission locally;
 current-head Linux/macOS semantics still require CI. No failed Suite assertion,
 error detection, deadline or heap control is weakened.
+
+1416036 macOS semantics passes the corrected dependency-free refusal gate,
+research Suites/programs and callback GC, then refuses author-controls' old
+runtime list-modules expectation. The public grammar macro resolves the author
+service with for-syntax/import-module and for-template; runtime module residency
+is not its contract and may differ for compiled consumers. Author-controls now
+checks the real public resolver in expansion, including refusal of a missing
+export. Successful parsing, rejected input, malformed declaration and lexical
+binding/hygiene checks remain. No service is forced into runtime residency.
+Cohort126 atc22c522 passes all four phase modules from source (16.81s), standard
+gerbil compile at2GiB/two workers (22.39s), then the compiled-entry modules (20.67s).
+A first literal-construction error was retained and corrected using the native
+identifier context required by datum->syntax. Final-head remote semantics remain
+open; phase changes affect only these fixture declarations, not parser runtime.

@@ -75,7 +75,15 @@
                   "languages/hcl/parser-test.ss"
                   "languages/fhirpath/parser-test.ss"
                   "languages/hl7/parser-test.ss"
-                  "languages/tla-plus/parser-test.ss"))
+                  "languages/tla-plus/parser-test.ss"
+                  "languages/bash/fixtures.ss"
+                  "languages/arithmetic/fixtures.ss"
+                  "languages/cypher/fixtures.ss"
+                  "languages/gql/fixtures.ss"
+                  "languages/hcl/fixtures.ss"
+                  "languages/fhirpath/fixtures.ss"
+                  "languages/hl7/fixtures.ss"
+                  "languages/tla-plus/fixtures.ss"))
 
               ;; Gambit compiles loadable modules as Mach-O bundles on Darwin.  The
               ;; Homebrew GCC toolchain needs the standard unresolved-symbol policy for an

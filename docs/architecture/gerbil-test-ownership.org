@@ -124,3 +124,12 @@ then terminated externally, preserving its log. This is not a passing full run.
 Requalification needs host process-topology access with the same two build workers,
 heap ceilings and native total deadlines. No source assertion or cleanup policy
 is relaxed to hide that environment refusal. Exact-head CI remains required.
+
+The host cohort118 passes seven affected modules,183 unique native modules
+(250.07 seconds, exact HARNESS-OK and OK, no errors) and standard gerbil build
+(62.83 seconds, two workers,2GiB). Research product closure then refuses a missing
+static all-languages benchmark module: the removed Suite compiler had implicitly
+owned that product input. The corrected build entry prepares only the benchmark
+and research program static inputs. It does not restore static Suite compilation,
+manual Harness execution, timers or nested tests. This separate product boundary
+must pass before remote qualification is considered complete.

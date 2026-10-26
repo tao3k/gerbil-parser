@@ -1,16 +1,19 @@
 (import :gerbil-parser/language-test-support)
 ;;; Boolean admission must match Core's complete evidence protocol.
 (import :std/test
-        (only-in :clan/poo/object .o .cc .ref .all-slots)
-        (only-in :clan/poo/mop element? validate)
+        (only-in :clan/poo/object .o .cc .ref .all-slots .set!)
+        (only-in :clan/poo/mop element? validate Type. TypeError? Fun)
+        (only-in :clan/poo/type Record Symbol)
         (only-in :yuanxu/object-types/contracts yuanxu-contract-admit
                  yuanxu-validation-evidence-accepted?
                  yuanxu-classification-evidence)
         :gerbil-parser/src/modules/parser/interface)
 
 (def (evidence-member? contract candidate)
-  (yuanxu-validation-evidence-accepted?
-   (yuanxu-contract-admit contract candidate #f)))
+  ;; Native value shape failures are TypeErrors; contextual rejection is evidence.
+  (with-catch (lambda (e) (if (TypeError? e) #f (raise e)))
+    (lambda () (yuanxu-validation-evidence-accepted?
+      (yuanxu-contract-admit contract candidate #f)))))
 (def (empty-role (rules '()))
   (make-grammar-role 'role '() '() '() rules '() '() '() '() '()))
 (def (rejects? thunk)
@@ -24,7 +27,7 @@
            (scope ((contract (car pair)) (candidate (cdr pair)))
              (equal (element? contract candidate)  (evidence-member? contract candidate))
              (equal (eq? (validate contract candidate) candidate)  #t)
-             (each (slot) ((.all-slots (.ref contract 'responsibilities)))
+             (each (slot) ((.all-slots (.ref (.ref contract 'value-contract) 'slots)))
                 (scope ((invalid (.cc candidate slot 0)))
                   (equal (evidence-member? contract invalid)  #f)
                   (equal (element? contract invalid)  #f)
@@ -75,3 +78,44 @@
            (equal (evidence-member? GrammarContract invalid)  #f)
            (equal (element? GrammarContract invalid)  #f)
            (equal (rejects? (lambda () (validate GrammarContract invalid)))  #t)))))
+
+(deflanguage-parser-tests grammar-contract-normalization-test "Core-owned grammar normalization and mutation"
+  (engine)
+    (scenario "normalizing value Type returns the actual evidence candidate once"
+      (sequential ((calls 0) (role (empty-role))
+                   (normalizer (.cc Type. sexp: 'NormalizedRole
+                      '.element? (lambda (v) (element? GrammarRoleContract v))
+                      '.validate (lambda (v) (set! calls (+ calls 1))
+                                             (.cc v 'name 'normalized))))
+                   (contract (.cc GrammarRoleContract 'value-contract normalizer)))
+        (scope ((checked (validate contract role)))
+          (equal (.ref checked 'name) 'normalized)
+          (equal (.ref role 'name) 'role)
+          (equal calls 1))))
+    (scenario "native Record Function wrappers survive contextual admission"
+      (sequential ((value-type (Record (list (.ref GrammarRoleContract 'value-contract))
+                                       callback: [(Fun Symbol <- Symbol)]))
+                   (contract (.cc GrammarRoleContract 'value-contract value-type))
+                   (role (.cc (empty-role) 'callback identity))
+                   (checked (validate contract role)))
+        (equal ((.ref checked 'callback) 'word) 'word)
+        (equal (with-catch TypeError? (lambda () ((.ref checked 'callback) 42) #f)) #t)
+        (equal ((.ref role 'callback) 42) 42)))
+    (scenario "builtin descriptor mutation cannot bypass Core rejection"
+      (sequential ((role (empty-role)) (saved (.ref GrammarRoleContract '.obligations)))
+        (equal (element? GrammarRoleContract role) #t)
+        (act (dynamic-wind void
+          (lambda ()
+            (.set! GrammarRoleContract .obligations
+              (lambda (_candidate _context) '(mutated-obligation)))
+            (unless (and (not (evidence-member? GrammarRoleContract role))
+                         (not (element? GrammarRoleContract role))
+                         (rejects? (lambda () (validate GrammarRoleContract role))))
+              (error "mutable builtin obligation bypassed")))
+          (lambda () (.set! GrammarRoleContract .obligations saved))))
+        (equal (element? GrammarRoleContract role) #t)))
+    (property "classifier exceptions propagate without translation"
+      (bindings (marker (list 'classifier-exception)) (role (empty-role))
+                (contract (.cc GrammarRoleContract '.classify
+                  (lambda (_candidate _context) (raise marker)))))
+      (equal (eq? (with-catch identity (lambda () (validate contract role))) marker) #t)))

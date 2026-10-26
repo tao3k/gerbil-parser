@@ -1,6 +1,7 @@
 ;;; Grammar object graph validation and deterministic normalization.
 
-(import (only-in ../modules/parser/objects
+(import (only-in ../schema +grammar-ir-schema+)
+        (only-in ../modules/parser/objects
                  grammar-composition grammar-name grammar-parents
                  grammar-role-name grammar-role-ref grammar-roles)
         (only-in ../runtime/identity sha256-text)
@@ -230,7 +231,7 @@
 (def (normalize-grammar/context grammar source-at capture?)
   (if (and (list? grammar)
            (let (row (assq 'schema grammar))
-             (and row (equal? (cdr row) "gerbil-parser.grammar-ir.v1"))))
+             (and row (equal? (cdr row) +grammar-ir-schema+))))
     (make-normalized-grammar grammar #f '())
     (let* ((steps (collect-steps grammar))
          (normalized-tables
@@ -242,7 +243,7 @@
          (tables (map (lambda (entry) (cons (car entry) (cadr entry))) normalized-tables))
          (body
           (append
-           (list (cons 'schema "gerbil-parser.grammar-ir.v1")
+           (list (cons 'schema +grammar-ir-schema+)
                  (cons 'grammar (grammar-name grammar)))
            tables
            (list (cons 'flow (normalize-flow steps)))))

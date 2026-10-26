@@ -92,3 +92,43 @@ normalization. Objects reuse its prototype through the existing Contract proto
 association. =YuanxuContract= adds only publication identity, contextual
 admission and evidence; it references the named Record instead of redeclaring
 its fields. This follows the existing POO class-publication mechanism.
+
+* Grammar Contract ownership and shared declarations
+
+The 10.109 audit exposed two independent correctness failures on the prior
+5825b32 baseline: private exact-descriptor shortcuts ignored in-place rejecting
+obligations, and refined validation returned the original value instead of Core's
+normalized evidence candidate. GrammarRoleContract and GrammarContract now
+inherit Core admission, membership and validation without Parser overrides.
+POO Record owns the field inventory, shape and normalization; Core retains
+prototype ancestry and contextual obligations; Parser retains composition rules.
+Native shape admission raises TypeError, while contextual rejection produces
+negative evidence. Compatibility scalar Contracts remain public and use Core's
+predicate-contract constructor because other contextual responsibilities use them.
+
+Keyed list merge uses the matching list cell to distinguish a present false row
+from absence. Existing collision callbacks, idempotent identity and row order
+remain unchanged. The compiler imports the existing append-unique utility.
+Runtime and compiler share LR terminal/precedence leaves; compiler-only nonempty
+terminal, bounded indexes and flat fork requirements remain separate from
+runtime projections. Shared precedence uses native POO Integer: inexact 1.0
+is rejected consistently (the old compiler-only integer? accepted it while the
+runtime refused it). Producer-emitted precedence remains exact. Grammar IR consumers read the existing schema declaration;
+no schema, ABI, package pin or installed compiler policy is changed.
+
+New regression controls cover normalization, mutable Contract rejection and
+restoration, exception identity, false row collision/idempotence, exact list
+ordering and positive/negative LR leaves. Existing grammar composition, native
+Function and LR producer controls remain required. The graph-index representation
+and optional persistent collection adoption are a separate selection decision;
+this change does not silently choose a new key comparer or backend.
+
+See [[file:contract-ownership.d2][ownership diagram]]. Validation results must name the exact source head and
+separate local source/compiled execution from Linux/macOS CI.
+
+The initial local refactor writer passes (170.09s, two workers/2GiB), and six
+focused source modules pass 39 cases. The full-source attempt before complete
+test-product preparation stops at language-entries import (idle5); its sampled
+stack is in native dlopen and its generated loader is missing beside native
+objects. Those diagnostics are retained; they are not full qualification.
+Prepared-source, compiled conformance and exact-head CI remain required.

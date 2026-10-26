@@ -1,5 +1,6 @@
 ;;; Callable extension boundaries use caller-owned Context/Mode Types.
-(import (only-in :clan/poo/object .cc)
+(import (only-in ./lr-data lr-terminal? lr-precedence?)
+        (only-in :clan/poo/object .cc)
         (only-in :clan/poo/mop Type. Function Fun Bool define-type element?)
         (only-in :clan/poo/type String Symbol OrFalse)
         (only-in :clan/poo/number UInt Integer)
@@ -13,20 +14,6 @@
 (def ParserToken (.cc Type. sexp: 'ParserToken '.element? token?))
 
 ;; Validate the existing LR data language, not a parallel execution engine.
-(def (lr-terminal? value)
-  (and (list? value) (pair? value) (eq? (car value) 'terminal)
-       (pair? (cdr value))
-       (case (cadr value)
-         ((eof) (= (length value) 2))
-         ((token) (and (= (length value) 3) (symbol? (caddr value))))
-         ((literal layout-start layout-next)
-          (and (= (length value) 3) (string? (caddr value))))
-         (else #f))))
-(def (lr-precedence? value)
-  (or (not value)
-      (and (list? value) (= (length value) 2)
-           (memq (car value) '(none left right dynamic))
-           (element? Integer (cadr value)))))
 (def (lr-action? action guards? (active '()))
   (and (list? action) (pair? action) (not (memq action active))
     (let ((size (length action)) (next (cons action active)))

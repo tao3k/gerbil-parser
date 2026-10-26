@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Deterministic LALR(1) compilation and lossless recognition runtime.
 
-(import (only-in ./funcs
+(import (only-in ../utilities/lists append-unique)
+        (only-in ./funcs
                  compiler-index-set->ordered-values
                  compiler-index-set-difference
                  compiler-index-set-singleton
@@ -34,11 +35,6 @@
         union-values)
 
 (def +lr-eof+ '(terminal eof))
-
-(def (append-unique values value)
-  (if (member value values)
-      values
-      (foldr cons (list value) values)))
 
 ;; union-values
 ;;   : (forall (a) (-> [a] [a] [a]))

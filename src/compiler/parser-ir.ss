@@ -1,6 +1,7 @@
 ;;; Grammar IR to immutable parser-machine IR compilation.
 
-(import (prefix-in ../runtime/parser-ir-data irdata-)
+(import (only-in ../schema +grammar-ir-schema+)
+        (prefix-in ../runtime/parser-ir-data irdata-)
         (only-in ./lr-compiler compile-lr-spec)
         (only-in ../grammar/algebra
                  grammar-expression? grammar-expression-references
@@ -108,7 +109,7 @@
   (unless (and (list? grammar)
                (equal? (let (row (assq 'schema grammar))
                          (and row (cdr row)))
-                       "gerbil-parser.grammar-ir.v1"))
+                       +grammar-ir-schema+))
     (error "compile-parser requires canonical Grammar IR v1" grammar))
   (let* ((grammar-ir grammar)
          (syntax-kinds (parser-ir-ref grammar-ir 'syntax-kinds))

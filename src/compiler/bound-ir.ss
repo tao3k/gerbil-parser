@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Expansion-owned declaration identities beside the frozen Grammar IR v1.
 
-(import (only-in ../grammar/algebra
+(import (only-in ../schema +grammar-ir-schema+)
+        (only-in ../grammar/algebra
                  grammar-expression-references
                  grammar-expression-terminals)
         (only-in :std/list/list-builder with-list-builder)
@@ -179,7 +180,7 @@
   (unless (and (list? grammar)
                (equal? (let (row (assq 'schema grammar))
                          (and row (cdr row)))
-                       "gerbil-parser.grammar-ir.v1"))
+                       +grammar-ir-schema+))
     (error "binding requires canonical Grammar IR v1" grammar))
   (let* ((owner (grammar-ir-value grammar 'grammar))
          (syntax-kinds (grammar-ir-value grammar 'syntax-kinds))

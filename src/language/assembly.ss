@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Internal assembly of already admitted immutable compiler products.
 
-(import (only-in ../compiler/machine defgeneral-parser-machine parser-machine-ir)
+(import (only-in ../schema +grammar-ir-schema+)
+        (only-in ../compiler/machine defgeneral-parser-machine parser-machine-ir)
         (only-in ../runtime/language-artifact load-compiled-language-artifact/embedded))
 (export assemble-language-parser)
 
@@ -36,7 +37,7 @@
    (begin
      (def grammar-binding
        (load-compiled-language-artifact/embedded
-        "gerbil-parser.grammar-ir.v1" 'grammar-encoded 'grammar-payload))
+        +grammar-ir-schema+ 'grammar-encoded 'grammar-payload))
      (def bound-binding
        (load-compiled-language-artifact/embedded
         "gerbil-parser.bound-grammar-ir.v1" 'bound-encoded 'bound-payload))

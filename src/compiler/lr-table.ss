@@ -1,6 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Canonical LR table admission before indexes or executable products exist.
-(import (only-in :std/iter for in-range)
+(import (only-in ../runtime/lr-data lr-terminal? lr-precedence?)
+        (only-in :std/iter for in-range)
         (prefix-in :std/struct/queue stdq-)
         (only-in ./lr +lr-eof+ canonical-base-symbol?
                  production-action production-lhs production-rhs base-symbol layout-end-action?
@@ -21,16 +22,9 @@
 (def (bounded-index? value count)
   (and (fixnum? value) (fx>= value 0) (fx< value count)))
 
-(def (precedence? value)
-  (or (not value)
-      (match value
-        ([(or 'none 'left 'right 'dynamic) (? integer?)] #t)
-        (_ #f))))
-
 (def (terminal? value)
-  (or (equal? value +lr-eof+)
-      (and (pair? value) (eq? (car value) 'terminal)
-           (canonical-base-symbol? value))))
+  (and (lr-terminal? value)
+       (or (equal? value +lr-eof+) (canonical-base-symbol? value))))
 
 (def (make-action-validator states productions layout?)
   (def (reduce? value)
@@ -40,7 +34,7 @@
   (def (shift? value)
     (match value
       (['shift target precedence]
-       (and (bounded-index? target states) (precedence? precedence)))
+       (and (bounded-index? target states) (lr-precedence? precedence)))
       (_ #f)))
   (def (atomic? value terminal)
     (or (shift? value) (reduce? value)

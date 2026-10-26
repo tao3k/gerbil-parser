@@ -124,6 +124,6 @@
         (equal calls 1)
         (raises ((validate ActionSelectorFactory (lambda _ 42)) '#() '#() #f #f)
                 TypeError?)))
-    (property "compiled conformance owns and executes the boundary Suite"
+    (property "native conformance selection retains the boundary Suite"
       (bindings (covered (conformance-covered-test-files)))
       (equal (and (member "t/native-function-boundary-test.ss" covered) #t) #t)))

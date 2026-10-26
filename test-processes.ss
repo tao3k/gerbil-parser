@@ -11,23 +11,11 @@
 
 (def (qualification-cases profile)
   (cond
-   ((equal? profile "conformance")
-    (map (lambda (row)
-           (process-case (car row)
-             ["gxi" "scripts/tests/conformance-runner-test.ss" (car row)]
-             (cadr row) (caddr row) 10 5))
-         '(("initialization" 0 "CONFORMANCE-CONTROL-OK initialization")
-           ("success" 0 "CONFORMANCE-CONTROL-OK success")
-           ("duplicate" 70 "duplicate conformance Suite")
-           ("failure" 1 "negative control")
-           ("timeout" 70 "CONFORMANCE-GROUP-TIMEOUT timeout"))))
    ((equal? profile "research")
     (let (binary (path-expand "bin/gerbil-parser-conformance" (getenv "GERBIL_PATH")))
-      (cons (process-case "semantic" [binary "semantic"] 0
-                           "CONFORMANCE-SEMANTIC-OK groups=" 240 5)
-        (map (lambda (name) (process-case name [binary name] 0 #f 10 5))
+      (map (lambda (name) (process-case name [binary name] 0 #f 10 5))
              '("concise-runtime" "history" "native-poo-runtime" "provenance"
-               "all-language-benchmark")))))
+               "all-language-benchmark"))))
    (else (error "unknown process qualification profile" profile))))
 
 (def (qualify-process! case directory)
@@ -59,9 +47,7 @@
   (let* ((cases (qualification-cases profile))
          (directory (if (pair? arguments) (car arguments)
                         (string-append ".data/" profile "-controls")))
-         (prefix (cond ((equal? profile "conformance") "CONFORMANCE-CONTROL-OK ")
-                       ((equal? profile "workers") "WORKER-CONTROL-OK ")
-                       (else "RESEARCH-CONTROL-OK "))))
+         (prefix "RESEARCH-CONTROL-OK "))
     (create-directory* directory)
     (call-with-output-file (path-expand "exits.tsv" directory)
       (lambda (exits)

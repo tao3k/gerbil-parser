@@ -13,13 +13,8 @@
                      ("t/fixtures/event-walk-source" "t/fixtures/lr1-construction")))
         (equal (and (member (car edge) catalog) (member (cadr edge) catalog)
                     (> (length (member (car edge) catalog)) (length (member (cadr edge) catalog)))) #t))))
-  (scenario "every compiled conformance test owner has an explicit unified entry import"
+  (scenario "conformance Suite selection uses native source module inputs"
     (scope ((catalog (cadr (caddr (read-source-definition "build-language-conformance.ss" 'conformance-modules))))
-            (imports (source-procedure "scripts/test-plan.ss" 'conformance-imported-test-names '())))
+            (source-only? (source-procedure "scripts/test-plan.ss" 'conformance-source-only? '())))
       (each (owner) ((filter (lambda (name) (string-suffix? "-test" name)) catalog))
-        (equal (pair? (imports owner)) #t))))
-  (scenario "source index evaluation has an expander owner and native diagnostics stay compiled"
-    (scope ((declared (cadr (caddr (read-source-definition "t/conformance-main.ss" 'source-suites))))
-            (imports (source-procedure "scripts/test-plan.ss" 'conformance-imported-test-names '())))
-      (equal (cdr (assoc "t/nullable-origin-test" declared)) '(nullable-index-source-test))
-      (equal (imports "t/nullable-origin-test") '(nullable-origin-test)))))
+        (equal (source-only? owner) #t)))))

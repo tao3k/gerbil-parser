@@ -63,7 +63,7 @@ existing Core policy; do not patch native loading or add a runner.
 
 Required gates: standard package build; native policy2 Cases; affected Suites;
 complete native discovery; syntax rejection of retired scheduling options;
-existing product/process negative controls; native AOT semantic groups and program
+existing product/process negative controls; native research Suites and separate product program
 entries; Linux/macOS exact-head CI. Mathematical engine laws and LeanPoo revision
 remain unchanged by this execution-owner cleanup.
 
@@ -73,10 +73,8 @@ heap; it is retained as a refusal. Restore the existing3GiB full-entry ceiling
 and relocate the former Case heap selection to a native module Fixture. This is
 configuration/lifecycle reuse, not a new test dispatcher or raised heap ceiling.
 
-The package-spec Fixture now calls the real build declaration's spec API in a
-native expander context. It restores its temporary noisy projection even on
-failure. It starts no process, performs no compilation and owns no output/exit
-protocol. Its former generated GXI/preload/data-file executor is removed too.
+An intermediate package-spec Fixture queried the build declaration inside the
+runtime process; full discovery rejected that context mixing. It is removed.
 
 Complete native discovery must use compiled-prefix/lib before the source parent
 in GERBIL_LOADPATH. The former private loader silently enforced this precedence;
@@ -93,3 +91,26 @@ projection belongs to the existing dev/build.ss check-catalog entry. Its native
 comparison now also owns every former public-entry, duplicate, ABI-option and
 retired-target assertion. The runtime build-entry Suite and its execution Fixture
 are removed entirely. No runtime Suite launches or installs a build context.
+
+* Complete executor removal
+Ordinary tests and research fixture tests only declare Suites, Cases and Fixtures.
+No Parser test module calls test-suite!, test-run! or constructs TestHarness.
+The private conformance Suite executor, timer threads, manually linked Engine/
+event-fold runners, research Suite launchers and runtime-organization harness are
+removed. Existing development recipes invoke gerbil test against those original
+Suite modules. Compiler/product subprocess Fixtures remain SUT execution, never a
+second test/build harness. Research standalone programs have a separate entry and
+retain their existing process budgets; they no longer embed semantic Suite runs.
+
+The former conformance import/export/Suite partition validator and duplicate
+Suite catalog are removed. Native Gerbil discovers exported Suite values. The
+remaining build catalog selects helper compilation and research Suite inputs; it
+does not reimplement module discovery, test execution, Case policy or scheduling.
+The old conformance runner success/failure/timeout receipts are historical only.
+Native failure controls must be invoked from development/CI and rejected using
+actual harness diagnostics plus final OK, since process exit zero alone is not
+sufficient for native Gerbil test acceptance.
+
+Local cohort116: dev/build.ss check-catalog passes (50.67 seconds); isolated
+event-program Suite passes (13.38 seconds). This does not establish full native
+closure or remote Linux/macOS acceptance for the subsequent executor removals.

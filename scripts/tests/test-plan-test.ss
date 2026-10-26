@@ -1,24 +1,14 @@
-#!/usr/bin/env gxi
-(load "scripts/test-plan.ss")
-(def (control name thunk)
-  (unless (thunk) (error "test plan control failed" name))
-  (displayln "TEST-PLAN-CONTROL-OK " name) (force-output))
-(def (rejected? thunk)
-  (with-catch (lambda (_) #t) (lambda () (thunk) #f)))
-(def (main . _)
-  (let ((catalog '("t/a-test" "t/helper"))
-        (imports '(import (only-in :gerbil-parser/t/a-test a-test)))
-        (execution '(list (cons "a" (list a-test)))))
-    (control 'exact-owner (lambda () (equal? (validate-conformance-test-plan catalog imports execution) '("t/a-test.ss"))))
-    (control 'missing-owner (lambda () (rejected? (lambda () (validate-conformance-test-plan '("t/a-test" "t/b-test") imports execution)))))
-    (control 'missing-suite (lambda () (rejected? (lambda () (validate-conformance-test-plan catalog imports '(list))))))
-    (control 'repeated-suite (lambda () (rejected? (lambda () (validate-conformance-test-plan catalog imports '(list a-test a-test))))))
-    (control 'repeated-owner (lambda () (rejected? (lambda () (validate-conformance-test-plan '("t/a-test" "t/a-test") imports execution)))))
-    (control 'unimported-export (lambda () (rejected? (lambda () (validate-test-export-coverage! '(a-test) '(a-test b-test))))))
-    (control 'exact-exports (lambda () (validate-test-export-coverage! '(b-test a-test) '(a-test b-test)) #t))
-    (control 'split-ownership (lambda () (equal? (validate-test-suite-ownership! '(a-test) '(b-test) '(b-test a-test)) '(b-test))))
-    (control 'overlapping-ownership (lambda () (rejected? (lambda () (validate-test-suite-ownership! '(a-test) '(a-test) '(a-test))))))
-    (control 'unowned-export (lambda () (rejected? (lambda () (validate-test-suite-ownership! '(a-test) '() '(a-test b-test))))))
-    (control 'source-selection (lambda () (equal? (filter (lambda (name) (source-test-suite-selected? name '(a-test))) '(a-test b-test helper)) '(b-test))))
-    (control 'repository-plan (lambda () (> (length (conformance-covered-test-files)) 0))))
-  (displayln "OK"))
+;;; Suite declarations only; the development command invokes gerbil test.
+(import :std/test)
+(include "../test-plan.ss")
+(export test-plan-test)
+(def test-plan-test
+  (test-suite "native test build selection"
+    (test-case "test modules remain source Suite inputs"
+      (check (conformance-source-only? "t/a-test") => #t)
+      (check (and (conformance-source-only? "t/research-main") #t) => #t)
+      (check (conformance-source-only? "t/helper") => #f))
+    (test-case "declared conformance Suites exist without a private executor"
+      (let (files (conformance-covered-test-files))
+        (check (> (length files) 0) => #t)
+        (for-each (lambda (file) (check (file-exists? file) => #t)) files)))))

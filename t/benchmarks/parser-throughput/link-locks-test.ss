@@ -1,9 +1,6 @@
 (import :gerbil-parser/language-test-support)
-(import (only-in :std/test test-suite test-case check check-exception)
-        (only-in :std/test/base TestHarness TestConfig TestModule test-run! test-result-ok?)
-        (only-in :std/io/tempfile make-temporary-file-name)
+(import         (only-in :std/io/tempfile make-temporary-file-name)
         (rename-in (only-in "./link-locks.ss" static-link-locks main) (main check-locks)))
-(export main)
 
 (deflanguage-parser-tests link-locks-test "AOT lock rejection and evidence preservation"
   (engine)
@@ -20,11 +17,3 @@
         (act (delete-file lock))
         (act (check-locks directory)))
       ) (cleanup (act (delete-file-or-directory directory #t)))))))
-
-(def (main)
-  (exit
-    (if (test-result-ok?
-          (test-run!
-            (TestHarness "AOT lock control" (TestConfig verbosity: 5 capture-output?: #f)
-              (list (TestModule "AOT lock control" (list link-locks-test) '() void void)))))
-      0 42)))

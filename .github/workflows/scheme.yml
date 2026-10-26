@@ -225,27 +225,19 @@ jobs:
         run: |
           gerbil env gxi scripts/tests/process-qualification-test.ss
           just test-plan
-          gerbil env gxi test-processes.ss conformance
       - name: Verify compiler policy with native Gerbil test
         run: |
           gerbil env gxi qualify.ss run --timeout 90 \
             --log .data/compiler-policy-native.log --require "^OK$" -- \
             gerbil test -v 3 t/fixtures/compiler-policy.ss
+      - name: Verify research Suite declarations with Gerbil test
+        run: |
+          gerbil env gxi qualify.ss run --timeout 240 \
+            --log .data/research-gerbil-test.log --require "^OK$" -- \
+            just test-research-suites
       - name: Verify Scheme DSL and POO declaration closure
         id: dsl-research
         run: gerbil env gxi test-processes.ss research .data/dsl-research
-      - name: Diagnose failed Ubuntu semantic process
-        if: ${{ failure() && runner.os == 'Linux' && steps.dsl-research.outcome == 'failure' }}
-        run: |
-          if ! command -v gdb; then
-            sudo apt-get update
-            sudo apt-get install -y gdb
-          fi
-          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
-            --log .data/dsl-research-gdb.log \
-            -- gdb --nx --batch --return-child-result \
-               -ex run -ex 'thread apply all bt' \
-               --args .gerbil/bin/gerbil-parser-conformance semantic
       - name: Verify Source caller survives natural collection
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \

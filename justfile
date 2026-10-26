@@ -22,7 +22,7 @@ set shell := ["sh", "-eu", "-c"]
 
 # Test-plan ownership is checked before loading any Parser runtime modules.
 test-plan:
-    timeout --signal=TERM --kill-after=5s 120s {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} scripts/tests/test-plan-test.ss
+    timeout --signal=TERM --kill-after=5s 120s gerbil {{ gerbil_test_runtime_options }} test -v 3 scripts/tests/test-plan-test.ss
 
 # Build the declared production library before running qualification.
 # Core and Gerbil own compilation and product checks; this does not issue approval.
@@ -57,11 +57,13 @@ test-source-contracts: build-test-driver
     rg -F 'HARNESS-OK' "$output_file" >/dev/null
     rg -x 'OK' "$output_file" >/dev/null
 
-# Same native gxtest suite values, linked before the bounded runtime gate.
+# Gerbil owns Suite discovery and execution; there is no linked test runner.
 test-runtime-organization:
-    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gxi build-qualification.ss compile --optimized
-    ASP_GERBIL_SCHEME_POLICY=1 GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gxi t/build-runtime-organization-tests.ss
-    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gxi t/check-runtime-organization.ss
+    gerbil test -v 3 t/runtime-module-organization-test.ss t/test-style-contract-test.ss t/benchmarks/parser-throughput/link-locks-test.ss t/lr-semantic-preparation-test.ss t/lr-stack-reduction-test.ss t/lr-action-preparation-test.ss t/lr-fragment-transfer-test.ss t/recovery-incremental-test.ss
+
+# Research fixture Suites use the same native test entry.
+test-research-suites:
+    gerbil test -v 3 t/fixtures/language-pack-research/package-expression-parser-test.ss t/fixtures/language-pack-research/package-parameter-inferred-parser-test.ss t/fixtures/language-pack-research/package-parameter-retained-parser-test.ss t/fixtures/language-pack-research/list-parser-test.ss t/fixtures/runtime-record-assignments/languages/records/parser-test.ss
 
 # Public native declaration lowering; test-all discovers this suite once.
 test-line-events output load_path:
@@ -399,10 +401,9 @@ build-engine-controls output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/scan.ss src/compiler/event-list-marker.ss
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/source-lines.ss src/compiler/event-fold-future.ss src/compiler/event-fold-scheme-expressions.ss src/compiler/event-fold-scheme.ss
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/event-strategy-fixture.ss t/event-fold-scheme-test.ss t/ranked-regular-scanner-test.ss t/parser-runtime-test.ss
-    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O -exe -o "{{output}}/engine-controls" t/engine-controls.ss
 
 test-engine-controls output:
-    GAMBOPT=max-heap=1G,debug=q "{{output}}/engine-controls" > "{{output}}/engine-controls.log" 2>&1
+    GAMBOPT=max-heap=1G,debug=q GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:$PWD/.." gerbil test -v 5 t/event-fold-scheme-test.ss t/ranked-regular-scanner-test.ss t/parser-runtime-test.ss > "{{output}}/engine-controls.log" 2>&1
     rg '^CASE-OK |^OK$' "{{output}}/engine-controls.log"
     test "$(rg --count '^MODULE-OK ' '{{output}}/engine-controls.log')" = 3
     test "$(rg --count '^CASE-OK ' '{{output}}/engine-controls.log')" = 22
@@ -465,8 +466,8 @@ build-event-fold-compiled output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/byte-spans.ss src/runtime/source-lines.ss src/runtime/event-fold-lines.ss src/compiler/event-strategy-aot.ss src/compiler/event-fold-state-frame.ss src/compiler/event-fold-program.ss src/compiler/event-fold-runtime.ss src/compiler/event-fold-aot.ss rust-runtime-event-support.ss
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/compiler/event-fold-ir.ss src/compiler/event-fold-analysis.ss src/compiler/event-fold-byte-dispatch.ss src/compiler/event-fold-zero-state.ss src/compiler/event-fold-consumer-state.ss src/compiler/event-fold-ordinary-run.ss src/compiler/event-fold-shared-probes.ss src/compiler/event-fold-scheme-context.ss src/compiler/event-fold-call-plan.ss src/compiler/event-fold-prefix-family.ss src/compiler/event-fold-scheme-expressions.ss src/compiler/event-fold-scheme-runs.ss src/compiler/event-fold-scheme-statements.ss src/compiler/event-fold-scheme.ss src/compiler/event-fold-scheme-modules.ss t/event-strategy-fixture.ss t/event-fold-fixture.ss t/event-fold-test.ss t/event-fold-scheme-test.ss
 
-test-event-fold-compiled binary output: build-qualification
-    gerbil env gxi qualify.ss compiled-event-fold "{{binary}}" "{{output}}"
+test-event-fold-compiled output load_path: build-qualification
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil env gxi qualify.ss run --timeout 120 --log "{{output}}/compiled-test.log" --require "^OK$" -- gerbil test -v 3 t/event-fold-test.ss t/event-fold-scheme-test.ss
 
 # Fast lexical algorithm loop; keep the POO Flow Case heap fence pre-import.
 test-lexer:
@@ -481,7 +482,7 @@ test-build-product-contract output load_path:
     GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 3 t/build-product-contract-test.ss
 
 test-all: build-qualification
-    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" GERBIL_LOADPATH="${GERBIL_PATH:-$PWD/.gerbil}/lib:$PWD/.." gerbil test -v 3 t/... languages/...
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=3G,debug=q" GERBIL_LOADPATH="${GERBIL_PATH:-$PWD/.gerbil}/lib:$PWD/.." gerbil test -v 3 t/... languages/...
 
 # All contracts execute from current source; every suite has a hard deadline.
 test-performance-before-compile: build-qualification
@@ -692,7 +693,7 @@ prepare-org-fold-candidate consumer output load_path mode="tape-run":
 
 # Resume an existing generated closure without regenerating it or racing links.
 test-aot-link-locks:
-    gxi t/benchmarks/parser-throughput/link-locks-test.ss
+    gerbil test -v 3 t/benchmarks/parser-throughput/link-locks-test.ss
 
 link-org-fold-candidate output load_path:
     gxi t/benchmarks/parser-throughput/link-locks.ss "{{output}}/lib/static" "{{output}}/sdk/lib/static"

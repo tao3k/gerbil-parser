@@ -328,9 +328,9 @@ then exited 0 under =gtimeout -k 2 10= on 2026-10-06.
 
 #+begin_src sh
 GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" \
-  gtimeout -k 2 10 gxi t/fixtures/language-pack-research/package-parameter-inferred-runner.ss
+  gtimeout -k 2 10 gerbil test -v 3 t/fixtures/language-pack-research/package-parameter-inferred-parser-test.ss
 GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" \
-  gtimeout -k 2 10 gxi t/fixtures/language-pack-research/package-parameter-retained-runner.ss
+  gtimeout -k 2 10 gerbil test -v 3 t/fixtures/language-pack-research/package-parameter-retained-parser-test.ss
 #+end_src
 
 The initial invocation put the baseline and both new variants in one import path.

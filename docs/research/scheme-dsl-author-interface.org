@@ -364,7 +364,7 @@ digest. Field-count and exact AST expectations then add independent author inten
 they do not replace those shared invariants with per-package traversal code.
 
 On 2026-10-06 the
-[[file:../../t/fixtures/language-pack-research/package-expression-test-runner.ss][bounded research runner]] emitted all 11 =CASE-OK= results, =SUITE-OK= and
+former bounded research runner (now removed; use =gerbil test -v 3 t/fixtures/language-pack-research/package-expression-parser-test.ss=) emitted all 11 =CASE-OK= results, =SUITE-OK= and
 =PACKAGE-EXPRESSION-DSL-OK=, then exited 0 under =gtimeout -k 2 10=.
 It explicitly tests =test-result-ok?= and exits 1 on a failed suite, so the receipt
 does not rely on a printed suite sentinel alone. The 11 cases comprise identity,

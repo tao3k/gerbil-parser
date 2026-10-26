@@ -88,7 +88,7 @@
   (let* ((library? (equal? owner "library-objects"))
          (source (path-expand (if library?
                                 "t/fixtures/ffi/library-closure.ss"
-                                "t/conformance-main.ss")))
+                                "t/research-main.ss")))
          (binary (path-expand (if library? "bin/gerbil-parser-library-objects"
                                            "bin/gerbil-parser-conformance")
                    (getenv "GERBIL_PATH")))
@@ -107,7 +107,7 @@
     (compile-exe source [output-file: binary invoke-gsc: #f verbose: #f])
     (let* ((identities (bootstrap-identities stub))
            (entry (if library? "gerbil-parser/t/fixtures/ffi/library-closure"
-                               "gerbil-parser/t/conformance-main"))
+                               "gerbil-parser/t/research-main"))
            (_ (unless (member entry identities)
                 (error "native product entry is absent from SDK bootstrap" entry)))
            (ordered

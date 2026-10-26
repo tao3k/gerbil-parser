@@ -85,37 +85,17 @@
     "t/fixtures/runtime-record-assignments/languages/records/parser"
     "t/fixtures/runtime-record-assignments/languages/records/parser-test"
     "t/test-style-contract-test"
-    "t/conformance-main"))
+    "t/research-main"))
 (def shared-test-module? conformance-source-only?)
 (def (compiled-spec modules)
   (map (lambda (module)
          `(gxc: ,module "-cc-options" "-v -Q")) modules))
-(def (compile-static-tests!)
-  ;; Keep source expansion and executable publication in one compiler context.
-  (add-load-path! (path-directory (this-source-file)))
-  (for-each
-   (lambda (module)
-     (displayln "STATIC-TEST-SCHEME " module) (force-output)
-     (compile-module (string-append module ".ss")
-       [output-dir: (path-expand "lib" (getenv "GERBIL_PATH"))
-        ;; Stage test construction with the Gerbil optimizer before native
-        ;; lowering to reduce generated host size and compiler work. Keep
-        ;; every assertion and the native tail-call compilation policy.
-        optimize: #t generate-ssxi: #t static: #t keep-scm: #t
-        invoke-gsc: #f verbose: #f])
-     (when (string-suffix? "-test" module)
-       (displayln "CONFORMANCE-EXPORT-CHECK " module) (force-output)
-       ;; Inspect the public expansion context without evaluating test bodies.
-       (let (context (import-module (string-append module ".ss") #f #f))
-         (validate-test-suite-ownership!
-          (conformance-imported-test-names module)
-          (conformance-source-suite-names module)
-          (map module-export-name
-               (filter (lambda (exported)
-                         (and (zero? (module-export-phi exported))
-                              (string-suffix? "-test" (symbol->string (module-export-name exported)))))
-                       (module-context-export context)))))))
-   (filter shared-test-module? conformance-modules)))
+(def (compile-research-entry!)
+  ;; Standalone research programs are products, never Suite executors.
+  (compile-module "t/research-main.ss"
+    [output-dir: (path-expand "lib" (getenv "GERBIL_PATH"))
+     optimize: #t generate-ssxi: #t static: #t keep-scm: #t
+     invoke-gsc: #f verbose: #f]))
 (def (compile-static-conformance!)
   ;; The shared native graph is scheduled once by std/make. Only catalog
   ;; helpers belong to this declaration; extra source-test helpers
@@ -126,6 +106,6 @@
         libdir: (path-expand "lib" (gerbil-path))
         optimize: #t)
   ;; Test bodies remain source-only here; their native objects belong to the link owner.
-  (compile-static-tests!))
+  (compile-research-entry!))
 ;; Developer multicall build retains the standard native shared-module owner.
 (defbuild-script (compiler-build-spec (compiled-spec conformance-modules)) optimize: #t)

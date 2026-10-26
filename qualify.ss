@@ -84,7 +84,6 @@
 (def (main mode . arguments)
  (cond
   ((equal? mode "run") (run-process-cli arguments))
-  ((equal? mode "compiled-event-fold") (apply (profile-value "gerbil-parser/t/support/qualification/plans" 'gerbil-parser/t/support/qualification/plans#qualify-event-fold!) arguments))
   ((equal? mode "performance") (performance-cli arguments))
   ((equal? mode "local") (local-cli arguments))
   ((equal? mode "host") (unless (null? arguments) (error "host takes no arguments")) ((profile-value "gerbil-parser/t/support/qualification/products" 'gerbil-parser/t/support/qualification/products#qualify-runtime-host!)))

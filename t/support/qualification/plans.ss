@@ -104,14 +104,3 @@
        (run suite (append '("gerbil" "test" "-v" "3") files) #f
             (append (map (cut string-append "MODULE-OK " <>) files) '("^OK$"))))))) suites)
   (displayln "LOCAL-NATIVE-OK " (string-join suites ",")) (force-output)))
-(def (qualify-event-fold! binary directory)
- (let* ((log (path-expand "compiled-test.log" directory))
-        (result (run-observed-process ["env" "-u" "GERBIL_PATH" "-u" "GERBIL_LOADPATH" "GAMBOPT=max-heap=1G,debug=q" binary]
-                                      log timeout: 120 idle-timeout: 5))
-        (text (utf8->string (process-result-output result))))
-  (unless (and (zero? (process-result-status result)) (not (process-result-reason result))
-               (= (length (filter (lambda (line) (string-prefix? "CASE-OK " line)) (string-split text #\newline))) 67)
-               (receipt-present? "^HARNESS-OK" text) (receipt-present? "^OK$" text)
-               (not (receipt-present? "ERROR|FAILED|FAILURE|FAIL:" text)))
-   (error "compiled event-fold qualification failed" log))
-  (displayln "COMPILED-EVENT-FOLD-OK cases=67") (force-output)))

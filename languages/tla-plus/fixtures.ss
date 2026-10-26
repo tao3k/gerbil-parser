@@ -1,11 +1,9 @@
-;;; -*- Gerbil -*-
-;;; Declarative layout fields, concurrency and engine receipts.
-(import  ./parser)
-(import (only-in :gerbil-parser/src/language/descriptor language-grammar-language language-grammar-version language-grammar-contract)
+;;; Shared corpus and development loader declarations; no Suite execution.
+(import ./parser
         (only-in :clan/poo/object .o)
-        (only-in :gerbil-parser/language-support/entry language-metadata-ref language-parser-entry-ref)
         (only-in :gerbil-parser/language-support/fixture defsyntax-corpus)
-        (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader.))
+        (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader.)
+        (only-in :gerbil-parser/src/language/descriptor language-grammar-language language-grammar-version language-grammar-contract))
 (export #t)
 
 (defsyntax-corpus tla-plus-core-fixtures
@@ -69,4 +67,3 @@
   (parse parse-tla-plus-sany-candidate-test)
   (slots metadata: '((grammar-format . concise-dsl))
          fixtures: tla-plus-sany-candidate-fixtures))
-

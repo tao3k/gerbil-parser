@@ -1,7 +1,6 @@
-;;; -*- Gerbil -*-
-;;; Declarative pinned corpus and generated native-route qualification.
-(import  ./parser)
-(import (only-in :clan/poo/object .o)
+;;; Shared corpus and development loader declarations; no Suite execution.
+(import ./parser
+        (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/language-support/fixture defsyntax-corpus defsyntax-fixture)
         (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader.)
         (only-in :gerbil-parser/language-build-support declare-language-build-strategy make-fused-reduction-strategy make-rust-runtime-strategy)
@@ -73,4 +72,3 @@
          native-test-profile: (.o profile: 'recursive-source
                                   digest: direct-hcl-grammar-digest
                                   source: direct-parse-hcl lexer: direct-lex-hcl)))
-

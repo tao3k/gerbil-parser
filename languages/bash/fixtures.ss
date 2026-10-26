@@ -1,9 +1,6 @@
-;;; -*- Gerbil -*-
-;;; Bash syntax cases are values; execution and invariant checks belong to the engine.
-(import 
-        (only-in :gerbil-parser/language-support parse-artifact-success? parse-artifact-roundtrip)
-        ./parser)
-(import (only-in :clan/poo/object .o)
+;;; Shared corpus and development loader declarations; no Suite execution.
+(import ./parser
+        (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/language-support/fixture defsyntax-corpus)
         (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader. declare-language-source-scan-worker))
 (export #t)
@@ -23,4 +20,3 @@
          scan-workers: (list (cons 'command
                                   (declare-language-source-scan-worker
                                    bash-source-language)))))
-

@@ -17,7 +17,8 @@
     (scope ((catalog (cadr (caddr (read-source-definition "build-language-conformance.ss" 'conformance-modules))))
             (source-only? (source-procedure "scripts/test-plan.ss" 'conformance-source-only? '())))
       (each (owner) ((filter (lambda (name) (string-suffix? "-test" name)) catalog))
-        (equal (source-only? owner) #t))))  (scenario "research closure rejects Suite dependencies even if artifacts exist"
+        (equal (source-only? owner) #t))))
+  (scenario "research closure rejects Suite dependencies even if artifacts exist"
     (scope ((admit (source-procedure "build-language-conformance-link.ss" 'validate-research-product-closure! '())))
       (equal (admit '("gerbil-parser/languages/tla-plus/fixtures" "std/test/base"))
              '("gerbil-parser/languages/tla-plus/fixtures" "std/test/base"))

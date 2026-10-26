@@ -1,15 +1,9 @@
-;;; -*- Gerbil -*-
-;;; Declarative standards, bound-source identity, lossless syntax and precedence.
-(import 
-        (only-in :gerbil-parser/src/language/descriptor
-                 language-grammar-grammar language-grammar-ir language-grammar-machine)
-        (only-in :gerbil-parser/language-support/entry language-parser-entry-ref)
-        (only-in :gerbil-parser/language-support/fixture syntax-fixture-id syntax-fixture-source)
-        (only-in :clan/poo/object .ref)
+;;; Shared corpus and development loader declarations; no Suite execution.
+(import ./parser
+        (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/language-support/fixture defsyntax-corpus defsyntax-fixture)
-        (only-in :gerbil-parser/language-support/development
-                 deflanguage-development-loader LanguageDevelopmentLoader. language-loader-fixtures)
-        ./parser)
+        (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader.))
+(export #t)
 
 (defsyntax-corpus gql-official-fixtures
   (identity "gql" +gql-standard-edition+ +gql-syntax-contract+)
@@ -81,6 +75,3 @@
   (grammar gql-language-grammar)
   (parse parse-gql-test)
   (slots fixtures: (append gql-official-fixtures (list gql-incomplete-return-fixture))))
-
-(export #t)
-

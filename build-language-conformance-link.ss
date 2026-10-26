@@ -126,9 +126,9 @@
           (lambda (source)
             (let* ((target (replace-extension source ".o"))
                    (c-file (replace-extension source ".c"))
-                                    (translation-file (string-append target ".translation.sexp"))
-                  (translation-stamp (and (file-exists? translation-file) translation-file))
-                  (translation-identity (list gsc '())))
+                   (translation-file (string-append target ".translation.sexp"))
+                   (translation-stamp (and (file-exists? translation-file) translation-file))
+                   (translation-identity (list gsc '())))
               ;; One worker owns translation and its object; no global phase barrier.
               (when (or (newer? source c-file)
                         (and translation-stamp

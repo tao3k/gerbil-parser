@@ -1,11 +1,8 @@
-;;; -*- Gerbil -*-
 ;;; SPDX-FileCopyrightText: 2026 tao3k team and Contributors
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
-(import 
-        (only-in :std/misc/ports read-all-as-string)
-        (only-in :gerbil-parser/language-support parse-artifact-ref)
-        ./parser)
-(import (only-in :clan/poo/object .o)
+;;; Shared corpus and development loader declarations; no Suite execution.
+(import ./parser
+        (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/language-support/fixture defsyntax-corpus)
         (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader.))
 (export #t)
@@ -22,4 +19,3 @@
   (parse parse-hl7-test)
   (slots metadata: '((grammar-format . concise-dsl))
          fixtures: hl7-fixtures))
-

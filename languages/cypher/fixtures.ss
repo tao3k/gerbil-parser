@@ -1,8 +1,6 @@
-;;; -*- Gerbil -*-
-;;; Declarative BNF/Bound IR identity, static conflict controls and syntax.
-(import  ./parser
-        (only-in :gerbil-parser/language-support/entry language-parser-source-receipt))
-(import (only-in :clan/poo/object .o)
+;;; Shared corpus and development loader declarations; no Suite execution.
+(import ./parser
+        (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/language-support/fixture defsyntax-corpus)
         (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader.))
 (export #t)
@@ -31,4 +29,3 @@
   (parse parse-opencypher-test)
   (slots metadata: `((grammar-format . iso-bnf) (reference-commit . ,+opencypher-commit+) (source-digest . ,+opencypher-bnf-digest+))
          fixtures: opencypher-fixtures))
-

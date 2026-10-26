@@ -1,8 +1,6 @@
-;;; -*- Gerbil -*-
-(import 
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-direct-drive)
-        ./parser)
-(import (only-in :clan/poo/object .o)
+;;; Shared corpus and development loader declarations; no Suite execution.
+(import ./parser
+        (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/language-support/fixture defsyntax-fixture)
         (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader.)
         (only-in :gerbil-parser/language-build-support declare-language-build-strategy make-fused-reduction-strategy make-rust-runtime-strategy))
@@ -28,4 +26,3 @@
                                  (declare-language-build-strategy 'rust-runtime
                                    (make-rust-runtime-strategy arithmetic-language-grammar)))
          fixtures: (list arithmetic-basic-fixture arithmetic-incomplete-fixture)))
-

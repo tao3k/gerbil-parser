@@ -5,7 +5,7 @@
         (only-in :clan/poo/mop validate TypeError? define-type Type. element?)
         (only-in :clan/poo/type Record Symbol String OrFalse)
         (only-in :gerbil-parser/graph-query-support
-                 GraphQueryViewContract make-graph-query-context graph-query-map)
+                 GraphQueryViewContract make-graph-query-context graph-query-map graph-query-select)
         (only-in :gerbil-parser/src/modules/parser/graph-query-objects graph-query-context-view)
         (only-in :gerbil-parser/src/runtime/source-scanner
                  make-source-scanner source-scanner-initial-state source-scanner-step source-scan-state-with-context)
@@ -82,6 +82,8 @@
         (raises ((.ref (graph-query-context-view context) 'kind-of) (.o id: 'root parent: #f kind: 42)) TypeError?)
         (raises (graph-query-map context 42 (lambda (_) #t)) TypeError?)
         (equal (graph-query-map context 'node (lambda (_) #f)) '())
+        (raises (graph-query-select context 'node 'root 'any '() 42) TypeError?)
+        (equal (graph-query-select context 'node 'root 'any '() (lambda (_) '(truthy))) (list record))
         (scope ((wrong-kind (make-graph-query-context GraphRow Symbol Symbol
                       (.cc view 'kind-of (lambda (_) 42)))))
           (raises (graph-query-map wrong-kind 'node (lambda (_) #t)) TypeError?))))

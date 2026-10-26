@@ -1,10 +1,11 @@
 ;;; -*- Gerbil -*-
 ;;; lr-parser: prepare owner. Private execution state and named algorithms.
 
-(import (only-in :clan/poo/mop validate)
+(import (only-in :clan/poo/object .o .ref)
+        (only-in :clan/poo/mop validate)
         (only-in ../function-types ActionSelectorFactory)
         (only-in ../reduction-plan
-                 prepare-lr-reduction-plans RecognitionSemantics. EventSemantics.
+                 prepare-lr-reduction-plans prepare-lr-operand-semantics RecognitionSemantics. EventSemantics.
                  resolve-lr-semantic-backend)
         (only-in ../../compiler/lr-table
                  validate-lr-tables layout-productions?)
@@ -26,7 +27,8 @@
                  make-lr-runtime lr-runtime? lr-runtime-productions lr-runtime-table lr-runtime-reduction-widths lr-runtime-actions lr-runtime-action-index lr-runtime-gotos lr-runtime-goto-index lr-runtime-goto-columns lr-runtime-case-insensitive? lr-runtime-dynamic? lr-runtime-layout? lr-runtime-lexical-modes lr-runtime-lexical-mode-catalog lr-runtime-direct-step lr-runtime-direct-step-set! lr-runtime-semantic-reducer lr-runtime-event-reducer lr-runtime-event-step lr-runtime-event-step-set! lr-runtime-event-runtime lr-runtime-event-runtime-set! lr-runtime-reduction-plans lr-runtime-action-selector lr-runtime-owned-stack?-set! current-lr-event-program-enabled? make-lr-lexical-mode)
         (only-in "./reduction.ss"
                  reduce-value reduce-value/events))
-(export install-lr-runtime-direct-step!
+(export prepare-lr-semantics
+        install-lr-runtime-direct-step!
         select-lr-semantic-reducer select-lr-semantic-reducer$poo-clos-generic
         lr-semantic-capability
         lr-runtime-event-program?
@@ -70,11 +72,29 @@
 (.defmethod (select-lr-semantic-reducer (backend (eql 'event)) capability)
   (select-lr-semantic-reducer EventSemantics. capability))
 
-(.defgeneric prepare-lr-recognition-semantics (backend table capability))
+;;; A selection is the explicit result of method selection. Grammar lowering
+;;; reuses it without re-entering MOP dispatch; callers request a new selection
+;;; after contributing methods. The native carrier is private engine state.
+(defstruct lr-prepared-semantics (backend operands reducers) final: #t)
+(def (capture-lr-reducers backend)
+  (let ((selected-plain (select-lr-semantic-reducer backend 'plain))
+        (selected-general (select-lr-semantic-reducer backend 'general))
+        (selected-dynamic (select-lr-semantic-reducer backend 'dynamic))
+        (selected-branching (select-lr-semantic-reducer backend 'branching))
+        (selected-layout (select-lr-semantic-reducer backend 'layout)))
+    (.o plain: selected-plain general: selected-general dynamic: selected-dynamic branching: selected-branching layout: selected-layout)))
+(.defgeneric prepare-lr-recognition-semantics (backend))
 (.defmethod (prepare-lr-recognition-semantics
-              (backend (prototype RecognitionSemantics.)) table capability)
-  (values (prepare-lr-reduction-plans backend table)
-          (select-lr-semantic-reducer backend capability)))
+              (backend (prototype RecognitionSemantics.)))
+  (make-lr-prepared-semantics backend (prepare-lr-operand-semantics backend)
+                            (capture-lr-reducers backend)))
+(def (prepare-lr-semantics backend)
+  (if (lr-prepared-semantics? backend) backend
+    (prepare-lr-recognition-semantics (resolve-lr-semantic-backend backend))))
+;; Builtin Library publication selects its native selections once. Other Library
+;; objects use the same public preparation operation, without editing a catalog.
+(def default-recognition-semantics (prepare-lr-semantics RecognitionSemantics.))
+(def default-event-reducers (capture-lr-reducers EventSemantics.))
 
 ;;; Grammar eligibility belongs to preparation, including negative admission.
 ;;; It is independent of the request's optional backend preference.
@@ -126,7 +146,7 @@
       (lr-runtime-event-runtime-set! runtime selected)
       selected))))
 
-(def (lr-prepare spec (semantic-backend RecognitionSemantics.))
+(def (lr-prepare spec (semantic-backend default-recognition-semantics))
   (let* ((productions (validate-production-semantics (lr-spec-ref spec 'productions) (lr-spec-ref spec 'declarations)))
          (actions (lr-spec-ref spec 'actions))
          (gotos (lr-spec-ref spec 'gotos))
@@ -143,14 +163,15 @@
                    (lambda (row) (map car row))
                    (lambda (terminals id)
                      (make-lr-lexical-mode id terminals)))))
-      (let* ((backend (resolve-lr-semantic-backend semantic-backend))
+      (let* ((semantics (prepare-lr-semantics semantic-backend))
+             (backend (lr-prepared-semantics-backend semantics))
              (table (production-table productions))
              (capability (lr-semantic-capability table actions dynamic? layout?))
              (case-insensitive? (lr-spec-ref spec 'case-insensitive?))
              (action-index (index-action-rows actions case-insensitive?))
              (goto-index (association-row-vector->index gotos)))
-        (let-values (((plans reducer)
-                      (prepare-lr-recognition-semantics backend table capability)))
+        (let ((plans (prepare-lr-reduction-plans (lr-prepared-semantics-operands semantics) table))
+              (reducer (.ref (lr-prepared-semantics-reducers semantics) capability)))
         (make-lr-runtime
          productions
          table
@@ -171,7 +192,7 @@
          ;; event interpretation. Preserve its semantics instead of substituting
          ;; the builtin event family when the optional preference is enabled.
          (and (eq? backend RecognitionSemantics.)
-              (select-lr-semantic-reducer EventSemantics. capability)) #f #f plans
+              (.ref default-event-reducers capability)) #f #f plans
          (make-lr-action-selector actions action-index case-insensitive? layout?)
          (not layout?) (prepare-lr-goto-columns table goto-index) (void)))))))
 

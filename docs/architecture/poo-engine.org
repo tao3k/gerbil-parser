@@ -9,7 +9,7 @@ Gerbil structs/vectors where its ownership and execution properties require it.
 This is a staged object engine: choose/compose methods, prepare actual kernels,
 then execute the retained kernels with request-local context.
 
-LeanPoo PR13 is pinned at f329baeda2b624353d3919ed02486630ebd040fd through the
+LeanPoo PR13 is pinned at e229504ef2219463a237812335bb545b1f8419b9 through the
 normal Lake declaration and lockfile. Its 17 upstream checks pass at inspection.
 Parser's existing 273-target proof package builds with that revision without a
 Lean toolchain change. SemanticPreparation additionally imports the new upstream
@@ -48,12 +48,13 @@ Parser does not linearize again or maintain its own method registry/cache.
 prepare-lr-reduction-plans accepts a backend object. The existing recognition/
 event symbols resolve through one native alias object for compatibility. The
 closed case selector and module-initialization factory-pair cache are removed.
-Actual factories are selected once for each preparation and retained in the
-operand plans. Native field/alias operand syntax remains the declared grammar
+Actual factories are selected once by prepare-lr-semantics and retained in its
+selection; each grammar materializes its own operand plans from those callables. Native field/alias operand syntax remains the declared grammar
 vocabulary, not a license to accept arbitrary opcodes.
 
-lr-prepare accepts an optional recognition backend. A Core prototype-specialized
-preparation method forms both plans and reducer. Wrong representation families
+lr-prepare accepts an optional prepared selection or recognition backend. A Core
+prototype-specialized preparation method selects action factories and capability
+reducers; grammar lowering consumes that retained selection. Wrong representation families
 fail before runtime publication. Custom recognition semantics do not silently
 switch to the builtin event interpretation when the optional preference is on;
 paired event semantics require an explicit later compatibility design.
@@ -138,3 +139,57 @@ negative completion controls. Matching complete source and fresh CI remain gates
 Baseline80cd0f6 CI completes11 pass/1 macOS semantics fail/5 conditional skips;
 its library spec idle5 refusal stays retained. The latest Lean pin and new engine
 code are a separate candidate until their own final-head qualification completes.
+
+* Definition, selected semantics and grammar runtime are separate
+
+The first broad cohort91 refuses canonical-lr1-reference-test at its unchanged
+total90 budget. It is retained. Native prototype dispatch per grammar had added
+method preparation to a workload which previously reused module-level choices;
+that work amplification is addressed without reviving a closed symbol catalog.
+
+prepare-lr-semantics selects native action factories and the finite capability
+reducer policies once. It returns a private retained selection; it is not another
+framework Profile, registry, memoizer or prototype engine. Library publishes its
+builtin selected semantics through the same operation. A project Profile can
+select a derived backend and prepare it once; lr-prepare(spec, selected) then
+materializes each grammar's operand plans without repeated generic lookup.
+Passing a raw backend requests a fresh selection; method contributions require
+explicit new selection. Old selections and runtimes retain callable values.
+
+Reducer policies are captured before native object publication so getters do
+not repeat selection. Unknown/wrong families still refuse through Core prototype
+applicability. A new test requires one selected backend to serve multiple grammar
+runtimes without increasing its factory-selection count. Ordered grammar plans,
+private runtime identity and fresh request context remain separate data layers.
+This is an execution architecture change, not a timeout relaxation or an
+unconditional performance claim; matching canonical/full-source/native/CI gates
+must qualify the candidate.
+
+The latest LeanPoo PR advances from f329bae to e229504 with the ordered-query
+bound capture fix. Lake declaration and lockfile follow that actual PR revision;
+previous 278-target success remains evidence for f329bae until rebuilt.
+The first retained-reducer candidate93 exposed a CyclicSlot: POO slot names
+shadowed identically named lexical capture variables. Distinct selected-* names
+now capture actual callable values; that refusal and its log are retained.
+
+* Next engine owners and their existing boundaries
+
+| Phase | Existing boundary to refactor | POO selection versus retained data | Required controls |
+|-------+-------------------------------+-----------------------------------+-------------------|
+| Compiler | compiler/lr-compiler.ss compile-lr-spec and compile-lr-spec/selected | Select construction/fallback policy before lower/completion/FIRST/state construction; retain native bitsets, state keys and worklists | Preserve reject/probe/selective-GLR meanings, lalr-then-follow fallback, canonical correspondence and bounded construction |
+| Scanner | runtime/contextual-scanner.ss prepare-contextual-scanner-plan; runtime/region-scanner.ss prepare-region-plan | Compose matcher/index/context policies before request binding; retain source identity, digest, byte positions and private cells | Wrong source/digest refusal, equivalent rule precedence, isolated scan state and delimiter obligations |
+| Recovery | runtime/lr-parser/{checkpoint,transfer}.ss lr-checkpoint-advance, lr-checkpoint-fragment-compatible?, lr-prefix-snapshot-rebind | Select compatible execution/recovery operations; retain exact runtime and executor associations | Changed executor/grammar refusal, fresh rebind input and request isolation; no silent checkpoint reinterpretation |
+| Collections | modules/parser/graph-query-{types,funs,objects}.ss | Preserve existing Row/Id/Kind parameterization and collection key semantics; select appropriate upstream typed collection only for demonstrated needs | Zero/false keys, collision/equivalence, stable order, closure and update failure preservation |
+
+These are specific unimplemented follow-on owners, not new parallel subsystems.
+Contract work remains at admission/publication boundaries. The parser's existing
+algorithms remain their algorithm owners; POO determines composition, method
+selection, typed policy and retained execution capabilities around them.
+
+The previous46db9d9 Linux semantics CI rejects the historical runtime facade
+export correspondence after the new backend API is added. The test now admits
+only the named semantic API and reviewed private owners, checks exact prototype
+method headers and the retained-selection schema, and keeps all unrelated split
+forms pinned. Duplicate/missing contributors and an unexpected owner are negative
+controls. This updates the source association for the new architecture; actual
+backend and parser semantics remain covered by separate execution cases.

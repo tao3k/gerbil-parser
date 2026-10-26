@@ -13,7 +13,7 @@
 (export prepare-lr-reduction-plans reduce-lr-stack-plan reduce-lr-vector-plan
         reduce-lr-source-plan reduce-lr-event-plan source-operand-offsets
         LRSemanticBackend. RecognitionSemantics. EventSemantics.
-        resolve-lr-semantic-backend select-lr-action-factory
+        resolve-lr-semantic-backend select-lr-action-factory prepare-lr-operand-semantics
         select-lr-action-factory$poo-clos-generic)
 
 ;;; An empty marked operand is anchored at the next semantic input boundary,
@@ -85,15 +85,21 @@
         (loop (cdr operands) (fx+ index 1))))
     plan))
 
+;;; This private native carrier is the result of object-method preparation,
+;;; not a second dispatch cache. Its callables belong to one explicit selection.
+(defstruct lr-operand-semantics (field alias) final: #t)
+(def (prepare-lr-operand-semantics backend)
+  (let (selected (resolve-lr-semantic-backend backend))
+    (make-lr-operand-semantics
+      (select-lr-action-factory selected 'field)
+      (select-lr-action-factory selected 'alias))))
 (def (prepare-lr-reduction-plans backend table)
-  (let* ((selected (resolve-lr-semantic-backend backend))
-         (field (select-lr-action-factory selected 'field))
-         (alias (select-lr-action-factory selected 'alias)))
-    ;; Resolve methods once per preparation, not once forever at module load
-    ;; and not for every operand. Retained plans keep these actual callables.
+  (let (selected (if (lr-operand-semantics? backend) backend
+                    (prepare-lr-operand-semantics backend)))
     (vector-map/index
      (lambda (_index production)
-       (prepare-reduction-plan field alias production)) table)))
+       (prepare-reduction-plan (lr-operand-semantics-field selected)
+                               (lr-operand-semantics-alias selected) production)) table)))
 
 ;;; The deterministic executor consumes the immutable semantic stack directly.
 ;;; Each prepared field/alias chain retains declaration order. Prepending each

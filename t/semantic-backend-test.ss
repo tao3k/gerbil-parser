@@ -9,7 +9,7 @@
         (only-in :gerbil-parser/src/runtime/recognition make-recognition-child
                  recognition-child-value recognition-node-kind recognition-node-start recognition-node-end)
         (only-in :gerbil-parser/src/runtime/token make-token)
-        (only-in :gerbil-parser/src/runtime/lr-parser lr-prepare lr-parse/prepared
+        (only-in :gerbil-parser/src/runtime/lr-parser lr-prepare prepare-lr-semantics lr-parse/prepared
                  lr-runtime-for-current-semantic-backend)
         (only-in :gerbil-parser/src/runtime/lr-parser/state current-lr-event-program-enabled?))
 (def DecoratedBackend. (.o (:: @ RecognitionSemantics.)))
@@ -46,6 +46,15 @@
           (equal (recognition-node-kind (plan-root plan)) 'Decorated)
           (equal (recognition-node-kind (plan-root plan)) 'Decorated)
           (equal selected-count 1))))
+    (scenario "one prepared selection serves multiple grammar runtimes"
+      (sequential ()
+        (act (set! selected-count 0))
+        (scope ((semantics (prepare-lr-semantics ComposedBackend.)))
+          (equal selected-count 1)
+          (scope ((left (lr-prepare (model-spec) semantics))
+                  (right (lr-prepare (model-spec) semantics)))
+            (equal (eq? left right) #f)
+            (equal selected-count 1)))))
     (scenario "runtime selection consumes the prototype and preserves custom semantics"
       (sequential ((runtime (lr-prepare (model-spec) ComposedBackend.)))
         (scope-values (((root rest) (lr-parse/prepared runtime (list (make-token 'word "x" 2 3)))))

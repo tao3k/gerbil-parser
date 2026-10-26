@@ -199,3 +199,14 @@ These later code changes affect the independent production discovery declaration
 and the directed process script controls; runtime/parser assertions remain those
 of the183-module pass. Final-head Linux/macOS CI is still required. Prior failed
 or warm receipts remain explicit and are never promoted to that remote gate.
+
+Final903e9e3 cold preparation passes on Linux and macOS, including catalog,
+standard package/native products and the actual Suite-free closure. Linux FFI,
+corpus and generation pass. Both semantics jobs correctly refuse the deliberately
+failed Suite but their development recipe then exits127: rg is not installed on
+those runners. The recipe now uses system grep -E, without adding dependencies.
+Cohort124 at17a52ee executes the complete just test-harness-refusal entry, including
+its normal build prerequisite, under a PATH containing no rg: exit0 and exact
+GERBIL-HARNESS-REFUSAL-OK in86.96s. This closes the command-entry omission locally;
+current-head Linux/macOS semantics still require CI. No failed Suite assertion,
+error detection, deadline or heap control is weakened.

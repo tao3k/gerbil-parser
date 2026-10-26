@@ -540,14 +540,28 @@ def dispatcher : Datum := defn "resolve-action" ["state", "terminal", "current",
 
 def bounded : Datum := defn "bounded-index?" ["value", "count"]
   [app "and" [call "fixnum?" ["value"], app "fx>=" [s "value", n 0], call "fx<" ["value", "count"]]]
-def precedence : Datum := defn "precedence?" ["value"]
-  [app "or" [call "not" ["value"], app "match" [s "value",
-    l [app "@list" [app "or" [quoted "none", quoted "left", quoted "right", quoted "dynamic"], call "?" ["integer?"]], b true],
-    l [s "_", b false]]]]
+-- Shared syntax is captured from its real owner. The compiler still supplies
+-- integer? explicitly; the runtime default delegates to native POO Integer.
+def exactRank : Datum := defn "exact-rank?" ["value"]
+  [call "element?" ["Integer", "value"]]
+def precedence : Datum := app "def" [
+  l [s "lr-precedence?", s "value", names ["rank?", "exact-rank?"]],
+  app "or" [call "not" ["value"], app "and" [call "list?" ["value"],
+    app "=" [call "length" ["value"], n 2],
+    app "memq" [call "car" ["value"], app "quote" [names ["none", "left", "right", "dynamic"]]],
+    app "rank?" [call "cadr" ["value"]]]]]
+def terminalLeaf : Datum := defn "lr-terminal?" ["value"] [
+  app "and" [call "list?" ["value"], call "pair?" ["value"],
+    app "eq?" [call "car" ["value"], quoted "terminal"], app "pair?" [call "cdr" ["value"]],
+    app "case" [call "cadr" ["value"],
+      l [names ["eof"], app "=" [call "length" ["value"], n 2]],
+      l [names ["token"], app "and" [app "=" [call "length" ["value"], n 3], app "symbol?" [call "caddr" ["value"]]]],
+      l [names ["literal", "layout-start", "layout-next"], app "and" [app "=" [call "length" ["value"], n 3], app "string?" [call "caddr" ["value"]]]],
+      l [s "else", b false]]]]
 def validator : Datum := defn "make-action-validator" ["states", "productions", "layout?"] [
   defn "reduce?" ["value"] [app "match" [s "value", matchClause (pattern "reduce" ["id"]) (call "bounded-index?" ["id", "productions"]), l [s "_", b false]]],
   defn "shift?" ["value"] [app "match" [s "value", matchClause (pattern "shift" ["target", "precedence"])
-    (app "and" [call "bounded-index?" ["target", "states"], call "precedence?" ["precedence"]]), l [s "_", b false]]],
+    (app "and" [call "bounded-index?" ["target", "states"], call "lr-precedence?" ["precedence", "integer?"]]), l [s "_", b false]]],
   defn "atomic?" ["value", "terminal"] [app "or" [call "shift?" ["value"], call "reduce?" ["value"],
     app "match" [s "value", matchClause (pattern "accept" []) (call "equal?" ["terminal", "+lr-eof+"]),
       l [l [s "@list", quoted "reject-nonassoc", s "key", call "?" ["integer?"]], call "equal?" ["key", "terminal"]], l [s "_", b false]]]],
@@ -595,12 +609,15 @@ set_option autoImplicit false in
 theorem source_checked :
     dynamicSource = Source.dynamic ∧ forkSource = Source.fork ∧ unionSource = Source.union ∧ appendUniqueSource = Source.appendUnique ∧
     unresolvedSource = Source.unresolved ∧ dispatcherSource = Source.dispatcher ∧ shiftReduceSource = Source.shiftReduce ∧ reduceReduceSource = Source.reduceReduce ∧
-    boundedSource = Source.bounded ∧ precedenceSource = Source.precedence ∧ validatorSource = Source.validator ∧
+    boundedSource = Source.bounded ∧ precedenceSource = Source.precedence ∧
+    exactRankSource = Source.exactRank ∧ terminalLeafSource = Source.terminalLeaf ∧ validatorSource = Source.validator ∧
     rowsSource = Source.rows ∧
     eventSource = Source.event := by
-  exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+  exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
 
 example : replace (s ">") (s "<") shiftReduceSource ≠ Source.shiftReduce := by decide +kernel
+example : replace (s "integer?") (s "number?") validatorSource ≠ Source.validator := by decide +kernel
+example : replace (s "Integer") (s "Any") exactRankSource ≠ Source.exactRank := by decide +kernel
 example : replace (s "every") (s "any") validatorSource ≠ Source.validator := by decide +kernel
 example : replace (n 0) (n 1) boundedSource ≠ Source.bounded := by decide +kernel
 example : replace (n 0) (n 1) eventSource ≠ Source.event := by decide +kernel

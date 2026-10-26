@@ -18,3 +18,10 @@ admit -> controls
 lists -> controls
 producer -> controls
 selector -> controls
+
+compiler_input: "CompilerGrammar\ninherits Grammar Record\nrefines compiler containers"
+fields -> compiler_input -> producer
+witness: "Actual source owners\nexisting witness generator\nindependent Lean AST + mutation controls"
+lists -> witness
+leaves -> witness
+witness -> controls

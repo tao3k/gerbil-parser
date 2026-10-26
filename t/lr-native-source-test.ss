@@ -1,6 +1,8 @@
 ;;; Native source controls complement the unbounded Lean correspondence proofs.
 (import :gerbil-parser/language-test-support
         (prefix-in :std/struct/queue stdq-)
+        (only-in :clan/poo/mop element?)
+        (only-in :clan/poo/number Integer)
         :std/io/tempfile
         (only-in :std/misc/ports read-all-as-string)
         (only-in :gerbil-parser/t/fixtures/event-walk-source read-source-definition source-expression-procedure write-event-walk-source-data source-procedure)
@@ -52,11 +54,22 @@
                          (if right-priority (cadr right-priority) 0)))
         (cond ((positive? difference) left) ((negative? difference) right)
               (else (unresolved-result policy left right)))))))
+(def (native-precedence)
+  (let* ((path "src/runtime/lr-data.ss")
+         (rank-source (source-procedure path 'exact-rank? '(element? Integer)))
+         (rank (lambda (value) (rank-source value element? Integer)))
+         (declaration (read-source-definition path 'lr-precedence?))
+         ;; Bind the actual optional-default dependency lexically, preserving
+         ;; the source declaration's full parameter list and every body form.
+         (bind (source-expression-procedure
+                (list 'lambda '(exact-rank?)
+                  (cons 'lambda (cons (cdr (cadr declaration)) (cddr declaration)))))))
+    (bind rank)))
 (def (native-validator)
   (let* ((path "src/compiler/lr-table.ss")
          (bounded (source-procedure path 'bounded-index? '()))
-         (precedence (source-procedure path 'precedence? '()))
-         (factory (source-procedure path 'make-action-validator '(bounded-index? precedence? +lr-eof+))))
+         (precedence (native-precedence))
+         (factory (source-procedure path 'make-action-validator '(bounded-index? lr-precedence? +lr-eof+))))
     (lambda (states productions layout?) (factory states productions layout? bounded precedence '(terminal eof)))))
 (def (visit-items-observation owners symbols terminals targets table masks items start)
   (let* ((declaration (read-source-definition "src/compiler/lr-compiler.ss" 'build-actions))
@@ -228,6 +241,12 @@
     (equal (fork '(fork (reduce 1) (reduce 1)) '(fork (reduce 1) (reduce 2)))
            '(fork (reduce 1) (reduce 1) (reduce 2)))
     (equal (fork '(shift 0 #f) '(fork (reduce 1) (shift 0 #f))) '(fork (shift 0 #f) (reduce 1))))
+  (property "shared source preserves default and compiler rank domains"
+    (bindings (predicate (native-precedence)))
+    (equal (predicate '(left 1)) #t)
+    (equal (predicate '(left 1.0)) #f)
+    (equal (predicate '(left 1.0) integer?) #t)
+    (equal (predicate '(unknown 1) integer?) #f))
   (matrix "closed validator admits only the permitted atom and wrapper shapes"
     (setup (factory (native-validator)))
     ((layout? '(#f #t)))

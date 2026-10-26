@@ -1,19 +1,20 @@
 ;;; The native Record owns field types, inheritance, defaults and normalization.
 (import (only-in :std/list/list delete-duplicates/hash)
-        (only-in :clan/poo/object .cc .get)
+        (only-in :clan/poo/object .cc .get .ref)
         (only-in :clan/poo/mop define-type Fun Object Bool Type. element?)
         (only-in :clan/poo/type Record List Pair Symbol String Exactly Or)
         (only-in :yuanxu/object-types/contracts YuanxuContract.))
-(import (only-in ../modules/parser/types +grammar-kind+ +grammar-schema+ +grammar-ir-schema+ ParserList)
+(import (only-in ../modules/parser/types GrammarContract +grammar-ir-schema+ ParserList)
         (only-in ../grammar/algebra grammar-expression?)
         (only-in ../grammar/lexical-algebra lexical-expression?))
 (export CompilerGrammar GrammarIR CompilerScope CompilerScopeContract)
 
 ;; Compiler consumes the open structural protocol, not source-local ancestry.
+;; Inherit the one grammar field declaration, refining only compiler inputs.
 ;; Full composition/semantic checks remain in the authoritative normalizer.
 (define-type CompilerGrammar
-  (Record kind: [(Exactly +grammar-kind+)] schema: [(Exactly +grammar-schema+)]
-          name: [Symbol] parents: [(List Object)] roles: [(List Object)]
+  (Record (list (.ref GrammarContract 'value-contract))
+          parents: [(List Object)] roles: [(List Object)]
           composition: [(List (Pair Symbol Object))]))
 ;; Declaration data excludes opaque objects and procedures at section boundaries.
 (define-type (GrammarExpression @ Type.) .element?: grammar-expression?)

@@ -343,8 +343,8 @@ open WalkSource NativeActions.Source
 def fallback : Datum := l [s "layout?", app "vector-any" [
   app "lambda" [names ["production"], app "layout-end-action?" [call "production-action" ["production"]]], s "table"]]
 
-def terminal : Datum := defn "terminal?" ["value"] [app "or" [call "equal?" ["value", "+lr-eof+"],
-  app "and" [call "pair?" ["value"], app "eq?" [call "car" ["value"], quoted "terminal"], call "canonical-base-symbol?" ["value"]]]]
+def terminal : Datum := defn "terminal?" ["value"] [app "and" [call "lr-terminal?" ["value"],
+  app "or" [call "equal?" ["value", "+lr-eof+"], call "canonical-base-symbol?" ["value"]]]]
 
 def outer : Datum := defn "validate-lr-tables" ["productions", "actions", "gotos"] [
   app "def" [s "production-count", call "length" ["productions"]],

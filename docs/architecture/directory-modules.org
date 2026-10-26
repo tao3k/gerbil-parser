@@ -133,3 +133,24 @@ test-product preparation stops at language-entries import (idle5); its sampled
 stack is in native dlopen and its generated loader is missing beside native
 objects. Those diagnostics are retained; they are not full qualification.
 Prepared-source, compiled conformance and exact-head CI remain required.
+
+Source witnesses follow these owners as well: appendUniqueSource reads the
+utility declaration; precedenceSource and terminalLeafSource read lr-data.ss.
+Independent Lean AST expectations include the runtime exact-rank helper and the
+compiler's explicit integer? argument. Mutation controls reject widening the
+compiler predicate or replacing native Integer. The existing generator refreshes
+SourceData.lean; the original source-currentness failure remains a valid negative
+control, not a reason to restore duplicated declarations or waive freshness.
+
+CompilerGrammar inherits the Grammar value Record and refines only its three
+compiler input containers; it does not repeat kind/schema/name declarations.
+Source execution controls bind the shared precedence helper's actual optional
+default and native Integer capability lexically. All original body forms and
+parameters remain admitted by the existing source executor. Compiler and runtime
+rank-domain controls remain distinct; there is no header rewrite or dummy reader.
+
+After migrating both witness readers, full local current-source execution passes
+147 modules/1097 cases (160.23s), with two Workers/3GiB and unchanged total90/idle5.
+The shared-Record writer passes37.01s; three focused source/Scope owners pass24.02s.
+The complete Lean build passes273 targets, including independent AST and mutation
+controls. These local gates do not replace final exact-head Linux/macOS CI.

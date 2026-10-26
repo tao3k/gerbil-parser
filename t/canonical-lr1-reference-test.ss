@@ -1,7 +1,7 @@
+#!/usr/bin/env gxi
 ;;; Native module Fixture selects the existing Core Case budget for this Suite.
 (import (only-in ./fixtures/case-profile test-setup! test-cleanup!))
 (export test-setup! test-cleanup!)
-#!/usr/bin/env gxi
 (import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 ;;; LR(1)-but-not-LALR(1) grammar checks the state-splitting reference.

@@ -1,7 +1,7 @@
+#!/usr/bin/env gxi
 ;;; Native module Fixture selects the existing Core Case budget for this Suite.
 (import (only-in ./fixtures/case-profile test-setup! test-cleanup!))
 (export test-setup! test-cleanup!)
-#!/usr/bin/env gxi
 (import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 ;;; Grammar IR qualification of the optional Scheme LR construction.

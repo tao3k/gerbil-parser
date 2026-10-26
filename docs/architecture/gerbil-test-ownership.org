@@ -77,3 +77,12 @@ The package-spec Fixture now calls the real build declaration's spec API in a
 native expander context. It restores its temporary noisy projection even on
 failure. It starts no process, performs no compilation and owns no output/exit
 protocol. Its former generated GXI/preload/data-file executor is removed too.
+
+Complete native discovery must use compiled-prefix/lib before the source parent
+in GERBIL_LOADPATH. The former private loader silently enforced this precedence;
+a source-first path interprets C declarations and creates incompatible runtime
+prototype generations. Native configuration now states the ordering directly.
+Fixture imports must also follow an existing interpreter directive; two misplaced
+shebangs in the first Fixture edit were caught by native discovery and corrected.
+No import/loader override is restored. These are current configuration/file-header
+repairs; historical native blocking stacks remain unknown.

@@ -263,7 +263,7 @@ jobs:
       - name: Run Scheme tests
         timeout-minutes: 15
         run: |
-          GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD/.." \
+          GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD/.." \
             GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=3G,debug=q" GERBIL_PARSER_LR_TRACE=1 \
             gerbil env gxi qualify.ss run --timeout 900 \
               --log .data/native-gerbil-test.log --require "^OK$" -- \

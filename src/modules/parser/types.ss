@@ -83,11 +83,15 @@
 
 ;; : (-> Unit POOObject)
 (def (parser-empty-prototype) (.o))
+;; Family identities are values, not receiver-local prototype suppliers.
+;; Refining a Contract must retain its family unless proto is overridden.
+(def grammar-role-prototype (parser-empty-prototype))
+(def grammar-prototype (parser-empty-prototype))
 
 ;;; Boundary: a grammar role owns all declaration sections as typed POO responsibilities.
 (define-type (GrammarRoleContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/grammar-role
-  proto: (parser-empty-prototype)
+  proto: grammar-role-prototype
   responsibilities:
   (.o kind: GrammarRoleKind
       name: ParserSymbol
@@ -126,7 +130,7 @@
 ;;; Boundary: grammar composition admits only typed parent grammars and role objects.
 (define-type (GrammarContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/grammar
-  proto: (parser-empty-prototype)
+  proto: grammar-prototype
   responsibilities:
   (.o kind: GrammarKind
       schema: GrammarSchema

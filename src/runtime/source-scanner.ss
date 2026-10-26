@@ -2,16 +2,16 @@
 ;;; Immutable source-scanner state for languages whose lexical context changes
 ;;; across token boundaries. A state is a reusable checkpoint for one source.
 
-(import (only-in :clan/poo/mop validate)
+(import (only-in :clan/poo/mop validate define-type Type.)
         (only-in :clan/poo/type String)
-        (only-in ./function-types SourceScannerStep)
+        (only-in ./function-types SourceScannerStepOf)
         (only-in :std/string/utf8 string-utf8-length)
         (only-in ./token make-token token-kind token-lexeme token-start token-end)
         (only-in ./contextual-scanner prepare-contextual-scanner contextual-scanner-initial-state
-                 contextual-scanner-step contextual-scan-state-character-offset contextual-scan-state-byte-offset
+                 contextual-scanner-step contextual-scan-state? contextual-scan-state-character-offset contextual-scan-state-byte-offset
                  contextual-scan-state-source-length contextual-scan-state-common-suffix-length
                  prepare-contextual-scan-suffix contextual-scan-suffix-state))
-(export SourceScannerStep source-scanner-contextual? source-scanner-driver? source-scanner-for-source? source-scanner-tokens make-source-scanner
+(export SourceScannerStepOf source-scanner-contextual? source-scanner-driver? source-scanner-for-source? source-scanner-tokens make-source-scanner
         make-contextual-source-scanner source-scanner-initial-state
         source-scanner-step
         source-scan-state?
@@ -22,20 +22,21 @@
         make-source-scan-session source-scan-session? source-scan-session-tokens
         source-scan-session-scanned-token-count source-scan-session-reused-token-count)
 
-(defstruct source-scanner-driver (source initial-context scan) transparent: #t)
+(defstruct source-scanner-driver (source initial-context scan context-type) transparent: #t)
 (defstruct (contextual-source-driver source-scanner-driver) (executor position))
+(define-type (ContextualScanState @ Type.) .element?: contextual-scan-state?)
 (def source-scanner-contextual? contextual-source-driver?)
 (def (make-contextual-source-scanner plan source position)
   (let* ((executor (prepare-contextual-scanner plan source))
          (initial (contextual-scanner-initial-state executor)))
-    (make-contextual-source-driver source initial #f executor position)))
+    (make-contextual-source-driver source initial #f ContextualScanState executor position)))
 
 (defstruct source-scan-state (owner source character-offset byte-offset context)
   transparent: #t)
 
-(def (make-source-scanner source initial-context step)
-  (make-source-scanner-driver (validate String source) initial-context
-                              (validate SourceScannerStep step)))
+(def (make-source-scanner Context Mode source initial-context step)
+  (make-source-scanner-driver (validate String source) (validate Context initial-context)
+                              (validate (SourceScannerStepOf Context Mode) step) Context))
 
 (def (source-scanner-for-source? scanner source)
   (and (source-scanner-driver? scanner)
@@ -52,7 +53,7 @@
    (source-scan-state-owner state) (source-scan-state-source state)
    (source-scan-state-character-offset state)
    (source-scan-state-byte-offset state)
-   context))
+   (validate (source-scanner-driver-context-type (source-scan-state-owner state)) context)))
 
 (def (step-contextual-source scanner state)
   (let (context (source-scan-state-context state))
@@ -87,7 +88,7 @@
                    source start (source-scan-state-context state) mode)))
       (if kind
         (begin
-          ;; SourceScannerStep already checks kind and UInt end. The scanner
+          ;; The selected step Type checks kind, UInt end and Context. The scanner
           ;; owns only the relative progress and source-bound relation.
           (unless (and (< start end) (<= end length))
             (error "source scanner did not advance" kind start end))

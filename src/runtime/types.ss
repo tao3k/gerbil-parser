@@ -9,6 +9,7 @@
 ;; Reuse the authoritative structural validator across source/compiled worlds.
 (define-type (ParseArtifact @ Type.) .element?: parse-artifact-valid?)
 
+;; Only valid? accepts Any: it must classify malformed candidates as #f.
 (define-type RuntimeScope
   (Record parse-artifact-valid?: [(Fun Bool <- Any)]
           parse-artifact-success?: [(Fun Bool <- ParseArtifact)]

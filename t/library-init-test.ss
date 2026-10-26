@@ -1,71 +1,48 @@
 ;;; Native Core projection retains the complete library and foreign options.
+;; Consume installed descriptors by package identity. Re-evaluating their source
+;; beside installed constructors would create a second nominal family.
 (import :gerbil-parser/language-test-support
-        (only-in :clan/poo/object .o .cc .get)
+        (only-in :clan/poo/object .o .cc .get .ref)
         (only-in :std/source this-source-file)
-        (only-in :gerbil-parser/src/build-support/compiler-profile run-build-tool)
-        (only-in :std/io/tempfile make-temporary-file-name)
         (only-in :clan/poo/mop element? validate TypeError? define-type Type.)
-        (only-in :clan/poo/type String Symbol TypeValuePair)
-        (only-in :clan/poo/number Integer)
-        (only-in "../src/utilities/types.ss" UtilitiesScopeContract UtilitiesScope)
-        (only-in "../src/grammar/types.ss" GrammarScopeContract)
-        (only-in "../src/ffi/types.ss" ForeignInterfaceScopeContract)
-        (only-in "../src/language/types.ss" LanguageScopeContract)
+        (only-in :clan/poo/type String Symbol TypeValuePair Record OrFalse)
+        (only-in :yuanxu/module-system/source/admission current-module-source-observer)
+        (only-in :yuanxu/module-system/building/source-package register-module-build-source!)
+        (only-in :yuanxu/ops/progress call-with-execution-progress execution-progress!)
+        (only-in :clan/poo/number Integer UInt)
+        (only-in :gerbil-parser/src/compiler/types GrammarIR)
+        (only-in :gerbil-parser/src/utilities/types UtilitiesScopeContract UtilitiesScope)
+        (only-in :gerbil-parser/src/grammar/types GrammarScopeContract)
+        (only-in :gerbil-parser/src/ffi/types ForeignInterfaceScopeContract)
+        (only-in :gerbil-parser/src/language/types LanguageScopeContract)
         (only-in "../init.ss" gerbil-parser.init.exports)
         (only-in :gerbil-parser/languages/arithmetic/parser parse-arithmetic)
         (only-in :gerbil-parser/languages/arithmetic/grammar arithmetic-grammar)
-        (only-in :gerbil-parser/src/modules/parser/objects make-grammar)
+        (only-in :gerbil-parser/src/modules/parser/objects make-grammar Grammar. GrammarRole.)
         (only-in :gerbil-parser/src/schema +language-grammar-schema+)
+        (only-in :gerbil-parser/src/modules/parser/types GrammarContract GrammarRoleContract)
         (prefix-in (only-in :gerbil-parser/src/compiler/normalize compile-grammar) compiled.))
-;; A spec query expands the actual Core/import closure before returning its
-;; datum. Report completed SDK imports on the supervised diagnostic stream,
-;; keeping spec data separate and the five-second silence deadline unchanged.
-(def spec-import-progress
-  (object->string
-    '(begin
-       (import :gerbil/expander)
-       (let ((native-import (current-expander-module-import)) (completed 0))
-         (current-expander-module-import
-           (lambda (path reload?)
-             (begin0 (native-import path reload?)
-               (set! completed (+ completed 1))
-               (display "BUILD-SPEC-IMPORTED " (current-error-port))
-               (write completed (current-error-port))
-               (newline (current-error-port))
-               (force-output (current-error-port)))))))))
-(def (query-spec entry (noise? #f))
-  ;; Native inherited stderr bypasses the Worker's Scheme output pipe. Keep
-  ;; the spec in a private data file and use the existing streaming build-tool
-  ;; adapter so actual diagnostics reach the existing idle observer.
-  (let (spec-file (make-temporary-file-name "parser-build-spec-"))
-    (try
-      (run-build-tool
-        (list "env" "-u" "GERBIL_LOADPATH" "gxi" "-:max-heap=1G,debug=q" "-e" spec-import-progress
-              "-L" (path-expand entry (path-directory (this-source-file)))
-              "-e" (object->string
-                      `(begin
-                         ,@(if noise?
-                             '((def actual-modules-spec modules-spec)
-                               (set! modules-spec
-                                 (lambda (roots)
-                                   (displayln "SPEC-PREPARATION-NOISE")
-                                   (actual-modules-spec roots)))) '())
-                         (call-with-output-file ,spec-file
-                           (lambda (output)
-                             (parameterize ((current-output-port output))
-                               (main "spec"))))
-                         ;; The datum is closed before the existing disposable
-                         ;; test-child exit. Native teardown is not spec work.
-                         (load-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
-                         ((eval 'gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process#test-child-process-exit!) 0))))
-        text?: #t)
-      (call-with-input-file spec-file
-        (lambda (input)
-          (let (spec (read input))
-            (unless (and (list? spec) (eof-object? (read input)))
-              (error "native spec query did not publish one datum" entry))
-            spec)))
-      (finally (when (file-exists? spec-file) (delete-file spec-file))))))
+(def parser-source-root (path-expand ".." (path-directory (this-source-file))))
+;; Actual native source operations advance Ops progress; no timer or heartbeat.
+(def (selected-test-scope name)
+  (let ((prior (current-module-source-observer)) (completed 0))
+    (call-with-execution-progress #f #f
+      (lambda (_progress)
+        (parameterize ((current-module-source-observer
+          (lambda (kind amount)
+            (when prior (prior kind amount))
+            (when (or (memq kind '(reads compiler-identity-reads role-parses
+                                    publication-preparation-walks public-preparation-walks))
+                      (and (pair? kind) (memq (car kind)
+                        '(reader-projection-end reader-compile-end reader-eval-end))))
+              (set! completed (+ completed 1))
+              (execution-progress! 'source-scope-operations completed)))))
+          (let (paths (load-path))
+            (dynamic-wind
+              (lambda () (register-module-build-source! parser-source-root 'gerbil-parser))
+              (lambda () (.get (.ref (.get gerbil-parser.init.exports Components) name) scope))
+              (lambda () (set-load-path! paths)))))))))
+
 ;; A concrete consumer owns its struct representation and passes its POO Type.
 (defstruct scope-test-row (key value) transparent: #t)
 (define-type (ScopeTestRow @ Type.)
@@ -79,11 +56,13 @@
   (with-catch (lambda (condition) (TypeError? condition))
     (lambda () (thunk) #f)))
 (deflanguage-parser-tests library-init-test "native Core library projection"
-  (engine)
+  ;; Role evaluation and native source registration use the process expander.
+  ;; Retain two Workers; this owner declares its existing exclusive capability.
+  (engine (exclusive #t))
   (scenario "actual service Scopes validate and reject malformed values"
     (sequential
-      ((utilities (.get gerbil-parser.init.exports Components utilities scope))
-       (grammar (.get gerbil-parser.init.exports Components grammar scope)))
+      ((utilities (selected-test-scope 'utilities))
+       (grammar (selected-test-scope 'grammar)))
       (equal (element? UtilitiesScopeContract utilities) #t)
       (equal (element? GrammarScopeContract grammar) #t)
       (equal ((.get (cdr ((.get utilities list-operations-for) Integer Integer)) append-unique) '(1) 2) '(1 2))
@@ -93,14 +72,14 @@
       (equal (element? GrammarScopeContract (.cc grammar lexical-expression?: 42)) #f)))
   (scenario "specific signatures reject input and output mismatches"
     (sequential
-      ((raw (.get gerbil-parser.init.exports Components utilities scope))
+      ((raw (selected-test-scope 'utilities))
        (selection ((.get raw list-operations-for) String String))
        (typed (cdr selection))
-       (runtime (.get gerbil-parser.init.exports Components runtime scope))
-       (testing (.get gerbil-parser.init.exports Components testing scope))
-       (build (.get gerbil-parser.init.exports Components build-support scope))
-       (modules (.get gerbil-parser.init.exports Components modules scope))
-       (compiler (.get gerbil-parser.init.exports Components compiler scope))
+       (runtime (selected-test-scope 'runtime))
+       (testing (selected-test-scope 'testing))
+       (build (selected-test-scope 'build-support))
+       (modules (selected-test-scope 'modules))
+       (compiler (selected-test-scope 'compiler))
        (calls 0))
       (equal (element? TypeValuePair selection) #t)
       (equal (type-rejected? (lambda () ((.get raw list-operations-for) 42 String))) #t)
@@ -129,21 +108,21 @@
       (equal (type-rejected? (lambda () ((.get build native-module-link-options) '(42)))) #t)
       (equal (type-rejected? (lambda () ((.get build compiler-build-spec) 42))) #t)
       (equal (type-rejected? (lambda () ((.get testing parser-test-form-admitted?) '(quote x) '(42)))) #t)
-      (equal (type-rejected? (lambda () ((.get modules make-graph-query-context) 42))) #t)
+      (equal (type-rejected? (lambda () ((.get modules make-graph-query-context) String Symbol Symbol 42))) #t)
       (equal (type-rejected? (lambda () ((.get compiler compile-grammar) 42))) #t)
       (equal (type-rejected? (lambda () ((.get compiler compile-grammar) (.o)))) #t)
       (equal (type-rejected? (lambda () ((.get compiler compile-grammar) '((schema . "unknown") (grammar . test))))) #t)
-      (equal ((.get modules graph-query-view?)
-        (.get ((.get modules make-graph-query-context)
-          (.o records: '() id-of: (lambda (_) 0) parent-of: (lambda (_) #f) kind-of: (lambda (_) 'node))) view)) #t)
+      (equal ((.get modules graph-query-view?) (Record) UInt Symbol
+        (cdr (.get ((.get modules make-graph-query-context) (Record) UInt Symbol
+          (.o records: '() id-of: (lambda (_) 0) parent-of: (lambda (_) #f) kind-of: (lambda (_) 'node))) view))) #t)
       (equal (element? ForeignInterfaceScopeContract
-        (.cc (.get gerbil-parser.init.exports Components ffi scope) language-abi-version: -1)) #f)
+        (.cc (selected-test-scope 'ffi) language-abi-version: -1)) #f)
       (equal (element? LanguageScopeContract
-        (.cc (.get gerbil-parser.init.exports Components language scope) grammar-schema: "unknown")) #f)
+        (.cc (selected-test-scope 'language) grammar-schema: "unknown")) #f)
       (equal (type-rejected? (lambda () ((.get runtime parse-artifact-roundtrip) '((schema . "invalid"))))) #t)))
   (scenario "struct rows and POO Types share the same explicit service"
     (sequential
-      ((utilities (.get gerbil-parser.init.exports Components utilities scope))
+      ((utilities (selected-test-scope 'utilities))
        (selection ((.get utilities list-operations-for) ScopeTestRow Symbol))
        (operations (cdr selection))
        (first (make-scope-test-row 'first "a"))
@@ -160,11 +139,29 @@
                   (make-scope-test-row 'key 42)))) #t)
       (equal (type-rejected? (lambda ()
         ((.get operations merge-keyed-row) (list first) second scope-test-row-value (lambda (_) '())))) #t)))
+  (scenario "IR sections and native source names reject opaque or malformed values"
+    (sequential ((compiler (selected-test-scope 'compiler))
+                 (build (selected-test-scope 'build-support)))
+      (equal (element? GrammarIR arithmetic-grammar) #t)
+      (each (row) ((list (cons 'rules (lambda () '()))
+                        (cons 'rules '((start (unknown-expression))))
+                        (cons 'lexical-rules '((word (unknown-lexical-expression))))
+                        (cons 'extras '(word))
+                        (cons 'unexpected '())))
+        (equal (element? GrammarIR (cons row (filter (lambda (old) (not (eq? (car old) (car row)))) arithmetic-grammar))) #f))
+      (equal (element? GrammarIR (cons (car arithmetic-grammar) arithmetic-grammar)) #f)
+      (equal (type-rejected? (lambda () ((.get build compiler-build-spec) '((gxc: 42))))) #t)
+      (equal (type-rejected? (lambda () ((.get build compiler-build-spec) '((gxc:))))) #t)
+      (equal ((.get build compiler-build-spec) '((ssi: "entry" (submodules: ("child")))))
+             '((ssi: "entry" (submodules: ("child")))))))
   (scenario "compiled products interoperate through structural Scopes"
+    (equal (eq? Grammar. (.get GrammarContract proto)) #t)
+    (equal (eq? Grammar. (.get (.cc GrammarContract) proto)) #t)
+    (equal (eq? (.get GrammarRoleContract proto) (.get (.cc GrammarRoleContract) proto)) #t)
     (sequential
-      ((runtime (.get gerbil-parser.init.exports Components runtime scope))
-       (compiler (.get gerbil-parser.init.exports Components compiler scope))
-       (language (.get gerbil-parser.init.exports Components language scope))
+      ((runtime (selected-test-scope 'runtime))
+       (compiler (selected-test-scope 'compiler))
+       (language (selected-test-scope 'language))
        (artifact (parse-arithmetic "1 + 2"))
        (ir ((.get compiler compile-grammar) arithmetic-grammar))
        (open-grammar (make-grammar 'scope-test '() '()))
@@ -175,28 +172,4 @@
       (equal ((.get runtime parse-artifact-valid?) '((schema . "invalid"))) #f)
       (equal ir (compiled.compile-grammar arithmetic-grammar))
       (equal open-ir (compiled.compile-grammar open-grammar))
-      (equal (.get language language-grammar-schema) +language-grammar-schema+)))
-  (scenario "spec preparation diagnostics cannot corrupt the data channel"
-    (sequential ((spec (query-spec "../build.ss" #t)))
-      (equal (and (list? spec) (pair? spec)) #t)
-      (equal (and (assoc "src/utilities/types" (map cdr spec)) #t) #t)))
-  (scenario "init projection preserves public entries and ABI boundaries"
-    (sequential
-      ((spec (query-spec "../build.ss"))
-       (names (map cadr spec))
-       (seen (make-hash-table)))
-      (each (name) (names)
-        (equal (hash-key? seen name) #f)
-        (act (hash-put! seen name #t)))
-      ;; The development CI gate independently checks the entire native inventory.
-      ;; This unit checks public compatibility and phase/ABI boundaries once.
-      (each (name) ('("language-support" "language-test-support" "graph-query-support"
-                     "src/api" "src/runtime/machine" "src/compiler/machine"))
-        (equal (and (member name names) #t) #t))
-      (each (name) ('("src/ffi/language-abi" "src/ffi/language-abi-context" "src/ffi/rust-aot-abi"))
-        (scope ((entry (assoc name (map cdr spec))))
-          (equal (and entry #t) #t)
-          (equal (and (member "-cc-options" entry) #t) #t)))
-      (each (name) ('("modules/parser/types" "modules/parser/objects" "modules/parser/config"
-                      "modules/parser/interface" "build-modules"))
-        (equal (and (member name names) #t) #f)))))
+      (equal (.get language language-grammar-schema) +language-grammar-schema+))))

@@ -5,6 +5,7 @@
         (only-in :yuanxu/object-types/contracts YuanxuContract.))
 (export TestingScope TestingScopeContract)
 
+;; Any is inspected syntax/reader data, never executed by this admission walk.
 (define-type TestingScope
   (Record parser-test-form-admitted?: [(Function [Bool] [Any (List Symbol)] optional: [(List Symbol)])]))
 

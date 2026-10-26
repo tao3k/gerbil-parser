@@ -1,4 +1,5 @@
 ;;; Closed source recipes share the source engine protocol; no language imports.
+(import (only-in :clan/poo/type False Symbol))
 (import (only-in ./parse-cost with-parser-cost-stage)
         (only-in ../language/command-profile command-plan-kind)
         (only-in :clan/poo/object .o .ref .slot?)
@@ -56,7 +57,7 @@
          (prefix (contextual-ir-ref recognition 'required-prefix))
          (results (contextual-program-results program)))
     (def (factory source)
-      (make-source-scanner source #f
+      (make-source-scanner False Symbol source #f
        (lambda (text start context _mode)
          (let (limit (string-length text))
            (if (= start limit) (values #f start context)

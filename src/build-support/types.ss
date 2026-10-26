@@ -5,8 +5,10 @@
         (only-in :yuanxu/object-types/contracts YuanxuContract.))
 (export BuildSupportScope BuildSupportScopeContract BuildSpecification)
 
-;; std/make owns instruction semantics; describe its public datum channel only.
-(define-type BuildSpecification (List (Or String (Pair Keyword (List Any)))))
+;; std/make owns option/metadata semantics, including nested submodule specs.
+;; Any is retained only for that forwarded SDK-owned tail, not the source name.
+;; Recreating its option language here would duplicate the native build system.
+(define-type BuildSpecification (List (Or String (Pair Keyword (Pair String (List Any))))))
 
 (define-type BuildSupportScope
   (Record initialize-build!: [(Fun Unit)]

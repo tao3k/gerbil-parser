@@ -105,7 +105,7 @@ jobs:
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/conformance-preparation-imports.log --require TEST-SUITE-OK \
-            -- gxi t/fixtures/tla-sany-differential/test-suite.ss \
+            -- gxi t/fixtures/tla-sany-differential/test-suite.ss --workers 2 \
               t/build-owner-import-test.ss
       - name: Compile reusable Scheme library objects
         run: |
@@ -256,7 +256,7 @@ jobs:
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/test-macro-phase.log --require TEST-SUITE-OK \
-            -- gxi t/fixtures/tla-sany-differential/test-suite.ss \
+            -- gxi t/fixtures/tla-sany-differential/test-suite.ss --workers 2 \
               t/fixtures/test-macro-phase/controls.ss \
               t/fixtures/test-macro-phase/loader-controls.ss \
               t/fixtures/test-macro-phase/vocabulary-controls.ss \
@@ -268,7 +268,7 @@ jobs:
         run: |
           GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD" \
             GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=3G,debug=q" GERBIL_PARSER_LR_TRACE=1 \
-            gerbil env gxi t/fixtures/tla-sany-differential/test-suite.ss --remaining-conformance t languages
+            gerbil env gxi t/fixtures/tla-sany-differential/test-suite.ss --workers 2 --remaining-conformance t languages
       - name: Verify native command
         run: |
           gerbil env gparse help

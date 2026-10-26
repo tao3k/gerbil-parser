@@ -1,3 +1,4 @@
+(import (only-in :clan/poo/type OrFalse Symbol))
 (import :gerbil-parser/language-test-support)
 ;;; Engine ownership: source-contract admission and UTF-8 scanner checkpoints.
 (import (only-in :std/test check test-case test-suite)
@@ -101,7 +102,7 @@
         (verify observe parse-lines "rejected\n")))))
     (scenario "scanner checkpoints retain byte offsets"
       (sequential ((scanner
-              (make-source-scanner
+              (make-source-scanner (OrFalse Symbol) Symbol
                "αx" #f
                (lambda (_source offset context _mode)
                  (if (= offset 2)

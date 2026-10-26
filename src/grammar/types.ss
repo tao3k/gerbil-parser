@@ -5,6 +5,7 @@
         (only-in :yuanxu/object-types/contracts YuanxuContract.))
 (export GrammarScope GrammarScopeContract)
 
+;; Any is the candidate domain: malformed values must yield #f, not fail argument admission.
 (define-type GrammarScope
   (Record grammar-expression?: [(Fun Bool <- Any)]
           lexical-expression?: [(Fun Bool <- Any)]))

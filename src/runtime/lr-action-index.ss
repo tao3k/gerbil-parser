@@ -8,7 +8,7 @@
         lookup-literal-action-entry
         lookup-layout-start-action-entry
         lookup-layout-next-action-entry
-        lr-action-row-eof
+        lr-action-row-eof lr-action-row?
         lr-action-row-tokens lr-action-row-has-literals?)
 
 ;;; ASCII punctuation has a direct action slot; longer/Unicode literals and

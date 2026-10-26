@@ -1,3 +1,4 @@
+(import (only-in :clan/poo/type OrFalse Symbol))
 (import :gerbil-parser/language-test-support)
 ;;; Engine checkpoints are owned by the creating worker, including shared text.
 (import :std/test
@@ -65,7 +66,7 @@
           (equal (source-scan-session-scanned-token-count next)  1)
           (equal (> (source-scan-session-reused-token-count next) 0)  #t))
         (sequential ((calls 0)
-               (worker (make-source-scanner "xy" #f
+               (worker (make-source-scanner (OrFalse Symbol) Symbol "xy" #f
                          (lambda (_source start context _mode)
                            (set! calls (+ calls 1))
                            (if (= start 2) (values #f start context)
@@ -148,14 +149,14 @@
     (property "another worker cannot use a checkpoint over the exact same string"
       (bindings (source "αx") (calls 0) (step (lambda (_source offset context _mode)
                      (set! calls (+ calls 1))
-                     (values 'character (+ offset 1) context))) (left (make-source-scanner source 'left step)) (right (make-source-scanner source 'right step)) (initial (source-scanner-initial-state left)))
+                     (values 'character (+ offset 1) context))) (left (make-source-scanner (OrFalse Symbol) Symbol source 'left step)) (right (make-source-scanner (OrFalse Symbol) Symbol source 'right step)) (initial (source-scanner-initial-state left)))
       (equal (rejected? (lambda () (source-scanner-step right initial 'test)))  #t)
       (equal calls  0)
       (equal (rejected? (lambda ()
                            (source-scanner-step right (source-scan-state-with-context initial 'changed) 'test)))  #t)
       (equal calls  0))
     (scenario "owned checkpoint replay and context updates preserve UTF-8 spans"
-      (sequential ((worker (make-source-scanner "αx" 'initial
+      (sequential ((worker (make-source-scanner (OrFalse Symbol) Symbol "αx" 'initial
                       (lambda (_source offset context _mode)
                         (if (= offset 2) (values #f offset context)
                           (values 'character (+ offset 1) context)))))

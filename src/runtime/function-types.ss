@@ -1,19 +1,48 @@
-;;; -*- Gerbil -*-
-;;; Callable extension boundaries shared by scanner and LR preparation.
+;;; Callable extension boundaries use caller-owned Context/Mode Types.
 (import (only-in :clan/poo/object .cc)
-        (only-in :clan/poo/mop Type. Function Fun Any Bool)
+        (only-in :clan/poo/mop Type. Function Fun Bool define-type element?)
         (only-in :clan/poo/type String Symbol OrFalse)
-        (only-in :clan/poo/number UInt)
-        (only-in ./token token?))
-(export SourceScannerStep ActionSelector ActionSelectorFactory)
+        (only-in :clan/poo/number UInt Integer)
+        (only-in ./token token?)
+        (only-in ./lr-action-index lr-action-row?))
+(export SourceScannerStepOf LRActionEntry LRActionRows LRActionIndex
+        ActionSelector ActionSelectorFactory)
 
-;; The scanner returns kind/end/context as three values. Relative progress and
-;; source bounds remain algorithmic invariants, rather than pretending to be Types.
-(def SourceScannerStep
-  (Function (list (OrFalse Symbol) UInt Any) (list String UInt Any Any)))
+(def (SourceScannerStepOf Context Mode)
+  (Function (list (OrFalse Symbol) UInt Context) (list String UInt Context Mode)))
 (def ParserToken (.cc Type. sexp: 'ParserToken '.element? token?))
-(def ActionRows (.cc Type. sexp: 'LRActionRows '.element? vector?))
-(def ActionSelector (Fun Any <- UInt (OrFalse ParserToken)))
-;; A checked factory produces a checked selector through native recursive
-;; Function validation; there is no second handwritten callback protocol.
-(def ActionSelectorFactory (Fun ActionSelector <- ActionRows ActionRows Bool Bool))
+
+;; Validate the existing LR data language, not a parallel execution engine.
+(def (lr-terminal? value)
+  (and (list? value) (pair? value) (eq? (car value) 'terminal)
+       (pair? (cdr value))
+       (case (cadr value)
+         ((eof) (= (length value) 2))
+         ((token) (and (= (length value) 3) (symbol? (caddr value))))
+         ((literal layout-start layout-next)
+          (and (= (length value) 3) (string? (caddr value))))
+         (else #f))))
+(def (lr-action? action guards? (active '()))
+  (and (list? action) (pair? action) (not (memq action active))
+    (let ((size (length action)) (next (cons action active)))
+      (case (car action)
+        ((shift reduce) (and (= size 2) (element? UInt (cadr action))))
+        ((accept) (= size 1))
+        ((layout-shift) (and (= size 3) (memq (cadr action) '(layout-start layout-next))
+                             (element? UInt (caddr action)) #t))
+        ((reject-nonassoc) (and (= size 3) (lr-terminal? (cadr action))
+                                (element? Integer (caddr action))))
+        ((fork) (and (> size 1) (andmap (lambda (branch) (lr-action? branch guards? next)) (cdr action))))
+        ((layout-guard) (and guards? (= size 3)
+          (lr-action? (cadr action) #t next) (lr-action? (caddr action) #t next)))
+        (else #f)))))
+(def (lr-entry? value guards?)
+  (and (pair? value) (lr-terminal? (car value)) (lr-action? (cdr value) guards?)))
+(define-type (LRActionEntry @ Type.) .element?: (lambda (v) (lr-entry? v #f)))
+(define-type (LRActionRows @ Type.)
+  .element?: (lambda (v) (and (vector? v) (andmap (lambda (row)
+      (and (list? row) (andmap (lambda (entry) (lr-entry? entry #t)) row))) (vector->list v)))))
+(define-type (LRActionIndex @ Type.)
+  .element?: (lambda (v) (and (vector? v) (andmap lr-action-row? (vector->list v)))))
+(def ActionSelector (Fun (OrFalse LRActionEntry) <- UInt (OrFalse ParserToken)))
+(def ActionSelectorFactory (Fun ActionSelector <- LRActionRows LRActionIndex Bool Bool))

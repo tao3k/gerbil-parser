@@ -52,19 +52,20 @@ limits remain unchanged. Failure archives preserve the original status and
 cannot be restored as successful prepared products. CI's existing transport
 identity remains distinct from compiler correctness and review authorization.
 
-* Native callable extension boundaries
+* Explicit callable and data boundaries
 
-The pinned =gerbil-poo= Function Type owns callback invocation contracts.
-=GraphQueryViewContract= declares its three accessors as native Functions;
-=make-graph-query-context= retains the checked view returned by validation.
-Language-owned IDs and kinds remain ordinary values, and query predicates keep
-Scheme's truth-value convention. Admission does not execute callback bodies.
+Native POO Types and Functions check each invocation. Graph callers choose their
+Row, Id and Kind Types; the Context retains these choices and a TypeValuePair
+for its admitted view. Its accessors return Id, OrFalse(Id), and Kind. False is
+reserved for no parent. Query arguments and targets use the same chosen Types.
 
 #+begin_src scheme
 (import :gerbil-parser/graph-query-support
-        (only-in :clan/poo/object .o .ref))
+        (only-in :clan/poo/object .o .ref)
+        (only-in :clan/poo/type Record Symbol OrFalse))
+(def Row (Record id: [Symbol] parent: [(OrFalse Symbol)] kind: [Symbol]))
 (def context
-  (make-graph-query-context
+  (make-graph-query-context Row Symbol Symbol
     (.o records: (list (.o id: 'root parent: #f kind: 'section))
         id-of: (lambda (record) (.ref record 'id))
         parent-of: (lambda (record) (.ref record 'parent))
@@ -72,15 +73,59 @@ Scheme's truth-value convention. Admission does not execute callback bodies.
 (graph-query-map context 'section (lambda (_) #t))
 #+end_src
 
-=make-source-scanner= installs =SourceScannerStep=, which takes
-=source/offset/context/mode= and returns three values: optional symbolic kind,
-nonnegative end offset and next context. Source-relative progress, EOF and
-worker identity remain scanner invariants. =lr-runtime-with-action-selector=
-uses =ActionSelectorFactory=: native higher-order validation wraps the returned
-=state/token= selector before the prepared runtime retains it. These contracts
-are defined in =src/runtime/function-types.ss= and exercised with refusal,
-multiple-value and nested callback controls in
-=t/native-function-boundary-test.ss=.
+=make-source-scanner ContextType ModeType source initial-context step= installs
+=SourceScannerStepOf(ContextType, ModeType)=. It accepts source/UInt offset/
+ContextType/ModeType and returns exactly optional Symbol, UInt end, ContextType.
+A caller-owned defstruct works through its POO Type, including field predicates.
+Initial and replacement Contexts are checked. Progress, EOF, span bounds and
+worker ownership remain algorithmic invariants. Original callback exceptions
+propagate. The contextual IR executor retains its own nominal scanner structs.
+
+=ActionSelectorFactory= validates raw action rows, indexed row structs, and a
+returned selector of UInt/optional-token -> optional LRActionEntry. Entries have
+concrete terminal/action structure; malformed operands and cyclic branches fail
+Type admission. Types do not establish parser transition correctness.
+
+Utilities publishes concrete string services plus
+=list-operations-for(RowType, KeyType) -> TypeValuePair=. It has no default row/key
+Type. Compiler accepts structural Grammar or schema-bound GrammarIR. IR headers,
+row carriers and grammar/lexical expression data are checked by their existing
+validators; semantic resolution remains the compiler's responsibility. Grammar
+family prototypes are stable across Contract refinements within their own module
+realization. Structural compiler inputs permit source/compiled interoperability.
+
+** Remaining Any sites
+
+These seven declarations retain their actual universal semantics; none is renamed
+to a nominal alias to conceal a weak signature.
+
+| Location | Position | Reason |
+|----------+----------+--------|
+| grammar/types.ss grammar-expression? | Candidate | Malformed arbitrary candidates must return false |
+| grammar/types.ss lexical-expression? | Candidate | Same recognition boundary for lexical syntax |
+| runtime/types.ss parse-artifact-valid? | Candidate | Classification returns false; consuming methods require ParseArtifact |
+| modules/types.ss graph-query-view? | Candidate only | Row/Id/Kind parameters are explicit; a malformed candidate still returns false |
+| testing/types.ss parser-test-form-admitted? | Inspected reader/form data | Syntax inspection does not evaluate the supplied datum; name lists are List Symbol |
+| modules/parser/graph-query-types.ss GraphQueryPredicateOf | Result only | Scheme true values include strings/member tails; Row input remains checked |
+| build-support/types.ss BuildSpecification | Native option/metadata tail | Source names are String; std/make owns nested option/submodule payload semantics |
+
+The emitted Rust =Guard::Any= string in rust-scanner.ss is an enum variant, not a
+POO Type. SourceScannerStepOf, Graph accessors and GrammarIR contain no Any.
+
+Scope/API checks (=t/library-init-test.ss=) and external native entry checks
+(=t/library-build-entry-test.ss=) have distinct owners. Both retain total90/idle5;
+the Source Scope owner declares its existing exclusive expander capability and
+reports actual source reads/parses/evaluations through Ops. Timers, cached check
+replays and unconditional heartbeat output do not count as progress. The Worker
+pool remains two. Native entry tests clear inherited GERBIL_LOADPATH and validate
+one noisy spec against the complete public/ABI requirements; the development
+native inventory gate independently checks the ordinary spec.
+
+The exact source association during native Make belongs to Core's existing
+compiler-input owner. Its private dynamic source index preserves the selected
+inputs while std/make temporarily changes the search path for timestamps. Byte
+and package guards still run, and outside-owner/unselected sources use canonical
+native lookup. No Gerbil/SDK edits or alternate build environment are required.
 
 * Separate backend baselines
 
@@ -603,3 +648,8 @@ resource policies are not changed. A completed build after this policy change
 is evaluated under the new policy, never re-labelled as passing the old180s SLO.
 
 See [[file:docs/architecture/directory-modules.org][directory Module and build ownership]] for the init-to-std/make chain.
+
+The source Scope fixture selects its source root only during exclusive Scope
+construction and restores the native load path on success or exception. It does
+not register a source-first root during shared test-owner admission: doing so
+would reinitialize public nominal Types beside installed constructors.

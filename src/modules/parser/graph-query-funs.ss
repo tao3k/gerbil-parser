@@ -3,7 +3,8 @@
 
 (import (only-in :clan/poo/object .ref)
         (only-in :clan/poo/mop validate)
-        (only-in ./graph-query-types GraphQueryPredicate)
+        (only-in :clan/poo/type List)
+        (only-in ./graph-query-types GraphQueryPredicateOf)
         (only-in ./graph-query-objects
                  graph-query-context-view graph-query-context-index
                  graph-query-context-count))
@@ -11,7 +12,8 @@
 
 (def (graph-query-map context kind predicate)
   (let ((view (graph-query-context-view context))
-        (predicate (validate GraphQueryPredicate predicate)))
+        (kind (validate (.ref context 'kind-type) kind))
+        (predicate (validate (GraphQueryPredicateOf (.ref context 'record-type)) predicate)))
     (filter
      (lambda (record)
        (and (equal? ((.ref view 'kind-of) record) kind)
@@ -19,7 +21,9 @@
      (.ref view 'records))))
 
 (def (graph-query-lineage? context ancestor descendant)
-  (let* ((view (graph-query-context-view context))
+  (let* ((ancestor (validate (.ref context 'id-type) ancestor))
+         (descendant (validate (.ref context 'id-type) descendant))
+         (view (graph-query-context-view context))
          (by-id (graph-query-context-index context))
          (parent-of (.ref view 'parent-of)))
     (let loop ((id descendant) (remaining (graph-query-context-count context)))
@@ -36,7 +40,9 @@
     (error "unknown graph relation" relation))
   (unless (list? targets)
     (error "graph query targets must be a list" targets))
-  (let* ((view (graph-query-context-view context))
+  (let* ((scope-id (validate (.ref context 'id-type) scope-id))
+         (targets (validate (List (.ref context 'id-type)) targets))
+         (view (graph-query-context-view context))
          (id-of (.ref view 'id-of))
          (parent-of (.ref view 'parent-of)))
     (graph-query-map

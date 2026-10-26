@@ -1,3 +1,4 @@
+(import (only-in :clan/poo/type OrFalse Symbol))
 (import :gerbil-parser/language-test-support)
 (import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; Differential witness for admission filters on nonregular lexical rules.
@@ -77,7 +78,7 @@
           (equal observed  '())))))
     (scenario "engine token bytes preserve 1-4 byte scalars NUL and combining marks"
       (sequential ((source (string-append "Aé中😀" (string #\nul) "e" (string (integer->char #x301))))
-             (scanner (make-source-scanner source #f
+             (scanner (make-source-scanner (OrFalse Symbol) Symbol source #f
                         (lambda (text start context _mode)
                           (values (and (< start (string-length text)) 'scalar)
                                   (+ start 1) context)))))

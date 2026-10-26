@@ -4,10 +4,14 @@
 
 (import (only-in :std/test check test-case test-suite)
         (only-in :clan/poo/object .o .ref)
+        (only-in :clan/poo/type Record String OrFalse)
+        (only-in :clan/poo/number UInt)
         (only-in :gerbil-parser/graph-query-support
                  graph-query-context? make-graph-query-context
                  graph-query-map graph-query-lineage? graph-query-select))
 
+
+(def GraphRow (Record id: [UInt] parent: [(OrFalse UInt)] kind: [String]))
 
 (def (view source-records)
   (.o records: source-records
@@ -22,7 +26,7 @@
   (engine)
     (property "scope and relations accept non-preorder language views"
       (bindings (context
-            (make-graph-query-context
+            (make-graph-query-context GraphRow UInt String
              (view (list (.o id: 0 parent: #f kind: "root")
                          (.o id: 1 parent: 0 kind: "section")
                          (.o id: 2 parent: 1 kind: "item")
@@ -49,7 +53,7 @@
        (with-catch
         (lambda (_) #t)
         (lambda ()
-          (make-graph-query-context
+          (make-graph-query-context GraphRow UInt String
            (view (list (.o id: 0 parent: #f kind: "root")
                        (.o id: 1 parent: 8 kind: "item"))))
           #f))

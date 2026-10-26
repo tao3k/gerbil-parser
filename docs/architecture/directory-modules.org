@@ -111,9 +111,10 @@ from absence. Existing collision callbacks, idempotent identity and row order
 remain unchanged. The compiler imports the existing append-unique utility.
 Runtime and compiler share LR terminal/precedence leaves; compiler-only nonempty
 terminal, bounded indexes and flat fork requirements remain separate from
-runtime projections. Shared precedence uses native POO Integer: inexact 1.0
-is rejected consistently (the old compiler-only integer? accepted it while the
-runtime refused it). Producer-emitted precedence remains exact. Grammar IR consumers read the existing schema declaration;
+runtime projections. Shared precedence syntax preserves each phase's scalar
+domain: runtime defaults to native exact Integer; compiler explicitly retains
+its historical integer? acceptance, including inexact integral values. This is
+not a grammar compatibility or cache-version change. Grammar IR consumers read the existing schema declaration;
 no schema, ABI, package pin or installed compiler policy is changed.
 
 New regression controls cover normalization, mutable Contract rejection and

@@ -13,8 +13,12 @@
          ((literal layout-start layout-next)
           (and (= (length value) 3) (string? (caddr value))))
          (else #f))))
-(def (lr-precedence? value)
+;; Runtime metadata uses native exact Integer. The compiler explicitly supplies
+;; its historical integer? predicate; sharing syntax must not widen/narrow a
+;; phase's scalar domain or silently change authored grammar compatibility.
+(def (exact-rank? value) (element? Integer value))
+(def (lr-precedence? value (rank? exact-rank?))
   (or (not value)
       (and (list? value) (= (length value) 2)
            (memq (car value) '(none left right dynamic))
-           (element? Integer (cadr value)))))
+           (rank? (cadr value)))))

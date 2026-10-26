@@ -34,7 +34,7 @@
   (def (shift? value)
     (match value
       (['shift target precedence]
-       (and (bounded-index? target states) (lr-precedence? precedence)))
+       (and (bounded-index? target states) (lr-precedence? precedence integer?)))
       (_ #f)))
   (def (atomic? value terminal)
     (or (shift? value) (reduce? value)

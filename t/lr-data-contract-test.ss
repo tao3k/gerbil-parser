@@ -16,7 +16,9 @@
         (each (v) ((list #f '(none 0) '(left -1) '(right 2) '(dynamic 3)))
           (equal (lr-precedence? v) #t))
         (each (v) ((list '(left "wrong") '(left 1.0) '(unknown 1) '(left 1 extra)))
-          (equal (lr-precedence? v) #f))))
+          (equal (lr-precedence? v) #f))
+        (equal (lr-precedence? '(left 1.0) integer?) #t)
+        (equal (lr-precedence? '(unknown 1.0) integer?) #f)))
     (scenario "runtime projection retains recursive forks and layout shifts"
       (sequential ()
         (equal (element? LRActionEntry '((terminal eof) fork (fork (reduce 0)))) #t)

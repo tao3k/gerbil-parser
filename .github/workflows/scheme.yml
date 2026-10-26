@@ -230,6 +230,8 @@ jobs:
           gerbil env gxi qualify.ss run --timeout 90 \
             --log .data/compiler-policy-native.log --require "^OK$" -- \
             gerbil test -v 3 t/fixtures/compiler-policy.ss
+      - name: Reject intentionally failed native Suite
+        run: just test-harness-refusal
       - name: Verify research Suite declarations with Gerbil test
         run: |
           gerbil env gxi qualify.ss run --timeout 240 \

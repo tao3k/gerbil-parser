@@ -1,5 +1,5 @@
 (import :gerbil-parser/language-test-support)
-(import         (only-in :std/io/tempfile make-temporary-file-name)
+(import (only-in :std/io/tempfile make-temporary-file-name)
         (rename-in (only-in "./link-locks.ss" static-link-locks main) (main check-locks)))
 
 (deflanguage-parser-tests link-locks-test "AOT lock rejection and evidence preservation"

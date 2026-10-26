@@ -118,6 +118,17 @@ test-compiler-process: qualify-library build-qualification
 test-compiler-policy: qualify-library build-qualification
     gerbil env gxi qualify.ss run --timeout 90 --log .data/compiler-policy-native.log --require "^OK$" -- gerbil test -v 3 t/fixtures/compiler-policy.ss
 
+# Negative Suite declares no launcher; only this command owns execution.
+test-harness-refusal: build-qualification
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if gerbil env gxi qualify.ss run --timeout 90 --log .data/native-harness-failure.log --require "^OK$" -- gerbil test -v 3 t/fixtures/harness-failure.ss; then
+        echo 'native failed Suite was incorrectly accepted' >&2
+        exit 1
+    fi
+    rg 'ERROR (CHECK|CASE|HARNESS)' .data/native-harness-failure.log >/dev/null
+    echo 'GERBIL-HARNESS-REFUSAL-OK'
+
 # Compile the suite's own fixtures, not only its import declarations.
 build-fold-attribution output load_path:
     mkdir -p "{{output}}"

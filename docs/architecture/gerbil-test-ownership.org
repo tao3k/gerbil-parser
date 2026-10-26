@@ -86,3 +86,10 @@ Fixture imports must also follow an existing interpreter directive; two misplace
 shebangs in the first Fixture edit were caught by native discovery and corrected.
 No import/loader override is restored. These are current configuration/file-header
 repairs; historical native blocking stacks remain unknown.
+
+The complete native cohort refuses an in-process build spec query because public
+compiler-source admission sees already-loaded runtime SSI contexts. Build-source
+projection belongs to the existing dev/build.ss check-catalog entry. Its native
+comparison now also owns every former public-entry, duplicate, ABI-option and
+retired-target assertion. The runtime build-entry Suite and its execution Fixture
+are removed entirely. No runtime Suite launches or installs a build context.

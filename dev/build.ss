@@ -37,6 +37,25 @@
         (error "selected Module projection differs from native source discovery"
           (filter (lambda (item) (not (member item discovered))) production)
           (filter (lambda (item) (not (member item production))) discovered)))
+      ;; Public compatibility and ABI boundaries belong to this native build
+      ;; qualification entry, not to a runtime Suite launching a compiler.
+      (let ((names (map cadr production)) (seen (make-hash-table)))
+        (for-each (lambda (name)
+                    (when (hash-key? seen name) (error "duplicate build target" name))
+                    (hash-put! seen name #t)) names)
+        (for-each (lambda (name)
+                    (unless (member name names) (error "missing public build target" name)))
+          '("language-support" "language-test-support" "graph-query-support"
+            "src/api" "src/runtime/machine" "src/compiler/machine"))
+        (for-each (lambda (name)
+                    (let (entry (assoc name (map cdr production)))
+                      (unless (and entry (member "-cc-options" entry))
+                        (error "ABI build target lost native compiler options" name))))
+          '("src/ffi/language-abi" "src/ffi/language-abi-context" "src/ffi/rust-aot-abi"))
+        (for-each (lambda (name)
+                    (when (member name names) (error "retired build target is still published" name)))
+          '("modules/parser/types" "modules/parser/objects" "modules/parser/config"
+            "modules/parser/interface" "build-modules")))
       (displayln "PARSER-BUILD-CATALOG-OK")
       (map (lambda (target) (string-append (cadr target) ".ss")) production))))
 (def (main . args)

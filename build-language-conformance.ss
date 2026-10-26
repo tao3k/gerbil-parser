@@ -1,13 +1,11 @@
 #!/usr/bin/env gxi
-;;; Closed native conformance and source gxtest have distinct artifact owners.
+;;; Research product preparation and native Suite execution have distinct owners.
 (import (only-in "./src/build-support/compiler-profile.ss" compiler-build-spec initialize-compiler-build!)
         (only-in "./build-test-support.ss" shared-test-build-spec))
 (import (only-in :std/build-script defbuild-script)
         (only-in :std/make make make-clean)
         (only-in :std/source this-source-file)
-        (only-in :gerbil/compiler compile-module)
-        (only-in :gerbil/expander import-module module-context-export
-                 module-export-name module-export-phi))
+        (only-in :gerbil/compiler compile-module))
 (include "scripts/test-plan.ss")
 (def conformance-modules
   '("t/fixtures/fixture-release"
@@ -86,7 +84,6 @@
     "t/fixtures/runtime-record-assignments/languages/records/parser-test"
     "t/test-style-contract-test"
     "t/research-main"))
-(def shared-test-module? conformance-source-only?)
 (def (compiled-spec modules)
   (map (lambda (module)
          `(gxc: ,module "-cc-options" "-v -Q")) modules))
@@ -105,7 +102,7 @@
         srcdir: (path-directory (this-source-file))
         libdir: (path-expand "lib" (gerbil-path))
         optimize: #t)
-  ;; Test bodies remain source-only here; their native objects belong to the link owner.
+  ;; Suite modules remain source inputs owned by gerbil test.
   (compile-research-entry!))
 ;; Developer multicall build retains the standard native shared-module owner.
 (defbuild-script (compiler-build-spec (compiled-spec conformance-modules)) optimize: #t)

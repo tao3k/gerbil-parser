@@ -25,7 +25,7 @@
              (lambda ()
                (resolve-language-expansion module 'not-an-exported-author-service)
                #f))))
-    (datum->syntax stx (list 'quote (list resolved? missing-rejected?)))))
+    (datum->syntax #'author-service-phase-check (list 'quote (list resolved? missing-rejected?)))))
 (def +author-service-phase+ (author-service-phase-check))
 (deflanguage-parser-tests test-macro-author-test "author declaration phase"
   (engine)

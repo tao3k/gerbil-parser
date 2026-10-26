@@ -158,3 +158,21 @@ checks positive Fixture admission and negative Suite rejection. The old per-Suit
 translation instrumentation is removed as well. Nine native modules pass at
 59e4c3c; product closure, full coverage and current-head CI must qualify this final
 ownership correction independently.
+
+* Final declaration checks
+Complete discovery at59e4c3c correctly refuses the old three-file topology rule:
+shared fixtures.ss had been classified as private grammar syntax. The updated
+contract explicitly separates grammar/parser, Fixture and Suite declarations,
+and rejects Fixture imports in production and Suite declarations in Fixtures.
+Those are stricter positive/negative boundaries, not a disabled topology check.
+
+The remaining process/history script tests now export native Suites too. Their
+process subjects retain the same exit/receipt/timeout controls and actual timeout
+phase observations; no script starts a Harness or forces test-process exit.
+Standalone research process admission reuses run-qualified! directly, removing
+its duplicate Case wrapper. Twelve affected native modules pass at50b0ab2,
+including both converted scripts, all language Suites and the topology/product
+closure controls. Full native discovery, final product controls and final-head
+Linux/macOS CI remain separate gates. Native ABI Suite startup uses its existing
+180-second total budget without the old dispatcher's idle5 bootstrap rule;
+external ABI/product idle controls are unchanged.

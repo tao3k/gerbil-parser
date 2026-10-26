@@ -9,9 +9,11 @@
 (def (observe name code budget idle)
   (run-observed-process ["gxi" "-e" code] (path-expand name root)
     timeout: budget idle-timeout: idle))
+;; These directed status/receipt Cases retain their two-second total budget.
+;; Silence is tested independently below; startup must not satisfy that subject.
 (def (admit name code marker)
   (run-qualified! ["gxi" "-e" code] (path-expand name root)
-    timeout: 2 idle-timeout: 1 require: (if marker [marker] '())))
+    timeout: 2 idle-timeout: #f require: (if marker [marker] '())))
 (def (timeout-probe! name code expected budget idle)
   (let (result (observe name code budget idle))
     (check (process-result-reason result) => expected)
@@ -22,7 +24,7 @@
 (def process-qualification-test
   (test-suite "native process qualification admission"
     (test-case "normal exit retains its actual status"
-      (let (result (observe "exit-status" "(exit 17)" 2 1))
+      (let (result (observe "exit-status" "(exit 17)" 2 #f))
         (check (process-result-status result) => 17)
         (check (process-result-reason result) => #f)))
     (test-case "fragmented stdout and stderr retain one receipt"

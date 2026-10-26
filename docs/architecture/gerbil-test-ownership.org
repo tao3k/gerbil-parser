@@ -141,3 +141,20 @@ seconds. No clean, timeout increase or Suite executor is used. Full183-module
 native coverage and standard package build are recorded at the preceding runtime-
 identical a7dd4d9; the subsequent code change only supplies the research benchmark
 static input. Current-head Linux/macOS CI remains an independent open gate.
+
+* Cold closure correction
+Both a7dd4d9 CI prepares fail at a different missing static input than the first
+local run: languages/tla-plus/parser-test. The benchmark imported parser-test
+modules to obtain shared corpus loaders. Historical local Suite objects masked
+that dependency, so cohort119's warm link is not cold/Suite-free qualification.
+The preserved Linux/macOS logs establish the dependency; no retry or clean is a fix.
+
+Each language now declares its unchanged corpus/loaders in same-directory
+fixtures.ss. Suite modules import/re-export those values; the benchmark imports
+Fixtures directly. No corpus text, identity, grammar or assertion is duplicated.
+The native bootstrap closure explicitly rejects any Parser -test identity before
+linking, even when old compiled Suite products exist. A regular declarative Suite
+checks positive Fixture admission and negative Suite rejection. The old per-Suite
+translation instrumentation is removed as well. Nine native modules pass at
+59e4c3c; product closure, full coverage and current-head CI must qualify this final
+ownership correction independently.

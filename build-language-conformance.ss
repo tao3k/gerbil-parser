@@ -8,7 +8,15 @@
         (only-in :gerbil/compiler compile-module))
 (include "scripts/test-plan.ss")
 (def conformance-modules
-  '("t/fixtures/fixture-release"
+  '("languages/arithmetic/fixtures"
+    "languages/bash/fixtures"
+    "languages/cypher/fixtures"
+    "languages/fhirpath/fixtures"
+    "languages/gql/fixtures"
+    "languages/hcl/fixtures"
+    "languages/hl7/fixtures"
+    "languages/tla-plus/fixtures"
+    "t/fixtures/fixture-release"
     "t/fixtures/grammar-composition-models"
     "t/fixtures/language-pack-research/package-expression-runtime"
     "t/fixtures/language-pack-research/composition-history"

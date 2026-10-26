@@ -10,31 +10,18 @@
   (delete-duplicates/hash paths from-end?: #t))
 (def (replace-extension path extension)
   (string-append (path-strip-extension path) extension))
-(def (test-object-source? source)
-  (let (name (path-strip-directory source))
-    (or (string-prefix? "gerbil-parser__t__" name)
-        (string-suffix? "__parser-test.scm" name))))
-(def (test-initialization-options source)
-  ;; GSC inserts these at real module evaluation boundaries. Cold native
-  ;; initialization must remain visible to the unchanged silence watchdog.
-  ;; No timer or repeated heartbeat is involved; ordinary library objects have
-  ;; no diagnostic prelude, and source identities are stable across relocation.
-  (if (and (test-object-source? source)
-           (string-suffix? "-test.scm" (path-strip-directory source)))
-    (let (name (path-strip-directory source))
-      (apply append
-        (map (lambda (entry)
-               (list (car entry)
-                 (object->string
-                   `(begin (display ,(cdr entry)) (display ,name)
-                           (newline) (force-output)))))
-             '(("-prelude" . "CONFORMANCE-MODULE-START ")
-               ("-postlude" . "CONFORMANCE-MODULE-READY ")))))
-    '()))
-(def (static-translation-command gsc target source initialization)
+(def (validate-research-product-closure! identities)
+  (for-each
+    (lambda (identity)
+      (when (and (string-prefix? "gerbil-parser/" identity)
+                 (string-suffix? "-test" identity))
+        (error "research product must consume Fixtures, not Suite modules" identity)))
+    identities)
+  identities)
+(def (static-translation-command gsc target source)
   ;; GSC stops admitting compiler options once -e begins evaluation. Keep the
   ;; generated-code options before it; expressions must never become filenames.
-  [gsc "-verbose" "-c" "-o" target initialization ...
+  [gsc "-verbose" "-c" "-o" target
        "-e" compiler-progress-expression source])
 (def (newer? source target)
   (or (not (file-exists? target))
@@ -105,7 +92,8 @@
          invoke-gsc: #f optimize: #f generate-ssxi: #t static: #t keep-scm: #t verbose: #f]))
     ;; Public compiler API generates the bootstrap, including admitted identities.
     (compile-exe source [output-file: binary invoke-gsc: #f verbose: #f])
-    (let* ((identities (bootstrap-identities stub))
+    (let* ((identities (let (names (bootstrap-identities stub))
+                         (if library? names (validate-research-product-closure! names))))
            (entry (if library? "gerbil-parser/t/fixtures/ffi/library-closure"
                                "gerbil-parser/t/research-main"))
            (_ (unless (member entry identities)
@@ -138,12 +126,9 @@
           (lambda (source)
             (let* ((target (replace-extension source ".o"))
                    (c-file (replace-extension source ".c"))
-                  (initialization (if library? '() (test-initialization-options source)))
-                  (translation-file (string-append target ".translation.sexp"))
-                  (translation-stamp (and (or (pair? initialization)
-                                             (file-exists? translation-file))
-                                          translation-file))
-                  (translation-identity (list gsc initialization)))
+                                    (translation-file (string-append target ".translation.sexp"))
+                  (translation-stamp (and (file-exists? translation-file) translation-file))
+                  (translation-identity (list gsc '())))
               ;; One worker owns translation and its object; no global phase barrier.
               (when (or (newer? source c-file)
                         (and translation-stamp
@@ -153,7 +138,7 @@
                 (displayln "STATIC-TRANSLATE " source) (force-output)
                 (when (and translation-stamp (file-exists? translation-stamp))
                   (delete-file translation-stamp))
-                (run-build-tool (static-translation-command gsc c-file source initialization))
+                (run-build-tool (static-translation-command gsc c-file source))
                 (when translation-stamp
                   (call-with-output-file translation-stamp
                     (lambda (port) (write translation-identity port))))

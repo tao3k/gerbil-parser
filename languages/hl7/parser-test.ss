@@ -1,6 +1,4 @@
-;;; -*- Gerbil -*-
-;;; SPDX-FileCopyrightText: 2026 tao3k team and Contributors
-;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
+;;; Suites consume the shared corpus/loader Fixture declarations.
 (import :gerbil-parser/language-test-support
         (only-in :std/misc/ports read-all-as-string)
         (only-in :gerbil-parser/language-support parse-artifact-ref)
@@ -9,19 +7,7 @@
         (only-in :gerbil-parser/language-support/fixture defsyntax-corpus)
         (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader.))
 (export hl7-fixtures hl7-test-language)
-
-(defsyntax-corpus hl7-fixtures
-  (identity "hl7v2" +hl7-language-version+ +hl7-syntax-contract+)
-  (accepted
-   ("hl7v2/adt-a08" hl7-adt-a08 "corpus/adt-a08-patient.hl7" Message (HeaderSegment Segment Field)))
-  (rejected
-   ("hl7v2/missing-header" hl7-missing-header (text "PID|1\r"))))
-
-(deflanguage-development-loader hl7-test-language
-  (grammar hl7-language-grammar)
-  (parse parse-hl7-test)
-  (slots metadata: '((grammar-format . concise-dsl))
-         fixtures: hl7-fixtures))
+(import ./fixtures)
 
 (deflanguage-parser-tests hl7-parser-test "HL7v2 ER7 2.5.1 parser"
   (loader hl7-test-language)

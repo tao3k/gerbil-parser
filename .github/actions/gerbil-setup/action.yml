@@ -92,6 +92,8 @@ runs:
         path: ${{ runner.temp }}/gerbil-sdk.tar.gz
         key: parser-sdk-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.release-sha256 }}
     - name: Extract immutable Gerbil host SDK
+      env:
+        GERBIL_BUILD_CORES: 2
       run: |
         test -f "$RUNNER_TEMP/gerbil-sdk.tar.gz" || curl --fail --location --retry 3 --output "$RUNNER_TEMP/gerbil-sdk.tar.gz" \
           "https://github.com/tao3k/gerbil-bazel/releases/download/${{ inputs.release-tag }}/${{ inputs.release-tag }}.tar.gz"

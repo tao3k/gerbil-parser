@@ -176,3 +176,26 @@ closure controls. Full native discovery, final product controls and final-head
 Linux/macOS CI remain separate gates. Native ABI Suite startup uses its existing
 180-second total budget without the old dispatcher's idle5 bootstrap rule;
 external ABI/product idle controls are unchanged.
+
+* Closed local gates and remaining remote gate
+Cohort121 at50b0ab2 passes the complete183-module native discovery (402.22s,
+exit0, no errors),12 affected modules, the Suite-free native product link (78.36s)
+and five standalone programs (23.59s). Both Linux/macOS3840094 CI catalogs then
+expose exactly the eight new Fixture files in independent source discovery.
+The existing native development exclusion declaration now excludes those shared
+Fixture sources from production. Cohort122 ated0e504 passes check-catalog (89.16s)
+and standard gerbil build (84.82s), without a new builder or raised resources.
+
+Cohort122 also preserves a real scripts refusal: the output-fragment positive
+control hit its competing1s idle fence in bootstrap. Directed status/receipt Cases
+now retain their2s total budget without that unrelated idle fence. The dedicated
+2s/0.1s idle refusal and0.15s total/EOF controls are unchanged. Cohort123 atae14111
+passes all three script Suites (21.68s) and the intentional native failed-Suite
+refusal (exit70). Actual wrong-exit observation is17, reason false/session-ready;
+missing-marker observation is0, reason false/session-ready. Timeout controls keep
+their actual bootstrap phase, without claiming the child reached EOF.
+
+These later code changes affect the independent production discovery declaration
+and the directed process script controls; runtime/parser assertions remain those
+of the183-module pass. Final-head Linux/macOS CI is still required. Prior failed
+or warm receipts remain explicit and are never promoted to that remote gate.

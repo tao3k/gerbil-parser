@@ -40,7 +40,7 @@
   (let (spec-file (make-temporary-file-name "parser-build-spec-"))
     (try
       (run-build-tool
-        (list "gxi" "-:max-heap=1G,debug=q" "-e" spec-import-progress
+        (list "env" "-u" "GERBIL_LOADPATH" "gxi" "-:max-heap=1G,debug=q" "-e" spec-import-progress
               "-L" (path-expand entry (path-directory (this-source-file)))
               "-e" (object->string
                       `(begin

@@ -193,3 +193,24 @@ method headers and the retained-selection schema, and keeps all unrelated split
 forms pinned. Duplicate/missing contributors and an unexpected owner are negative
 controls. This updates the source association for the new architecture; actual
 backend and parser semantics remain covered by separate execution cases.
+
+Complete source cohort97 reaches the isolated compiler-policy subprocess and
+refuses at idle5. Observer-only cohort98 still refuses: capture-build-text sends
+both child output streams into a string, withholding real load progress until
+exit. Clearing the source overlay in cohort99 also refuses and is reverted.
+The two probes now follow the existing spec fixture: write exact result data to
+a private temporary file and stream actual loader/import progress through the
+existing run-build-tool. Original environment setup still precedes policy import;
+precise result assertions remain. No session is initialized by observation, and
+no timer or extra idle allowance is added. These transport controls explain
+withheld progress, not a retrospective native-stack explanation of every pause.
+
+The streamed cohort100 passes the import-without-initialization probe, then the
+linker-policy probe writes the correct "/explicit/compiler-tools" result before
+idle5 refusal in child termination. The data file is retained as failure evidence.
+Both disposable probes now use the existing test-child-process-exit! only after
+closing result data; a new failing-child control must remain a process error.
+Cohort101 passes all19 compiler-process cases in31.02s. This does not qualify
+native library teardown. Core PR19 remains0e3c1f8 (the declared pin), inheriting
+POO29c58aa9; the observed POO PR13 head3793685 is a separate reference and is not
+misrepresented as the installed dependency. This slice needs no newer POO API.

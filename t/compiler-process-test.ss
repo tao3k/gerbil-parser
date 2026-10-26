@@ -1,5 +1,6 @@
 (import :gerbil-parser/language-test-support
         (only-in :std/io/tempfile make-temporary-file-name)
+        (only-in :std/misc/ports read-all-as-string)
         (only-in :std/misc/process process-error?)
         (only-in :std/sync/wg make-wg wg-add! wg-wait!)
         (only-in :gerbil/expander current-expander-module-import current-expander-module-eval)
@@ -25,6 +26,31 @@
   (call-with-output-string
     (lambda (output)
       (parameterize ((current-output-port output)) (run-build-tool command text?: #t)))))
+;; Keep native policy data in a private file, like the existing spec fixture.
+;; Capturing merged stdout/stderr as a string would hide actual load progress
+;; from the owner's idle observer until the child exits.
+(def (compiler-policy-output setup result)
+  (let (data-file (make-temporary-file-name "parser-policy-data-"))
+    (try
+      (run-build-tool
+        (list "gxi" "-e"
+          (object->string
+            `(begin ,@setup
+               (load "t/fixtures/tla-sany-differential/preload.ss")
+               (prefer-compiled-interfaces!)
+               (call-with-module-evaluation-trace
+                 (lambda ()
+                   (eval '(import :gerbil-parser/src/build-support/compiler-profile))
+                   (load-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")))))
+          "-e" (object->string
+            `(begin
+               (call-with-output-file ,data-file
+                 (lambda (output)
+                   (parameterize ((current-output-port output)) ,result)))
+               (displayln "COMPILER-POLICY-DATA-PUBLISHED") (force-output)
+               ((eval 'gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process#test-child-process-exit!) 0)))) text?: #t)
+      (call-with-input-file data-file read-all-as-string)
+      (finally (when (file-exists? data-file) (delete-file data-file))))))
 (def (with-compiler-directory procedure)
   (let (root (make-temporary-file-name "parser-compiler-host-"))
     (create-directory* root)
@@ -173,27 +199,20 @@
         (equal (and (string-contains macros "#define ___MULTIPLE_HOSTS 1") #t) #t)
         (equal (string-contains macros "#define ___SINGLE_HOST") #f))))
   (scenario "importing compiler policy does not initialize a compiler session"
-    (equal (capture-build-text
-             (list "gxi" "-e"
-               (object->string
-                '(begin
-                   (setenv "GERBIL_BUILD_CORES")
-                   (setenv "CORCXXFLAGS_GAMBUILD")
-                   (eval '(import :gerbil-parser/src/build-support/compiler-profile))
-                   (write (list (getenv "GERBIL_BUILD_CORES" #f)
-                                (getenv "CORCXXFLAGS_GAMBUILD" #f)))))))
+    (equal (compiler-policy-output
+               '((setenv "GERBIL_BUILD_CORES") (setenv "CORCXXFLAGS_GAMBUILD"))
+               '(write (list (getenv "GERBIL_BUILD_CORES" #f)
+                             (getenv "CORCXXFLAGS_GAMBUILD" #f))))
            "(#f #f)"))
   (scenario "native linker defaults preserve explicit compiler search paths"
-    (equal (capture-build-text
-             (list "gxi" "-e"
-               (object->string
-                '(begin
-                   (setenv "COMPILER_PATH" "/explicit/compiler-tools")
-                   (setenv "CORCXXFLAGS_GAMBUILD" "-O2")
-                   (eval '(import :gerbil-parser/src/build-support/compiler-profile))
-                   ((eval 'initialize-compiler-build!))
-                   (write (getenv "COMPILER_PATH" #f))))))
+    (equal (compiler-policy-output
+               '((setenv "COMPILER_PATH" "/explicit/compiler-tools")
+                 (setenv "CORCXXFLAGS_GAMBUILD" "-O2"))
+               '(begin ((eval 'initialize-compiler-build!))
+                       (write (getenv "COMPILER_PATH" #f))))
            (object->string "/explicit/compiler-tools")))
+  (scenario "failed policy children cannot publish a successful result"
+    (raises (compiler-policy-output '() '(error "policy-probe-negative")) process-error?))
   (scenario "compiler evaluation diagnostics preserve zero and multiple values"
     (each (expected) ('(() (first second)))
       (scope ((actual #f))

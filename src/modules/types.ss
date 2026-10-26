@@ -3,10 +3,11 @@
         (only-in :clan/poo/mop define-type Fun Any Bool)
         (only-in :clan/poo/type Record)
         (only-in :yuanxu/object-types/contracts YuanxuContract.))
+(import (only-in "./parser/graph-query-types.ss" GraphQueryViewContract GraphQueryContextContract))
 (export ParserModulesScope ParserModulesScopeContract)
 
 (define-type ParserModulesScope
-  (Record make-graph-query-context: [(Fun Any <- Any)]
+  (Record make-graph-query-context: [(Fun GraphQueryContextContract <- GraphQueryViewContract)]
           graph-query-view?: [(Fun Bool <- Any)]))
 
 ;; Core adds contextual admission/evidence; it does not redeclare the fields.

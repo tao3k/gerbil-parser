@@ -2,15 +2,15 @@
 (import (only-in :clan/poo/object .cc .get)
         (only-in :clan/poo/mop define-type)
         (only-in :clan/poo/type Record)
-        (only-in :clan/poo/number Integer)
+        (only-in :clan/poo/number UInt)
         (only-in :yuanxu/object-types/contracts YuanxuContract.))
 (export ForeignInterfaceScope ForeignInterfaceScopeContract)
 
 (define-type ForeignInterfaceScope
-  (Record language-abi-version: [Integer]
-          artifact-abi-version: [Integer]
-          event-abi-version: [Integer]
-          rust-aot-abi-version: [Integer]))
+  (Record language-abi-version: [UInt]
+          artifact-abi-version: [UInt]
+          event-abi-version: [UInt]
+          rust-aot-abi-version: [UInt]))
 
 ;; Core adds contextual admission/evidence; it does not redeclare the fields.
 (def ForeignInterfaceScopeContract

@@ -289,3 +289,16 @@ supersede ERROR CHECK/HARNESS. No threshold increase, manifest reduction or
 retry-as-fix is used. A new cold prefix preserves the whole old prefix and log,
 uses the exact CI archive and newly published Core original-source observations;
 it is a distinct source/compiler qualification, not repair evidence by cleaning.
+
+* Development compiler budget and complete build inputs
+ASP's existing PR13 now publishes3054db6: its native build interpreter and child
+compiler environment establish the same2GiB limit, without affecting the parent
+package manager's final retagging. The native meta command passed on the exact
+CI archive. dev/gerbil.pkg selects that formal revision; the sole runtime
+dependency declaration remains Core. This preserves the native dependency
+installer instead of reconstructing its compilation/indexing phases in Parser.
+
+The existing conservative model-input discovery also covers dev Scheme owners,
+shared compiler/restore actions and dev/gerbil.pkg. Its existing changed/missing
+and new-owner controls cover these inputs; all six controls pass. These hashes
+bind observations to the real build selection, not to parser-semantic claims.

@@ -51,6 +51,7 @@ class ModelInputControls(unittest.TestCase):
             "src/grammar/declaration-types.ss", "src/graph/graph-query-types.ss",
             "src/language/source-boundary-types.ss", "src/testing/language-product.ss",
             "src/utilities/types.ss", "src/ffi/config.ss", "build-selected-language.ss",
+            "dev/fixtures/selected-method.ss", ".github/actions/selected-tool/action.yml",
         ))
         for name, expected in modules:
             with self.subTest(input=name):
@@ -63,6 +64,7 @@ class ModelInputControls(unittest.TestCase):
     def test_changed_and_missing_sources_invalidate_both_layers(self):
         for check in self.checks:
             for name in ("src/compiler/lr-automaton.ss", "t/fixtures/grammar-controls.ssi",
+                         "dev/gerbil.pkg",
                          "docs/research/parser-engine-formal-model/grammar-semantics.org"):
                 with self.subTest(claim=check.claim, input=name):
                     before = snapshot(self.root, check.inputs)

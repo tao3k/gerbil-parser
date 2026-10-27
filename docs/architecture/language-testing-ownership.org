@@ -112,3 +112,25 @@ created $HOME/.gerbil/pkg while GERBIL_PATH selected the workspace prefix. An
 older dependency cache had supplied that directory; the new manifest's cache
 miss exposed the path error. Create $GERBIL_PATH/pkg before native registration.
 Do not change the compiler, package manager, cache key or dependency authority.
+
+* FFI producer precedes support discovery
+CI40472984696 reached native Linux production/command/library-object compilation,
+then conformance preparation failed compiling records-abi: language.h was absent
+from that generic compiler invocation. Core correctly discovered an actual
+imported fixture, but its C-ABI owner had not yet run. The local initial full pass
+had old compiled FFI products and did not establish this cold dependency order.
+
+Move the existing build-ffi-tests producer before conformance/support consumption
+in CI; make the developer support target depend on the same native FFI entry.
+The FFI owner retains its header options, actual C object/link dependencies and
+producer/entry/consumer phases. Core retains source/compiled selection and the
+support closure. No target filter, second fixture list or copied C flags is added.
+The failed remote log and preexisting records-abi products are retained separately.
+
+The same native conformance command reproduced the missing language.h with15
+prior records-abi products moved to custody. FFI native compilation then exited0;
+the unchanged conformance command completed in76.29seconds with exit0, reason#f
+and CONFORMANCE-LINKED. No old product was restored. Both platform logs show the
+same header failure. Observed exit137 in the negative control/macOS log accompanies
+reason=error-output: the supervisor terminated after a compiler error; it does
+not independently establish a timeout or OOM. Existing limits remain unchanged.

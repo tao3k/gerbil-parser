@@ -118,6 +118,10 @@ jobs:
             --log .data/native-library-objects.log --require COMPILED-LIBRARY-OBJECTS-READY \
             -- gxi -e '(load "t/fixtures/module-loading/observations.ss") ' \
             -e '(call-with-compiled-interface-trace (lambda () (load "build-language-conformance-link.ss") (eval (quote (main "library-objects"))))) (exit 0)'
+      # Core support discovery follows native compiled imports. The C ABI owner
+      # must publish its products/options before generic support consumption.
+      - name: Compile FFI Scheme fixtures once
+        run: GERBIL_BUILD_VERBOSE=1 gerbil env gxi build-ffi-tests.ss compile
       - name: Compile language conformance modules
         run: |
           GERBIL_BUILD_VERBOSE=1 GERBIL_PARSER_LR_TRACE=1 \
@@ -126,8 +130,6 @@ jobs:
               -- gxi build-conformance.ss
       - name: Compile Scheme test support
         run: GERBIL_BUILD_VERBOSE=1 gerbil env gxi build-test-support.ss compile
-      - name: Compile FFI Scheme fixtures once
-        run: GERBIL_BUILD_VERBOSE=1 gerbil env gxi build-ffi-tests.ss compile
       - name: Prepare standalone language library once
         run: |-
           library="$PWD/.gerbil/ci/libparsernative.so"

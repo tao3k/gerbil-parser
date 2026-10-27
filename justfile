@@ -4,7 +4,7 @@ gerbil_test_launcher := if env('GERBIL_PATH', '') == '' { 'gerbil env gxi' } els
 
 # The same Gerbil helper owner used by CI supplies absolute test-module imports.
 # Gerbil owns helper compilation through its declared build spec.
-build-test-support: build-test-driver
+build-test-support: build-test-driver build-ffi-tests
     {{ gerbil_test_launcher }} -:max-heap=2G,debug=q build-test-support.ss compile
 
 test-file path: build-qualification build-test-support

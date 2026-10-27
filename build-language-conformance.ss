@@ -11,15 +11,16 @@
   '("t/benchmarks/versioned-languages/all-languages.ss" "t/research-main.ss"
      ;; Actual standalone library input; Core discovers its static closure.
      "t/fixtures/shared-scanner/records-engine-abi.ss"))
+(def research-executable-spec
+  '((exe: "t/research-main" bin: "gerbil-parser-conformance")))
 (def (research-build-spec)
   (compiler-build-spec
     (package-library-spec (path-directory (this-source-file)) 'gerbil-parser
-                          research-entry-sources)))
+                          research-entry-sources
+                          exclude: research-executable-spec)))
 (parameterize ((current-output-port (current-error-port)))
   (initialize-compiler-build!))
 (defbuild-script
   (append (research-build-spec)
-    (compiler-build-spec
-      '((exe: "t/research-main" bin: "gerbil-parser-conformance"))))
+    (compiler-build-spec research-executable-spec))
   optimize: #t)
-(def (compile-static-conformance!) (main "compile"))

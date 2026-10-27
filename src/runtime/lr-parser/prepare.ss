@@ -1,6 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; lr-parser: prepare owner. Private execution state and named algorithms.
 
+;; Semantic dispatch needs generic declarations only. Keep class lifecycle,
+;; reflection and aggregate CLOS syntax outside the parser's native closure.
 (import (only-in :clan/poo/object .o .ref)
         (only-in :clan/poo/mop validate)
         (only-in ../function-types ActionSelectorFactory)
@@ -11,7 +13,7 @@
                  validate-lr-tables layout-productions?)
         (only-in :std/vector/vector
                  vector-map/index)
-        (only-in :yuanxu/poo-clos/interface
+        (only-in :yuanxu/poo-clos/generic-syntax
                  .defgeneric .defmethod)
         (only-in ../../compiler/lr
                  lr-spec-ref production-action validate-production-semantics production-precedence production-rhs production-table production-lhs)

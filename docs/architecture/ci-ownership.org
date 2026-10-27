@@ -176,10 +176,14 @@ The old prefix's dynamic objects are refused as ABI-incompatible by that compile
 The native Parser workspace .gerbil now owns its freshly installed Core/POO and
 the existing dev dependency. Runtime tagging retains the default format.
 
-Local qualification must also retain CI's compiled-library/source-parent load
-path order, GCC16 selection and OpenSSL/sqlite library paths. Missing these gave
-separate source-resolution and crypto-link errors; those logs are preserved and
-are not attributed to Parser liveness.
+Local qualification must retain CI's compiled-library/source-parent load path
+order, GCC16 selection and OpenSSL provider selection. Missing these is distinct
+from Parser liveness. A further target declaration defect was found: research
+and shared-library executables omitted native pkg-config OpenSSL link options.
+An ambient LIBRARY_PATH masked that omission while the compiler archive's link
+record referenced an older Homebrew Cellar path. Actual link targets now use
+std/make pkg-config-libs, as existing POO executable declarations do; no custom
+path resolver or LIBRARY_PATH fallback is added.
 
 The CI-aligned native build exposed actual duplicate ownership: generic research
 projection rebuilt records ABI modules without their owner's native link flags.

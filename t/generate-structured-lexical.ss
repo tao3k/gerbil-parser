@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(export main)
 (import (only-in :gerbil-parser/src/compiler/rust-runtime language-rust-runtime-module-source)
         (only-in :gerbil-parser/t/structured-lexical-test structured-lexical-language-grammar)
         (only-in "structured-lexical-cases.ss" structured-lexical-cases))

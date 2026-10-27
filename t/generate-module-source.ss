@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(export main)
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
         (only-in :gerbil-parser/src/compiler/rust-runtime language-rust-runtime-module-source)
         (only-in :gerbil-parser/t/module-source-test module-framing-language-grammar)

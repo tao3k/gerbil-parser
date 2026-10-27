@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(export main)
 ;;; Generate the Rust witness exclusively from the Scheme grammar declaration.
 (import (only-in :gerbil-parser/src/compiler/rust-runtime generate-language-rust-runtime-module)
         (only-in "quoted-string-profile-test.ss" quoted-profile-language-grammar))

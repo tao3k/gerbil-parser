@@ -450,9 +450,10 @@
     (displayln "SANY-DIFF-OK " module-name ": oracle failure excluded")
     (force-output)))
 
-(def (run-differential!)
-  (let* ((jar (last (command-line)))
-         (fixture-directory
+(export main)
+
+(def (main jar)
+  (let* ((fixture-directory
           (path-expand "t/fixtures/tla-sany-differential" (current-directory)))
          (digest (call-with-input-file jar
                    (lambda (port)
@@ -464,5 +465,3 @@
     (for-each (lambda (case) (check-oracle-boundary jar fixture-directory case)) +oracle-boundaries+)
     (displayln "SANY-DIFF-OK pinned jar, acceptance, and structure")
     (force-output)))
-
-(run-differential!)

@@ -17,14 +17,31 @@
 (import (only-in "./init.ss" gerbil-parser.init.exports))
 (register-module-build-source! (path-directory (this-source-file)) 'gerbil-parser)
 
-;; These are program inputs, not a manually maintained transitive helper list.
-(def research-entry-sources
-  '("t/benchmarks/versioned-languages/all-languages.ss" "t/research-main.ss"
-     ;; Actual standalone library input; Core discovers its static closure.
-     "t/fixtures/shared-scanner/records-engine-abi.ss"))
+ ;; Actual program declarations; std/make owns their output names and builds.
 (def research-executable-spec
-  `((exe: "t/research-main" bin: "gerbil-parser-conformance"
-          "-ld-options" ,(pkg-config-libs "openssl"))))
+  (map (lambda (entry)
+         `(exe: ,(car entry) bin: ,(cadr entry)
+                "-ld-options" ,(pkg-config-libs "openssl")))
+    '(("t/research-main" "gerbil-parser-conformance")
+      ("t/fixtures/tla-sany-differential/compare" "gerbil-parser-sany-compare")
+      ("t/fixtures/tla-sany-differential/corpus" "gerbil-parser-tla-corpus")
+      ("t/benchmarks/capture-prefix/controls" "gerbil-parser-capture-controls")
+      ("t/benchmarks/source-edits/benchmark" "gerbil-parser-source-edits")
+      ("t/benchmarks/lr-request-stack/benchmark" "gerbil-parser-lr-stack")
+      ("t/benchmarks/gql/runtime/matched-stages" "gerbil-parser-gql-profile")
+      ("t/benchmarks/gql/runtime/actors" "gerbil-parser-gql-actors")
+      ("t/generate-header-delimiters" "gerbil-parser-header-delimiters")
+      ("t/generate-module-source" "gerbil-parser-module-source")
+      ("t/generate-structured-lexical" "gerbil-parser-structured-lexical")
+      ("t/generate-quoted-string-profile" "gerbil-parser-quoted-profile"))))
+(def research-entry-sources
+  (append
+    (map (lambda (entry) (string-append (cadr entry) ".ss")) research-executable-spec)
+    '("t/benchmarks/versioned-languages/all-languages.ss"
+      "t/fixtures/shared-scanner/records-engine-abi.ss"
+      ;; The FFI writer owns this runtime root. Core discovers its other imports.
+      "t/benchmarks/language-abi/utf8-cpu.ss"
+      "t/support/qualification/benchmark-qos.ss")))
 (def (research-build-spec)
   ;; Consume the authoritative declarations; do not rebuild their ABI products
   ;; with generic options or maintain a second list of owned identities.
@@ -40,7 +57,21 @@
                             exclude: (map (lambda (target) (if (string? target) target (cadr target))) owned)))))
 (parameterize ((current-output-port (current-error-port)))
   (initialize-compiler-build!))
+ ;; Preserve the native meta/spec/clean protocol. Library and macro objects must
+;; finish before executable compilation can regenerate their static interfaces.
+(def (research-library-phase)
+  (defbuild-script (research-build-spec) optimize: #t)
+  main)
+(def (research-program-phase)
+  (defbuild-script (compiler-build-spec research-executable-spec) optimize: #t)
+  main)
 (defbuild-script
-  (append (research-build-spec)
-    (compiler-build-spec research-executable-spec))
+  (append (research-build-spec) (compiler-build-spec research-executable-spec))
   optimize: #t)
+(let (protocol-main main)
+  (set! main
+    (lambda args
+      (if (or (null? args) (equal? (car args) "compile"))
+        (begin (apply (research-library-phase) args)
+               (apply (research-program-phase) args))
+        (apply protocol-main args)))))

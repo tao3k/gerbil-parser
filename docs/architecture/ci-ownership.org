@@ -438,3 +438,66 @@ No Suite, numeric performance assertion or runtime/FFI negative control is remov
 There is no synthetic PERFORMANCE-SOURCE-OK verdict. Protocol probes retain idle
 checks; ordinary Suite calls in local plans and the evidence collector now use
 the native tool directly. Core continues to own demanded source/currentness.
+
+* First published-byte consumer failures
+Candidate2d57caf9 passed Linux cold preparation and all Rust lanes. Its restored
+programs exposed missing benchmark-qos, GQL actor and ranked-literal benchmark
+objects. The preserved archive confirms the UTF8 runtime closure reaches the
+missing ranked-literal/benchmark library. Runtime-selected program inputs are
+now declared by the existing research build owner; Core discovers their static
+closure while respecting already-owned package/FFI products. Ordinary Suite
+support discovery remains limited to actual Suite imports; it is not a source
+of implicit benchmark preparation. No alternative loader or helper roster is added.
+
+The native complete Suite command also rejected a stale literal ASP revision
+expectation. Like the root dependency test, the development ownership assertion
+now checks its sole immutable public owner, leaving revision selection with
+its actual gerbil.pkg declaration. The installed native tool now reports this
+failure instead of returning success. POO construction itself passed unchanged
+100ms admission at87.36ms p95. TLA source startup and Tokio workload idle failures
+are retained separately; they are not closed by the declaration correction.
+
+Restoration no longer re-adds the package directory: the transported native
+prefix already contains pkg/directory-list. Extraction does not mutate native
+package configuration. Fresh dependency installation retains its normal setup.
+
+TLA SANY/corpus consumers now use their actual program entries compiled by the
+existing research writer, rather than re-expanding source imports inside each
+bounded runtime process. The SANY driver publishes main instead of running the
+entire oracle comparison as a module-initialization side effect. Source ownership,
+jar/corpus pins,1GiB runtime cap,600s total and5s idle controls remain unchanged.
+A local source-import diagnostic took68.23s (6.58s user CPU); preserved sampling
+shows macOS dynamic-object validation dominated wall time. That observation does
+not prove the Linux idle failure or qualify a new executable; actual CI still
+must verify the native entry with the original limits and negative cases.
+
+Tokio CPU output previously reported each warmup batch but only a complete
+8-leg group during measurements. It now reports each actually completed leg,
+outside that leg's existing CPU interval. This supplies workload progress, not a
+heartbeat: no timer, synthetic work or extra executor is introduced. Requests,
+clients, groups, reference/candidate order, all measured costs and90s/5s gates
+are unchanged. The first failed raw log and input remain retained; this diagnostic
+change is not accepted as a runtime repair until the same controls complete.
+
+Both2d57caf9 cold preparations and both independent C/Rust FFI lifecycle jobs
+passed. macOS source consumers additionally hit5s startup fences before actual
+work. The existing research spec declares the actual SANY/corpus, capture, edit,
+GQL, LR-matrix and four Suite-backed generation program entries. Standard native
+executables avoid repeating source expansion inside the measured runtime phase;
+no new dispatcher or source loader is introduced. GQL diagnostics no longer
+compile a second helper inventory or approve unrelated .o1 presence. Native
+program execution rejects missing products without a build fallback.
+
+The same writer completes its library/macro phase before its executable phase,
+using std/build-script for both and retaining its single native meta/spec/clean
+protocol. A local failed declaration (missing Corpus main export) left partial
+macro interfaces; that failure and subsequent refusal are preserved. Missing
+objects are not treated as recovery success. Local preflight can explicitly
+recompile affected sources through native gerbil compile; it does not establish
+that std/make repairs every abandoned partial output. Exact-current-run artifact
+restoration and corrupted-product refusal remain independent CI controls.
+
+Generation subprocess logs now live under .data, the existing uploaded log
+location, rather than uncollected /tmp paths. Source-generated products and all
+byte comparisons remain unchanged. The added CLI exports carry the same methods,
+counts and limits; runtime/CI acceptance is still required.

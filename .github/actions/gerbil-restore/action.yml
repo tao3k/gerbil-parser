@@ -32,5 +32,3 @@ runs:
       shell: bash
       run: |
         tar -xpzf "$RUNNER_TEMP/scheme-products/scheme-products.tar.gz"
-        mkdir -p "$GERBIL_PATH/pkg"
-        gerbil pkg dir --add git.cons.io/mighty-gerbils/gerbil-directory

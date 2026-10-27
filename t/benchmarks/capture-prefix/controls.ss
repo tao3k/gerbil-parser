@@ -7,7 +7,7 @@
         (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/grammar records-parser)
         (only-in :gerbil-parser/t/benchmarks/lr-request-stack/capture-reference reference-capture-reduction))
 (def (require! value message) (unless value (error message)))
-(export verify-capture-prefix!)
+(export verify-capture-prefix! main)
 (def (verify-capture-prefix!)
   (let* ((runtime (parser-machine-runtime records-parser))
          (widths (lr-runtime-reduction-widths runtime))

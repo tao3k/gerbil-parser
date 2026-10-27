@@ -7,6 +7,8 @@
         :gerbil-parser/languages/tla-plus/parser
         :gerbil-parser/src/runtime/artifact)
 
+(export main)
+
 (def +examples-pin+ "ceeaa904140e3e03781cb2a79cd6c6d8b8b08e10")
 
 (def (main root)

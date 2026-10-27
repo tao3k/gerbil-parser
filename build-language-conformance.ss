@@ -8,7 +8,9 @@
 
 ;; These are program inputs, not a manually maintained transitive helper list.
 (def research-entry-sources
-  '("t/benchmarks/versioned-languages/all-languages.ss" "t/research-main.ss"))
+  '("t/benchmarks/versioned-languages/all-languages.ss" "t/research-main.ss"
+     ;; Actual standalone library input; Core discovers its static closure.
+     "t/fixtures/shared-scanner/records-engine-abi.ss"))
 (def (research-build-spec)
   (compiler-build-spec
     (package-library-spec (path-directory (this-source-file)) 'gerbil-parser

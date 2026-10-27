@@ -77,3 +77,19 @@ entry passed183 modules plus separate test-plan Suite, zero ERROR and catalog
 checks. Exact-head Linux/macOS preparation, artifact recovery and downstream
 claims remain independent gates at PR13; prior local/remote epochs are not reused
 as acceptance of the new Core cohort.
+
+* Cold preparation failure correction
+CI40493930934 retained two distinct failures. macOS reached the dependency POO
+entry's180-second shebang deadline (status124), despite two configured workers.
+The formal POO PR removes this package-level cutoff; Core carries its revision
+through the existing dependency chain. Parser keeps only Core as a direct
+runtime dependency. Compiler activation also retains the existing2GiB/debug
+options alongside the relocated Gerbil paths, rather than overwriting them.
+No compiler/SDK source or heap increase is involved.
+
+Linux completed production and signed test-support publication, then failed to
+link the standalone records library: its runtime-record-assignments grammar had
+no normal static product. Signed test-lib support is not a replacement for that
+normal static closure. The conformance entry now declares the actual library
+root records-engine-abi; Core package-library-spec derives its imports. No
+transitive fixture roster, loader or consumer build fallback is added.

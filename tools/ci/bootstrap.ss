@@ -18,7 +18,7 @@
     text))
 (def (main root os arch)
  (let* ((prefix (path-expand root)) (home (path-expand "current" prefix))
-        (options (string-append "~~=" home ",~~bin=" (path-expand "bin" home) ",~~lib=" (path-expand "lib" home)))
+        (options (string-append "~~=" home ",~~bin=" (path-expand "bin" home) ",~~lib=" (path-expand "lib" home) ",max-heap=2G,debug=q"))
         (cores (selected-build-cores (getenv "GERBIL_BUILD_CORES" #f)
                  (string-trim (run-process (if (equal? os "darwin") '("sysctl" "-n" "hw.ncpu") '("getconf" "_NPROCESSORS_ONLN")))))))
   (admit-release! (string->json (call-with-input-file (path-expand "gerbil-toolchain-release.json" prefix) read-all-as-string) (JSONReadOptions object-as-hash: #t)) os arch)

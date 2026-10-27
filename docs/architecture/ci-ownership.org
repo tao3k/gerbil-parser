@@ -200,3 +200,12 @@ qualified CI baseline. The complete test entry and restored consumers remain
 separate gates. The model observation input now names build-language-conformance.ss
 instead of the deleted linker; all six existing input controls passed, including
 missing-source rejection.
+
+The OpenSSL target fix was independently qualified after preserving the prior
+executable and relinking with LIBRARY_PATH/LDFLAGS unset. Native Homebrew tool
+activation selected pkg-config, CI's PKG_CONFIG_PATH selected OpenSSL3, and
+std/make passed its current link options. The new executable then passed15
+provenance checks in a new process. Output tokens such as std/log/level#ERROR in
+verbose declarations are not runtime/compiler failure records. The actual native
+commands exited0. Full earlier182-module results remain tied to their source
+cohort; this relink establishes only the changed executable-link boundary.

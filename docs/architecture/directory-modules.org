@@ -154,3 +154,15 @@ After migrating both witness readers, full local current-source execution passes
 The shared-Record writer passes37.01s; three focused source/Scope owners pass24.02s.
 The complete Lean build passes273 targets, including independent AST and mutation
 controls. These local gates do not replace final exact-head Linux/macOS CI.
+
+* Recovery from compiled test products
+
+A first local full run after the domain move detected retired =~0= identities
+from previously compiled conformance fixtures, despite the production package
+build passing. =test-all= had depended only on qualification support, so its
+existing compiled test products were never brought current. The negative
+runtime-identity Case retained this failure. =test-all= now also depends on the
+existing =build-test-support= entry (including the test driver). Standard
+=defbuild-script=/=std/make= owns dependency invalidation and recompilation;
+no cleanup, old-path forwarding or custom artifact loader repairs the result.
+Cold CI independently builds the same support products before running Suites.

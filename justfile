@@ -492,7 +492,9 @@ test-lexical-mode:
 test-build-product-contract output load_path:
     GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 3 t/build-product-contract-test.ss
 
-test-all: build-qualification
+# Compiled Fixture/Suite helpers share the same native dependency graph. Rebuild
+# them before discovery so renamed source imports cannot replay old products.
+test-all: build-qualification build-test-support
     GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=3G,debug=q" GERBIL_LOADPATH="${GERBIL_PATH:-$PWD/.gerbil}/lib:$PWD/.." gerbil test -v 3 t/... languages/...
 
 # All contracts execute from current source; every suite has a hard deadline.

@@ -78,13 +78,10 @@ jobs:
       # Development compilation adds foreign namespace artifacts to the prefix.
       # Finish it before the base writer snapshots the complete dependency set.
       - name: Qualify development catalog and policy
-        env:
-          GAMBOPT: max-heap=2G,debug=q
-        run: gerbil env gxi dev/build.ss compile
+        run: GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=2G,debug=q" gerbil env gxi dev/build.ss compile
       - name: Build parser and language packs
-        env:
-          GAMBOPT: max-heap=2G,debug=q
         run: |
+          export GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=2G,debug=q"
           # The official env command prepends the package bin directory to PATH.
           # Use it for the base writer as well as every extension writer.
           # Keep two workers and the heap envelope; the native package writer
@@ -94,19 +91,14 @@ jobs:
             -fsyntax-only \
             -Iinclude t/ffi-header-smoke.c
       - name: Build optional compiled commands
-        env:
-          GAMBOPT: max-heap=2G,debug=q
         run: |
+          export GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=2G,debug=q"
           gerbil env gxi build-gparse.ss compile
           gerbil env gxi build-rust-runtime-aot.ss compile
       - name: Compile test exit support
-        env:
-          GAMBOPT: max-heap=2G,debug=q
-        run: gerbil env gxi build-test-driver.ss compile
+        run: GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=2G,debug=q" gerbil env gxi build-test-driver.ss compile
       - name: Compile qualification boundary
-        env:
-          GAMBOPT: max-heap=2G,debug=q
-        run: gerbil env gxi build-qualification.ss compile
+        run: GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=2G,debug=q" gerbil env gxi build-qualification.ss compile
       - name: Verify conformance preparation imports
         run: |
           gerbil env gxi qualify.ss run --timeout 90 \
@@ -116,23 +108,16 @@ jobs:
       # Core support discovery follows native compiled imports. The C ABI owner
       # must publish its products/options before generic support consumption.
       - name: Compile FFI Scheme fixtures once
-        env:
-          GAMBOPT: max-heap=2G,debug=q
-        run: GERBIL_BUILD_VERBOSE=1 gerbil env gxi build-ffi-tests.ss compile
+        run: GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=2G,debug=q" GERBIL_BUILD_VERBOSE=1 gerbil env gxi build-ffi-tests.ss compile
       - name: Compile language conformance modules
-        env:
-          GAMBOPT: max-heap=2G,debug=q
-        run: GERBIL_BUILD_VERBOSE=1 gerbil env gxi build-language-conformance.ss compile
+        run: GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=2G,debug=q" GERBIL_BUILD_VERBOSE=1 gerbil env gxi build-language-conformance.ss compile
       # This is Core's signed test-lib publication, distinct from normal
       # research static products and their executable link closure.
       - name: Publish native test support
-        env:
-          GAMBOPT: max-heap=2G,debug=q
-        run: GERBIL_BUILD_VERBOSE=1 gerbil env gxi build-test-support.ss compile
+        run: GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=2G,debug=q" GERBIL_BUILD_VERBOSE=1 gerbil env gxi build-test-support.ss compile
       - name: Prepare standalone language library once
-        env:
-          GAMBOPT: max-heap=2G,debug=q
         run: |-
+          export GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=2G,debug=q"
           library="$PWD/.gerbil/ci/libparsernative.so"
           if [ "$RUNNER_OS" = macOS ]; then library="$PWD/.gerbil/ci/libparsernative.dylib"; fi
           mkdir -p .gerbil/ci

@@ -302,3 +302,7 @@ The existing conservative model-input discovery also covers dev Scheme owners,
 shared compiler/restore actions and dev/gerbil.pkg. Its existing changed/missing
 and new-owner controls cover these inputs; all six controls pass. These hashes
 bind observations to the real build selection, not to parser-semantic claims.
+
+Compiler-step GAMBOPT values append the2GiB options to the activated relocation
+options; they must not replace the distribution's ~~ paths. The package manager
+retains relocation-only options and still invokes the unmodified native tool.

@@ -319,3 +319,10 @@ the compiler API normally and compile-module owns the wrapper's actual imports.
 This is a source change requiring new execution evidence, not a clean/retry
 claim. The compiler host initializer and target-local pkg-config link options
 remain owned by the adapter.
+
+Removing the preload reached adapter main in roughly2s but did not close the
+idle gate: compile-module then imported the real closure without observable C
+artifacts for30s. That second failure is retained independently. The adapter
+now uses the existing compiler-profile completed-import/evaluation reporting
+inside its native compile call. No new driver, heartbeat or importer is added;
+original import errors/results and the90s/30s controls remain authoritative.

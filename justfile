@@ -35,7 +35,7 @@ qualify-library:
     if [ "$status" -ne 0 ]; then
       # A separate bounded custody operation cannot turn failure into admission.
       archive="$PWD/.data/package-failures/strict-$(date -u +%Y%m%dT%H%M%SZ)-$$.tar.gz"
-      timeout --signal=TERM --kill-after=5s 180s bash tools/ci/prepared-products.sh failure "$archive" "$status" || echo "FAILED-PRODUCTS-CAPTURE-FAILED status=$status" >&2
+      timeout --signal=TERM --kill-after=5s 180s bash tools/ci/failed-products.sh "$archive" "$status" || echo "FAILED-PRODUCTS-CAPTURE-FAILED status=$status" >&2
     fi
     exit "$status"
 

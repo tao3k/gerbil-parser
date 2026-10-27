@@ -690,7 +690,7 @@ runs typed graph operations. No test Case starts a build or another test run.
 * Direct publication and execution boundaries
 
 Interfaces select service prototypes directly through =core.exports=. The
-required =config.ss= role remains present but empty when no local settings exist;
+required =config.ss= role remains present but a binding-free =(export)= when no local settings exist;
 there is no =Config= alias that re-imports and republishes the Objects prototype.
 POO Records still define the actual field/method Types, and Core still admits
 and retains the normalized Scope. Empty requires/features declarations are Core

@@ -70,7 +70,7 @@
       (each (name) ('(build-support compiler ffi grammar graph language runtime testing utilities))
         (equal (call-with-input-file
                  (path-expand (string-append "src/" (symbol->string name) "/config.ss")
-                              parser-source-root) read-all) '()))
+                              parser-source-root) read-all) '((export))))
       (each (path) ('("src/compiler/machine.ss" "src/compiler/lexical-expression.ss"
                      "src/compiler/lexical-lexer.ss"))
         (equal (file-exists? (path-expand path parser-source-root)) #f))

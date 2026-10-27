@@ -6,7 +6,7 @@
 =init.ss= selects the nine real =src/*= subsystem publications through one
 Yuanxu =load-modules= window. Each has a typed service Scope, existing service
 prototype, Interface declaration selecting that prototype, and required Config role.
-Config is empty when no local settings exist; Core owns its optional binding. Root =build.ss= consumes
+Config is a binding-free =(export)= when no local settings exist; Core owns its optional binding. Root =build.ss= consumes
 the same init-owned =std-make-spec= and invokes host initialization
 directly at the executable build boundary. Gerbil =std/make= remains the
 compiler and job-scheduling owner; parallelism remains capped at two workers.

@@ -1,2 +1,3 @@
-;;; Required Yuanxu Config role; this module has no local settings to compose.
+;;; This required Yuanxu role publishes no local configuration bindings.
 ;;; Interface selects the checked service prototype directly from Objects.
+(export)

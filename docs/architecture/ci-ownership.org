@@ -59,3 +59,21 @@ A prior full local pass or earlier failed remote head does not close this CI cha
 Static validation passed with official actionlint1.7.12 and YAML parsing. The
 release archive matched its official SHA256 manifest. Branch retirement is
 complete; final implementation/CI validation remains tracked by PR13.
+
+* Full research input closure
+CI40477381686 passed the FFI producer but failed to link research-main: the static
+provenance-language module was absent. The shared projection had only Suite roots;
+it omitted the two actual standalone program roots. Earlier local passes had
+that static product and did not qualify this cold input closure.
+
+The two existing entry sources are now declared once in build-language-conformance
+and passed to the same Core for-files projection alongside the complete Suite
+roster. Core derives their transitive helpers. The roots themselves retain the
+existing native compile-module call; there is no helper list, import walker or
+second source-admission mechanism. The conformance projection is a superset of
+standalone test support, so its duplicate CI support step remains unnecessary.
+
+A control moved32 provenance products to custody and reproduced the same missing
+static module with the original command (reason=error-output). No archived product
+is restored to establish the positive result. The same240/idle5, two-worker and
+memory limits apply to the corrected root coverage.

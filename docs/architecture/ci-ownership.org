@@ -209,3 +209,33 @@ provenance checks in a new process. Output tokens such as std/log/level#ERROR in
 verbose declarations are not runtime/compiler failure records. The actual native
 commands exited0. Full earlier182-module results remain tied to their source
 cohort; this relink establishes only the changed executable-link boundary.
+
+* Default indexing regression and heap scope
+Green CI40460992173 (c3e3dc91, Core0e3c1f8/POO29c58aa) used the same
+2591dcd/patchf5 compiler and completed native package retagging. Its setup
+published relocation options only. Commit44c61d6e added max-heap=2G globally;
+14629cf2 retained it while removing the bootstrap wrapper. That changed gxtags
+as well as compiler processes. The earlier statement that14629cf2 first added
+the limit is superseded by this exact history.
+
+The retained default-format diagnostic repeatedly forced GC without releasing
+registry entries. Live bytes grew from87,745,536 (260 registry keys) to
+1,877,202,272 (3,135 keys), then overflowed the2GiB heap. This establishes
+cumulative native source-context retention, not an Emacs-format allocation
+cause. The diagnostic is not installed behavior or a performance receipt.
+
+The user authorized restoring the green scope. Compiler activation again
+publishes relocation only. All preparation compilation steps retain a2GiB
+process environment; POO8f50552 and Coree2e8f46 establish that limit in their
+native package interpreter invocations so dependency compilation remains
+bounded while the parent package manager and final gxtags use native defaults.
+The complete native test profile remains3GiB/900s, workers remain2, and Core's
+existing300s package deadline is retained. Parser has no180s package deadline.
+
+Dependency installation still invokes ordinary gerbil deps --install with
+fail-fast shell semantics. No retry fallback, format selection, source omission,
+registry mutation, or ignored install failure is added. Native tag scalability
+under an additional2GiB limit is a separate unresolved property; the green
+configuration never established it. Fresh dual-platform CI and native recovery
+must qualify this changed cohort; old green or local records are not reused as
+current-head acceptance.

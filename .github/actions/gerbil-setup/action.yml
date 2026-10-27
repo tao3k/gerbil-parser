@@ -88,7 +88,7 @@ runs:
         {
           echo "GERBIL_PREFIX=$GERBIL_RELEASE_ROOT"
           echo "GERBIL_HOME=$GERBIL_RELEASE_ROOT/current"
-          echo "GAMBOPT=~~=$GERBIL_RELEASE_ROOT/current,~~bin=$GERBIL_RELEASE_ROOT/current/bin,~~lib=$GERBIL_RELEASE_ROOT/current/lib,max-heap=2G,debug=q"
+          echo "GAMBOPT=~~=$GERBIL_RELEASE_ROOT/current,~~bin=$GERBIL_RELEASE_ROOT/current/bin,~~lib=$GERBIL_RELEASE_ROOT/current/lib"
         } >> "$GITHUB_ENV"
         echo "$GERBIL_RELEASE_ROOT/bin" >> "$GITHUB_PATH"
       shell: bash

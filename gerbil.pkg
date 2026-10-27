@@ -1,2 +1,2 @@
 (package: gerbil-parser
- depend: ("github.com/tao3k/gebril-yuanxu@05c8ced89ba7a22c44aedd88a91777c93f633d40"))
+ depend: ("github.com/tao3k/gebril-yuanxu@e2e8f466cd20995a8fc6f47486a9b4c3e5c6f8fe"))

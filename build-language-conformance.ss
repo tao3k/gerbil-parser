@@ -15,9 +15,12 @@
   '((exe: "t/research-main" bin: "gerbil-parser-conformance")))
 (def (research-build-spec)
   (compiler-build-spec
-    (package-library-spec (path-directory (this-source-file)) 'gerbil-parser
-                          research-entry-sources
-                          exclude: (map cadr research-executable-spec))))
+    (map (lambda (source)
+           `(gxc: ,source "-cc-options"
+                  ,(string-append "-I" (path-expand "include" (path-directory (this-source-file))))))
+      (package-library-spec (path-directory (this-source-file)) 'gerbil-parser
+                            research-entry-sources
+                            exclude: (map cadr research-executable-spec)))))
 (parameterize ((current-output-port (current-error-port)))
   (initialize-compiler-build!))
 (defbuild-script

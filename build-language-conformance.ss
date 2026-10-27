@@ -21,11 +21,11 @@
   ;; helpers belong to this declaration; extra source-test helpers
   ;; remain the sibling build-test-support owner's products.
   (initialize-compiler-build!)
-  (make (shared-test-build-spec #f)
+  (make (shared-test-build-spec)
         srcdir: (path-directory (this-source-file))
         libdir: (path-expand "lib" (gerbil-path))
         optimize: #t)
   ;; Suite modules remain source inputs owned by gerbil test.
   (compile-research-entry!))
 ;; Developer multicall build retains the standard native shared-module owner.
-(defbuild-script (shared-test-build-spec #f) optimize: #t)
+(defbuild-script (shared-test-build-spec) optimize: #t)

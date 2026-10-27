@@ -77,8 +77,11 @@
 (def (research-library-phase)
   (defbuild-script (research-build-spec) optimize: #t)
   main)
-(def (research-program-phase)
-  (defbuild-script (compiler-build-spec research-executable-spec) optimize: #t)
+(def (research-program-phase target)
+  ;; Each native executable regenerates shared static C inputs. Finish one
+  ;; standard make invocation before the next; its compiler retains the
+  ;; configured worker count. std/make owns all freshness, jobs and linking.
+  (defbuild-script (compiler-build-spec (list target)) optimize: #t)
   main)
 (defbuild-script
   (append (research-build-spec) (compiler-build-spec research-executable-spec))
@@ -88,5 +91,7 @@
     (lambda args
       (if (or (null? args) (equal? (car args) "compile"))
         (begin (apply (research-library-phase) args)
-               (apply (research-program-phase) args))
+               (for-each
+                 (lambda (target) (apply (research-program-phase target) args))
+                 research-executable-spec))
         (apply protocol-main args)))))

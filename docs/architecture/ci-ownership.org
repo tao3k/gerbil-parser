@@ -625,3 +625,37 @@ product result is observable even when a benchmark Case rejects. No Suite, Case
 or performance obligation is excluded; the complete native command remains fatal
 on any failure. The language ABI program additionally passes locally in0.90s at
 1GiB/120s/5s, including foreign-thread/UTF8/100-call/release controls.
+
+* Shared static C ownership across native executable targets
+Run40591297880 atd29c6598 fails in both native preparations. Linux's linker reads
+clan__poo__generalized-prototype.c while another executable regenerates that same
+static path: EOF at line110, with later diagnostic context already showing more
+lines. macOS similarly reports missing/invalid linking information for
+gerbil-parser__src__runtime__layout.c while another program writes the closure.
+Linux failure custody also reports file-changed-as-read; the archive is retained
+as a nonquiescent failed scene, not a coherent published product. Neither failure
+is a heap cutoff, timeout or new compiler/VM source defect.
+
+Pinned std/make orders targets by module imports; separate executable roots share
+generated C files outside that target dependency map. It has no implemented
+extra-dependency/order-only spec for this resource relationship. The existing
+package program phase therefore delegates one declared program at a time to its
+ordinary std/build-script invocation. Each invocation retains the configured two
+compiler workers and2GiB; native Make still owns freshness, queues, job completion
+and linking. No second scheduler, lock, stamp, dependency catalog or private
+output environment is introduced. Metadata/spec/clean remain one native response.
+
+The local same-prefix build passes without cleaning or replacing dependencies:
+all declarations are delegated and11 stale executable products are actually
+rebuilt. All five declared conformance programs pass their unchanged10s controls;
+the unknown-program negative exits70. This is incremental/recovery evidence,
+not dual-platform cold qualification. Both original failed preparations and
+products are preserved before selecting the corrected candidate.
+
+The existing build-owner import/metadata Suite passes with the CI's declared
+OpenSSL pkg-config provider. Its first local invocation omitted that provider and
+correctly refused the query; both logs are retained and no source fix is inferred
+from correcting command configuration. Native meta still returns exactly
+("spec" "compile" "clean"). Pinned Gerbil's compiler executor reads
+GERBIL_BUILD_CORES; each singleton standard invocation drains that existing pool
+before the next executable starts. The worker count was not changed to one.

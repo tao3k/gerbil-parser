@@ -58,6 +58,10 @@ jobs:
             .gerbil/bin
           key: gerbil-parser-packages-v2-${{ runner.os }}-${{ runner.arch }}-${{ inputs.release-sha256 }}-${{ hashFiles('gerbil.pkg', 'dev/gerbil.pkg') }}
       - name: Install declared package dependencies
+        env:
+          # Native gxtags vim output avoids Emacs source-line/offset materialization.
+          # Dependency installation still owns fetching, compilation and tagging.
+          GERBIL_TAGS_FORMAT: vim
         run: |
           mkdir -p "$GERBIL_PATH/pkg"
           gerbil pkg dir --add git.cons.io/mighty-gerbils/gerbil-directory

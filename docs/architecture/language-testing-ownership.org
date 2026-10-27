@@ -26,7 +26,7 @@ not Yuanxu infrastructure. It is deleted, without a forwarding alias.
 |----------------+--------------------------------+--------------------|
 | init.ss | Select actual src domains through yuanxu! | No second registry, scanner or linker |
 | build-test-support.ss | Demand native Suite directories; refine Darwin C timing link options | Core owns closure/currentness; std/build-script and std/make own execution |
-| build-conformance.ss | Demand the same support projection; compile explicit standalone research source entries | No separate Suite catalog or runner |
+| build-conformance.ss | Build research programs from their actual native import graph | Separate normal product domain; no helper catalog or test runner |
 | src/language/module-input.ss | Select exactly one language-grammar, with optional #export | Official import-module/eval; no replacement expander |
 | source-observations | Remember last attempted canonical source bytes to request native reload on edits | No descriptors, contexts, exceptions, loaded flags or admission verdicts retained |
 | Core source/admission | Fresh reads and pre/post currentness across initializer effects | Outer pure-read caches cannot approve changed content |

@@ -125,6 +125,10 @@ jobs:
             gerbil env gxi qualify.ss run --timeout 240 --idle-timeout 5 \
               --log .data/language-conformance-build.log \
               -- gxi build-conformance.ss
+      # This is Core's signed test-lib publication, distinct from normal
+      # research static products and their executable link closure.
+      - name: Publish native test support
+        run: GERBIL_BUILD_VERBOSE=1 gerbil env gxi build-test-support.ss compile
       - name: Prepare standalone language library once
         run: |-
           library="$PWD/.gerbil/ci/libparsernative.so"

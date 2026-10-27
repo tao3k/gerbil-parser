@@ -9,14 +9,12 @@
 
 ;; Init owns discovery, native import closure and source currentness. This is
 ;; exactly the same native Suite roster as gerbil test t/... languages/... .
-(def (test-support-source product-sources)
+(def (test-support-source)
   (let* ((tests (.get gerbil-parser.init.exports tests))
          (files (append (.get (.call tests .for-directory "t") spec)
                         (.get (.call tests .for-directory "languages") spec))))
     (.call tests .for-files
-      (append files (map (lambda (file)
-                           (path-expand file (path-directory (this-source-file))))
-                         product-sources))
+      files
       (list (this-source-file)
             (path-expand "src/build-support/compiler-profile.ss"
                          (path-directory (this-source-file))))
@@ -30,8 +28,8 @@
 ;; Preserve the exact Core-produced value so its native consumer retains
 ;; source/artifact admission and subset publication. Compiler host policy is
 ;; the same process-local setup used by the production build entry.
-(def (shared-test-build-spec (product-sources '()))
-  ((.get (test-support-source product-sources) std-make-spec)))
+(def (shared-test-build-spec)
+  ((.get (test-support-source) std-make-spec)))
 (parameterize ((current-output-port (current-error-port)))
   (initialize-compiler-build!))
 (defbuild-script (shared-test-build-spec) optimize: #t)

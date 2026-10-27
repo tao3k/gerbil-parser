@@ -21,7 +21,7 @@ if [ "$operation" = failure ]; then
     done
   } > "$archive.manifest.log"
   members=()
-  for name in lib bin; do
+  for name in lib bin test-lib; do
     if [ -e "$prefix/$name" ]; then members+=("$name"); fi
   done
   test "${#members[@]}" -gt 0

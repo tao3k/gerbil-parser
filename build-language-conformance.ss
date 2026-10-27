@@ -6,6 +6,7 @@
 (begin-syntax
   (register-module-build-source! (path-directory (this-source-file)) 'gerbil-parser))
 (import (only-in :std/build-script defbuild-script)
+        (only-in :std/make pkg-config-libs)
         (only-in :std/source this-source-file)
         (only-in :yuanxu/module-system/building/source-package register-module-build-source!)
         (only-in :clan/poo/object .get)
@@ -22,7 +23,8 @@
      ;; Actual standalone library input; Core discovers its static closure.
      "t/fixtures/shared-scanner/records-engine-abi.ss"))
 (def research-executable-spec
-  '((exe: "t/research-main" bin: "gerbil-parser-conformance")))
+  `((exe: "t/research-main" bin: "gerbil-parser-conformance"
+          "-ld-options" ,(pkg-config-libs "openssl"))))
 (def (research-build-spec)
   ;; Consume the authoritative declarations; do not rebuild their ABI products
   ;; with generic options or maintain a second list of owned identities.

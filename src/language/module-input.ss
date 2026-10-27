@@ -27,8 +27,8 @@
          (changed? (and observed (not (equal? observed (hash-get source-observations canonical)))))
          (context
           (begin
-            ;; Core rechecks bytes across effects. Gerbil alone caches a failed
-            ;; initializer; the same bytes must not trigger speculative retries.
+            ;; Core rechecks bytes across effects. The native expander owns
+            ;; source promises and their failure/retry behavior.
             (when observed
               (module-source-admit-current! (list observed))
               (hash-put! source-observations canonical observed))

@@ -1,7 +1,7 @@
 ;;; Wrapper extraction must not turn Scheme data or deferred code into effects.
 (import :gerbil-parser/language-test-support
         (only-in ./fixtures/module-loading/runtime-files with-runtime-file write-program write-datum))
-(import (only-in :gerbil/runtime/init __scheme-source load-scheme))
+(import (only-in :gerbil/runtime/init __scheme-source))
 
 (def (parent-failure-observation missing?)
   (with-runtime-file
@@ -66,15 +66,15 @@
           `(begin (error "parent failed first") (load-module ,dependency-name))))
         (raises (load-module name)
           (lambda (condition) (equal? (error-message condition) "parent failed first"))))))
-  (scenario "official raw Scheme loading restores context on success and failure"
+  (scenario "native runtime loading preserves Scheme source context on success and failure"
     (using (with-runtime-file) (file name)
       (scope ((before (__scheme-source)))
         (act (write-program file write-datum
           '(begin (declare (block) (standard-bindings) (extended-bindings)) (begin))))
-        (act (load-scheme file))
+        (act (load-module name))
         (equal (__scheme-source) before)
         (act (write-program file write-datum '(error "native raw Scheme failure")))
-        (raises (load-scheme file)
+        (raises (reload-module! name)
           (lambda (condition) (equal? (error-message condition) "native raw Scheme failure")))
         (equal (__scheme-source) before))))
   (scenario "native failed states remain the same exception until explicit reload"

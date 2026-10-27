@@ -79,12 +79,14 @@
             (lambda () (module-source-read file) (language-module-descriptor file)))
           (lambda (_) #t))
         (equal (language-grammar-language (language-module-descriptor file)) "after"))))
-  (scenario "unchanged failed initialization and selector errors retain native state"
+  (scenario "source initializer failures propagate and changed source recovers"
     (using (with-module-file ".ss") (file)
       (act (write-program file write-datum '(begin (export grammar) (error "one native failure"))))
-      (scope ((first (with-catch values (lambda () (language-module-descriptor file) #f))))
-        (equal (and first #t) #t)
-        (equal (eq? first (with-catch values (lambda () (language-module-descriptor file) #f))) #t))
+      ;; Source evaluation follows the native expander, which may retry a failed
+      ;; source promise. Runtime load-module error identity is checked separately.
+      (each (_attempt) ('(first retry))
+        (raises (language-module-descriptor file)
+          (lambda (condition) (equal? (error-message condition) "one native failure"))))
       (act (write-program file write-grammar "repaired"))
       (equal (language-grammar-language (language-module-descriptor file)) "repaired")))
   (scenario "same-size DSL edits invalidate Rust generation"

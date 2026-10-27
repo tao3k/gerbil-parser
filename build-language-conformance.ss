@@ -1,9 +1,7 @@
 #!/usr/bin/env gxi
 ;;; Research product preparation and native Suite execution have distinct owners.
-(import (only-in "./src/build-support/compiler-profile.ss" compiler-build-spec initialize-compiler-build!)
-        (only-in "./build-test-support.ss" shared-test-build-spec))
-(import (only-in :std/build-script defbuild-script)
-        (only-in :std/make make make-clean)
+(import (only-in "./build-test-support.ss" shared-test-build-spec))
+(import (only-in :yuanxu/module-system/building/script defbuild-script)
         (only-in :std/source this-source-file)
         (only-in :gerbil/compiler compile-module))
 (def research-entry-sources
@@ -21,11 +19,7 @@
 (def (compile-static-conformance!)
   ;; Core projects the Suite imports and these actual product-root imports.
   ;; std/make owns scheduling; no transitive research helper catalog exists.
-  (initialize-compiler-build!)
-  (make (shared-test-build-spec research-entry-sources)
-        srcdir: (path-directory (this-source-file))
-        libdir: (path-expand "lib" (gerbil-path))
-        optimize: #t)
+  (main "compile")
   ;; Suite modules remain source inputs owned by gerbil test.
   (compile-research-entry!))
 ;; Developer multicall build retains the standard native shared-module owner.

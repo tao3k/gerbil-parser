@@ -136,3 +136,8 @@ reason=error-output: the supervisor terminated after a compiler error; it does
 not independently establish a timeout or OOM. Existing limits remain unchanged.
 
 CI consolidation and Git retirement are detailed in [[file:ci-ownership.org][CI ownership]].
+
+The current manifest subsequently selected Yuanxu PR head ed5236b through
+parallel update43c7274. Its normalized test-build handoff is consumed through
+the public Core building/script adapter; see ci-ownership.org. The initial
+9b9f0ab revision above describes the audited baseline, not a version authority.

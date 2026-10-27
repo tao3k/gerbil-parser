@@ -77,3 +77,17 @@ A control moved32 provenance products to custody and reproduced the same missing
 static module with the original command (reason=error-output). No archived product
 is restored to establish the positive result. The same240/idle5, two-worker and
 memory limits apply to the corrected root coverage.
+
+* Latest Core build handoff
+The parallel source-cohort update43c7274 selected the current Yuanxu PR head
+ed5236b; it is preserved. Earlier9b9f0ab receipts remain baseline observations.
+The new public building/script adapter owns native test support compilation,
+artifact admission and subset publication. Parser now returns the exact
+Core-produced std-make-spec value to that adapter. It does not map a new list
+after production and lose the producer association.
+
+The support entry uses the same existing process-local compiler host initializer
+as build.ss. Its own source and compiler-policy source are explicit observed
+inputs. Conformance invokes its ordinary native main compile entry before the
+two research roots, replacing direct std/make dispatch. There is no second
+scheduling, signing or test-execution implementation. Gerbil remains the compiler.

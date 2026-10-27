@@ -1,8 +1,8 @@
 #!/usr/bin/env gxi
 ;;; Standard currentness and scheduling for reusable Scheme test helpers.
-(import (only-in :std/build-script defbuild-script)
+(import (only-in :yuanxu/module-system/building/script defbuild-script)
         (only-in :std/source this-source-file)
-        (only-in "./src/build-support/compiler-profile.ss" compiler-build-spec))
+        (only-in "./src/build-support/compiler-profile.ss" initialize-compiler-build!))
 (import (only-in :clan/poo/object .get .call)
         (only-in "./init.ss" gerbil-parser.init.exports))
 (export shared-test-build-spec main)
@@ -16,7 +16,10 @@
     (.call tests .for-files
       (append files (map (lambda (file)
                            (path-expand file (path-directory (this-source-file))))
-                         product-sources)) '()
+                         product-sources))
+      (list (this-source-file)
+            (path-expand "src/build-support/compiler-profile.ss"
+                         (path-directory (this-source-file))))
       ;; Only native options remain declared here; Core emits this target only
       ;; when the actual Suite import closure demands it.
       (list `(gxc: "t/benchmarks/gql/runtime/compiled-timing"
@@ -24,6 +27,11 @@
                    (darwin '("-ld-options" "-Wl,-undefined,dynamic_lookup"))
                    (else '())))))))
 
+;; Preserve the exact Core-produced value so its native consumer retains
+;; source/artifact admission and subset publication. Compiler host policy is
+;; the same process-local setup used by the production build entry.
 (def (shared-test-build-spec (product-sources '()))
-  (compiler-build-spec ((.get (test-support-source product-sources) std-make-spec))))
+  ((.get (test-support-source product-sources) std-make-spec)))
+(parameterize ((current-output-port (current-error-port)))
+  (initialize-compiler-build!))
 (defbuild-script (shared-test-build-spec) optimize: #t)

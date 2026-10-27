@@ -137,3 +137,13 @@ native GitHub download/extract composition, and diagnostic failure custody.
 None issues framework approval. Core owns source/input/output/approval checks;
 CI transports archives and invokes native package/test entries. No replacement
 manifest, cache verdict, package manager or loader is introduced.
+
+The native gxpkg final retag operation invokes one gxtags process for all package
+source directories; gxtags imports each .ss/.ssi and retains native expander
+contexts across that process. Linux logs prove a2GiB failure in that child, not
+in Parser compilation. They do not yet identify the last source/module or the
+largest retained context. Failure custody now includes only pkg/TAGS or pkg/tags
+when present, alongside compiled outputs, so partial native progress survives.
+Package source/.git remains excluded. No replacement tags tool, ignore-errors
+path, forged success or changed heap is used. This source-level observation does
+not establish a repaired Linux retag operation.

@@ -1,8 +1,8 @@
 direction: right
-packages: "Declared package pins\nParser -> Core86d2b9a -> POOc0d4763"
+packages: "Declared package pins\ngerbil.pkg -> Core -> inherited POO"
 install: "Native gerbil deps --install\nfail-fast /no retry fallback"
 compiler: "Package-owned compilation\n2 workers /2GiB parent +child compiler\nCore retains300s /Parser has no180s cap"
-index: "Native gxpkg final retag\ngxtags default Emacs format +native heap default\nno registry edits /no source omissions"
+index: "Native gxpkg final retag\ngxtags default Emacs format +native heap default\nnonempty output required /no registry edits"
 products: "Native lib +static +test-lib\nactual compiler +source +ABI association"
 abi: "Shared ABI build owner\nreuse compiler host initialization\nstd/make pkg-config-libs for OpenSSL"
 tests: "Core TestingScript -> Gerbil Harness\n3GiB /900s /actual Case +MODULE-OK records"
@@ -18,3 +18,6 @@ products -> abi -> tests
 products -> transport -> restore -> tests
 controls -> tests
 old -> regression -> index
+
+standalone: "OPEN /exact macOS CI archive\nIndependent two-form source: standalone SKIP, module TAG\nNo replacement launcher /no SDK edit"
+index -> standalone

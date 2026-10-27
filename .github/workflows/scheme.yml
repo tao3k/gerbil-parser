@@ -63,6 +63,8 @@ jobs:
           gerbil pkg dir --add git.cons.io/mighty-gerbils/gerbil-directory
           gerbil deps --install
           (cd dev && GERBIL_PATH="$GITHUB_WORKSPACE/.gerbil" gerbil deps --install)
+          # Installed Core/POO export symbols: an empty index is not success.
+          test -s "$GERBIL_PATH/pkg/TAGS"
       - name: Save Gerbil package cache
         if: steps.package-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9

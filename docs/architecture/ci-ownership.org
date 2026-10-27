@@ -263,3 +263,29 @@ package installation. Fresh portable CI remains an independent required check;
 the local standalone/module behavior difference is unresolved and cannot be
 hidden behind the successful package-manager exit status. No compiler source or
 installed executable was edited.
+
+* Exact CI compiler and independent control
+The macOS release archive matches CI SHA256
+8d9c88434aed6301eaebb719bf52472f05c2368eafc630e8a9f1d67cc9895a21.
+Its standalone gxtags also skips POO object.ss. A further control outside any
+package declaration uses /tmp/gxtags-independent-control/minimal.ss containing
+only `(export answer)` and `(def answer 42)`. The executable reports SKIP and
+writes zero bytes; the public tool module reports TAG and writes113 bytes. Thus
+the observation is not confined to Homebrew or Parser/Core source content.
+No distribution file is modified, and module invocation remains diagnostic.
+
+CI now directly checks that the package-manager TAGS output is nonempty after
+both dependency installs. Core/POO provide exported symbols, so an empty index
+cannot qualify this cohort. This is a normal output check, not a credential,
+loader, alternate tool or format switch. The native install's failures still
+propagate before this check; no failed cache is saved as a successful install.
+The standalone-tool behavior is not repaired by the heap-scope correction and
+remains open under the no-Gerbil/SDK-edit constraint.
+
+The retained Core86d2b9a/POOc0d4763 complete local Harness executed182 modules
+but failed the unchanged POO grammar-object benchmark: p95=120.498ms exceeded
+max_total=100ms. Other recorded checks did not fail. MODULE-OK count does not
+supersede ERROR CHECK/HARNESS. No threshold increase, manifest reduction or
+retry-as-fix is used. A new cold prefix preserves the whole old prefix and log,
+uses the exact CI archive and newly published Core original-source observations;
+it is a distinct source/compiler qualification, not repair evidence by cleaning.

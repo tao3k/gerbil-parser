@@ -5,7 +5,6 @@
         (only-in :gerbil-parser/src/compiler/rust-runtime language-rust-runtime-module-source)
         (only-in :gerbil-parser/src/ffi/rust-runtime-aot rust-runtime-source))
 (load "t/fixtures/module-loading/observations.ss")
-(load "t/benchmarks/module-loading/reference-preload.ss")
 (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!))
 (preload-module "gerbil-parser/t/support/qualification/benchmark-qos")
@@ -70,15 +69,15 @@
       (qualify 'complete-rust-generation production-generate reference-generate 4
         (lambda (source) (unless (equal? source expected) (error "generated Rust changed")))))
     ((equal? mode "preload")
-      ;; Model first diagnostic preparation of a closure already loaded by the
-      ;; host. Each control has fresh local state; the SDK cache remains warm.
-      ;; This measures redundant graph inspection, not cold module startup.
+      ;; Compare official warm loading with an explicit native reload request.
+      ;; This is a policy/workload comparison, not cold startup or an algorithm
+      ;; equivalence proof. The original custom traversal survives only in Git.
       (preload-runtime-module "gerbil-parser/src/ffi/rust-runtime-aot")
       (let ((module "gerbil-parser/src/ffi/rust-runtime-aot") (sink (open-output-file "/dev/null")))
         (parameterize ((current-output-port sink))
-          (qualify 'warm-runtime-preparation
+          (qualify 'native-warm-versus-reload
             (lambda () (preload-runtime-module module) #t)
-            (lambda () ((make-reference-preloader) module #f) #t)
+            (lambda () (reload-module! module) #t)
             4 (lambda (ok) (unless ok (error "preload failed")))))))
     (else (error "unknown benchmark mode" mode)))
   (displayln "MODULE-LOADING-CPU-PROOF-OK " mode) (force-output)

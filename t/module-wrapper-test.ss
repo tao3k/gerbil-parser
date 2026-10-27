@@ -1,7 +1,7 @@
 ;;; Wrapper extraction must not turn Scheme data or deferred code into effects.
 (import :gerbil-parser/language-test-support
         (only-in ./fixtures/module-loading/runtime-files with-runtime-file write-program write-datum))
-(import (only-in :gerbil/runtime/init __scheme-source))
+(import (only-in :gerbil/runtime/init __scheme-source load-scheme))
 
 (def (parent-failure-observation missing?)
   (with-runtime-file
@@ -38,6 +38,15 @@
   (matrix "closed parent failures remain cached after child recovery until SDK reload"
     (setup) ((missing? '(#f #t))) (bindings)
     (equal (parent-failure-observation missing?) '(#t #t #t)))
+  (scenario "native malformed load calls cannot initialize their child"
+    (using (with-runtime-file) (parent parent-name)
+      (using (with-runtime-file) (child child-name)
+        (act (write-program child write-datum '(error "child must remain cold")))
+        (act (write-program parent write-datum `(load-module ,child-name "unexpected-argument")))
+        (scope ((failure (with-catch values (lambda () (load-module parent-name) #f))))
+          (equal (and failure #t) #t)
+          (equal (assoc child-name (list-modules)) #f)
+          (equal (eq? failure (with-catch values (lambda () (load-module parent-name) #f))) #t)))))
   (scenario "quoted and deferred loads do not initialize dependencies"
     (using (with-runtime-file) (file name)
       (scope ((missing (string-append name "-missing")))

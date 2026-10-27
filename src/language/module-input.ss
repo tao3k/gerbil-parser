@@ -11,6 +11,9 @@
 ;; File inputs re-admit changed content, including same-size/same-time edits.
 ;; Library inputs use the SDK snapshot; explicit reload is not recursive.
 (def (language-module-descriptor input reload?: (reload? #f))
+ ;; Native executables initialize the runtime, while gxi additionally initializes
+ ;; the expander. Use Gerbil's idempotent entry before any dynamic source import.
+ (gerbil-load-expander!)
  (call-with-module-source-fresh-reads (lambda ()
  (unless (and (string? input) (positive? (string-length input)))
   (error "language build input requires a module path" input))

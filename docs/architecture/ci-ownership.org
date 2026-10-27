@@ -577,3 +577,26 @@ actual imports, while test discovery remains exclusively owned by gerbil test.
 The unchanged16-request/5-sample paired protocol passed locally without gxtest,
 exit0 in9.59s under1GiB/120s/5s. This focused result does not qualify the full
 research matrix or supersede its rejected comparisons.
+
+At1c022d21, Linux cold preparation, restored generation/corpus and complete native
+semantics pass, including182 full-Suite modules, four isolated macro controls,
+intentional Suite refusal and CLI checks. The native ABI program instead enters
+main and rejects the grammar's only-in import. A standalone expander-only native
+program reproduces the same failure with a valid std/misc/ports import: exit70
+without initialization, exit0 with Gerbil's gerbil-load-expander!. Ordinary native
+executables initialize runtime; gxi additionally initializes expander.
+
+The language input owner now invokes that public idempotent API before dynamic
+imports. Rust AOT drops its independent grammar-support preload and redundant
+expander import; the grammar declares its own imports. The actual native ABI
+program then passes in3.80s at1GiB/120s/5s, including three generation comparisons
+and error/release controls; the existing module-loading Suite also passes.
+Fresh dual-platform qualification of this changed candidate remains required.
+
+The standard Rust consumer entry also passes locally: Cargo builds its actual
+archive; std/make links the executable in22.59s at2GiB/90s/30s, then the consumer
+passes in2.70s at3GiB/90s/5s, including100 calls, handles2/results113 ownership and
+Source-edit controls. An earlier manual invocation accidentally replaced the
+archive activation's GAMBOPT relocation options and tried the producer's old gsc
+path. That scene is retained; preserving the normal activation options fixes the
+command environment without a source change or increased resource budget.

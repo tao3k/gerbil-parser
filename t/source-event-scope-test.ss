@@ -1,7 +1,7 @@
 (import :gerbil-parser/language-test-support)
 ;;; Distinct rule instances share a native request without private-state aliases.
 (import :std/test
-        (only-in :gerbil-parser/src/modules/parser/interface
+        (only-in :gerbil-parser/src/declarations
                  make-source-event-scope source-event-name make-text-line
                  make-table-line make-inline-link source-table-row-initial
                  source-table-row-forms source-paragraph-initial

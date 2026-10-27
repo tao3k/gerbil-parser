@@ -41,8 +41,8 @@
               (def gerbil-parser-exclude-modules
                 '("init.ss"
                   ;; Core Build roles are phase-bound inputs, never runtime roots.
-                  "src/compiler/build.ss" "src/ffi/build.ss" "src/grammar/build.ss"
-                  "src/language/build.ss" "src/modules/build.ss"
+                  "src/compiler/build.ss" "src/ffi/build.ss" "src/grammar/build.ss" "src/graph/build.ss"
+                  "src/language/build.ss"
                   "src/runtime/build.ss" "src/testing/build.ss"
                   "build-qualification.ss" "qualify.ss" "build-conformance.ss"
                   "test-processes.ss"

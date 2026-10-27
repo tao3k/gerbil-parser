@@ -4,16 +4,16 @@
 (import (only-in ./src/compiler/event-fold-aot
                  define-event-fold-parser run-event-fold
                  event-fold-ir-json)
-        (only-in ./src/modules/parser/source-pattern-funs
+        (only-in ./src/language/source-pattern-funs
                  source-offset-after source-pattern-end source-pattern-at?
                  source-ascii-ci-pattern-at?)
-        (only-in ./src/modules/parser/source-fragment-objects
+        (only-in ./src/language/source-fragment-objects
                  make-source-delimited-fragment make-source-first-split
                  make-source-reference-scan)
-        (only-in ./src/modules/parser/source-fragment-types
+        (only-in ./src/language/source-fragment-types
                  source-delimited-fragment? source-first-split?
                  source-reference-scan?)
-        (only-in ./src/modules/parser/source-fragment-funs
+        (only-in ./src/language/source-fragment-funs
                  source-delimited-fragment-initial
                  source-delimited-fragment-forms
                  source-first-split-initial source-first-split-forms

@@ -1,7 +1,7 @@
 (import :gerbil-parser/language-test-support)
 ;;; Non-Org native recovery controls through admitted POO declarations.
 (import :std/test
-        (only-in :gerbil-parser/src/modules/parser/interface
+        (only-in :gerbil-parser/src/declarations
                  make-heading-line make-block-line make-source-block-boundary
                  make-source-named-boundary make-source-boundary-parent
                  source-boundary-query? source-boundary-parent?

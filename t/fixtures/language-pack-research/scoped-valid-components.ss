@@ -1,7 +1,7 @@
 #!/usr/bin/env gxi
 ;;; -*- Gerbil -*-
 (import "located-component" "scoped-author-vocabulary"
-        (only-in "../../../src/modules/parser/objects"
+        (only-in "../../../src/grammar/declaration-objects"
                  grammar-role? grammar-role-name grammar-role-ref))
 (def component-value 'host-component-value)
 (scoped-arguments scoped-component call-arguments arguments

@@ -2,7 +2,8 @@
 (import (only-in :clan/poo/object .o))
 (export Build)
 (def Build (.o kind: 'module/build roots: '("source-execution")
-               library-roots: '("src/testing/source-witness"
+               library-roots: '("src/testing/module-loader"
+                     "src/testing/source-witness"
                      "src/testing/language-assertions"
                      "src/testing/language-product"
                      "src/testing/language-strategy"

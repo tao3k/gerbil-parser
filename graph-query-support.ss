@@ -1,13 +1,13 @@
 ;;; -*- Gerbil -*-
 ;;; Public POO graph-query surface for language-owned graph views.
 
-(import (only-in ./src/modules/parser/graph-query-types
+(import (only-in ./src/graph/graph-query-types
                  GraphQueryAccessorOf GraphQueryPredicateOf
                  GraphQueryViewContract GraphQueryContextContract
                  graph-query-view? graph-query-context?)
-        (only-in ./src/modules/parser/graph-query-objects
+        (only-in ./src/graph/graph-query-objects
                  GraphQueryContext. make-graph-query-context)
-        (only-in ./src/modules/parser/graph-query-funs
+        (only-in ./src/graph/graph-query-funs
                  graph-query-map graph-query-lineage? graph-query-select))
 (export GraphQueryAccessorOf GraphQueryPredicateOf
         GraphQueryViewContract GraphQueryContextContract GraphQueryContext.

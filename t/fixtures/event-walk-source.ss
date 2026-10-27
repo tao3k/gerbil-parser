@@ -1,5 +1,5 @@
 ;;; Reader adapter only: preserve source syntax for the Lean admission kernel.
-(import (only-in "../../src/modules/loader.ss" load-parser-module)
+(import (only-in "../../src/testing/module-loader.ss" load-parser-module)
         (only-in "./prediction-witness.ss"
                  prediction-observation prediction-dependencies prediction-fixtures)
         (only-in "../../src/testing/source-witness.ss"

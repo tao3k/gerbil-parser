@@ -1,4 +1,4 @@
-(import (only-in :gerbil-parser/src/modules/loader
+(import (only-in :gerbil-parser/src/testing/module-loader
                  compiled-dependencies compiled-wrapper-forms read-compiled-dependencies
                  sdk-module-ready? settled-source-wrapper? owned-source-wrapper?
                  load-ready-source-wrapper load-parser-module)

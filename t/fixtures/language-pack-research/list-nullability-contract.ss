@@ -1,7 +1,7 @@
 #!/usr/bin/env gxi
 ;;; -*- Gerbil -*-
 (import (only-in "list-roles" make-nonempty-list-role)
-        (only-in "../../../src/modules/parser/objects" grammar-role-ref)
+        (only-in "../../../src/grammar/declaration-objects" grammar-role-ref)
         (only-in "../../../src/compiler/lr" lower-rules compute-nullable compute-first))
 (def checked 0)
 (def (probe label actual expected)

@@ -2,7 +2,7 @@
 ;;; -*- Gerbil -*-
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
         "list-parser" "list-roles"
-        (only-in "../../../src/modules/parser/objects" make-grammar)
+        (only-in "../../../src/grammar/declaration-objects" make-grammar)
         (only-in "../../../src/compiler/normalize" compile-grammar grammar-ir-ref)
         (only-in "../../../src/runtime/parser" parse-source)
         (only-in "../../../src/compiler/parser-ir" parser-ir-ref)

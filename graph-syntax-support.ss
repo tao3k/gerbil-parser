@@ -1,3 +1,3 @@
 ;;; Public POO graph syntax shared by compatible language declarations.
-(import ./src/modules/parser/graph-syntax)
-(export (import: ./src/modules/parser/graph-syntax))
+(import ./src/graph/graph-syntax)
+(export (import: ./src/graph/graph-syntax))

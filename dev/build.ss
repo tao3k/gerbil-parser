@@ -55,7 +55,8 @@
         (for-each (lambda (name)
                     (when (member name names) (error "retired build target is still published" name)))
           '("modules/parser/types" "modules/parser/objects" "modules/parser/config"
-            "modules/parser/interface" "build-modules")))
+            "modules/parser/interface" "src/modules/types" "src/modules/objects"
+            "src/modules/loader" "src/modules/parser/interface" "build-modules")))
       (displayln "PARSER-BUILD-CATALOG-OK")
       (map (lambda (target) (string-append (cadr target) ".ss")) production))))
 (def (main . args)

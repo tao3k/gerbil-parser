@@ -2,7 +2,7 @@
 
 (import ./grammar/algebra
         ./grammar/lexical-algebra
-        ./modules/parser/interface
+        ./declarations
         ./language/descriptor
         ./language/grammar
         ./language/entry
@@ -19,7 +19,7 @@
         ./runtime/parser)
 (export (import: ./grammar/algebra)
         (import: ./grammar/lexical-algebra)
-        (import: ./modules/parser/interface)
+        (import: ./declarations)
         (import: ./language/descriptor)
         (import: ./language/grammar)
         (import: ./language/entry)

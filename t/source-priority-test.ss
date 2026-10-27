@@ -1,7 +1,7 @@
 (import :gerbil-parser/language-test-support)
 ;;; Ordered-choice lowering stays pure and preserves empty matched branches.
 (import :std/test
-        (only-in "../src/modules/parser/source-pattern-funs.ss"
+        (only-in "../src/language/source-pattern-funs.ss"
                  source-priority-forms))
 
 (deflanguage-parser-tests source-priority-test "source priority lowering"

@@ -17,7 +17,7 @@
                  prepare-fold-state-layout instantiate-fold-state-frame
                  fold-frame-ref fold-frame-update! fold-frame-bound?
                  fold-frame-bind! fold-frame-unbind!)
-        (only-in :gerbil-parser/src/modules/parser/interface
+        (only-in :gerbil-parser/src/declarations
                  source-offset-after source-pattern-end source-pattern-at?
                  source-ascii-ci-pattern-at?))
 

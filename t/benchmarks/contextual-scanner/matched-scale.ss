@@ -6,7 +6,7 @@
           contextual-scanner-step contextual-scan-state-byte-offset)
  (only-in :gerbil-parser/src/compiler/contextual-dispatch compile-contextual-dispatch)
  (only-in :gerbil-parser/src/compiler/contextual-scanner-ir compile-contextual-scanner)
- (only-in :gerbil-parser/src/modules/parser/contextual-objects
+ (only-in :gerbil-parser/src/grammar/contextual-objects
           make-contextual-role make-contextual-method make-contextual-scan-rule)
  (only-in :gerbil-parser/src/runtime/token token-lexeme token-kind))
 (import (only-in :gerbil-parser/src/runtime/parse-cost admit-parser-allocation))

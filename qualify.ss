@@ -3,8 +3,8 @@
 (displayln "QUALIFICATION-START") (force-output)
 ;;; The CLI consumes runtime procedures, never macro interfaces. Gerbil loading
 ;;; remains authoritative; the shared adapter handles source-only wrappers.
-(load-module "gerbil-parser/src/modules/loader")
-(def load-runtime-service (eval 'gerbil-parser/src/modules/loader#load-parser-module))
+(load-module "gerbil-parser/src/testing/module-loader")
+(def load-runtime-service (eval 'gerbil-parser/src/testing/module-loader#load-parser-module))
 (def (profile-value module name)
   (load-runtime-service module)
   (eval name))

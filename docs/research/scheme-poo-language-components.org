@@ -24,8 +24,8 @@ The current code supplies more than a POO language loader:
 
 | Owner | Current behavior | Design consequence |
 |-------+------------------+--------------------|
-| [[file:../../src/modules/parser/syntax.ss][parser syntax]] | =defgrammar-role=, =defgrammar= and =defgrammar-compose= | Reuse existing role and composition concepts |
-| [[file:../../src/modules/parser/objects.ss][parser objects]] | Checked GrammarRole/Grammar objects and receiver-owned =.section= protocol | POO is already a grammar representation and extension boundary |
+| [[file:../../src/grammar/declaration-syntax.ss][parser syntax]] | =defgrammar-role=, =defgrammar= and =defgrammar-compose= | Reuse existing role and composition concepts |
+| [[file:../../src/grammar/declaration-objects.ss][parser objects]] | Checked GrammarRole/Grammar objects and receiver-owned =.section= protocol | POO is already a grammar representation and extension boundary |
 | [[file:../../src/compiler/normalize.ss][grammar normalization]] | Ordered parent traversal and merge/append/override/remove operations | Composition has deliberate semantics and produces a receipt |
 | [[file:../../src/language/grammar.ss][language syntax]] | =defgrammar-syntax= templates and =deflanguage= compile-time elaboration | A concise author vocabulary can share canonical grammar semantics |
 | [[file:../../src/language/entry.ss][language entry]] | POO loader inheritance, service slots and effective-object admission | Grammar components and service components have related but distinct roles |

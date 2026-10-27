@@ -8,7 +8,7 @@
                  yuanxu-contract-admit
                  yuanxu-validation-evidence-accepted?
                  yuanxu-classification-evidence)
-        (only-in ./types ParserSymbol))
+        (only-in ../grammar/declaration-types ParserSymbol))
 (export +graph-projection-kind+ +graph-node-kind+ +graph-field-kind+
         GraphProjectionContract GraphNodeContract GraphFieldContract)
 

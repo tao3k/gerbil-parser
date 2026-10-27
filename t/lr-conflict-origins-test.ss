@@ -5,7 +5,7 @@
         (only-in :gerbil-parser/src/compiler/lr lower-rules current-grammar-source-map)
         (only-in :gerbil-parser/src/compiler/normalize compile-grammar/context
                  normalized-grammar-ir normalized-grammar-source-map grammar-ir-ref)
-        (only-in :gerbil-parser/src/modules/parser/objects make-grammar make-grammar-role))
+        (only-in :gerbil-parser/src/grammar/declaration-objects make-grammar make-grammar-role))
 
 (def (admission-result rules (construction 'lalr))
   (with-catch

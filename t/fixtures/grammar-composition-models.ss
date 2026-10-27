@@ -11,7 +11,7 @@
         :gerbil-parser/src/compiler/lr
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
         :gerbil-parser/src/language/grammar
-        :gerbil-parser/src/modules/parser/interface
+        :gerbil-parser/src/declarations
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-roundtrip parse-artifact-success?)
         (only-in :gerbil-parser/src/runtime/funcs vector-intern-map)

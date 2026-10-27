@@ -9,7 +9,7 @@
         (only-in :std/misc/ports read-all-as-string)
         :asp-gerbil-scheme/src/benchmark/framework
         :yuanxu/observability/debug
-        :gerbil-parser/src/modules/parser/interface
+        :gerbil-parser/src/declarations
         (only-in :gerbil-parser/t/fixtures/progress report-test-progress!))
 
 (def benchmark-path "t/benchmarks/poo-grammar-objects/benchmark.ss")

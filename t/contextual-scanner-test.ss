@@ -3,7 +3,7 @@
 ;;; Two language declaration shapes execute through one engine scanner.
 
 (import (only-in :std/test check test-case test-suite)
-        (only-in :gerbil-parser/src/modules/parser/contextual-objects
+        (only-in :gerbil-parser/src/grammar/contextual-objects
                  make-contextual-method make-contextual-role
                  make-contextual-scan-rule)
         (only-in :gerbil-parser/src/compiler/contextual-dispatch

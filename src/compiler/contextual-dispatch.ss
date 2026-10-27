@@ -2,7 +2,7 @@
 ;;; Compiler-side resolution of contextual declaration methods. The output is
 ;;; closed data; parsing never consults POO objects or method procedures.
 
-(import (only-in ../modules/parser/contextual-objects
+(import (only-in ../grammar/contextual-objects
                  contextual-role? contextual-role-ref
                  contextual-method-name contextual-method-mode
                  contextual-method-position contextual-method-form

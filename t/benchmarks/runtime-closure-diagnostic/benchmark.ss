@@ -1,4 +1,4 @@
-(import :gerbil-parser/src/modules/parser/interface
+(import :gerbil-parser/src/declarations
         :gerbil-parser/src/runtime/artifact
         :gerbil-parser/src/runtime/lexer
         :gerbil-parser/src/runtime/significant

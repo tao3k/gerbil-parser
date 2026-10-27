@@ -1,7 +1,7 @@
 #!/usr/bin/env gxi
 ;;; -*- Gerbil -*-
 (import (only-in "list-roles" make-nonempty-list-role)
-        (only-in "../../../src/modules/parser/objects" grammar-role-ref)
+        (only-in "../../../src/grammar/declaration-objects" grammar-role-ref)
         (only-in "../../../src/grammar/algebra"
                  grammar-expression-nullable? grammar-expression)
         (only-in "../../../src/compiler/lr" lower-rules compute-nullable))

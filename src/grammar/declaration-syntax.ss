@@ -3,9 +3,9 @@
 ;;; Invariant: syntax validation lowers once to named constructors; the macro
 ;;; layer owns no runtime merge, lookup, validation, or projection behavior.
 
-(import (only-in ./objects make-grammar-role make-grammar)
-        (only-in ../../grammar/algebra grammar-expression)
-        (only-in ../../grammar/lexical-algebra lexical-expression))
+(import (only-in ./declaration-objects make-grammar-role make-grammar)
+        (only-in ./algebra grammar-expression)
+        (only-in ./lexical-algebra lexical-expression))
 (export defgrammar-role
         defgrammar
         defgrammar-compose)

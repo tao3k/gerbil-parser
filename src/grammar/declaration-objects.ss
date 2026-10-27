@@ -7,7 +7,7 @@
         (only-in :clan/poo/mop .defgeneric element? validate)
         (only-in :yuanxu/object-family/interface
                  defpoo-object-family)
-        (only-in ./types
+        (only-in ./declaration-types
                  +grammar-role-kind+
                  +grammar-kind+
                  +grammar-schema+

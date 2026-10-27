@@ -2,7 +2,7 @@
 ;; Consume installed descriptors by package identity. Re-evaluating their source
 ;; beside installed constructors would create a second nominal family.
 (import :gerbil-parser/language-test-support
-        (only-in :clan/poo/object .o .cc .get .ref)
+        (only-in :clan/poo/object .o .cc .get .ref .slot?)
         (only-in :std/source this-source-file)
         (only-in :clan/poo/mop element? validate TypeError? define-type Type.)
         (only-in :clan/poo/type String Symbol TypeValuePair Record OrFalse)
@@ -13,14 +13,15 @@
         (only-in :gerbil-parser/src/compiler/types GrammarIR)
         (only-in :gerbil-parser/src/utilities/types UtilitiesScopeContract UtilitiesScope)
         (only-in :gerbil-parser/src/grammar/types GrammarScopeContract)
+        (only-in :gerbil-parser/src/graph/types GraphScopeContract)
         (only-in :gerbil-parser/src/ffi/types ForeignInterfaceScopeContract)
         (only-in :gerbil-parser/src/language/types LanguageScopeContract)
         (only-in "../init.ss" gerbil-parser.init.exports)
         (only-in :gerbil-parser/languages/arithmetic/parser parse-arithmetic)
         (only-in :gerbil-parser/languages/arithmetic/grammar arithmetic-grammar)
-        (only-in :gerbil-parser/src/modules/parser/objects make-grammar Grammar. GrammarRole.)
+        (only-in :gerbil-parser/src/grammar/declaration-objects make-grammar Grammar. GrammarRole.)
         (only-in :gerbil-parser/src/schema +language-grammar-schema+)
-        (only-in :gerbil-parser/src/modules/parser/types GrammarContract GrammarRoleContract)
+        (only-in :gerbil-parser/src/grammar/declaration-types GrammarContract GrammarRoleContract)
         (prefix-in (only-in :gerbil-parser/src/compiler/normalize compile-grammar) compiled.))
 (def parser-source-root (path-expand ".." (path-directory (this-source-file))))
 ;; Actual native source operations advance Ops progress; no timer or heartbeat.
@@ -59,6 +60,21 @@
   ;; Role evaluation and native source registration use the process expander.
   ;; Retain two Workers; this owner declares its existing exclusive capability.
   (engine)
+  (scenario "domain modules are selected directly without a modules container"
+    (sequential ((components (.get gerbil-parser.init.exports Components))
+                 (graph (selected-test-scope 'graph)))
+      (each (name) ('(build-support compiler ffi grammar graph language runtime testing utilities))
+        (equal (.slot? components name) #t))
+      (equal (.slot? components 'modules) #f)
+      (equal (file-exists? (path-expand "src/modules" parser-source-root)) #f)
+      (each (path) ('("src/grammar/declaration-types.ss" "src/grammar/declaration-objects.ss"
+                     "src/language/line-structure-objects.ss" "src/language/source-event-scope-funs.ss"
+                     "src/graph/graph-query-objects.ss" "src/graph/graph-projection-types.ss"
+                     "src/testing/module-loader.ss" "src/declarations.ss"))
+        (equal (file-exists? (path-expand path parser-source-root)) #t))
+      (equal (element? GraphScopeContract graph) #t)
+      (equal (element? GraphScopeContract (.o)) #f)
+      (equal (element? GraphScopeContract (.cc graph make-graph-query-context: 42)) #f)))
   (scenario "actual service Scopes validate and reject malformed values"
     (sequential
       ((utilities (selected-test-scope 'utilities))
@@ -78,7 +94,7 @@
        (runtime (selected-test-scope 'runtime))
        (testing (selected-test-scope 'testing))
        (build (selected-test-scope 'build-support))
-       (modules (selected-test-scope 'modules))
+       (graph (selected-test-scope 'graph))
        (compiler (selected-test-scope 'compiler))
        (calls 0))
       (equal (element? TypeValuePair selection) #t)
@@ -108,12 +124,12 @@
       (equal (type-rejected? (lambda () ((.get build native-module-link-options) '(42)))) #t)
       (equal (type-rejected? (lambda () ((.get build compiler-build-spec) 42))) #t)
       (equal (type-rejected? (lambda () ((.get testing parser-test-form-admitted?) '(quote x) '(42)))) #t)
-      (equal (type-rejected? (lambda () ((.get modules make-graph-query-context) String Symbol Symbol 42))) #t)
+      (equal (type-rejected? (lambda () ((.get graph make-graph-query-context) String Symbol Symbol 42))) #t)
       (equal (type-rejected? (lambda () ((.get compiler compile-grammar) 42))) #t)
       (equal (type-rejected? (lambda () ((.get compiler compile-grammar) (.o)))) #t)
       (equal (type-rejected? (lambda () ((.get compiler compile-grammar) '((schema . "unknown") (grammar . test))))) #t)
-      (equal ((.get modules graph-query-view?) (Record) UInt Symbol
-        (cdr (.get ((.get modules make-graph-query-context) (Record) UInt Symbol
+      (equal ((.get graph graph-query-view?) (Record) UInt Symbol
+        (cdr (.get ((.get graph make-graph-query-context) (Record) UInt Symbol
           (.o records: '() id-of: (lambda (_) 0) parent-of: (lambda (_) #f) kind-of: (lambda (_) 'node))) view))) #t)
       (equal (element? ForeignInterfaceScopeContract
         (.cc (selected-test-scope 'ffi) language-abi-version: -1)) #f)

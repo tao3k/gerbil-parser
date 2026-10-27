@@ -1,7 +1,7 @@
 (import :gerbil-parser/language-test-support)
 ;;; Non-Org link declarations exercise the engine's native commit boundary.
 (import :std/test
-        (only-in :gerbil-parser/src/modules/parser/interface
+        (only-in :gerbil-parser/src/declarations
                  make-source-event-scope make-text-line make-inline-link source-inline-link-initial
                  source-inline-link-scan-forms)
         (only-in :gerbil-parser/src/compiler/event-fold-runtime run-event-fold))

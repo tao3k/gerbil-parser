@@ -6,7 +6,7 @@
         (only-in :clan/poo/type Record Symbol String OrFalse)
         (only-in :gerbil-parser/graph-query-support
                  GraphQueryViewContract make-graph-query-context graph-query-map graph-query-select)
-        (only-in :gerbil-parser/src/modules/parser/graph-query-objects graph-query-context-view)
+        (only-in :gerbil-parser/src/graph/graph-query-objects graph-query-context-view)
         (only-in :gerbil-parser/src/runtime/source-scanner
                  make-source-scanner source-scanner-initial-state source-scanner-step source-scan-state-with-context)
         (only-in :gerbil-parser/src/runtime/function-types ActionSelectorFactory)

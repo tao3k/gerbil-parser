@@ -1,6 +1,6 @@
 ;;; HCL contextual product shared by integration tests and matched parse batches.
 (import (only-in :gerbil-parser/src/compiler/machine parser-machine-ir)
-        (only-in :gerbil-parser/src/modules/parser/contextual-objects
+        (only-in :gerbil-parser/src/grammar/contextual-objects
                  make-contextual-method make-contextual-role make-contextual-scan-rule)
         (only-in :gerbil-parser/src/compiler/contextual-parser-ir compile-contextual-parser))
 (export contextual-product)

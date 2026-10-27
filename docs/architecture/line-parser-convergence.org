@@ -2,7 +2,7 @@
 
 * Engine boundary
 
-=src/modules/parser/interface.ss= exports admitted POO line declarations
+=src/declarations.ss= exports admitted POO line declarations
 and pure native event projections. =line-event-funs.ss= owns table row
 splitting/escape and paragraph lifecycle; =inline-link-event-funs.ss= owns
 link candidate state, bounded recognition and event commit. They lower into

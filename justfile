@@ -68,7 +68,7 @@ test-research-suites:
 # Public native declaration lowering; test-all discovers this suite once.
 test-line-events output load_path:
     mkdir -p "{{output}}"
-    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/modules/parser/line-structure-objects.ss src/modules/parser/source-event-scope-types.ss src/modules/parser/source-event-scope-objects.ss src/modules/parser/source-event-scope-funs.ss src/modules/parser/line-event-funs.ss src/modules/parser/list-event-funs.ss src/modules/parser/inline-link-event-funs.ss src/modules/parser/source-boundary-types.ss src/modules/parser/source-boundary-objects.ss src/modules/parser/source-boundary-funs.ss src/modules/parser/interface.ss t/line-event-test.ss t/inline-link-event-test.ss t/source-boundary-test.ss t/source-event-scope-test.ss t/list-event-test.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/language/line-structure-objects.ss src/language/source-event-scope-types.ss src/language/source-event-scope-objects.ss src/language/source-event-scope-funs.ss src/language/line-event-funs.ss src/language/list-event-funs.ss src/language/inline-link-event-funs.ss src/language/source-boundary-types.ss src/language/source-boundary-objects.ss src/language/source-boundary-funs.ss src/declarations.ss t/line-event-test.ss t/inline-link-event-test.ss t/source-boundary-test.ss t/source-event-scope-test.ss t/list-event-test.ss
     GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/line-event-test.ss t/inline-link-event-test.ss t/source-boundary-test.ss t/source-event-scope-test.ss t/list-event-test.ss 2>&1 | tee "{{output}}/line-events-test.log"
     rg --quiet '^HARNESS-OK' "{{output}}/line-events-test.log"
     rg --quiet '^OK$' "{{output}}/line-events-test.log"
@@ -79,7 +79,7 @@ test-source-priority:
 
 build-source-priority output load_path:
     mkdir -p "{{output}}"
-    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/modules/parser/source-pattern-funs.ss src/modules/parser/funcs.ss src/modules/parser/interface.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/language/source-pattern-funs.ss src/grammar/declaration-funcs.ss src/declarations.ss
 
 build-process-fixture: build-qualification
     mkdir -p .data/process-controls

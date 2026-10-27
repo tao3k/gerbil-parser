@@ -1,7 +1,7 @@
 ;;; Grammar object graph validation and deterministic normalization.
 
 (import (only-in ../schema +grammar-ir-schema+)
-        (only-in ../modules/parser/objects
+        (only-in ../grammar/declaration-objects
                  grammar-composition grammar-name grammar-parents
                  grammar-role-name grammar-role-ref grammar-roles)
         (only-in ../runtime/identity sha256-text)

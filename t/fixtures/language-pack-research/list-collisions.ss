@@ -2,7 +2,7 @@
 ;;; -*- Gerbil -*-
 ;;; Composition-only controls do not load parser generation/runtime modules.
 (import "list-roles"
-        (only-in "../../../src/modules/parser/objects" make-grammar)
+        (only-in "../../../src/grammar/declaration-objects" make-grammar)
         (only-in "../../../src/compiler/normalize" compile-grammar))
 (def checked 0)
 (def (list-check label actual expected)

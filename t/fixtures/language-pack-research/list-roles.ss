@@ -1,8 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Checked POO contributions built at the importing module's phase.
 (import (only-in :clan/poo/object .o)
-        (only-in "../../../src/modules/parser/objects" make-grammar-role make-grammar grammar-role-ref)
-        (only-in "../../../src/modules/parser/syntax" defgrammar-role)
+        (only-in "../../../src/grammar/declaration-objects" make-grammar-role make-grammar grammar-role-ref)
+        (only-in "../../../src/grammar/declaration-syntax" defgrammar-role)
         (only-in "../../../src/grammar/algebra" grammar-expression?))
 (export make-nonempty-list-role make-list-study-grammar make-single-argument-list-grammar list-study-base-role
         make-native-list-grammar make-native-single-list-grammar)

@@ -14,7 +14,7 @@
                  prepare-contextual-parser parse-source/contextual)
         (only-in :gerbil-parser/src/compiler/machine
                  parser-machine-runtime parser-machine-grammar-digest parser-machine-ir)
-        (only-in :gerbil-parser/src/modules/parser/contextual-objects
+        (only-in :gerbil-parser/src/grammar/contextual-objects
                  make-contextual-method make-contextual-role make-contextual-scan-rule)
         (only-in :gerbil-parser/src/compiler/contextual-parser-ir compile-contextual-parser)
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)

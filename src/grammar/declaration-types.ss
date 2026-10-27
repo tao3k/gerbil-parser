@@ -2,7 +2,7 @@
 ;;; Invariant: grammar values prove prototype ancestry and every public slot
 ;;; before object behavior or compiler normalization can observe them.
 
-(import (only-in ../../schema +grammar-schema+ +grammar-ir-schema+
+(import (only-in ../schema +grammar-schema+ +grammar-ir-schema+
                  +parser-ir-schema+ +parse-artifact-schema+ +diagnostic-schema+)
         (only-in :clan/poo/object .ref .cc)
         (only-in :clan/poo/mop define-type element? Type.)

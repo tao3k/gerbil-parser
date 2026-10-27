@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Public POO/AOT support for language-owned graph projections.
 
-(import (only-in ./src/modules/parser/graph-projection-objects
+(import (only-in ./src/graph/graph-projection-objects
                  GraphProjection. GraphNode. GraphField.
                  make-graph-projection make-graph-node make-graph-field
                  graph-projection?)

@@ -17,7 +17,7 @@
         (only-in :gerbil-parser/src/compiler/lr-partition build-states-via-partitioned-lr1)
         (only-in :gerbil-parser/src/compiler/lr-conflict-candidates initial-backward-follow-partitions)
         (only-in :gerbil-parser/src/compiler/normalize compile-grammar grammar-ir-ref compile-grammar/context normalized-grammar-ir normalized-grammar-source-map)
-        (only-in :gerbil-parser/src/modules/parser/objects make-grammar make-grammar-role)
+        (only-in :gerbil-parser/src/grammar/declaration-objects make-grammar make-grammar-role)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-parse lr-prepare lr-parse/prepared lr-runtime-with-action-selector lr-rejection-condition?)
         (only-in :gerbil-parser/src/runtime/lr-parser/prepare make-lr-action-selector)
         (only-in :gerbil-parser/src/runtime/lr-action-index index-action-rows)

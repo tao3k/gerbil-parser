@@ -7,7 +7,7 @@
         (only-in :yuanxu/object-types/contracts yuanxu-contract-admit
                  yuanxu-validation-evidence-accepted?
                  yuanxu-classification-evidence)
-        :gerbil-parser/src/modules/parser/interface)
+        :gerbil-parser/src/declarations)
 
 (def (evidence-member? contract candidate)
   ;; Native value shape failures are TypeErrors; contextual rejection is evidence.

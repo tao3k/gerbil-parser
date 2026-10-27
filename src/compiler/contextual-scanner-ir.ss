@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Closed contextual scanner rules and a digest bound to compiler dispatch.
 
-(import (only-in ../modules/parser/contextual-objects
+(import (only-in ../grammar/contextual-objects
                  contextual-scan-rule? contextual-scan-rule-name
                  contextual-scan-rule-mode contextual-scan-rule-form
                  contextual-scan-rule-matcher contextual-scan-rule-rank

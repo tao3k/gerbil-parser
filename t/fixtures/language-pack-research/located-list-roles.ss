@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 (import "located-component" "list-origins"
         (only-in "list-roles" list-study-base-role)
-        (only-in "../../../src/modules/parser/objects" make-grammar))
+        (only-in "../../../src/grammar/declaration-objects" make-grammar))
 (export make-located-list-grammar located-list-source-map)
 
 (deflocated-list arguments-component call-arguments arguments

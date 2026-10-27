@@ -5,7 +5,7 @@
                  language-grammar-ir language-grammar-machine)
         (only-in ../runtime/identity sha256-text)
         (only-in ./machine parser-machine-grammar-digest)
-        (only-in ../modules/parser/graph-projection-objects
+        (only-in ../graph/graph-projection-objects
                  graph-projection? graph-projection-nodes
                  graph-node-syntax-kind graph-node-category graph-node-label
                  graph-node-fields graph-field-token graph-field-name

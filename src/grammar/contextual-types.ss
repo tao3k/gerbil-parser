@@ -5,7 +5,7 @@
 (import (only-in :clan/poo/object .o)
         (only-in :clan/poo/mop define-type)
         (only-in :yuanxu/object-types/contracts YuanxuObjectContract.)
-        (only-in ./types ParserSymbol ParserList))
+        (only-in ./declaration-types ParserSymbol ParserList))
 (export +contextual-role-kind+ ContextualRoleContract)
 
 (def +contextual-role-kind+ 'gerbil-parser-contextual-role)

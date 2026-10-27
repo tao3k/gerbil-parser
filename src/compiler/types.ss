@@ -4,7 +4,7 @@
         (only-in :clan/poo/mop define-type Fun Object Bool Type. element?)
         (only-in :clan/poo/type Record List Pair Symbol String Exactly Or)
         (only-in :yuanxu/object-types/contracts YuanxuContract.))
-(import (only-in ../modules/parser/types GrammarContract +grammar-ir-schema+ ParserList)
+(import (only-in ../grammar/declaration-types GrammarContract +grammar-ir-schema+ ParserList)
         (only-in ../grammar/algebra grammar-expression?)
         (only-in ../grammar/lexical-algebra lexical-expression?))
 (export CompilerGrammar GrammarIR CompilerScope CompilerScopeContract)

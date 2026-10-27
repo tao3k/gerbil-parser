@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Fixture-specific ownership map for unique merge/append contributions.
 (import (only-in :clan/poo/object .ref .slot?)
-        (only-in "../../../src/modules/parser/objects" grammar-role-name))
+        (only-in "../../../src/grammar/declaration-objects" grammar-role-name))
 (export list-study-source-map list-study-row-source)
 (def (ref value key) (let (row (assq key value)) (and row (cdr row))))
 (def (list-study-source-map receipt)

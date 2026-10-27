@@ -8,7 +8,7 @@
                  yuanxu-contract-admit
                  yuanxu-validation-evidence-accepted?
                  yuanxu-classification-evidence)
-        (only-in ./types ParserSymbol ParserList))
+        (only-in ../grammar/declaration-types ParserSymbol ParserList))
 (export +line-structure-schema+
         +line-structure-kind+
         +heading-line-kind+

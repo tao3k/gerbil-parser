@@ -5,7 +5,7 @@
         (only-in :yuanxu/poo-clos/interface .defgeneric .defmethod)
         (only-in :gerbil-parser/src/compiler/contextual-dispatch
                  compile-contextual-dispatch contextual-dispatch-ref)
-        (only-in :gerbil-parser/src/modules/parser/contextual-objects
+        (only-in :gerbil-parser/src/grammar/contextual-objects
                  make-contextual-role make-contextual-method))
 
 

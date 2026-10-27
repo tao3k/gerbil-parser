@@ -1,7 +1,7 @@
 (import :gerbil-parser/language-test-support)
 ;;; Native execution of non-Org declarations through the public engine surface.
 (import :std/test
-        (only-in :gerbil-parser/src/modules/parser/interface
+        (only-in :gerbil-parser/src/declarations
                  make-table-line make-source-event-scope make-text-line source-table-row-initial
                  source-table-row-forms source-paragraph-initial
                  source-paragraph-close-form source-paragraph-line-form)

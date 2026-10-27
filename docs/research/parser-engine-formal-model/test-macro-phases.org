@@ -265,7 +265,7 @@ below the repository's thousand-line limit.
 
 The old dependency observer searched arbitrary Scheme data for =load-module=.
 It could execute quoted or deferred code, or run a child before an earlier
-opaque parent failure. The shared =src/modules/loader.ss= now recognizes a
+opaque parent failure. The shared =src/testing/module-loader.ss= now recognizes a
 closed executable language: exact load calls, proper nested =begin= sequences,
 and the pinned compiler's exact declaration. An unsupported sibling rejects
 the entire extraction before any speculative effect.

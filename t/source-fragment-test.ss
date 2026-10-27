@@ -5,13 +5,13 @@
 (import (only-in :std/test check check-exception test-case test-suite)
         (only-in :std/encoding/json JSONReadOptions string->json)
         (only-in "event-strategy-fixture.ss" event-lines-language-grammar)
-        (only-in :gerbil-parser/src/modules/parser/source-fragment-objects
+        (only-in :gerbil-parser/src/language/source-fragment-objects
                  make-source-delimited-fragment make-source-first-split
                  make-source-reference-scan)
-        (only-in :gerbil-parser/src/modules/parser/source-fragment-types
+        (only-in :gerbil-parser/src/language/source-fragment-types
                  source-delimited-fragment? source-first-split?
                  source-reference-scan?)
-        (only-in :gerbil-parser/src/modules/parser/source-fragment-funs
+        (only-in :gerbil-parser/src/language/source-fragment-funs
                  source-delimited-fragment-initial source-delimited-fragment-forms
                  source-first-split-initial source-first-split-forms
                  source-reference-scan-initial source-reference-scan-forms)

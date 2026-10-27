@@ -1,7 +1,7 @@
 (import :gerbil-parser/language-test-support)
 ;;; Non-Org declaration controls for scoped native list structure and spans.
 (import :std/test
-        (only-in :gerbil-parser/src/modules/parser/interface
+        (only-in :gerbil-parser/src/declarations
                  make-list-line make-text-line make-source-event-scope
                  source-list-initial source-list-scan-form source-list-present-condition
                  source-list-ordered-condition source-list-active-condition

@@ -8,7 +8,7 @@
         (only-in ./rust-syntax
                  rust-struct rust-static rust-array rust-some rust-none
                  rust-number rust-string rust-identifier rust-module rust-render)
-        (only-in ../modules/parser/line-structure-objects
+        (only-in ../language/line-structure-objects
                  line-structure?
                  line-structure-heading line-structure-blocks line-structure-text
                  line-structure-table line-structure-list line-structure-key-lines

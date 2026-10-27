@@ -2,5 +2,5 @@
 (import :yuanxu/module-system/selection/init-syntax)
 (yuanxu!
   :load-modules "./src" mode: explicit rename: Components
-  (build-support) (compiler) (ffi) (grammar) (language)
-  (modules) (runtime) (testing) (utilities))
+  (build-support) (compiler) (ffi) (grammar) (graph) (language)
+  (runtime) (testing) (utilities))

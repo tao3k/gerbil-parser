@@ -9,7 +9,7 @@
         (only-in ./funcs recognition-sequence-for-each)
         (only-in :std/func compose every-of)
         (only-in :std/string/misc string-concatenate-reverse)
-        (only-in ../modules/parser/types
+        (only-in ../grammar/declaration-types
                  +diagnostic-schema+ +parse-artifact-schema+)
         (only-in ./identity sha256-bytes sha256-text)
         (only-in ./recognition

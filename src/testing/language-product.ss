@@ -1,6 +1,6 @@
 ;;; -*- Gerbil -*-
 ;;; Closed tool fixtures and descriptor/native/build admission test execution.
-(import (only-in ../modules/loader load-parser-module)
+(import (only-in ../testing/module-loader load-parser-module)
         (only-in :std/test check check-exception)
         (only-in :std/misc/process run-process)
         (only-in :std/string/misc string-trim-eol)

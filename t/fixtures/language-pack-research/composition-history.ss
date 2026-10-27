@@ -3,7 +3,7 @@
 ;;; The existing normalizer remains the sole owner of composition behavior.
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
         "list-roles" "list-origins"
-        (only-in "../../../src/modules/parser/objects" make-grammar-role make-grammar grammar-role-ref)
+        (only-in "../../../src/grammar/declaration-objects" make-grammar-role make-grammar grammar-role-ref)
         (only-in "../../../src/compiler/normalize" compile-grammar compile-grammar/receipt grammar-ir-ref
                  compile-grammar/context normalized-grammar-ir normalized-grammar-receipt
                  normalized-grammar-source-map)

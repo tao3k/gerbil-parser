@@ -1,7 +1,7 @@
 #!/usr/bin/env gxi
 ;;; Deferred queue scale dimension; IR compilation and preparation are untimed.
 (import
- (only-in :gerbil-parser/src/modules/parser/contextual-objects
+ (only-in :gerbil-parser/src/grammar/contextual-objects
           make-contextual-role make-contextual-method make-contextual-scan-rule)
  (only-in :gerbil-parser/src/compiler/contextual-dispatch compile-contextual-dispatch)
  (only-in :gerbil-parser/src/compiler/contextual-scanner-ir compile-contextual-scanner)

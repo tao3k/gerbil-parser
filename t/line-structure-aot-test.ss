@@ -5,7 +5,7 @@
 (import (only-in :std/test check check-exception test-case test-suite)
         (only-in :gerbil-parser/languages/arithmetic/parser
                  arithmetic-language-grammar)
-        (only-in :gerbil-parser/src/modules/parser/line-structure-objects
+        (only-in :gerbil-parser/src/language/line-structure-objects
                  line-structure? make-line-structure make-heading-line
                  make-heading-fields
                  make-block-line make-block-header make-key-value-line

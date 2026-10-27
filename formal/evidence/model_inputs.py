@@ -9,7 +9,8 @@ SHARED_OWNERS = (
     "src/compiler/**/*.ss",
     "src/runtime/**/*.ss",
     "src/ffi/**/*.ss",
-    "src/modules/parser/*.ss",
+    "src/grammar/*.ss",
+    "src/graph/*.ss",
     "src/language/*.ss",
     "src/testing/*.ss",
     "src/build-support/*.ss",
@@ -24,6 +25,7 @@ SHARED_OWNERS = (
 SHARED_INPUTS = (
     "formal/ParserEngine/NativeFacts.lean",
     "src/schema.ss",
+    "src/declarations.ss",
     "language-test-support.ss",
     "test-processes.ss",
     "build-language-conformance-link.ss",

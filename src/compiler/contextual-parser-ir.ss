@@ -5,7 +5,7 @@
                  compile-contextual-dispatch contextual-dispatch-ref)
         (only-in ./contextual-scanner-ir compile-contextual-scanner)
         (only-in ./parser-ir parser-ir-ref)
-        (only-in ../modules/parser/contextual-objects
+        (only-in ../grammar/contextual-objects
                  make-contextual-method make-contextual-role
                  make-contextual-scan-rule)
         (only-in ../runtime/contextual-ir make-contextual-parser-ir)

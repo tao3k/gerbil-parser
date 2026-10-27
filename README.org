@@ -104,9 +104,9 @@ to a nominal alias to conceal a weak signature.
 | grammar/types.ss grammar-expression? | Candidate | Malformed arbitrary candidates must return false |
 | grammar/types.ss lexical-expression? | Candidate | Same recognition boundary for lexical syntax |
 | runtime/types.ss parse-artifact-valid? | Candidate | Classification returns false; consuming methods require ParseArtifact |
-| modules/types.ss graph-query-view? | Candidate only | Row/Id/Kind parameters are explicit; a malformed candidate still returns false |
+| graph/types.ss graph-query-view? | Candidate only | Row/Id/Kind parameters are explicit; a malformed candidate still returns false |
 | testing/types.ss parser-test-form-admitted? | Inspected reader/form data | Syntax inspection does not evaluate the supplied datum; name lists are List Symbol |
-| modules/parser/graph-query-types.ss GraphQueryPredicateOf | Result only | Scheme true values include strings/member tails; Row input remains checked |
+| graph/graph-query-types.ss GraphQueryPredicateOf | Result only | Scheme true values include strings/member tails; Row input remains checked |
 | build-support/types.ss BuildSpecification | Native option/metadata tail | Source names are String; std/make owns nested option/submodule payload semantics |
 
 The emitted Rust =Guard::Any= string in rust-scanner.ss is an enum variant, not a
@@ -660,3 +660,29 @@ phase events after expansion. Cache hits and elapsed-time observations cannot
 emit progress. The observer binds its diagnostic output port at entry so nested
 spec datum redirection cannot capture diagnostic records. Existing total90/idle5
 controls remain; no timer or second builder is added.
+
+* Source modules and declaration ownership
+
+=init.ss= selects the =src= domain modules through Yuanxu. There is no
+=src/modules= container or =modules= service. Core owns selection, normalized
+Scope admission and the =std-make-spec= projection; Gerbil owns compilation and
+runtime module loading.
+
+| Owner | Responsibility | Public declaration / build boundary |
+|-------+----------------+-------------------------------------|
+| =src/grammar= | Grammar and Role Types, objects, composition syntax, contextual declarations, expression algebras | =declaration-*.ss= and the Grammar Scope |
+| =src/language= | Source fragments, line structures, event scopes, boundaries and lowering forms, language assembly | Language Scope and Build |
+| =src/graph= | Graph projection declarations, graph syntax and typed queries over language-owned views | Graph Scope; =graph-*-support.ss= |
+| =src/testing= | Test execution and evaluator-safe replay of already-selected compiler loader wrappers | =module-loader.ss= delegates actual loading and cache/error state to Gerbil |
+| =src/declarations.ss= | Author-facing composition of grammar and source declarations | Re-exports domain owners; no registry, loader or separate implementation |
+
+The loader adapter is test infrastructure, not the Yuanxu module selector. Its
+existing cold-load, wrapper rejection, cached failure and initialization controls
+remain authoritative. Removed module paths have no forwarding aliases: package
+consumers must rebuild against the new source identities.
+
+Qualification uses =dev/build.ss check-catalog= to compare Core's selected
+projection with independent package source discovery, and native =gerbil test=
+for actual service admission and execution. =library-init-test= checks every
+selected domain, rejects the retired container and malformed Graph Scopes, and
+runs typed graph operations. No test Case starts a build or another test run.

@@ -150,3 +150,19 @@ when present, alongside compiled outputs, so partial native progress survives.
 Package source/.git remains excluded. No replacement tags tool, ignore-errors
 path, forged success or changed heap is used. This source-level observation does
 not establish a repaired Linux retag operation.
+
+The remaining build-shared-library.ss is an ABI product adapter: it calls public
+Gerbil compile-module/compile-exe for the C-hosted shared library with its runtime
+shim and platform linker options; std/make's executable target does not describe
+that ABI output. It has no timestamp cache, approval record or worker queue.
+compiler-profile.ss retains host compiler options and process-output forwarding,
+not target discovery or a second scheduler. The shared setup/restore GitHub
+composites are step reuse only. failed-products.sh is diagnostics only.
+
+Local native executable qualification after this removal remains open: one
+Mac Homebrew process had no live compiler children and sampled mostly device
+select after entering native object compilation. It was stopped after preserving
+logs and a process sample. This is not compiler/runtime acceptance, does not
+prove the specific retaining/wait cause, and is not repaired by reinstating the
+custom linker. The installed compiler and remote configured compiler have
+separate source identities; both must be reported independently.

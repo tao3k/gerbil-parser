@@ -10,7 +10,7 @@
         (only-in :gerbil-parser/t/benchmarks/ranked-literal/benchmark ranked-cpu-admission))
 (import (only-in :gerbil-parser/t/fixtures/contextual-result-selection install-reference-contextual-results!)
         (only-in :gerbil-parser/t/fixtures/lr-action-selection reference-lr-action-selector)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-with-lr-action-selector parser-machine-runtime
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-with-lr-action-selector parser-machine-runtime
                  parser-machine-grammar-digest install-parser-machine-direct-step!)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-runtime-direct-step)
         (only-in :gerbil-parser/src/language/descriptor make-language-grammar

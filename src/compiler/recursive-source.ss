@@ -4,7 +4,7 @@
         (only-in ./build-strategy BuildStrategy. declare-build-strategy-provider make-bound-build-strategy)
         (only-in :std/misc/ports read-all-as-string)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-ir language-grammar-machine)
-        (only-in :gerbil-parser/src/compiler/machine
+        (only-in :gerbil-parser/src/runtime/machine
                  parser-machine-grammar-digest))
 (def (rule-procedure name)
   (string->symbol (string-append "events-" (symbol->string name))))
@@ -146,7 +146,7 @@
                     +simple-attribute-grammar-digest+)
       (error "HCL closed event path requires grammar review"))
     `(begin
-     (import (only-in :gerbil-parser/src/compiler/machine
+     (import (only-in :gerbil-parser/src/runtime/machine
                       parser-machine-trivia)
              (only-in :gerbil-parser/src/runtime/lexer lex-source)
              (only-in :gerbil-parser/src/runtime/scan

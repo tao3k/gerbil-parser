@@ -4,7 +4,7 @@
 
 (import (only-in :gerbil-parser/languages/arithmetic/parser
                  arithmetic-parser parse-arithmetic)
-        (only-in :gerbil-parser/src/compiler/machine
+        (only-in :gerbil-parser/src/runtime/machine
                  parser-machine-grammar-digest parser-machine-runtime
                  parser-machine-trivia)
         (only-in :gerbil-parser/src/runtime/artifact

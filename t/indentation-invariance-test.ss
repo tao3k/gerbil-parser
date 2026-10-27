@@ -9,7 +9,7 @@
         :gerbil-parser/languages/hcl/parser
         :gerbil-parser/languages/tla-plus/parser
         (only-in :gerbil-parser/src/language/descriptor language-grammar-machine)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-trivia)
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-trivia)
         (only-in :gerbil-parser/src/runtime/artifact
                  parse-artifact-success?)
         :gerbil-parser/src/runtime/cst

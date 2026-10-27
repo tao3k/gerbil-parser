@@ -1,7 +1,7 @@
 ;;; Matched compact-trie primitive from before terminal staging/publication.
 ;;; Keep the parser, lexical plans and result protocol outside this comparator.
 (import (only-in :gerbil-parser/src/runtime/scan make-literal-trie literal-trie-child make-ranked-regular-scanner horizontal-whitespace? newline? identifier-start?)
-        (only-in :gerbil-parser/src/compiler/lexical-expression prefer-generated-match))
+        (only-in :gerbil-parser/src/runtime/lexical-expression prefer-generated-match))
 (export reference-ranked-publication-scanner reference-ranked-lexical-scanner-factory)
 (def (reference-ranked-publication-scanner entries)
   (def (best-admitted candidates admitted)

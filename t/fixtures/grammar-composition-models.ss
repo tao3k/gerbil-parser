@@ -30,7 +30,7 @@
                  lr-runtime-lexical-mode-catalog)
         (only-in :gerbil-parser/src/runtime/parser parse-source)
         :gerbil-parser/src/runtime/token
-        :gerbil-parser/src/compiler/machine
+        :gerbil-parser/src/runtime/machine
         :gerbil-parser/languages/arithmetic/parser)
 
 ;;; Both rules recognize the same spelling. Only the LR state can select the

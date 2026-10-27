@@ -1,6 +1,6 @@
 ;;; Guarded CPU pairs with complete entries and identical-operation controls.
 (import (only-in :gerbil-parser/languages/gql/parser gql-parser)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-ir)
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-ir)
         (only-in :gerbil-parser/src/runtime/lr-action-index
                  index-action-rows lookup-literal-action-entry lookup-casefolded-literal-action-entry
                  lr-action-row-has-literals?)

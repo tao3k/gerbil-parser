@@ -6,7 +6,7 @@
 RFCs 0010–0011 connect source provenance, certified recognition, original
 production replay and canonical ParseArtifact publication. This experiment
 addresses the lexical boundary in that same pipeline. It does not add another
-parse authority. Its implementation is in compiler/machine.ss; ordinary
+parse authority. Its implementation is in runtime/machine.ss; ordinary
 suffix convergence and certificate probing consume it in incremental.ss and
 reuse.ss. The request-owned probe slot keeps the actual requested LR mode.
 

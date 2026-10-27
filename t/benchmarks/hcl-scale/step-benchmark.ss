@@ -3,7 +3,7 @@
 
 (import (only-in :gerbil-parser/languages/hcl/parser
                  hcl-parser parse-hcl)
-        (only-in :gerbil-parser/src/compiler/machine
+        (only-in :gerbil-parser/src/runtime/machine
                  parser-machine-runtime parser-machine-trivia
                  parser-machine-grammar-digest)
         (only-in :gerbil-parser/src/runtime/lr-parser

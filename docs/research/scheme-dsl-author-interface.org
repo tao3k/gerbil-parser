@@ -681,8 +681,8 @@ semantic receipts; it does not replace or broaden them.
 | GQL grammar, separate gxc -S stage | exit 124, no completed interface | Scheme emission alone is not qualified by this invocation |
 
 The typed failure is specific: the source =parser-machine= structure in
-[[file:../../src/compiler/machine.ss][machine.ss]] has 12 fields, while the installed optimization metadata at
-=.gerbil/lib/gerbil-parser/src/compiler/machine.ssxi.ss= declares 9, ending in
+[[file:../../src/runtime/machine.ss][machine.ss]] has 12 fields, while the installed optimization metadata at
+=.gerbil/lib/gerbil-parser/src/runtime/machine.ssxi.ss= declares 9, ending in
 =contextual-product=. The optimized GQL expansion calls the source's current
 constructor shape; the optimizer reports an illegal struct constructor application.
 This identifies a concrete source/optimizer-metadata mismatch. It does not establish

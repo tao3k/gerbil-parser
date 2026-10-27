@@ -4,6 +4,7 @@
 (import :gerbil-parser/language-test-support
         (only-in :clan/poo/object .o .cc .get .ref .slot?)
         (only-in :std/source this-source-file)
+        (only-in :std/misc/ports read-all)
         (only-in :clan/poo/mop element? validate TypeError? define-type Type.)
         (only-in :clan/poo/type String Symbol TypeValuePair Record OrFalse)
         (only-in :yuanxu/module-system/source/admission current-module-source-observer)
@@ -66,10 +67,20 @@
       (each (name) ('(build-support compiler ffi grammar graph language runtime testing utilities))
         (equal (.slot? components name) #t))
       (equal (.slot? components 'modules) #f)
+      (each (name) ('(build-support compiler ffi grammar graph language runtime testing utilities))
+        (equal (call-with-input-file
+                 (path-expand (string-append "src/" (symbol->string name) "/config.ss")
+                              parser-source-root) read-all) '()))
+      (each (path) ('("src/compiler/machine.ss" "src/compiler/lexical-expression.ss"
+                     "src/compiler/lexical-lexer.ss"))
+        (equal (file-exists? (path-expand path parser-source-root)) #f))
       ;; Actual compiled imports must not silently retain the retired owners.
       (equal (filter (lambda (entry)
                        (and (string? (car entry))
-                            (string-prefix? "gerbil-parser/src/modules/" (car entry))))
+                            (or (string-prefix? "gerbil-parser/src/modules/" (car entry))
+                                (string-prefix? "gerbil-parser/src/compiler/machine" (car entry))
+                                (string-prefix? "gerbil-parser/src/compiler/lexical-expression" (car entry))
+                                (string-prefix? "gerbil-parser/src/compiler/lexical-lexer" (car entry)))))
                      (list-modules)) '())
       (equal (file-exists? (path-expand "src/modules" parser-source-root)) #f)
       (each (path) ('("src/grammar/declaration-types.ss" "src/grammar/declaration-objects.ss"
@@ -126,6 +137,7 @@
       (equal (type-rejected? (lambda ()
         ((.get (validate UtilitiesScope
                 (.cc raw text-lines: (lambda (_) '(42)))) text-lines) "x"))) #t)
+      (equal (.slot? build 'initialize-build!) #f)
       (equal (type-rejected? (lambda () ((.get build native-module-link-options) '(42)))) #t)
       (equal (type-rejected? (lambda () ((.get build compiler-build-spec) 42))) #t)
       (equal (type-rejected? (lambda () ((.get testing parser-test-form-admitted?) '(quote x) '(42)))) #t)
@@ -138,6 +150,16 @@
           (.o records: '() id-of: (lambda (_) 0) parent-of: (lambda (_) #f) kind-of: (lambda (_) 'node))) view))) #t)
       (equal (element? ForeignInterfaceScopeContract
         (.cc (selected-test-scope 'ffi) language-abi-version: -1)) #f)
+      (sequential ((ffi (selected-test-scope 'ffi)))
+        (equal (element? ForeignInterfaceScopeContract ffi) #t)
+        (equal (element? ForeignInterfaceScopeContract
+          (.cc ffi language-abi-version: (+ 1 (.get ffi language-abi-version)))) #f)
+        (equal (element? ForeignInterfaceScopeContract
+          (.cc ffi artifact-abi-version: (+ 1 (.get ffi artifact-abi-version)))) #f)
+        (equal (element? ForeignInterfaceScopeContract
+          (.cc ffi event-abi-version: (+ 1 (.get ffi event-abi-version)))) #f)
+        (equal (element? ForeignInterfaceScopeContract
+          (.cc ffi rust-aot-abi-version: (+ 1 (.get ffi rust-aot-abi-version)))) #f))
       (equal (element? LanguageScopeContract
         (.cc (selected-test-scope 'language) grammar-schema: "unknown")) #f)
       (equal (type-rejected? (lambda () ((.get runtime parse-artifact-roundtrip) '((schema . "invalid"))))) #t)))

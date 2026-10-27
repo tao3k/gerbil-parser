@@ -4,7 +4,7 @@
         (only-in :clan/poo/mop define-type validate)
         (only-in :yuanxu/object-types/contracts YuanxuContract. yuanxu-classification-evidence)
         (only-in ../language/descriptor language-grammar? language-grammar-ir language-grammar-machine)
-        (only-in ./machine parser-machine-grammar-digest parser-machine-ir))
+        (only-in ../runtime/machine parser-machine-grammar-digest parser-machine-ir))
 (export BuildStrategy. BuildStrategyContract make-bound-build-strategy emit-build-strategy
         build-strategy-common-shape? declare-build-strategy-provider)
 

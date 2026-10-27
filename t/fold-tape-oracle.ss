@@ -1,7 +1,7 @@
 ;;; Independent canonical-list wire oracle; never a production consumer.
 (import (only-in :std/vector/u8vector little u8vector-uint-set!)
         (only-in ../src/language/descriptor language-grammar-ir language-grammar-machine)
-        (only-in ../src/compiler/machine parser-machine-grammar-digest))
+        (only-in ../src/runtime/machine parser-machine-grammar-digest))
 (export canonical-fold-tape make-legacy-fold-tape-consumer)
 
 ;; Match the existing Org two-pass consumer, including admission, with its

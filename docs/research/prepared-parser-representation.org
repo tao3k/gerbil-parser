@@ -8,7 +8,7 @@ Historical revisions, failed experiments and receipt limits retain their origina
 
 The complete-route audit above identifies two independent axes: the prepared
 LR runtime's captured semantic executor and the installed generated entry's
-product. =src/compiler/machine.ss= now makes those obligations queryable through
+product. =src/runtime/machine.ss= now makes those obligations queryable through
 =parser-machine-backend-representation=. This is an engine capability contract,
 not another language declaration or a backend-selection policy.
 

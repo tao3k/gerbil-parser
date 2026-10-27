@@ -198,7 +198,7 @@ digest per request: mutating an artifact's =grammarDigest= cannot poison future
 plan requests. Scanner plans already isolate their checkpoint digest strings.
 
 Generated =ParserMachine= AOT IR and runtime must remain immutable after module
-initialization, as declared by =src/compiler/machine.ss=. This plan references
+initialization, as declared by =src/runtime/machine.ss=. This plan references
 the machine; it does not snapshot its executable runtime or protect against
 violating that machine contract. Prepare after initialization and driver
 installation. Caller-owned product data may change after preparation without

@@ -1,6 +1,6 @@
 ;;; Native compiled Scheme baseline; its AOT compilation does not make it Rust.
 (import (only-in :gerbil-parser/languages/arithmetic/parser parse-arithmetic arithmetic-parser)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-grammar-digest)
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-grammar-digest)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-success? parse-artifact-roundtrip)
         (only-in :gerbil-parser/t/benchmarks/parser-throughput/protocol parser-throughput-batch)
         (only-in :std/crypto/digest sha256)

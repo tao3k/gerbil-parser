@@ -10,7 +10,7 @@
                  parse-records)
         (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/grammar records-language-grammar)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-machine)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-grammar-digest)
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-grammar-digest)
         (only-in :std/vector/u8vector little u8vector-u32-ref)
 
         (only-in :gerbil-parser/src/ffi/language-artifact-codec

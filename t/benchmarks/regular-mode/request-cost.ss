@@ -4,7 +4,7 @@
         (only-in :gerbil-parser/languages/hcl/parser hcl-parser)
         (only-in :gerbil-parser/src/runtime/lexer lex-source)
         (only-in :gerbil-parser/src/compiler/hcl-source direct-lex-hcl)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-prepare-lexer))
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-prepare-lexer))
 (export benchmark-regular-mode benchmark-lexical-preparation)
 (def (measure-regular-mode name run valid? samples iterations)
   (let sample ((index 0))

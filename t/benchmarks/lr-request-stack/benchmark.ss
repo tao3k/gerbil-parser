@@ -10,7 +10,7 @@
         (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-parser parse-arithmetic)
         (only-in :gerbil-parser/t/benchmarks/parser-stage-cost/benchmark
                  measure-parser-component measure-parser-batch measure-parser-cpu-pairs sample-at-percentile)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime parser-machine-ir
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-runtime parser-machine-ir
                  parser-machine-grammar-digest parser-machine-trivia
                  parser-machine-direct-drive parser-machine-direct-source
                  parser-machine-backend-representation parser-machine-for-current-semantic-backend)

@@ -1,7 +1,7 @@
 ;;; Recorded-query cost diagnosis. This is not a matched speedup gate.
 (import (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/grammar records-parser)
         (only-in :gerbil-parser/t/benchmarks/parser-stage-cost/benchmark measure-parser-batch sample-at-percentile)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime parser-machine-trivia parser-machine-grammar-digest call-with-parser-machine-source)
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-runtime parser-machine-trivia parser-machine-grammar-digest call-with-parser-machine-source)
         (only-in :gerbil-parser/src/runtime/incremental make-incremental-session incremental-session-artifact incremental-session-recognition-root)
         (only-in :gerbil-parser/src/runtime/incremental/state incremental-session-state-tokens incremental-session-state-modes)
         (only-in :gerbil-parser/src/runtime/lexer scan-source-token)

@@ -3,7 +3,7 @@
 (import (only-in :std/encoding/json json->string)
         (only-in ../language/descriptor language-grammar-machine)
         (only-in ../runtime/identity sha256-text)
-        (only-in ./machine parser-machine-grammar-digest)
+        (only-in ../runtime/machine parser-machine-grammar-digest)
         (only-in ./event-strategy-aot kind-index)
         (only-in ./event-fold-future.ss fold-future-heading-spec?)
         (only-in ./event-fold-runtime.ss

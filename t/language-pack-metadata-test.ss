@@ -27,7 +27,7 @@
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid?)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-ir language-grammar-machine)
         (only-in :gerbil-parser/src/language/source source-language? source-language-digest)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-grammar-digest))
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-grammar-digest))
 
 ;;; Count declarations in admitted IR, not filenames or copied result snapshots.
 (def (external-site-count expression)

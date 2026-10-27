@@ -1,5 +1,5 @@
 (import (only-in :gerbil-parser/languages/gql/parser gql-parser parse-gql +gql-representative-query+)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime parser-machine-ir)
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-runtime parser-machine-ir)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-events token-event?
                  token-event-token-kind token-event-lexeme event-start event-end)
         (only-in :gerbil-parser/src/runtime/token make-token)

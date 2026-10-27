@@ -3,7 +3,7 @@
 ;;; -*- Gerbil -*-
 (import :std/test
         (only-in :gerbil-parser/languages/hcl/parser hcl-parser)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime parser-machine-ir)
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-runtime parser-machine-ir)
         (only-in :gerbil-parser/src/runtime/lr-parser
                  lr-prepare lr-initial-checkpoint lr-checkpoint-feed
                  lr-checkpoint-lexical-mode lr-runtime-lexical-mode-catalog lr-lexical-mode-id)

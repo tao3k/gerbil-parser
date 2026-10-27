@@ -5,7 +5,7 @@
         (only-in ./reduction-counts profile-gql-reductions)
         (only-in ../../parser-stage-cost/benchmark measure-parser-component)
         :gerbil-parser/languages/gql/parser
-        :gerbil-parser/src/compiler/machine
+        :gerbil-parser/src/runtime/machine
         :gerbil-parser/src/runtime/lexer
         :gerbil-parser/src/runtime/lr-parser
         :gerbil-parser/src/runtime/significant

@@ -25,7 +25,7 @@ remains the production default.
 The current engine already has important pieces: =src/compiler/lr-automaton.ss=
 builds an interned LR(0) automaton; =src/compiler/lr-lookahead.ss= propagates
 LALR lookaheads; =src/runtime/lr-parser.ss= executes deterministic actions and
-selective GLR; =src/compiler/machine.ss= generates parser-directed lexical modes;
+selective GLR; =src/runtime/machine.ss= generates parser-directed lexical modes;
 and =src/runtime/incremental.ss= resumes sparse LR checkpoints and reuses
 tokens only under matching parser-directed lexical modes. The LR executor
 still feeds the changed suffix and publishes a complete artifact.

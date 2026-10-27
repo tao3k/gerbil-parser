@@ -20,7 +20,7 @@
 
 (import (only-in :gerbil-parser/src/runtime/source-index source-index-count source-index-height source-index-audit source-index->lists))
 
-(import (only-in :gerbil-parser/src/compiler/machine
+(import (only-in :gerbil-parser/src/runtime/machine
                  current-lexical-plan-sharing-enabled? parser-machine-prepare-lexer parser-machine-lexical-plans))
 (def (plan-count plans)
   (length (foldl (lambda (plan found) (if (memq plan found) found (cons plan found))) '() (vector->list plans))))

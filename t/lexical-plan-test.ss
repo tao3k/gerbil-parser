@@ -7,7 +7,7 @@
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid? parse-artifact-success?))
 (import :std/test
         :gerbil-parser/src/language/grammar
-        (only-in :gerbil-parser/src/compiler/machine
+        (only-in :gerbil-parser/src/runtime/machine
                  current-lexical-plan-sharing-enabled? parser-machine-prepare-lexer
                  parser-machine-lexical-plans parser-machine-lexical-modes-compatible? parser-machine-runtime)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-runtime-lexical-mode-catalog)

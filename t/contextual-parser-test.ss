@@ -5,7 +5,7 @@
 (import (only-in :std/test check test-case test-suite)
         (only-in :gerbil-parser/languages/hcl/grammar
                  hcl-parser)
-        (only-in :gerbil-parser/src/compiler/machine
+        (only-in :gerbil-parser/src/runtime/machine
                  parser-machine-grammar-digest parser-machine-contextual-ir parser-machine-ir)
         (only-in :gerbil-parser/t/benchmarks/contextual-scanner/parser-fixture
                  contextual-product)

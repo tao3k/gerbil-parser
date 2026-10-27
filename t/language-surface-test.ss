@@ -12,7 +12,7 @@
                  bound-grammar-ir-binding
                  bound-grammar-ir-ref)
         (only-in :gerbil-parser/src/compiler/normalize grammar-ir-ref)
-        (only-in :gerbil-parser/src/compiler/machine
+        (only-in :gerbil-parser/src/runtime/machine
                  lexical-choice lexical-dispatch lexical-dispatch/ranked
                  lexical-end install-parser-machine-backends!
                  parser-machine-grammar-digest parser-machine-direct-drive

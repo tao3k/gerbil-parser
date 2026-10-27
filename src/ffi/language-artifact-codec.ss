@@ -20,7 +20,7 @@
         (only-in ../language/source-parser parse-source-language/session source-language-session-artifact source-language-session-history)
         (only-in ../runtime/artifact parse-artifact-events parse-artifact-ref with-parse-event-walk)
         (only-in ../language/entry parse-language-source call-with-language-parser-policy)
-        (only-in ../compiler/machine parser-machine-grammar-digest)
+        (only-in ../runtime/machine parser-machine-grammar-digest)
         (only-in ../runtime/parser contextual-parser-grammar-digest prepare-contextual-parser parse-source/contextual/prepared
                  parse-source/contextual/prepared/deferred))
 (export prepare-language-abi-context

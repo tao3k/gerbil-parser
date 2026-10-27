@@ -1,5 +1,5 @@
 ;;; Untimed fresh-request LR derivation diagnostics, shared across languages.
-(import (only-in :gerbil-parser/src/compiler/machine parser-machine-ir parser-machine-runtime)
+(import (only-in :gerbil-parser/src/runtime/machine parser-machine-ir parser-machine-runtime)
         (only-in :gerbil-parser/src/compiler/lr lr-spec-ref production-table production-rhs operand-actions)
         (only-in :gerbil-parser/src/runtime/lr-parser
                  lr-parse/prepared current-lr-recognition-observer

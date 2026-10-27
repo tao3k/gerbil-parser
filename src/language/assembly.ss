@@ -2,7 +2,7 @@
 ;;; Internal assembly of already admitted immutable compiler products.
 
 (import (only-in ../schema +grammar-ir-schema+)
-        (only-in ../compiler/machine defgeneral-parser-machine parser-machine-ir)
+        (only-in ../runtime/machine defgeneral-parser-machine parser-machine-ir)
         (only-in ../runtime/language-artifact load-compiled-language-artifact/embedded))
 (export assemble-language-parser)
 

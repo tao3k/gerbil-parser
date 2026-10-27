@@ -14,9 +14,9 @@
                  FusedReductionStrategy. FusedReductionStrategyContract
                  make-fused-reduction-strategy emit-build-strategy
                  emit-language-build-strategy)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-for-current-semantic-backend)
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-for-current-semantic-backend)
         (only-in :gerbil-parser/src/runtime/lr-parser current-lr-event-program-enabled? lr-runtime-event-program?)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime)
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-runtime)
         (only-in :gerbil-parser/src/testing/language-strategy parse-indexed-reference)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-machine)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-ir)
@@ -28,7 +28,7 @@
                  parse-artifact-valid? parse-artifact-roundtrip)
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in :gerbil-parser/src/runtime/recognition make-recognition-node make-recognition-child)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-grammar-digest parser-machine-trivia)
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-grammar-digest parser-machine-trivia)
         (only-in :gerbil-parser/language-support/fixture syntax-fixture-source syntax-fixture-expected-status)
         (only-in :gerbil-parser/languages/hcl/parser  hcl-language-grammar)
         (only-in :gerbil-parser/languages/arithmetic/parser  arithmetic-language-grammar)

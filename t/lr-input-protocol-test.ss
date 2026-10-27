@@ -2,7 +2,7 @@
 ;;; Scalar admission is compared with the same executor's borrowed-list policy.
 (import :std/test
         (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/grammar records-parser)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime parser-machine-trivia parser-machine-with-lr-action-selector
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-runtime parser-machine-trivia parser-machine-with-lr-action-selector
                  parser-machine-grammar-digest install-parser-machine-direct-step!)
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
         (only-in :gerbil-parser/src/compiler/lr production-lhs)

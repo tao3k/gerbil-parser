@@ -33,9 +33,9 @@ This does not establish a parse-speed improvement or add language syntax.
 | [[file:../../language-support/antlr4-language.ss][antlr4-language.ss]] | Elaborate one checked source catalog into the shared declaration record | Original source identity, origin map and author syntax |
 | [[file:../../src/compiler/concise-language.ss][compiler/concise-language.ss]] | Collect syntax, expand vocabulary, validate rules, derive catalogs and submit a compile-time declaration record | Declaration-local source associations; validation before field inference |
 | [[file:../../src/compiler/language-artifact.ss][compiler/language-artifact.ss]] | Read the explicit surface or accept the concise record; admit, bind, compile, publish and emit from one canonical grammar | Existing Grammar IR, Bound IR and Parser IR authority |
-| [[file:../../src/compiler/lexical-expression.ss][compiler/lexical-expression.ss]] | Expand the closed lexical algebra and ranked dispatch | Existing matching, rank and byte-boundary semantics |
-| [[file:../../src/compiler/lexical-lexer.ss][compiler/lexical-lexer.ss]] | Generate traversal and prepare lexical certificates | Existing scanner and lexical-plan owners |
-| [[file:../../src/compiler/machine.ss][compiler/machine.ss]] | Own the nominal machine type, prepared entry and backend installation | Same twelve fields, type identity and public exports |
+| [[file:../../src/runtime/lexical-expression.ss][runtime/lexical-expression.ss]] | Expand the closed lexical algebra and ranked dispatch | Existing matching, rank and byte-boundary semantics |
+| [[file:../../src/runtime/lexical-lexer.ss][runtime/lexical-lexer.ss]] | Generate traversal and prepare lexical certificates | Existing scanner and lexical-plan owners |
+| [[file:../../src/runtime/machine.ss][runtime/machine.ss]] | Own the nominal machine type, prepared entry and backend installation | Same twelve fields, type identity and public exports |
 
 The public macro supplies real syntax bindings to the compiler helper. The
 helper does not guess the public macro's identifiers from symbols, import the

@@ -2,7 +2,7 @@
 (import (only-in :gerbil-parser/src/runtime/lr-parser/state
                  make-lr-capture-plan lr-recognition-view? lr-recognition-view-base lr-recognition-fragment-lookahead lr-runtime-reduction-widths lr-recognition-fragment? lr-recognition-fragment-children make-lr-recognition-view)
         (only-in :gerbil-parser/src/runtime/lr-parser/recognition capture-reduction prepare-capture-plans lr-recognition-relocate lr-recognition-fragment-terminal-yield)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime)
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-runtime)
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/grammar records-parser)
         (only-in :gerbil-parser/t/benchmarks/lr-request-stack/capture-reference reference-capture-reduction))

@@ -239,7 +239,7 @@ See [[file:../../languages/README.org][the language extension guide]] for the au
 Every terminal has exactly one lexical rule, every reference
 resolves, repetitions are non-nullable, the flow is connected, and the
 entrypoint yields exactly one unfielded root.  The author does not modify
-=runtime/parser.ss=, =compiler/lr.ss=, or =compiler/machine.ss=.
+=runtime/parser.ss=, =compiler/lr.ss=, or =runtime/machine.ss=.
 
 The language's =parser.ss= then declares exactly one public entry:
 

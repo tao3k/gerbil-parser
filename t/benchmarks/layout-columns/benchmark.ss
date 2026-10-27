@@ -7,7 +7,7 @@
         (only-in :gerbil-parser/src/runtime/lexer lex-source)
         (only-in :gerbil-parser/src/runtime/significant parser-significant-tokens)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-parse/prepared/receipt)
-        (only-in :gerbil-parser/src/compiler/machine
+        (only-in :gerbil-parser/src/runtime/machine
                  parser-machine-runtime parser-machine-grammar-digest parser-machine-trivia)
         (only-in :gerbil-parser/src/runtime/artifact
                  make-success-parse-artifact parse-artifact-valid-for-source?)

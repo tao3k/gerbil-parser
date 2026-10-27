@@ -3,7 +3,7 @@
 ;;; Variable-width delimiters have one canonical Scheme lexical boundary.
 
 (import (only-in :std/test check test-case test-suite)
-        (only-in :gerbil-parser/src/compiler/machine lexical-end)
+        (only-in :gerbil-parser/src/runtime/machine lexical-end)
         (only-in :gerbil-parser/src/grammar/lexical-algebra
                  lexical-expression?)
         (only-in :gerbil-parser/src/runtime/scan scan-character-run))

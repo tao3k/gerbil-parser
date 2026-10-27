@@ -2,7 +2,8 @@
 (import (only-in :clan/poo/object .o))
 (export Build)
 (def Build (.o kind: 'module/build roots: '("fold-tape" "fold-cost")
-               library-roots: '("parser-actor-support"
+               library-roots: '("src/runtime/machine" "src/runtime/lexical-expression"
+                     "src/runtime/lexical-lexer" "parser-actor-support"
                      "rust-runtime-event-support"
                      "src/runtime/incremental"
                      "src/runtime/recovery"

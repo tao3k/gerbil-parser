@@ -11,7 +11,4 @@
                      "language-build-support"
                      "rust-runtime-support"
                      "line-structure-support"
-                     "graph-projection-support"
-                     "src/compiler/machine"
-                     "src/compiler/lexical-expression"
-                     "src/compiler/lexical-lexer")))
+                     "graph-projection-support")))

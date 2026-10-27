@@ -1,7 +1,7 @@
 #!/usr/bin/env gxi
 ;;; Hold source/token binding constant and isolate complete artifact publication.
 (import (only-in :gerbil-parser/languages/hcl/parser hcl-parser)
-        (only-in :gerbil-parser/src/compiler/machine
+        (only-in :gerbil-parser/src/runtime/machine
                  parser-machine-for-current-semantic-backend
                  parser-machine-grammar-digest parser-machine-trivia)
         (only-in :gerbil-parser/src/runtime/parser parse-source/checkpoints)

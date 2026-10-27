@@ -5,7 +5,7 @@
 (import (only-in ../../fixtures/lr-action-selection reference-lr-action-selector))
 (export benchmark-ranked-parser-cpu qualify-ranked-parser-cpu)
 
-(import (only-in :gerbil-parser/src/compiler/machine parser-machine-with-ranked-scanner parser-machine-with-lr-action-selector)
+(import (only-in :gerbil-parser/src/runtime/machine parser-machine-with-ranked-scanner parser-machine-with-lr-action-selector)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-machine)
         (only-in :gerbil-parser/src/runtime/parser parse-source)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid-for-source? parse-artifact-success?)

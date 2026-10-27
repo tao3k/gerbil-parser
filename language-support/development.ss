@@ -12,7 +12,7 @@
         (only-in :yuanxu/object-types/contracts YuanxuContract. yuanxu-classification-evidence)
         (only-in ../src/runtime/identity sha256-text)
         (only-in ../src/runtime/source-scanner source-scanner-for-source?)
-        (only-in ../src/compiler/machine parser-machine-grammar-digest parser-machine-direct-source)
+        (only-in ../src/runtime/machine parser-machine-grammar-digest parser-machine-direct-source)
         (only-in ../src/compiler/build-strategy BuildStrategyContract emit-build-strategy)
         (only-in ../src/runtime/parser parse-source)
         (only-in ../src/runtime/lr-parser current-lr-branch-budget)

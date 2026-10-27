@@ -10,7 +10,7 @@
                  language-grammar-language
                  language-grammar-machine
                  language-grammar-version require-portable-language-policy!)
-        (only-in ./machine parser-machine-grammar-digest)
+        (only-in ../runtime/machine parser-machine-grammar-digest)
         (only-in ./lr operand-actions validate-production-semantics production-precedence))
 (export result-profile-rust-source rust-text-profile-expression-source
         generate-language-rust-runtime-module

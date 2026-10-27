@@ -3,7 +3,7 @@
 (import (only-in :clan/poo/object .o .ref .cc .slot? object?)
         (only-in :clan/poo/mop define-type validate)
         (only-in :yuanxu/object-types/contracts YuanxuContract. yuanxu-classification-evidence)
-        (only-in ../src/compiler/machine parser-machine-grammar-digest)
+        (only-in ../src/runtime/machine parser-machine-grammar-digest)
         (only-in ../src/language/descriptor
                  language-grammar? language-grammar-contract language-grammar-language
                  language-grammar-machine language-grammar-observability

@@ -4,7 +4,7 @@
 (import (only-in :gerbil-parser/languages/arithmetic/grammar
                  arithmetic-parser-ir arithmetic-parser)
         (only-in :std/misc/ports read-all-as-string)
-        (only-in :gerbil-parser/src/compiler/machine
+        (only-in :gerbil-parser/src/runtime/machine
                  parser-machine-grammar-digest)
         (only-in :gerbil-parser/src/compiler/lr
                  lr-spec-ref production-table production-lhs production-rhs
@@ -183,7 +183,7 @@
   `(begin
      (import (only-in :gerbil-parser/languages/arithmetic/grammar
                       arithmetic-parser)
-             (only-in :gerbil-parser/src/compiler/machine
+             (only-in :gerbil-parser/src/runtime/machine
                       parser-machine-runtime)
              (only-in :gerbil-parser/src/runtime/lr-parser
                       lr-parse/prepared lr-runtime-lexical-mode-catalog)

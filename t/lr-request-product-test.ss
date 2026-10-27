@@ -6,7 +6,7 @@
         (only-in :gerbil-parser/t/fixtures/lr-request-product extract-value extract-token extract-event replay-request reference-events)
         (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/grammar records-parser)
         (only-in :gerbil-parser/languages/arithmetic/grammar arithmetic-parser)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime parser-machine-ir
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-runtime parser-machine-ir
                  parser-machine-trivia parser-machine-grammar-digest)
         (only-in :gerbil-parser/src/compiler/lr lr-spec-ref production-table)
         (only-in :gerbil-parser/src/runtime/token make-token token-kind token-lexeme token-start token-end)

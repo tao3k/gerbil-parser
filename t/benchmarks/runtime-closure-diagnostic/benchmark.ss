@@ -2,7 +2,7 @@
         :gerbil-parser/src/runtime/artifact
         :gerbil-parser/src/runtime/lexer
         :gerbil-parser/src/runtime/significant
-        :gerbil-parser/src/compiler/machine
+        :gerbil-parser/src/runtime/machine
         :gerbil-parser/src/language/descriptor
         :gerbil-parser/languages/gql/parser)
 (export main)

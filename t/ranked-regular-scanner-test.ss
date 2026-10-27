@@ -3,7 +3,7 @@
 ;;; Differential witness for the mode-local closed-run lexical DFA.
 
 (import (only-in :std/test check test-case test-suite)
-        (only-in :gerbil-parser/src/compiler/machine lexical-dispatch/ranked)
+        (only-in :gerbil-parser/src/runtime/machine lexical-dispatch/ranked)
         (only-in :gerbil-parser/src/runtime/scan
                  make-ranked-regular-scanner make-ranked-lexical-scanner-factory scan-whitespace scan-horizontal-whitespace
                  scan-newline scan-decimal-digits scan-identifier scan-number-literal))

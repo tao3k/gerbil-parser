@@ -9,7 +9,7 @@
         ./compiler/normalize
         ./compiler/bound-ir
         ./compiler/parser-ir
-        ./compiler/machine
+        ./runtime/machine
         ./runtime/artifact
         ./runtime/cst
         ./runtime/token
@@ -26,7 +26,7 @@
         (import: ./compiler/normalize)
         (import: ./compiler/bound-ir)
         (import: ./compiler/parser-ir)
-        (import: ./compiler/machine)
+        (import: ./runtime/machine)
         (import: ./runtime/artifact)
         (import: ./runtime/cst)
         (import: ./runtime/token)

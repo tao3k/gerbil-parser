@@ -4,7 +4,7 @@
                  lr-runtime-action-selector lr-runtime-reduction-plans-set!))
 (import (only-in :std/vector/vector vector-map/index)
         (only-in :gerbil-parser/src/compiler/lr production-table production-rhs operand-actions lr-spec-ref)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime parser-machine-ir
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-runtime parser-machine-ir
                  parser-machine-with-lr-action-selector)
         (only-in :gerbil-parser/src/runtime/lr-parser current-lr-event-program-enabled?)
         (only-in :gerbil-parser/src/runtime/parser parse-source)

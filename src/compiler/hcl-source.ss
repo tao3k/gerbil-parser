@@ -3,7 +3,7 @@
 ;;; Edit the generator, then regenerate this module.
 
 (import
-  (only-in :gerbil-parser/src/compiler/machine parser-machine-trivia)
+  (only-in :gerbil-parser/src/runtime/machine parser-machine-trivia)
   (only-in :gerbil-parser/src/runtime/lexer lex-source)
   (only-in :gerbil-parser/src/runtime/scan scan-quoted-string scan-line-comment scan-block-comment scan-number-literal)
   (only-in :gerbil-parser/src/runtime/significant parser-significant-tokens)

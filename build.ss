@@ -9,6 +9,7 @@
         (only-in :yuanxu/module-system/building/source-package register-module-build-source!)
         (only-in :yuanxu/module-system/building/script defbuild-script)
         (only-in :clan/poo/object .get)
+        (only-in "./src/build-support/compiler-profile.ss" initialize-compiler-build!)
         (only-in "./init.ss" gerbil-parser.init.exports))
 ;; Macro expansion and runtime compiler workers have distinct native load paths.
 ;; Register the same checked package source in both phases through Core's API.
@@ -17,7 +18,7 @@
 (def modules-spec (.get gerbil-parser.init.exports std-make-spec))
 ;; Host compiler policy is process-local; Core and Gerbil own ordinary package recovery.
 (parameterize ((current-output-port (current-error-port)))
-  ((.get gerbil-parser.init.exports Components build-support scope initialize-build!)))
+  (initialize-compiler-build!))
 ;; Bound retained Gerbil expansion state independently of Gerbil's Gambit/C
 ;; executor. Respect a smaller configured budget, including serial builds.
 ;; Import/expansion diagnostics are not part of the standard spec/meta datum.

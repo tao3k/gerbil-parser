@@ -1,7 +1,7 @@
 ;;; Untimed selected-derivation diagnostics; never part of a timed batch.
 (import :gerbil-parser/languages/gql/parser
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-success? parse-artifact-valid?)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-ir)
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-ir)
         (only-in :gerbil-parser/src/compiler/lr lr-spec-ref production-table production-rhs production-action operand-actions)
         (only-in :gerbil-parser/src/runtime/lr-parser current-lr-recognition-observer lr-recognition-fragment? lr-recognition-fragment-production-id lr-recognition-fragment-children))
 (export profile-gql-reductions)

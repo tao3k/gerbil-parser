@@ -1,7 +1,7 @@
 (import :gerbil-parser/language-test-support)
 ;;; Scanner substitution retains the canonical public parser request graph.
 (import :std/test
-        (only-in :gerbil-parser/src/compiler/machine
+        (only-in :gerbil-parser/src/runtime/machine
                  parser-machine-with-ranked-scanner parser-machine-with-lr-action-selector parser-machine-lex
                  parser-machine-runtime parser-machine-grammar-digest)
         (only-in :gerbil-parser/src/runtime/scan make-ranked-lexical-scanner-factory)

@@ -13,7 +13,7 @@
         (only-in ../language/part-profile part-plan? compile-part-profile part-plan-recipe part-plan-binding binding-plan-region-plan binding-plan-region-scopes admit-part-plan)
         (only-in ../language/result-profile result-plan? compile-result-profile)
         (only-in ../language/descriptor language-grammar-ir language-grammar-machine)
-        (only-in ./machine parser-machine-grammar-digest)
+        (only-in ../runtime/machine parser-machine-grammar-digest)
         (only-in ../runtime/parser-ir-data parser-ir-ref)
         (only-in ../runtime/parser prepare-contextual-parser))
 (export command-source-rust-module-source generate-command-source-rust-module command-profile-rust-source part-profile-rust-source region-plan-rust-source rust-scanner-module-source generate-rust-scanner-module generate-contextual-language-rust-runtime-module)

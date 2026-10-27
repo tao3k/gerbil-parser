@@ -22,7 +22,7 @@
     "src/runtime/module-source"
     "src/runtime/lexical-source"
     "src/runtime/scan"
-    "src/compiler/machine"
+    "src/runtime/machine"
     "src/language/descriptor"
     "src/runtime/identity"
     "src/runtime/language-artifact"

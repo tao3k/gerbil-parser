@@ -12,7 +12,7 @@
         (only-in :gerbil-parser/src/runtime/parser
                  parse-source parse-source/checkpoints
                  prepare-contextual-parser parse-source/contextual)
-        (only-in :gerbil-parser/src/compiler/machine
+        (only-in :gerbil-parser/src/runtime/machine
                  parser-machine-runtime parser-machine-grammar-digest parser-machine-ir)
         (only-in :gerbil-parser/src/grammar/contextual-objects
                  make-contextual-method make-contextual-role make-contextual-scan-rule)

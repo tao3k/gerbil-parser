@@ -2,7 +2,7 @@
 (import (only-in :gerbil-parser/languages/gql/parser gql-parser parse-gql +gql-representative-query+)
         (only-in :gerbil-parser/languages/fhirpath/parser fhirpath-parser parse-fhirpath)
         (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-parser parse-arithmetic)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime parser-machine-grammar-digest parser-machine-trivia)
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-runtime parser-machine-grammar-digest parser-machine-trivia)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-parse/prepared lr-parse/prepared/receipt)
         (only-in :gerbil-parser/src/runtime/significant parser-significant-tokens)
         (only-in :gerbil-parser/src/runtime/artifact make-success-parse-artifact parse-artifact-valid-for-source?

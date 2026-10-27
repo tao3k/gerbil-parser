@@ -24,7 +24,7 @@
         (only-in ../compiler/bound-ir bound-grammar-ir-ref bound-grammar-ir-binding)
         (only-in ../compiler/parser-ir parser-ir-ref)
         (only-in ../compiler/lr lr-spec-ref production-lhs production-rhs)
-        (only-in ../compiler/machine parser-machine-ir)
+        (only-in ../runtime/machine parser-machine-ir)
         (only-in ../runtime/lexer lex-source)
         (only-in ../runtime/significant parser-significant-tokens)
         (only-in ../runtime/lr-parser lr-parse/receipt)

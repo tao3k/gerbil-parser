@@ -5,8 +5,8 @@
 ;;; Differential witness for admission filters on nonregular lexical rules.
 (import :std/test
         :gerbil-parser/src/language/grammar
-        (only-in :gerbil-parser/src/compiler/machine lexical-dispatch/ranked)
-        (only-in :gerbil-parser/src/compiler/lexical-lexer prepare-generated-lexer)
+        (only-in :gerbil-parser/src/runtime/machine lexical-dispatch/ranked)
+        (only-in :gerbil-parser/src/runtime/lexical-lexer prepare-generated-lexer)
         (only-in :gerbil-parser/src/runtime/lexer scan-source-token)
         (only-in :gerbil-parser/src/runtime/scan scan-emit)
         (only-in :gerbil-parser/src/runtime/source-scanner

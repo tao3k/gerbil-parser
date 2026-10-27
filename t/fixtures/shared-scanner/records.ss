@@ -4,7 +4,7 @@
          (only-in ../runtime-record-assignments/languages/records/grammar records-language-grammar records-parser-ir)
          (only-in :gerbil-parser/src/compiler/contextual-parser-ir compile-contextual-parser/declaration)
          (only-in :gerbil-parser/src/language/descriptor language-grammar-machine)
-         (only-in :gerbil-parser/src/compiler/machine parser-machine-grammar-digest)))
+         (only-in :gerbil-parser/src/runtime/machine parser-machine-grammar-digest)))
 (export records-language-grammar records-contextual-product)
 (defsyntax (records-contextual stx)
   (datum->syntax #'records-contextual

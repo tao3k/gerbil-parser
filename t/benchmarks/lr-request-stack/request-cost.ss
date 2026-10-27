@@ -1,7 +1,7 @@
 ;;; Real-request boundary diagnostics; the four-stage CPU gate is separate.
 (import (only-in :gerbil-parser/languages/gql/parser
                  gql-parser parse-gql +gql-representative-query+)
-        (only-in :gerbil-parser/src/compiler/machine
+        (only-in :gerbil-parser/src/runtime/machine
                  parser-machine-runtime parser-machine-grammar-digest parser-machine-trivia)
         (only-in :gerbil-parser/src/runtime/lr-parser
                  lr-parse/prepared lr-parse/prepared/receipt lr-initial-checkpoint lr-checkpoint-drive)

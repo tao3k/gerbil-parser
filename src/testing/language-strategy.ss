@@ -5,7 +5,7 @@
         (only-in :clan/poo/object .ref .slot?)
         (only-in ../../language-support/development language-loader-fixtures)
         (only-in ../language/descriptor language-grammar-machine)
-        (only-in ../compiler/machine parser-machine-runtime parser-machine-trivia
+        (only-in ../runtime/machine parser-machine-runtime parser-machine-trivia
                  parser-machine-grammar-digest parser-machine-direct-source)
         (only-in ../runtime/lr-parser lr-initial-checkpoint lr-checkpoint-drive lr-runtime-direct-step)
         (only-in ../runtime/lexer lex-source scan-source-token)

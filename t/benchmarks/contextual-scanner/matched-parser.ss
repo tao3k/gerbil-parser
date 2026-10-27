@@ -1,7 +1,7 @@
 #!/usr/bin/env gxi
 ;;; Complete ParseArtifact batches; includes one preparation per plan batch.
 (import (only-in :gerbil-parser/languages/hcl/grammar hcl-parser)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-grammar-digest)
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-grammar-digest)
         (only-in :gerbil-parser/src/runtime/parser
                  parse-source/contextual prepare-contextual-parser parse-source/contextual/prepared)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid? parse-artifact-roundtrip)

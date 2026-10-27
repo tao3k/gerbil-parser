@@ -1,6 +1,6 @@
 ;;; Untimed diagnostics from the same prepared LR executor, one action at a time.
 (import :gerbil-parser/languages/gql/parser
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-ir parser-machine-runtime
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-ir parser-machine-runtime
                  parser-machine-grammar-digest parser-machine-trivia)
         (only-in :gerbil-parser/src/compiler/lr lr-spec-ref)
         (only-in :gerbil-parser/src/runtime/artifact

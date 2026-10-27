@@ -5,7 +5,7 @@
         (only-in :gerbil-parser/src/compiler/event-fold-scheme-context
                  current-fold-scheme-effect-only current-fold-scheme-idle-plan)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-machine)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-grammar-digest)
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-grammar-digest)
         (only-in :orgize/languages/org/grammar org-mode-language-grammar))
 (export main)
 (def (main program-path output)

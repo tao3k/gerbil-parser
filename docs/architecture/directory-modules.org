@@ -5,10 +5,10 @@
 
 =init.ss= selects the nine real =src/*= subsystem publications through one
 Yuanxu =load-modules= window. Each has a typed service Scope, existing service
-prototype, Config binding selecting that prototype, and Interface declaration.
-Config does not invent settings or initialize parsers. Root =build.ss= consumes
-the same init-owned =std-make-spec= and explicitly invokes the build-support
-Scope's existing host initialization method. Gerbil =std/make= remains the
+prototype, Interface declaration selecting that prototype, and required Config role.
+Config is empty when no local settings exist; Core owns its optional binding. Root =build.ss= consumes
+the same init-owned =std-make-spec= and invokes host initialization
+directly at the executable build boundary. Gerbil =std/make= remains the
 compiler and job-scheduling owner; parallelism remains capped at two workers.
 
 | Module | Published service / owned additional entries |
@@ -45,7 +45,7 @@ policy consumes the verified projection rather than another membership list.
 
 Machine/lexical execution now belongs to =src/runtime/{machine,lexical-expression,
 lexical-lexer}.ss=. Runtime consumers use that owner directly. The old compiler
-paths re-export the implementations so existing Scheme imports remain valid.
+execution paths are removed; consumers import the runtime owners directly.
 No parser algorithm or ABI version changes. FFI Scope reads versions from
 =src/schema.ss=; it does not interpret C declarations or initialize handles while
 selecting a Module. C leaves are compiled at the explicit Build boundary.

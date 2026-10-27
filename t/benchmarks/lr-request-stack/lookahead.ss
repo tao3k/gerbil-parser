@@ -1,6 +1,6 @@
 ;;; Complete requests compare production selection with the independent
 ;;; original row selector. No measurement callback enters the timed executor.
-(import (only-in :gerbil-parser/src/compiler/machine parser-machine-with-lr-action-selector
+(import (only-in :gerbil-parser/src/runtime/machine parser-machine-with-lr-action-selector
                  parser-machine-runtime)
         (only-in :gerbil-parser/src/runtime/parser parse-source)
         (only-in :gerbil-parser/src/runtime/token token-lexeme)

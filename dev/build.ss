@@ -46,7 +46,7 @@
         (for-each (lambda (name)
                     (unless (member name names) (error "missing public build target" name)))
           '("language-support" "language-test-support" "graph-query-support"
-            "src/api" "src/runtime/machine" "src/compiler/machine"))
+            "src/api" "src/runtime/machine" "src/runtime/machine"))
         (for-each (lambda (name)
                     (let (entry (assoc name (map cdr production)))
                       (unless (and entry (member "-cc-options" entry))
@@ -56,7 +56,8 @@
                     (when (member name names) (error "retired build target is still published" name)))
           '("modules/parser/types" "modules/parser/objects" "modules/parser/config"
             "modules/parser/interface" "src/modules/types" "src/modules/objects"
-            "src/modules/loader" "src/modules/parser/interface" "build-modules")))
+            "src/modules/loader" "src/modules/parser/interface" "build-modules"
+            "src/compiler/machine" "src/compiler/lexical-expression" "src/compiler/lexical-lexer")))
       (displayln "PARSER-BUILD-CATALOG-OK")
       (map (lambda (target) (string-append (cadr target) ".ss")) production))))
 (def (main . args)

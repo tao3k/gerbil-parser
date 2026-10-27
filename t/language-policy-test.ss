@@ -21,7 +21,7 @@
         (only-in :gerbil-parser/src/compiler/rust-runtime
                  generate-language-rust-runtime-module language-rust-runtime-module-source
                  rust-runtime-module-source)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-grammar-digest)
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-grammar-digest)
         (only-in :gerbil-parser/src/compiler/rust-scanner generate-contextual-language-rust-runtime-module)
         (only-in :gerbil-parser/t/fixtures/shared-scanner/records
                  records-language-grammar records-contextual-product))

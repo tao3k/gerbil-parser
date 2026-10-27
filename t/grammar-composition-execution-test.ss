@@ -31,7 +31,7 @@
                  lr-runtime-lexical-mode-catalog)
         (only-in :gerbil-parser/src/runtime/parser parse-source)
         :gerbil-parser/src/runtime/token
-        :gerbil-parser/src/compiler/machine
+        :gerbil-parser/src/runtime/machine
         :gerbil-parser/languages/arithmetic/parser)
 (import :gerbil-parser/t/fixtures/grammar-composition-models)
 

@@ -2,7 +2,7 @@
 ;;; Dense resume from the initial frontier is the independent existing control.
 (import :std/test
         (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/grammar records-parser)
-        (only-in :gerbil-parser/src/compiler/machine parser-machine-runtime)
+        (only-in :gerbil-parser/src/runtime/machine parser-machine-runtime)
         (only-in :gerbil-parser/src/runtime/parser parse-source/checkpoints parse-source/checkpoints/resume
                  current-source-stream-observer)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-initial-checkpoint current-lr-recognition-observer))

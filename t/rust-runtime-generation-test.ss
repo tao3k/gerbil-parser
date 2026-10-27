@@ -14,7 +14,7 @@
                  +gql-syntax-contract+
                  gql-parser-ir
                  gql-parser)
-        (only-in :gerbil-parser/src/compiler/machine
+        (only-in :gerbil-parser/src/runtime/machine
                  parser-machine-grammar-digest)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-prepare)
         (only-in :gerbil-parser/rust-runtime-support

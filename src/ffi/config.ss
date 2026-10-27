@@ -1,4 +1,2 @@
-;;; Select the existing pure service prototype; no process state is created.
-(import (only-in "./objects.ss" ForeignInterface.))
-(export Config)
-(def Config ForeignInterface.)
+;;; Required Yuanxu Config role; this module has no local settings to compose.
+;;; Interface selects the checked service prototype directly from Objects.

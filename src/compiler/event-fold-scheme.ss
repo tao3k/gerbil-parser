@@ -3,7 +3,7 @@
 (import (only-in ./event-fold-ir event-fold-ir)
         (only-in ./event-fold-call-plan fold-fuse-single-use-calls)
         (only-in ../language/descriptor language-grammar-ir language-grammar-machine)
-        (only-in ./machine parser-machine-grammar-digest)
+        (only-in ../runtime/machine parser-machine-grammar-digest)
         (only-in ./event-fold-program snapshot-fold-data)
         (only-in ./event-fold-scheme-context
                  current-fold-scheme-prefix current-fold-scheme-expressions

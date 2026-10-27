@@ -73,11 +73,22 @@ package180s build cap is not reinstated. std Djot remains paused. No Gerbil/SDK
 source, private installation environment or local dependency patch is introduced.
 
 * Qualification status
-Current candidate validation is in progress. Native production and support builds
-have passed on the installed Yuanxu revision; initial focused failures above are
-not acceptance receipts. Current-source full local and exact-head Linux/macOS CI
-must pass before this slice is reported qualified. Benchmark policy comparisons
-are not performance acceptance and do not establish cold-start improvement.
+The product-source candidate87c9e70 passed the normal developer sequence
+just qualify-library test-all check-build-catalog test-plan in289.19seconds:
+production/support compilation,183 native t/languages modules plus the separate
+test-plan Suite, zero ERROR records, native HARNESS/final OK and
+PARSER-BUILD-CATALOG-OK. The model-input controls separately passed all six tests.
+The subsequent a812d8d change affects CI prefix preparation and documentation,
+not those product sources. A native temporary registration fixture reproduced
+exit70 with the pkg directory absent and exit0 after creating the configured
+parent, with the actual directory-list checked. It installs no compiler or
+package and is not an alternative runtime environment.
+
+Linux/macOS cold preparation and downstream qualification are tracked by
+[[https://github.com/tao3k/gerbil-parser/pull/13/checks][the existing PR checks]]. Local
+success does not certify remote compilation, recovery or runtime admission.
+The original failures remain failure evidence, not acceptance receipts.
+Historical loader measurements do not establish current performance gains.
 
 * Native contract API alignment
 The first full run executed183 modules but failed negative classifier checks:

@@ -166,3 +166,33 @@ logs and a process sample. This is not compiler/runtime acceptance, does not
 prove the specific retaining/wait cause, and is not repaired by reinstating the
 custom linker. The installed compiler and remote configured compiler have
 separate source identities; both must be reported independently.
+
+* CI-aligned source and ABI qualification
+The old local default resolves to Gerbil1cfb032/patch618d76f9eb72, while CI uses
+Gerbil2591dcd/patchf5cedd8168cb on Gambitdcd677c. The configured CI compiler is
+already installed locally and is selected through its own activate script;
+no compiler source, global Homebrew link or private compiler build is changed.
+The old prefix's dynamic objects are refused as ABI-incompatible by that compiler.
+The native Parser workspace .gerbil now owns its freshly installed Core/POO and
+the existing dev dependency. Runtime tagging retains the default format.
+
+Local qualification must also retain CI's compiled-library/source-parent load
+path order, GCC16 selection and OpenSSL/sqlite library paths. Missing these gave
+separate source-resolution and crypto-link errors; those logs are preserved and
+are not attributed to Parser liveness.
+
+The CI-aligned native build exposed actual duplicate ownership: generic research
+projection rebuilt records ABI modules without their owner's native link flags.
+Research now derives its exclusions from the normalized init Scope declaration,
+the FFI owner's exported ffi-build-spec and its executable spec. The public Core
+source registration API is used in both phases just as in build.ss. The actual
+records grammar remains in Core's import closure, so the standalone library does
+not lose its required static source. No parallel FFI path list or link driver is
+introduced. FFI still owns its normal compile/clean/spec/meta protocol.
+
+Native research compilation and a new process running provenance completed with
+15 real checks. Earlier waits are not evidence of a Parser deadlock on the
+qualified CI baseline. The complete test entry and restored consumers remain
+separate gates. The model observation input now names build-language-conformance.ss
+instead of the deleted linker; all six existing input controls passed, including
+missing-source rejection.

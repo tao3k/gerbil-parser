@@ -19,9 +19,12 @@
 
  ;; Actual program declarations; std/make owns their output names and builds.
 (def research-executable-spec
-  (map (lambda (entry)
-         `(exe: ,(car entry) bin: ,(cadr entry)
-                "-ld-options" ,(pkg-config-libs "openssl")))
+  (let* ((root (path-directory (this-source-file)))
+         (includes (string-append "-I" (path-expand "include" root) " -I" root))
+         (libraries (pkg-config-libs "openssl")))
+    (map (lambda (entry)
+           `(exe: ,(car entry) bin: ,(cadr entry)
+                  "-cc-options" ,includes "-ld-options" ,libraries))
     '(("t/research-main" "gerbil-parser-conformance")
       ("t/fixtures/tla-sany-differential/compare" "gerbil-parser-sany-compare")
       ("t/fixtures/tla-sany-differential/corpus" "gerbil-parser-tla-corpus")
@@ -33,7 +36,7 @@
       ("t/generate-header-delimiters" "gerbil-parser-header-delimiters")
       ("t/generate-module-source" "gerbil-parser-module-source")
       ("t/generate-structured-lexical" "gerbil-parser-structured-lexical")
-      ("t/generate-quoted-string-profile" "gerbil-parser-quoted-profile"))))
+      ("t/generate-quoted-string-profile" "gerbil-parser-quoted-profile")))))
 (def research-entry-sources
   (append
     (map (lambda (entry) (string-append (cadr entry) ".ss")) research-executable-spec)

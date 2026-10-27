@@ -501,3 +501,18 @@ Generation subprocess logs now live under .data, the existing uploaded log
 location, rather than uncollected /tmp paths. Source-generated products and all
 byte comparisons remain unchanged. The added CLI exports carry the same methods,
 counts and limits; runtime/CI acceptance is still required.
+
+Local candidatec3e4cfea exposed a concrete static-link input omission: the edit
+program's native closure includes language-abi.c and abi-call.c, both requiring
+gerbil-parser/language.h. Program declarations now carry the same project include
+roots as their library producer, and resolve the existing OpenSSL link input once
+for the declaration set. The failed compiler log is preserved. Neither extra
+ambient library paths nor compiler/stdlib upgrades are used to resolve it.
+
+The firstc3 macOS preparation failed earlier in gparse linking: this independent
+program owner omitted OpenSSL pkg-config link options. The runner exposes
+OpenSSL3.6.5 while the archived Gambit default references Cellar3.5.9. Gparse now
+passes std/make.pkg-config-libs at its final executable declaration. This is an
+explicit product input correction, not a compiler upgrade, ambient search-path
+override or a claim that earlier green image conditions guaranteed portability.
+The failed native products and raw job log are preserved.

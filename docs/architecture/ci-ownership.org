@@ -2,8 +2,8 @@
 #+LANGUAGE: en
 
 * Authority
-The current dependency cohort is read from gerbil.pkg (Yuanxu PR19 ed5236b
-observed during this audit). Earlier9b9f0ab receipts describe the initial baseline.
+The current dependency cohort is read only from gerbil.pkg. Yuanxu PR19 owns
+the formal source revisions; earlier receipts retain their recorded source epoch.
 Gerbil is the compiler; Yuanxu/Core owns its module and publication protocols.
 GitHub Actions owns job dependencies and artifact transport.
 
@@ -21,6 +21,12 @@ superset would lose those distinctions. Both use the existing compiler host
 initializer; support does not rewrite Core's returned spec. Its own build and
 compiler-policy source files are observed inputs. No builder, signer or import
 walker is implemented in Parser.
+
+Development and CI consume signed support through Core TestingScript, which
+checks source, outputs and approvals before invoking native gerbil test. The
+shared test-native command never compiles; test-all prepares its prerequisites.
+The complete test profile retains3GiB/900s. No test file starts a build or another
+test harness.
 
 FFI precedes support consumption. Research declares entry sources once, not
 transitive fixture names. Normal package import discovery covers research-only

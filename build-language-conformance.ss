@@ -17,7 +17,7 @@
   (compiler-build-spec
     (package-library-spec (path-directory (this-source-file)) 'gerbil-parser
                           research-entry-sources
-                          exclude: research-executable-spec)))
+                          exclude: (map cadr research-executable-spec))))
 (parameterize ((current-output-port (current-error-port)))
   (initialize-compiler-build!))
 (defbuild-script

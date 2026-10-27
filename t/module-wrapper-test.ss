@@ -70,7 +70,7 @@
     (using (with-runtime-file) (file name)
       (scope ((before (__scheme-source)))
         (act (write-program file write-datum
-          '(begin (declare (block) (standard-bindings) (extended-bindings)) (begin))))
+          '(begin)))
         (act (load-module name))
         (equal (__scheme-source) before)
         (act (write-program file write-datum '(error "native raw Scheme failure")))

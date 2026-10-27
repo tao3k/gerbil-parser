@@ -108,7 +108,7 @@ jobs:
         run: |
           GERBIL_BUILD_VERBOSE=1 GERBIL_PARSER_LR_TRACE=1 \
             gerbil env gxi qualify.ss run --timeout 240 --idle-timeout 5 \
-              --log .data/language-conformance-build.log \
+              --log .data/language-conformance-build.log --compiler-outputs "$GERBIL_PATH/lib/static" \
               -- gxi build-conformance.ss
       # This is Core's signed test-lib publication, distinct from normal
       # research static products and their executable link closure.

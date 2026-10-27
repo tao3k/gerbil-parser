@@ -21,12 +21,12 @@ or compiler patch is introduced to use APIs already provided by Core.
 
 | Concern | Existing files | POO responsibility | Concrete representation / boundary |
 |---------+----------------+--------------------+------------------------------------|
-| Grammar families | modules/parser/{types,objects}.ss | Prototype inheritance, declaration composition and typed publication | Shared Record; semantic normalizer owns grammar meaning |
+| Grammar families | grammar/declaration-{types,objects}.ss | Prototype inheritance, declaration composition and typed publication | Shared Record; semantic normalizer owns grammar meaning |
 | Compiler stages | compiler/{normalize,lr-compiler,lr-lookahead}.ss | Compose/select stage capabilities and builders; prepare once | FIRST/lookahead bitsets, worklists and native indexes retain their algorithms |
 | Semantic backends | runtime/reduction-plan.ss; lr-parser/prepare.ss | Native prototype families and Core multi-argument method selection | Retained callable plans, never generic lookup for every token |
 | Scanner and lexical policy | runtime/source-scanner.ss; lexical-lexer.ss | Context/Mode-specific strategy composition and preparation | Worker-owned nominal scan/checkpoint structs and byte offsets |
 | Runtime and reuse | runtime/lr-parser/{state,checkpoint,transfer}.ss | Explicit creation/rebind/recovery coordination and capability compatibility | Exact runtime/executor identity, private stacks and snapshots |
-| Artifact/query projection | modules/parser/graph-query-*.ss | Caller-selected Row/Id/Kind and compatible collection operations | Typed Map/index policy; stable ordering and reference closure remain domain obligations |
+| Artifact/query projection | graph/graph-query-*.ss | Caller-selected Row/Id/Kind and compatible collection operations | Typed Map/index policy; stable ordering and reference closure remain domain obligations |
 | Module/source lifecycle | init.ss; subsystem Types/Config/Build | Core Context/Scope, selection and normalized publication | Core source admission and Gerbil std/make retain authority |
 | Verification | formal/ParserEngine; native/source tests | Reuse LeanPoo inheritance/method/selection laws with explicit host premises | Source-currentness, native semantics, resource gates and research measurements stay distinct |
 
@@ -179,7 +179,7 @@ now capture actual callable values; that refusal and its log are retained.
 | Compiler | compiler/lr-compiler.ss compile-lr-spec and compile-lr-spec/selected | Select construction/fallback policy before lower/completion/FIRST/state construction; retain native bitsets, state keys and worklists | Preserve reject/probe/selective-GLR meanings, lalr-then-follow fallback, canonical correspondence and bounded construction |
 | Scanner | runtime/contextual-scanner.ss prepare-contextual-scanner-plan; runtime/region-scanner.ss prepare-region-plan | Compose matcher/index/context policies before request binding; retain source identity, digest, byte positions and private cells | Wrong source/digest refusal, equivalent rule precedence, isolated scan state and delimiter obligations |
 | Recovery | runtime/lr-parser/{checkpoint,transfer}.ss lr-checkpoint-advance, lr-checkpoint-fragment-compatible?, lr-prefix-snapshot-rebind | Select compatible execution/recovery operations; retain exact runtime and executor associations | Changed executor/grammar refusal, fresh rebind input and request isolation; no silent checkpoint reinterpretation |
-| Collections | modules/parser/graph-query-{types,funs,objects}.ss | Preserve existing Row/Id/Kind parameterization and collection key semantics; select appropriate upstream typed collection only for demonstrated needs | Zero/false keys, collision/equivalence, stable order, closure and update failure preservation |
+| Collections | graph/graph-query-{types,funs,objects}.ss | Preserve existing Row/Id/Kind parameterization and collection key semantics; select appropriate upstream typed collection only for demonstrated needs | Zero/false keys, collision/equivalence, stable order, closure and update failure preservation |
 
 These are specific unimplemented follow-on owners, not new parallel subsystems.
 Contract work remains at admission/publication boundaries. The parser's existing

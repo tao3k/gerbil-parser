@@ -16,11 +16,11 @@ compiler and job-scheduling owner; parallelism remains capped at two workers.
 | build-support | Compiler-option and native-link functions; explicit host initialization |
 | compiler | Grammar normalization; generator/build public entries and dynamic Scheme emitter |
 | ffi | Original schema-owned ABI versions; three C leaves with include/link options |
-| grammar | Grammar and lexical expression predicates; grammar-authoring facade |
-| language | Schema-owned format identities, supported language/adaptor public entries |
-| modules | Graph-query services, parser public/graph facades and existing runtime loader |
+| grammar | Grammar/Role contracts, objects and syntax; contextual declarations and expression algebras |
+| language | Source structures, event scopes and boundaries; format identities, language/adaptor and declaration facades |
+| graph | Typed graph-query services, graph projection and syntax declarations |
 | runtime | Structural artifact services; native execution/incremental/recovery/actor/event entries |
-| testing | Test-form admission, published test/assertion/witness extension APIs |
+| testing | Test-form admission, witness/assertion APIs and evaluator-safe compiler-wrapper replay |
 | utilities | Existing pure list and string functions |
 
 * One build projection
@@ -36,7 +36,7 @@ phase-bound inputs and are not installed as runtime modules.
 This replaces =build-modules.ss= and the former =modules/parser= catalog-forwarding
 publication. Public entry declarations are not copies of every private file.
 The independent development PackageSpec audit compares its native source
-inventory with the selected projection, excluding the seven phase-only Build
+inventory with the selected projection, excluding the eight phase-only Build
 roles. Its legacy =check-catalog= command/marker remains compatible with callers;
 it no longer imports or maintains a production source catalog. Development
 policy consumes the verified projection rather than another membership list.

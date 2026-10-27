@@ -66,6 +66,11 @@
       (each (name) ('(build-support compiler ffi grammar graph language runtime testing utilities))
         (equal (.slot? components name) #t))
       (equal (.slot? components 'modules) #f)
+      ;; Actual compiled imports must not silently retain the retired owners.
+      (equal (filter (lambda (entry)
+                       (and (string? (car entry))
+                            (string-prefix? "gerbil-parser/src/modules/" (car entry))))
+                     (list-modules)) '())
       (equal (file-exists? (path-expand "src/modules" parser-source-root)) #f)
       (each (path) ('("src/grammar/declaration-types.ss" "src/grammar/declaration-objects.ss"
                      "src/language/line-structure-objects.ss" "src/language/source-event-scope-funs.ss"

@@ -47,6 +47,10 @@ class ModelInputControls(unittest.TestCase):
              {"lean-model", "quint-protocol"}),
             ("t/fixtures/suffix-controls.ssi", {"lean-model", "quint-protocol"}),
         )
+        modules += tuple((name, {"lean-model", "quint-protocol"}) for name in (
+            "src/grammar/declaration-types.ss", "src/graph/graph-query-types.ss",
+            "src/language/source-boundary-types.ss", "src/testing/module-loader.ss",
+        ))
         for name, expected in modules:
             with self.subTest(input=name):
                 self.write(name)

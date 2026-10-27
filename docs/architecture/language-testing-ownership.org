@@ -64,7 +64,11 @@ The initial candidate failures are retained in the enclosing integration logs:
   product uses that API here; runtime controls exercise load-module/reload-module!.
   No compiler change or compatibility loader was introduced.
 
-Two build workers and existing heap/process limits remain. Parser's former
+The developer build-test-support recipe had reused the test-runtime1GiB option
+for compiler work. The new native projection exhausted that heap before compiler
+dispatch; the original failed log is retained. That recipe now uses the existing
+2GiB compiler budget, matching CI, while test heap/process limits remain.
+Two build workers and the existing compiler ceiling remain. Parser's former
 package180s build cap is not reinstated. std Djot remains paused. No Gerbil/SDK
 source, private installation environment or local dependency patch is introduced.
 

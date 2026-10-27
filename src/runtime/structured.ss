@@ -1,7 +1,7 @@
 ;;; Closed structured text scanners and proof policies shared by language recipes.
 (import (only-in :clan/poo/object .o .ref .slot? object?)
         (only-in :clan/poo/mop define-type validate)
-        (only-in :yuanxu/object-types/contracts YuanxuContract. yuanxu-classification-evidence)
+        (only-in :yuanxu/object-types/contracts yuanxu-predicate-contract)
         :gerbil-parser/src/runtime/cst
         (only-in :gerbil-parser/src/runtime/token token? token-lexeme))
 (export StructuredProofPolicy. StructuredProofPolicyContract bind-structured-proof-policy)
@@ -19,12 +19,8 @@
        (char? (.ref value 'close)) (string? (.ref value 'code)) (string? (.ref value 'terminal-command))
        (list? (.ref value 'denied-commands)) (andmap string? (.ref value 'denied-commands))
        (list? (.ref value 'denied-kinds)) (andmap symbol? (.ref value 'denied-kinds))))))
-(define-type (StructuredProofPolicyContract @ YuanxuContract.)
- identity: 'gerbil-parser/structured-proof
- .classify: (lambda (candidate context)
-  (let (ok? (proof-policy? candidate))
-   (yuanxu-classification-evidence 'gerbil-parser/structured-proof candidate ok?
-    (if ok? '() '((expected structured-proof))) context))))
+(define-type StructuredProofPolicyContract
+  (yuanxu-predicate-contract 'gerbil-parser/structured-proof proof-policy?))
 (def (bind-structured-proof-policy profile)
  (validate StructuredProofPolicyContract profile)
  (let ((code (string-copy (.ref profile 'code))) (proof-kind (.ref profile 'proof-kind))

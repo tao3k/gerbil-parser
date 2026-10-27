@@ -17,9 +17,8 @@
          invoke-gsc: #f verbose: #f]))
     '("t/benchmarks/versioned-languages/all-languages" "t/research-main")))
 (def (compile-static-conformance!)
-  ;; The shared native graph is scheduled once by std/make. Only catalog
-  ;; helpers belong to this declaration; extra source-test helpers
-  ;; remain the sibling build-test-support owner's products.
+  ;; Both entries consume the same init-owned support graph; std/make alone
+  ;; owns scheduling/currentness. There is no separate research Suite catalog.
   (initialize-compiler-build!)
   (make (shared-test-build-spec)
         srcdir: (path-directory (this-source-file))

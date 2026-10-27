@@ -55,7 +55,7 @@
 
 (def (test-product-export module name)
   ;; This is a runtime capability, including in a compiled executable. Ask the
-  ;; SDK to initialize it, then read its published runtime binding. No import
+  ;; native loader to initialize it, then read its published runtime binding. No import
   ;; form is handed to the host evaluator and no GXI global hooks are needed.
   (load-module module)
   (let (value (eval (string->symbol (string-append module "#" name))))

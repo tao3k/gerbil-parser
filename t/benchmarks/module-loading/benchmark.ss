@@ -68,17 +68,6 @@
     ((equal? mode "generation")
       (qualify 'complete-rust-generation production-generate reference-generate 4
         (lambda (source) (unless (equal? source expected) (error "generated Rust changed")))))
-    ((equal? mode "preload")
-      ;; Compare official warm loading with an explicit native reload request.
-      ;; This is a policy/workload comparison, not cold startup or an algorithm
-      ;; equivalence proof. The original custom traversal survives only in Git.
-      (preload-runtime-module "gerbil-parser/src/ffi/rust-runtime-aot")
-      (let ((module "gerbil-parser/src/ffi/rust-runtime-aot") (sink (open-output-file "/dev/null")))
-        (parameterize ((current-output-port sink))
-          (qualify 'native-warm-versus-reload
-            (lambda () (preload-runtime-module module) #t)
-            (lambda () (reload-module! module) #t)
-            4 (lambda (ok) (unless ok (error "preload failed")))))))
     (else (error "unknown benchmark mode" mode)))
   (displayln "MODULE-LOADING-CPU-PROOF-OK " mode) (force-output)
   (test-child-process-exit! 0))

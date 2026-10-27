@@ -7,7 +7,7 @@
                  YuanxuContract. YuanxuObjectContract.
                  yuanxu-contract-admit
                  yuanxu-validation-evidence-accepted?
-                 yuanxu-classification-evidence)
+                 yuanxu-predicate-contract yuanxu-type-classify)
         (only-in ../grammar/declaration-types ParserSymbol))
 (export +graph-projection-kind+ +graph-node-kind+ +graph-field-kind+
         GraphProjectionContract GraphNodeContract GraphFieldContract)
@@ -19,10 +19,7 @@
 (def (empty-prototype) (.o))
 
 (def (graph-classify identity predicate candidate context)
-  (let (accepted? (predicate candidate))
-    (yuanxu-classification-evidence
-     identity candidate accepted?
-     (if accepted? '() (list (list 'expected identity))) context)))
+  (yuanxu-type-classify (yuanxu-predicate-contract identity predicate) candidate context))
 
 (def (kind-contract identity expected)
   (lambda (candidate context)

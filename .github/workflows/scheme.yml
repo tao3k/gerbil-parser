@@ -843,13 +843,16 @@ jobs:
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/module-generation-cpu.log --require '^MODULE-LOADING-CPU-PROOF-OK generation$' \
             -- gxi t/benchmarks/module-loading/benchmark.ss generation
-      - name: Prove warm runtime preparation CPU improvement
+      # The custom preparation algorithm and copied reference were removed.
+      # Keep this lane as native positive/negative loading qualification, without
+      # claiming that warm-load and reload are equivalent CPU workloads.
+      - name: Qualify native runtime loading and failure recovery
         if: matrix.lane == 'module-preload'
         run: |
           taskset -pc "$CPU_PROOF_PROCESSOR" "$$"
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
-            --log .data/module-preload-cpu.log --require '^MODULE-LOADING-CPU-PROOF-OK preload$' \
-            -- gxi t/benchmarks/module-loading/benchmark.ss preload
+            --log .data/module-loading-native-controls.log --require '^OK$' \
+            -- gerbil test -v 5 t/module-loading-test.ss t/module-wrapper-test.ss t/interface-observation-test.ss
       - name: Prove Rust Tokio complete 64-record requests
         if: matrix.lane == 'tokio'
         env:

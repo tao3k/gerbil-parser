@@ -7,7 +7,7 @@
                  YuanxuContract. YuanxuObjectContract.
                  yuanxu-contract-admit
                  yuanxu-validation-evidence-accepted?
-                 yuanxu-classification-evidence)
+                 yuanxu-predicate-contract yuanxu-type-classify)
         (only-in ../grammar/declaration-types ParserSymbol ParserList))
 (export +line-structure-schema+
         +line-structure-kind+
@@ -53,11 +53,7 @@
 (def (empty-prototype) (.o))
 
 (def (line-classify identity predicate candidate context)
-  (let (accepted? (predicate candidate))
-    (yuanxu-classification-evidence
-     identity candidate accepted?
-     (if accepted? '() (list (list 'expected identity)))
-     context)))
+  (yuanxu-type-classify (yuanxu-predicate-contract identity predicate) candidate context))
 
 (def (ascii-text? value)
   (and (string? value)

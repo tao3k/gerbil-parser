@@ -19,7 +19,7 @@ not Yuanxu infrastructure. It is deleted, without a forwarding alias.
 | tla-sany-differential/module-promises.ss | Native context promises; no mutation of live imported contexts |
 | scripts/test-plan.ss and manual conformance-modules catalog | init.exports.tests.for-directory / for-files |
 | Duplicate support/auxiliary roster | Core std-make-spec projection; native std/make schedules compiler work |
-| Copied historical reference-preload implementation | Explicit native warm-load/reload policy comparison; Git retains history |
+| Copied historical reference-preload implementation | Native positive/negative loading controls; Git retains historical CPU evidence |
 
 * Responsibility and calling boundaries
 | Surface / file | Retained domain responsibility | Authority boundary |
@@ -78,3 +78,18 @@ have passed on the installed Yuanxu revision; initial focused failures above are
 not acceptance receipts. Current-source full local and exact-head Linux/macOS CI
 must pass before this slice is reported qualified. Benchmark policy comparisons
 are not performance acceptance and do not establish cold-start improvement.
+
+* Native contract API alignment
+The first full run executed183 modules but failed negative classifier checks:
+old Parser classifiers emitted list diagnostics, while current Yuanxu evidence
+requires POO diagnostic objects. Predicate-only Contracts now use the public
+yuanxu-predicate-contract constructor through native define-type. Domain predicates
+remain unchanged. Shared line/graph classifiers delegate to yuanxu-type-classify
+with that native constructor; no Parser evidence factory or compatibility layer
+is added. All original invalid-input checks remain.
+
+The removed custom loader no longer has a meaningful current reference algorithm.
+Its copied baseline and obsolete preload CPU comparison are retired together;
+the existing CI lane now runs native runtime positive/negative controls. The
+complete-generation benchmark retains identical Rust-output and matched CPU
+controls. No replacement warm-versus-reload speedup is claimed.

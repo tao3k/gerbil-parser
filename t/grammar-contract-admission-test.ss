@@ -46,9 +46,9 @@
                              (lambda (candidate context)
                                (yuanxu-classification-evidence
                                 (.ref GrammarRoleContract 'identity) candidate #f
-                                '(refined-rejection) context))))
+                                (list (.o kind: 'refined-rejection)) context))))
              (constrained (.cc GrammarRoleContract '.obligations
-                           (lambda (_candidate _context) '(refined-obligation)))))
+                           (lambda (_candidate _context) (list (.o kind: 'refined-obligation))))))
         (each (contract) ((list reclassified constrained))
            (equal (evidence-member? contract role)  #f)
            (equal (element? contract role)  #f)
@@ -59,7 +59,7 @@
                            (set! calls (+ calls 1))
                            (yuanxu-classification-evidence
                             (.ref GrammarRoleContract 'identity) candidate #f
-                            '(refined-rejection) context)))))
+                            (list (.o kind: 'refined-rejection)) context)))))
       (equal (rejects? (lambda () (validate refined role)))  #t)
       (equal calls  1))
     (scenario "mutable declaration lists are rechecked on every call"

@@ -3,7 +3,7 @@
 (import (only-in ./lr-table validate-lr-tables)
         (only-in :clan/poo/object .o .cc .ref .slot? object?)
         (only-in :clan/poo/mop define-type validate)
-        (only-in :yuanxu/object-types/contracts YuanxuContract. yuanxu-classification-evidence)
+        (only-in :yuanxu/object-types/contracts yuanxu-predicate-contract)
         (only-in ../language/descriptor language-grammar? language-grammar-ir language-grammar-machine)
         (only-in ../runtime/machine parser-machine-grammar-digest parser-machine-ir)
         (only-in ./build-strategy BuildStrategy. build-strategy-common-shape?
@@ -56,13 +56,8 @@
                          productions)
                   #t))))))
 
-(define-type (FusedReductionStrategyContract @ YuanxuContract.)
-  identity: 'gerbil-parser/fused-reduction-strategy
-  .classify: (lambda (candidate context)
-               (let (accepted? (strategy-shape? candidate))
-                 (yuanxu-classification-evidence
-                  'gerbil-parser/fused-reduction-strategy candidate accepted?
-                  (if accepted? '() '((expected gerbil-parser/fused-reduction-strategy))) context))))
+(define-type FusedReductionStrategyContract
+  (yuanxu-predicate-contract 'gerbil-parser/fused-reduction-strategy strategy-shape?))
 
 (def (stack-tail-name prefix index)
   (string->symbol (string-append prefix (number->string index))))

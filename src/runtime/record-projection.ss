@@ -1,7 +1,7 @@
 ;;; Closed record selectors and POO recipes; no language-specific projection code.
 (import (only-in :clan/poo/object .o .cc .ref .slot? object?)
         (only-in :clan/poo/mop define-type validate)
-        (only-in :yuanxu/object-types/contracts YuanxuContract. yuanxu-classification-evidence)
+        (only-in :yuanxu/object-types/contracts yuanxu-predicate-contract)
         (only-in ../language/descriptor language-grammar? language-grammar-machine)
         (only-in ./machine parser-machine-grammar-digest)
         (only-in ./lexical-source scan-header-delimiter)
@@ -42,12 +42,8 @@
                                       (selector? (cdr row) (.ref value 'delimiter-count)))) (.ref value 'columns))
            (andmap (lambda (row) (or (string? (cdr row)) (symbol? (cdr row)) (number? (cdr row)) (boolean? (cdr row))))
                    (.ref value 'constants))))))
-(define-type (RecordProjectionContract @ YuanxuContract.)
-  identity: 'gerbil-parser/record-projection
-  .classify: (lambda (candidate context)
-               (let (accepted? (projection-shape? candidate))
-                 (yuanxu-classification-evidence 'gerbil-parser/record-projection candidate accepted?
-                  (if accepted? '() '((expected gerbil-parser/record-projection))) context))))
+(define-type RecordProjectionContract
+  (yuanxu-predicate-contract 'gerbil-parser/record-projection projection-shape?))
 (def RecordProjection.
   (.o descriptor: #f prefix: #f delimiter-count: #f expectations: '() constants: '() columns: '() metadata: (.o)))
 (def (split-text text delimiter)

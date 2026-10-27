@@ -2,7 +2,7 @@
 ;;; Existing canonical Rust producer through the common POO build protocol.
 (import (only-in :clan/poo/object .o .ref)
         (only-in :clan/poo/mop define-type validate)
-        (only-in :yuanxu/object-types/contracts YuanxuContract. yuanxu-classification-evidence)
+        (only-in :yuanxu/object-types/contracts yuanxu-predicate-contract)
         (only-in ./build-strategy BuildStrategy. build-strategy-common-shape?
                  declare-build-strategy-provider make-bound-build-strategy)
         (only-in ../language/descriptor language-grammar-parser-policy)
@@ -13,13 +13,8 @@
   (and (build-strategy-common-shape? candidate)
        (eq? (.ref candidate 'provider) +rust-runtime-provider+)
        (not (language-grammar-parser-policy (.ref candidate 'descriptor)))))
-(define-type (RustRuntimeStrategyContract @ YuanxuContract.)
-  identity: 'gerbil-parser/rust-runtime-strategy
-  .classify: (lambda (candidate context)
-               (let (accepted? (runtime-strategy-shape? candidate))
-                 (yuanxu-classification-evidence
-                  'gerbil-parser/rust-runtime-strategy candidate accepted?
-                  (if accepted? '() '((expected gerbil-parser/rust-runtime-strategy))) context))))
+(define-type RustRuntimeStrategyContract
+  (yuanxu-predicate-contract 'gerbil-parser/rust-runtime-strategy runtime-strategy-shape?))
 
 (def (emit-runtime-strategy strategy port)
   ;; Existing producer retains portable Scanner IR and parser policy gates.

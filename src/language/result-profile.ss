@@ -5,7 +5,7 @@
                  result-plan-recipe result-plan-catalog copy-result-datum)
         (only-in :clan/poo/object .o .ref object?)
         (only-in :clan/poo/mop define-type validate)
-        (only-in :yuanxu/object-types/contracts YuanxuContract. yuanxu-classification-evidence)
+        (only-in :yuanxu/object-types/contracts yuanxu-predicate-contract)
         (only-in ./scanner-profile compile-scanner-profile)
         (only-in ../runtime/token token? token-kind token-start token-end)
         (only-in ../runtime/recognition
@@ -240,12 +240,8 @@
                               (reverse! children)) tokens)))
 (def (profile-valid? profile)
   (with-catch (lambda (_) #f) (lambda () (profile-plan profile) #t)))
-(define-type (ResultProfileContract @ YuanxuContract.)
-  identity: 'gerbil-parser/result-profile
-  .classify: (lambda (candidate context)
-    (let (accepted? (profile-valid? candidate))
-      (yuanxu-classification-evidence 'gerbil-parser/result-profile candidate accepted?
-       (if accepted? '() '((expected gerbil-parser/result-profile))) context))))
+(define-type ResultProfileContract
+  (yuanxu-predicate-contract 'gerbil-parser/result-profile profile-valid?))
 (def (compile-result-profile profile)
   (validate ResultProfileContract profile)
   (profile-plan profile))

@@ -612,3 +612,16 @@ in0.37s; this is functional evidence, not a cold-start comparative speedup claim
 Remote unchanged-bound acceptance remains required. Local multi-suite diagnostics
 which deliberately establish a separate native toolchain environment retain their
 own necessary environment entry; they are not replaced by a manual bin search.
+
+Run1c022d21 completes with both cold producers and both generation consumers
+passing. Linux's full semantics/CLI pass; macOS executes all182 Suite modules
+but rejects the existing POO construction p95:168.422ms above100ms. Its3GiB
+process retains about1.719GB live at that measurement. These observations do not
+establish a GC cause or a repair, and the20 samples/50 object pairs/100ms gate
+remain unchanged. Source semantics and research acceptance remain distinct.
+
+Native CLI verification now precedes the complete Suite command, so its separate
+product result is observable even when a benchmark Case rejects. No Suite, Case
+or performance obligation is excluded; the complete native command remains fatal
+on any failure. The language ABI program additionally passes locally in0.90s at
+1GiB/120s/5s, including foreign-thread/UTF8/100-call/release controls.

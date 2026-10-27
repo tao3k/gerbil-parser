@@ -224,13 +224,13 @@ jobs:
             t/fixtures/test-macro-phase/loader-controls.ss \
             t/fixtures/test-macro-phase/vocabulary-controls.ss \
             t/fixtures/test-macro-phase/author-controls.ss
-      - name: Run Scheme tests
-        timeout-minutes: 15
-        run: just test-native
       - name: Verify native command
         run: |
           gerbil env gparse help
           gerbil env gparse check "1 + 2 * value"
+      - name: Run Scheme tests
+        timeout-minutes: 15
+        run: just test-native
       - name: Upload qualification logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

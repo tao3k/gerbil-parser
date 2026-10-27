@@ -1,6 +1,7 @@
 #!/usr/bin/env gxi
 ;;; SDK compiler owns static closure and job execution; no generated C rewriting.
-(import (only-in :gerbil/compiler compile-module compile-exe execute-pending-compile-jobs!)
+(import (only-in "./src/build-support/compiler-profile.ss" initialize-compiler-build!)
+        (only-in :gerbil/compiler compile-module compile-exe execute-pending-compile-jobs!)
         (only-in :std/make pkg-config-libs)
         (only-in :std/os/fcntl __fcntl1 __fcntl2 F_GETFL F_SETFL O_NONBLOCK)
         (only-in :std/os/error do-syscall))
@@ -20,6 +21,7 @@
         (and (not (fxnegative? flags)) (fxzero? (fxand flags O_NONBLOCK)))))
     '(1 2)))
 (def (main source output cc-options ld-options)
+  (initialize-compiler-build!)
   (displayln "COMPILER-STREAMS before-blocking=" (standard-streams-blocking?))
   (unless (zero? (blocking-standard-streams!)) (error "cannot establish blocking compiler streams"))
   (displayln "COMPILER-STREAMS after-blocking=" (standard-streams-blocking?))

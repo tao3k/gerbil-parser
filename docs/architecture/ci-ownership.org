@@ -239,3 +239,13 @@ under an additional2GiB limit is a separate unresolved property; the green
 configuration never established it. Fresh dual-platform CI and native recovery
 must qualify this changed cohort; old green or local records are not reused as
 current-head acceptance.
+
+* Shared-library host compiler policy
+The shared ABI adapter omitted the existing compiler host initialization.
+On the local host, even after native Homebrew activation, gcc's unresolved ld
+name selected the Nix executable through PATH and the final dynamic-library
+link reported unresolved system C symbols. The primary compiler entry already
+selects /usr/bin for Homebrew collect2 on Darwin unless the caller explicitly
+sets COMPILER_PATH. The shared ABI entry now calls that same initializer before
+compilation. There is no new linker resolver or altered SDK. The original
+native-shared-pkg-config failure log is retained independently of OpenSSL.

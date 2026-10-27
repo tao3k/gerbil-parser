@@ -166,3 +166,9 @@ existing =build-test-support= entry (including the test driver). Standard
 =defbuild-script=/=std/make= owns dependency invalidation and recompilation;
 no cleanup, old-path forwarding or custom artifact loader repairs the result.
 Cold CI independently builds the same support products before running Suites.
+
+The failed native invocation returned status0 despite ERROR CHECK/CASE/HARNESS
+and no final OK. The development =test-all= recipe now uses the existing entry
+receipt policy: preserve output, reject native ERROR diagnostics, require
+HARNESS-OK and exact final OK. This does not replace Gerbil's test executor or
+run a nested Suite. CI qualification already performs native output admission.

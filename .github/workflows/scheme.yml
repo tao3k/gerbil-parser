@@ -105,11 +105,7 @@ jobs:
       - name: Compile FFI Scheme fixtures once
         run: GERBIL_BUILD_VERBOSE=1 gerbil env gxi build-ffi-tests.ss compile
       - name: Compile language conformance modules
-        run: |
-          GERBIL_BUILD_VERBOSE=1 GERBIL_PARSER_LR_TRACE=1 \
-            gerbil env gxi qualify.ss run --timeout 240 --idle-timeout 5 \
-              --log .data/language-conformance-build.log --compiler-outputs "$GERBIL_PATH/lib/static" \
-              -- gxi build-conformance.ss
+        run: GERBIL_BUILD_VERBOSE=1 gerbil env gxi build-language-conformance.ss compile
       # This is Core's signed test-lib publication, distinct from normal
       # research static products and their executable link closure.
       - name: Publish native test support

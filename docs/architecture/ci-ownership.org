@@ -129,8 +129,11 @@ research/library input imports; std/build-script declares the research executabl
 and std/make owns object scheduling, reuse and linking. The previous closure
 validator and its self-mirroring test belonged only to the deleted linker.
 Compiler host-option tests and domain loading/error/mutation controls remain.
-The conformance supervisor keeps its240-second/idle5 envelope; actual compiler
-operation observation uses the existing compiler observer, not a second trace.
+Conformance is a package build, not a runtime liveness test. Its extra build
+supervisor and build-conformance.ss driver are removed as well; CI invokes the
+standard declaration directly. This follows the removed Parser package-build
+cutoff; the outer CI job deadline remains. Runtime negative controls and their
+watchdogs are not changed.
 
 Retained download SHA256 checks (archive integrity), platform C/link flags,
 native GitHub download/extract composition, and diagnostic failure custody.

@@ -516,3 +516,39 @@ passes std/make.pkg-config-libs at its final executable declaration. This is an
 explicit product input correction, not a compiler upgrade, ambient search-path
 override or a claim that earlier green image conditions guaranteed portability.
 The failed native products and raw job log are preserved.
+
+Native gparse linking passed locally with LIBRARY_PATH/LDFLAGS unset. Focused
+native Suites then correctly exited42 for an obsolete textual assertion requiring
+an exact closing parenthesis after the executable name. That format mirror is
+removed; actual native compile/CLI integration validates construction, while
+production/development ownership and dependency boundaries remain tested.
+
+Published-byte native preflight now passes the focused ownership/plan Suites,
+SANY's complete acceptance/structure/rejection/oracle-boundary comparison at the
+original1GiB/600s/5s envelope, and invalid-jar refusal70 within5s. A first local
+relative jar argument failed because Java runs in the fixture directory; the
+positive uses the same absolute-input convention as CI, with both logs retained.
+Header generation passes90s/5s and both Rust products remain byte-identical after
+rustfmt. No input, negative case, numeric threshold or deadline was relaxed.
+These local controls do not substitute for current full Linux/macOS CI.
+
+The freshdb275120 Linux artifact exposed two additional runtime-selected ranked
+proof libraries (parser-cpu and lexical-cpu), which are now declared beside the
+other actual runtime roots. Core supplies their transitive closure; the workload
+selector and all benchmark semantics remain unchanged. The historical
+selector/capture reference preparation also correctly refuses a mismatching
+historical gerbil.pkg before comparison. It remains a research-control cohort
+gap, not evidence of a candidate speedup or permission to rewrite the reference.
+
+Freshdb275120 Linux preparation, FFI, corpus and generation consumers pass; its
+complete native182-module entry fails only the remaining source-format mirror,
+without the local abandoned-prefix macro errors. The corrected focused Suites
+pass locally. This separates valid fresh/current-run restoration from local
+partial-output custody rather than weakening macro admission.
+
+Research rejection is reported separately: the module-generation candidate
+observed a0.0268 P90 cost ratio, but the after-phase reference control P10 was
+0.7138 outside its unchanged0.90..1.10 stability band, so speedup is not admitted.
+Other full comparisons hit original total budgets or reject a different historical
+package declaration. No unchanged retry, reduced workload or widened threshold
+establishes a research result. The complete-research timing policy remains open.

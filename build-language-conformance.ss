@@ -44,6 +44,8 @@
       "t/fixtures/shared-scanner/records-engine-abi.ss"
       ;; The FFI writer owns this runtime root. Core discovers its other imports.
       "t/benchmarks/language-abi/utf8-cpu.ss"
+      "t/benchmarks/ranked-literal/parser-cpu.ss"
+      "t/benchmarks/ranked-literal/lexical-cpu.ss"
       "t/support/qualification/benchmark-qos.ss")))
 (def (research-build-spec)
   ;; Consume the authoritative declarations; do not rebuild their ABI products

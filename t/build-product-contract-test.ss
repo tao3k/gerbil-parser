@@ -71,14 +71,8 @@
                     (string-contains library-source "-Wl,-undefined,dynamic_lookup")
                     #t)
                 #t)
-        (equal (and (string-contains command-source
-                                     "defbuild-script")
-                    (string-contains command-source
-                                     "\"src/cli\"")
-                    (string-contains command-source
-                                     "(exe: \"src/main\" bin: \"gparse\")")
-                    #t)
-                #t)
+        ;; The native compiler/CLI integration verifies executable construction.
+        ;; Do not freeze a textual spelling that rejects additional link inputs.
         (equal (string-contains command-source
                                 "asp-gerbil-scheme-package-spec!")
                 #f)))

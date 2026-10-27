@@ -226,7 +226,7 @@ cause. The diagnostic is not installed behavior or a performance receipt.
 
 The user authorized restoring the green scope. Compiler activation again
 publishes relocation only. All preparation compilation steps retain a2GiB
-process environment; POO8f50552 and Coree2e8f46 establish that limit in their
+process environment; POO8f50552 and Core541ae5c establish that limit in their
 native package interpreter invocations so dependency compilation remains
 bounded while the parent package manager and final gxtags use native defaults.
 The complete native test profile remains3GiB/900s, workers remain2, and Core's

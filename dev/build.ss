@@ -46,7 +46,8 @@
         (for-each (lambda (name)
                     (unless (member name names) (error "missing public build target" name)))
           '("language-support" "language-test-support" "graph-query-support"
-            "src/api" "src/runtime/machine" "src/runtime/machine"))
+            "src/api" "src/runtime/machine"
+            "src/runtime/lexical-expression" "src/runtime/lexical-lexer"))
         (for-each (lambda (name)
                     (let (entry (assoc name (map cdr production)))
                       (unless (and entry (member "-cc-options" entry))

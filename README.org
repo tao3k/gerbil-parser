@@ -673,13 +673,15 @@ runtime module loading.
 | =src/grammar= | Grammar and Role Types, objects, composition syntax, contextual declarations, expression algebras | =declaration-*.ss= and the Grammar Scope |
 | =src/language= | Source fragments, line structures, event scopes, boundaries and lowering forms, language assembly | Language Scope and Build |
 | =src/graph= | Graph projection declarations, graph syntax and typed queries over language-owned views | Graph Scope; =graph-*-support.ss= |
-| =src/testing= | Test execution and evaluator-safe replay of already-selected compiler loader wrappers | =module-loader.ss= delegates actual loading and cache/error state to Gerbil |
+| =src/testing= | Parser-specific execution/export and witness support | Native Gerbil import/load APIs; no module-loader or dependency walker |
 | =src/declarations.ss= | Author-facing composition of grammar and source declarations | Re-exports domain owners; no registry, loader or separate implementation |
 
-The loader adapter is test infrastructure, not the Yuanxu module selector. Its
-existing cold-load, wrapper rejection, cached failure and initialization controls
-remain authoritative. Removed module paths have no forwarding aliases: package
-consumers must rebuild against the new source identities.
+Yuanxu's init-owned test projection discovers the actual native Suite sources and
+support closure. The project-added =module-loader.ss=, import walker, live-promise
+rewriter and manual conformance catalog are removed. Gerbil owns source/compiled
+selection, initialization, cache state and exceptions. See
+[[file:docs/architecture/language-testing-ownership.org][language and testing ownership]] for retained domain responsibilities and current qualification.
+Removed paths have no forwarding aliases; consumers rebuild current sources.
 
 Qualification uses =dev/build.ss check-catalog= to compare Core's selected
 projection with independent package source discovery, and native =gerbil test=

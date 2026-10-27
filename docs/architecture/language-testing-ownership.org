@@ -1,0 +1,76 @@
+#+TITLE: Language and testing ownership under Yuanxu
+#+LANGUAGE: en
+
+* Source baseline and removed duplication
+The sole direct dependency in gerbil.pkg selects Yuanxu PR19 revision
+9b9f0abbbc4bdd4325f556c9c965726dd3a0aad7, inheriting POO revision
+e281ad2e33784cfb9951c684b6be78bd2f4b7fca. These are observed source revisions,
+not document-managed versions. Dependency installation and published native
+interfaces, rather than an inspection snapshot, are the execution sources.
+
+The former module-loader.ss was introduced by Parser commit855982b on October18;
+commit098629e relocated it from src/modules into testing. It was project code,
+not Yuanxu infrastructure. It is deleted, without a forwarding alias.
+
+| Removed surface | Native owner / replacement |
+|-----------------+----------------------------|
+| src/testing/module-loader.ss | Gerbil load-module and reload-module! |
+| tla-sany-differential/preload.ss | Native importer/runtime loader; no Parser import-form interpreter or source/compiled resolver |
+| tla-sany-differential/module-promises.ss | Native context promises; no mutation of live imported contexts |
+| scripts/test-plan.ss and manual conformance-modules catalog | init.exports.tests.for-directory / for-files |
+| Duplicate support/auxiliary roster | Core std-make-spec projection; native std/make schedules compiler work |
+| Copied historical reference-preload implementation | Explicit native warm-load/reload policy comparison; Git retains history |
+
+* Responsibility and calling boundaries
+| Surface / file | Retained domain responsibility | Authority boundary |
+|----------------+--------------------------------+--------------------|
+| init.ss | Select actual src domains through yuanxu! | No second registry, scanner or linker |
+| build-test-support.ss | Demand native Suite directories; refine Darwin C timing link options | Core owns closure/currentness; std/build-script and std/make own execution |
+| build-conformance.ss | Demand the same support projection; compile explicit standalone research source entries | No separate Suite catalog or runner |
+| src/language/module-input.ss | Select exactly one language-grammar, with optional #export | Official import-module/eval; no replacement expander |
+| source-observations | Remember last attempted canonical source bytes to request native reload on edits | No descriptors, contexts, exceptions, loaded flags or admission verdicts retained |
+| Core source/admission | Fresh reads and pre/post currentness across initializer effects | Outer pure-read caches cannot approve changed content |
+| src/testing/language-product.ss | Check a requested optional test-product export is a procedure | load-module owns runtime state and errors |
+| t/fixtures/module-loading/observations.ss | Scoped native importer/evaluator completion logs | Delegates unchanged; no path probes, import walking, state table or approval |
+| t/fixtures/event-walk-source.ss | Complete AST/interface/dependency witness for actual Parser algorithms | Not module loading or source approval; native load-module resolves its execution service |
+| Research physical-object linking | Bind native chosen C/static products and required host options | Not a source/compiled resolver; unchanged in this slice |
+
+Source and runtime failure semantics differ. import-module owns source promises
+and retry behavior; load-module retains failed runtime exceptions until explicit
+reload. Parser must not invent a common exception cache. Diagnostic dynamic
+bindings restore the previous importer/evaluator and preserve zero/multiple values
+and exceptions. Synthetic context setters only construct test-owned fixtures;
+no production or imported-context promise is replaced.
+
+* Controls and failure custody
+Positive controls cover descriptor selection, same-size edits, Core post-effect
+source admission, real helper initialization once, native order, and typed init
+services. Negative controls retain malformed imports/arity, invalid selectors,
+initializer failures, source rewrite under an outer read-cache, deferred/quoted
+loads, and a first failed child preventing a later cold suffix.
+
+The initial candidate failures are retained in the enclosing integration logs:
+- A manually appended helper list duplicated a target already projected by Core;
+  the list was removed rather than deduplicated by another Parser scheduler.
+- An in-Suite build-projection check incorrectly required installed compiled
+  dependencies to be recompiled. An isolated native projection returned ().
+  The aggregate experiment additionally encountered a public-source identity
+  refusal. Nested projection was removed from that Suite; native build support
+  remains the executable closure check. This is no claim that arbitrary nested
+  source-reader use is fixed upstream.
+- Initial source controls contained an undefined exported binding and an illegal
+  compiler declaration in interpreted source. These fixtures were corrected.
+- A proposed raw load-scheme test hit a local runtime/Gambit arity mismatch. No
+  product uses that API here; runtime controls exercise load-module/reload-module!.
+  No compiler change or compatibility loader was introduced.
+
+Two build workers and existing heap/process limits remain. Parser's former
+package180s build cap is not reinstated. std Djot remains paused. No Gerbil/SDK
+source, private installation environment or local dependency patch is introduced.
+
+* Qualification status
+Current candidate validation is in progress. Native production and support builds
+have passed on the installed Yuanxu revision; initial focused failures above are
+not acceptance receipts. Current-source full local and exact-head Linux/macOS CI
+must pass before this slice is reported qualified. Benchmark policy comparisons
+are not performance acceptance and do not establish cold-start improvement.

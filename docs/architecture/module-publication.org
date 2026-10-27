@@ -2,7 +2,8 @@
 #+LANGUAGE: en
 
 * Audited framework baseline
-Parser consumes Yuanxu0e3c1f8 and its inherited POO29c58aa. Dependency declarations
+The publication audit originally used Yuanxu0e3c1f8 / POO29c58aa. The current
+language/testing alignment is documented in [[file:language-testing-ownership.org][language and testing ownership]]. Dependency declarations
 remain authoritative. Core source admission requires types/objects/config/interface
 role files; its declaration compiler makes Config an optional binding and lowers
 core.exports into the link function. Core linking retains the normalized candidate
@@ -52,7 +53,7 @@ and admits native output using error/HARNESS/final-OK checks. Existing negative
 controls, process limits, two build workers and memory ceilings remain unchanged.
 Current-head Linux/macOS cold preparation, source/compiled phases, restoration,
 semantic tests, generation and FFI must pass; previous-head success is historical.
-std Djot remains paused. Gerbil/SDK and dependency pins are unchanged.
+std Djot remains paused. Gerbil/SDK are unchanged; gerbil.pkg owns current dependency pins.
 
 * Observed source admission refusal
 The first candidate used comment-only Config files. Core correctly refused

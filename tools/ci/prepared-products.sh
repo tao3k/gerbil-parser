@@ -53,7 +53,7 @@ case "$operation" in
     # Publication snapshots bind permissions as well as bytes. The consumer's
     # umask must not silently change the admitted producer generation.
     tar -xpzf "$archive"
-    mkdir -p "$HOME/.gerbil/pkg"
+    mkdir -p "${GERBIL_PATH:-$PWD/.gerbil}/pkg"
     gerbil pkg dir --add git.cons.io/mighty-gerbils/gerbil-directory
     ;;
   *) echo "unknown prepared-product operation: $operation" >&2; exit 2 ;;

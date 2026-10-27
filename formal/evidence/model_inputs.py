@@ -6,14 +6,8 @@ bindings, not proofs that either model covers every discovered implementation.
 """
 
 SHARED_OWNERS = (
-    "src/compiler/**/*.ss",
-    "src/runtime/**/*.ss",
-    "src/ffi/**/*.ss",
-    "src/grammar/*.ss",
-    "src/graph/*.ss",
-    "src/language/*.ss",
-    "src/testing/*.ss",
-    "src/build-support/*.ss",
+    "src/**/*.ss",
+    "build*.ss",
     "language-support/*.ss",
     "t/**/*.ss",
     "t/fixtures/**/*.ssi",
@@ -23,6 +17,8 @@ SHARED_OWNERS = (
 )
 
 SHARED_INPUTS = (
+    "gerbil.pkg",
+    "init.ss",
     "formal/ParserEngine/NativeFacts.lean",
     "src/schema.ss",
     "src/declarations.ss",

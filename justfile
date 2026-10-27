@@ -555,7 +555,7 @@ benchmark-contextual-scanner axes="16" samples="20" words="128" literals="0" pha
 
 # Complete contextual ParseArtifact pairs; plan creation is included per batch.
 benchmark-contextual-parser requests="16" samples="5": build-qualification
-    GERBIL_LOADPATH=.. GERBIL_PATH=$PWD/.gerbil GERBIL_PARSER_LR_TRACE=1 GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 --log /private/tmp/parser-contextual-parser-scale.log --require CONTEXTUAL-PARSER-SCALE-OK -- gxi -e ' (import :gerbil/tools/gxtest)' t/benchmarks/contextual-scanner/matched-parser.ss {{requests}} {{samples}}
+    GERBIL_LOADPATH=.. GERBIL_PATH=$PWD/.gerbil GERBIL_PARSER_LR_TRACE=1 GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 --log /private/tmp/parser-contextual-parser-scale.log --require CONTEXTUAL-PARSER-SCALE-OK -- gxi t/benchmarks/contextual-scanner/matched-parser.ss {{requests}} {{samples}}
 
 # Complete deferred batches; each sample reports real token and byte coverage.
 benchmark-contextual-deferred delimiters="512" samples="5": build-qualification

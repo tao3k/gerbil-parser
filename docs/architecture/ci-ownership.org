@@ -570,3 +570,10 @@ its actual executable, removing the temporary dynamic-module linkage mode and
 its separate linker-object selection; Cargo still owns the archive and native
 std/build-script owns compilation/linking. Existing method counts, markers and
 lifecycle limits remain unchanged. No runtime test recursively starts a Suite.
+
+The contextual-parser development command also imported gxtest before its own
+program. That unused preload is removed: this benchmark declares main and its
+actual imports, while test discovery remains exclusively owned by gerbil test.
+The unchanged16-request/5-sample paired protocol passed locally without gxtest,
+exit0 in9.59s under1GiB/120s/5s. This focused result does not qualify the full
+research matrix or supersede its rejected comparisons.

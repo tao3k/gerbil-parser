@@ -2,8 +2,8 @@
 ;;; CPU assertions use compiled benchmark owners and one isolated Scheme VM.
 (port-settings-set! (current-output-port) '(buffering: #f))
 (displayln "CPU-PROOF-BOOTSTRAP") (force-output)
-(load "t/fixtures/tla-sany-differential/preload.ss")
-(prefer-compiled-interfaces!)
+(load "t/fixtures/module-loading/observations.ss")
+
 (call-with-compiled-interface-trace
  (lambda ()
    (preload-runtime-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")

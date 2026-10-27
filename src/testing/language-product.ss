@@ -1,7 +1,6 @@
 ;;; -*- Gerbil -*-
 ;;; Closed tool fixtures and descriptor/native/build admission test execution.
-(import (only-in ../testing/module-loader load-parser-module)
-        (only-in :std/test check check-exception)
+(import (only-in :std/test check check-exception)
         (only-in :std/misc/process run-process)
         (only-in :std/string/misc string-trim-eol)
         (only-in :std/misc/ports read-all-as-string)
@@ -58,7 +57,7 @@
   ;; This is a runtime capability, including in a compiled executable. Ask the
   ;; SDK to initialize it, then read its published runtime binding. No import
   ;; form is handed to the host evaluator and no GXI global hooks are needed.
-  (load-parser-module module)
+  (load-module module)
   (let (value (eval (string->symbol (string-append module "#" name))))
     (unless (procedure? value) (error "invalid test product export" module name))
     value))

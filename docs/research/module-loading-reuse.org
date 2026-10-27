@@ -41,7 +41,7 @@ the build C ABI. No per-parse content hashing is added to runtime language handl
 
 * Test preparation
 
-[[file:../../t/fixtures/tla-sany-differential/preload.ss][The test preloader]] delegates initialization to official =load-module=.
+[[file:../../t/fixtures/module-loading/observations.ss][The test preloader]] delegates initialization to official =load-module=.
 The official =list-modules= state decides whether dependency inspection is
 needed. Known entries, including cached failures, go straight to the SDK;
 warm admission does not read compiled wrappers or traverse their graph.

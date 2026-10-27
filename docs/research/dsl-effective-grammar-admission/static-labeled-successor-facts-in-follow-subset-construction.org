@@ -160,7 +160,7 @@ GERBIL_PARSER_LR_TRACE=1 gerbil env gxi qualify.ss run \
   --timeout 90 --idle-timeout 5 \
   --log .data/tla-follow-construction.log \
   --require 'summary workload tla-layout construction follow-partition-lr1' -- \
-  gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (call-with-compiled-interface-trace (lambda () (load "t/benchmarks/lr1-partition/construction.ss") (eval (quote (main "1" "follow-partition-lr1")))))'
+  gxi -e '(load "t/fixtures/module-loading/observations.ss")  (call-with-compiled-interface-trace (lambda () (load "t/benchmarks/lr1-partition/construction.ss") (eval (quote (main "1" "follow-partition-lr1")))))'
 #+end_src
 
 Native logs are runtime products. No JSON snapshot or additional report wrapper

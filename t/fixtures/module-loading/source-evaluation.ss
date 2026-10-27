@@ -15,10 +15,10 @@
       (put "left.ss"
         `(begin (export left)
            (def left ,(if (or (eq? mode #t) (eq? mode 'dormant)) '(error "source dependency ran too early")
-                          '(begin (thread-sleep! 3) (list 'left))))))
+                          '(begin (thread-sleep! 3) (displayln "SOURCE-INITIALIZED left") (force-output) (list 'left))))))
       (put "right.ss"
         '(begin (export right)
-           (def right (begin (thread-sleep! 3) (list 'right)))))
+           (def right (begin (thread-sleep! 3) (displayln "SOURCE-INITIALIZED right") (force-output) (list 'right)))))
       (put "root.ss"
         (cond
           ((eq? mode 'dormant)

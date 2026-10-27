@@ -58,7 +58,8 @@
           '("modules/parser/types" "modules/parser/objects" "modules/parser/config"
             "modules/parser/interface" "src/modules/types" "src/modules/objects"
             "src/modules/loader" "src/modules/parser/interface" "build-modules"
-            "src/compiler/machine" "src/compiler/lexical-expression" "src/compiler/lexical-lexer")))
+            "src/compiler/machine" "src/compiler/lexical-expression" "src/compiler/lexical-lexer"
+            "src/testing/module-loader")))
       (displayln "PARSER-BUILD-CATALOG-OK")
       (map (lambda (target) (string-append (cadr target) ".ss")) production))))
 (def (main . args)

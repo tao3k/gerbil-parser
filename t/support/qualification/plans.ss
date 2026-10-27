@@ -14,7 +14,7 @@
   (unless (file-exists? product) (error "missing compiled module; build this checkout first" product))))
 (def (compiled-main module expression)
  ["gxi" "-e"
-  (string-append "(load \"t/fixtures/tla-sany-differential/preload.ss\") (prefer-compiled-interfaces!) (preload-module \""
+  (string-append "(load \"t/fixtures/module-loading/observations.ss\")  (preload-module \""
                  module "\") (preload-module \"gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process\")")
   "-e" (string-append "(import :" module " :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) "
                       expression " (test-child-process-exit! 0)")])
@@ -91,7 +91,7 @@
        (run "rust-native-build" '("cargo" "build" "--locked" "--manifest-path" "t/fixtures/rust-language-abi/Cargo.toml") #t '() 90)
        (setenv "GERBIL_PARSER_RUST_NATIVE_ARCHIVE" (path-expand "target/debug/librust_language_abi_fixture.a"))
        (run "rust-native-link"
-        '("gxi" "-e" "(load \"t/fixtures/tla-sany-differential/preload.ss\") (prefer-compiled-interfaces!) (preload-test-imports \"build-rust-ffi-tests.ss\")"
+        '("gxi" "-e" "(load \"t/fixtures/module-loading/observations.ss\")  "
           "-e" "(call-with-compiled-interface-trace (lambda () (load \"build-rust-ffi-tests.ss\") (eval (quote (main \"compile\")))))") #t '() 90)
        (run "rust-native-ownership" (compiled-main "gerbil-parser/t/fixtures/ffi/rust-language-probe" "(main)") #f
                      '("RUST-NATIVE-OK" "RUST-NATIVE-OWNERSHIP-OK handles=2 results=113" "RUST-NATIVE-100-CALLS") 90)

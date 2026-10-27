@@ -1,10 +1,11 @@
 ;;; Build input selects one descriptor; multi-scope packs require an export name.
 (import :gerbil/expander
         (only-in ./descriptor language-grammar?)
-        (only-in ../runtime/identity sha256-text))
+        (only-in :yuanxu/module-system/source/admission
+                 module-source-read module-source-admit-current!))
 (export language-module-descriptor)
 ;; Track source identity only; contexts and evaluation stay SDK-owned.
-(def source-identities (make-hash-table))
+(def source-observations (make-hash-table))
 ;; File inputs re-admit changed content, including same-size/same-time edits.
 ;; Library inputs use the SDK snapshot; explicit reload is not recursive.
 (def (language-module-descriptor input reload?: (reload? #f))
@@ -19,16 +20,15 @@
    (error "invalid language descriptor selector" input))
   (let* ((file? (not (char=? (string-ref path 0) #\:)))
          (canonical (and file? (path-normalize (path-expand path))))
-         (digest (and file? (sha256-text
-                   (call-with-input-file canonical
-                     (lambda (port) (read-line port #f))))))
-         (changed? (and file? (not (equal? digest (hash-get source-identities canonical)))))
+         (observed (and file? (cons canonical (module-source-read canonical))))
+         (changed? (and observed (not (equal? observed (hash-get source-observations canonical)))))
          (context
           (begin
             ;; Official reload replaces the context before evaluation. A failed
             ;; replacement must not leave a historical identity admitting it.
+            (when observed (module-source-admit-current! (list observed)))
             (when (and file? (or reload? changed?))
-              (hash-remove! source-identities canonical))
+              (hash-remove! source-observations canonical))
             (import-module
              (if (char=? (string-ref path 0) #\:) (string->symbol path) path)
              (or reload? changed?) #t)))
@@ -43,5 +43,7 @@
    (unless (= (length descriptors) 1)
     (error "language build input must select exactly one descriptor" input (length descriptors)))
    ;; Commit only after evaluation and descriptor selection succeed.
-   (when file? (hash-put! source-identities canonical digest))
+   (when observed
+     (module-source-admit-current! (list observed))
+     (hash-put! source-observations canonical observed))
    (car descriptors))))

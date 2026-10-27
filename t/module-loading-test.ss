@@ -5,7 +5,7 @@
         (only-in :gerbil-parser/src/language/module-input language-module-descriptor)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-language)
         (only-in :gerbil-parser/src/ffi/rust-runtime-aot rust-runtime-source))
-(include "fixtures/tla-sany-differential/preload.ss")
+(include "fixtures/module-loading/observations.ss")
 
 (def write-grammar
   (parser-test-datum-writer
@@ -55,6 +55,25 @@
       (act (write-program file write-grammar "recovered"))
       (equal (language-grammar-language (language-module-descriptor file)) "recovered")
       (raises (language-module-descriptor (string-append file "#missing")) (lambda (_) #t))))
+  (scenario "Core rejects a descriptor whose initializer rewrites its input"
+    (using (with-module-file ".ss") (file)
+      (scope ((replacement
+        '(begin
+           (import (only-in :gerbil-parser/src/language/descriptor
+                           make-language-grammar +language-grammar-schema+))
+           (export grammar)
+           (def grammar (make-language-grammar +language-grammar-schema+
+                         "after" "v1" "loader.test.v1" #f #f #f #f)))))
+        (act (write-program file write-datum
+          `(begin
+             (import (only-in :gerbil-parser/src/language/descriptor
+                             make-language-grammar +language-grammar-schema+))
+             (export grammar)
+             (call-with-output-file ,file (lambda (port) (write ',replacement port)))
+             (def grammar (make-language-grammar +language-grammar-schema+
+                           "before" "v1" "loader.test.v1" #f #f #f #f)))))
+        (raises (language-module-descriptor file) (lambda (_) #t))
+        (equal (language-grammar-language (language-module-descriptor file)) "after"))))
   (scenario "same-size DSL edits invalidate Rust generation"
     (using (with-module-file ".ss") (file)
       (act (write-program file write-syntax "!"))
@@ -76,7 +95,7 @@
       (act (reload-module! name))
       (scope ((loaded (eval 'parser-loader-recovered)))
         (act (preload-runtime-module name))
-        (act (preload-module name))
+        (act (load-module name))
         (equal (eq? loaded (eval 'parser-loader-recovered)) #t))))
   (scenario "source-only namespace imports traverse dependencies and retry failures"
     (using (with-module-file ".ss") (file)
@@ -89,14 +108,14 @@
               (act (add-load-path! (path-directory file)))
               (act (write-malformed-import file))
               (each (_attempt) ('(first retry))
-                (raises (preload-import-set name file) (lambda (_) #t)))
+                (raises (import-module name #t #f) (lambda (_) #t)))
               (act (write-program file write-datum '(import)))
-              (equal (failed? (lambda () (preload-import-set name file))) #f)))
+              (equal (failed? (lambda () (import-module name #t #f))) #f)))
           (cleanup (act (set-load-path! previous)))))))
-  (scenario "failed source preparation remains retryable"
+  (scenario "native source import recovers with explicit reload"
     (using (with-module-file ".ss") (file)
       (act (write-malformed-import file))
       (each (_attempt) ('(first retry))
-        (raises (preload-test-imports file) (lambda (_) #t)))
+        (raises (import-module file #t #f) (lambda (_) #t)))
       (act (write-program file write-datum '(import)))
-      (equal (failed? (lambda () (preload-test-imports file))) #f))))
+      (equal (failed? (lambda () (import-module file #t #f))) #f))))

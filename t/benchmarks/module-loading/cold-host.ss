@@ -1,7 +1,7 @@
 ;;; Use the existing disposable native-child contract after all ABI assertions.
 (displayln "MODULE-COLD-HOST-START") (force-output)
-(load "t/fixtures/tla-sany-differential/preload.ss")
-(prefer-compiled-interfaces!)
+(load "t/fixtures/module-loading/observations.ss")
+
 (preload-module "gerbil-parser/t/fixtures/ffi/abi-probe")
 (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
 (eval '(import

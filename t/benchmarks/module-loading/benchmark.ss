@@ -4,7 +4,7 @@
         (only-in :gerbil-parser/src/language/module-input language-module-descriptor)
         (only-in :gerbil-parser/src/compiler/rust-runtime language-rust-runtime-module-source)
         (only-in :gerbil-parser/src/ffi/rust-runtime-aot rust-runtime-source))
-(load "t/fixtures/tla-sany-differential/preload.ss")
+(load "t/fixtures/module-loading/observations.ss")
 (load "t/benchmarks/module-loading/reference-preload.ss")
 (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!))

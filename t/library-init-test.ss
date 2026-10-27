@@ -83,10 +83,11 @@
                                 (string-prefix? "gerbil-parser/src/compiler/lexical-lexer" (car entry)))))
                      (list-modules)) '())
       (equal (file-exists? (path-expand "src/modules" parser-source-root)) #f)
+      (equal (file-exists? (path-expand "src/testing/module-loader.ss" parser-source-root)) #f)
       (each (path) ('("src/grammar/declaration-types.ss" "src/grammar/declaration-objects.ss"
                      "src/language/line-structure-objects.ss" "src/language/source-event-scope-funs.ss"
                      "src/graph/graph-query-objects.ss" "src/graph/graph-projection-types.ss"
-                     "src/testing/module-loader.ss" "src/declarations.ss"))
+                     "src/declarations.ss"))
         (equal (file-exists? (path-expand path parser-source-root)) #t))
       (equal (element? GraphScopeContract graph) #t)
       (equal (element? GraphScopeContract (.o)) #f)

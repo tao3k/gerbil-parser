@@ -108,7 +108,7 @@ def collect(root, record_study=None):
         # Static conformance preparation can leave source-only test interfaces.
         # Reuse CI's std/make owner before source Suite admission.
         ("gxtest-source-prepare", ("gxi", "-e",
-            '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!)',
+            '(load "t/fixtures/module-loading/observations.ss") ',
             "-e", '(call-with-compiled-interface-trace (lambda () '
             '(load "build-language-conformance.ss") (eval (quote (prepare-gxtest!))))) (exit 0)')),
     )
@@ -131,8 +131,8 @@ def collect(root, record_study=None):
         if history.outcome != "passed":
             raise RuntimeError("history commit controls failed before semantic admission")
         semantics = execute(supervised("scheme-conformance", "conformance",
-            ("gxi", "-e", '(load "t/fixtures/tla-sany-differential/preload.ss") '
-             '(prefer-compiled-interfaces!) '
+            ("gxi", "-e", '(load "t/fixtures/module-loading/observations.ss") '
+             ' '
              '(preload-module "std/test") '
              '(preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")',
              "-e", '(import :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) '
@@ -141,8 +141,8 @@ def collect(root, record_study=None):
              '(test-child-process-exit! 0)'),
             runtime_inputs, (f"TEST-SUITE-OK modules={len(TESTS)}", "^OK$")))
         benchmark = execute(supervised("matched-performance", "requests",
-            ("gxi", "-e", '(load "t/fixtures/tla-sany-differential/preload.ss") '
-             '(prefer-compiled-interfaces!) '
+            ("gxi", "-e", '(load "t/fixtures/module-loading/observations.ss") '
+             ' '
              '(preload-runtime-module "gerbil-parser/t/benchmarks/parser-evidence") '
              '(preload-runtime-module "gerbil-parser/t/benchmarks/lr-request-stack/request-profile") '
              '(preload-runtime-module "gerbil-parser/t/benchmarks/lr-request-stack/request-cost") '
@@ -179,8 +179,8 @@ def collect(root, record_study=None):
                 str((study / "baseline.json").relative_to(root)),
                 str(scope_path.relative_to(root))))))
             admission = execute(supervised("record-cpu-improvement", "record-admission",
-                ("gxi", "-e", '(load "t/fixtures/tla-sany-differential/preload.ss") '
-                 '(prefer-compiled-interfaces!) '
+                ("gxi", "-e", '(load "t/fixtures/module-loading/observations.ss") '
+                 ' '
                  '(preload-runtime-module "gerbil-parser/t/benchmarks/lr-request-stack/record-evidence") '
                  '(preload-runtime-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")',
                  "-e", '(gerbil-parser/t/benchmarks/lr-request-stack/record-evidence#main '

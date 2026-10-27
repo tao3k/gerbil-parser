@@ -1,8 +1,8 @@
 #!/usr/bin/env gxi
 ;;; Prepare the declared conformance modules with the existing Gerbil build/link owners.
 (displayln "CONFORMANCE-PREPARATION-START") (force-output)
-(load "t/fixtures/tla-sany-differential/preload.ss")
-(prefer-compiled-interfaces!)
+(load "t/fixtures/module-loading/observations.ss")
+
 (gc-report-set! #t)
 (def (main)
   (call-with-compiled-interface-trace

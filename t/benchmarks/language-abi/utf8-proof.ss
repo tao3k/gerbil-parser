@@ -2,8 +2,8 @@
 ;;; Fresh Scheme VM, compiled complete ABI requests and strict CPU admission.
 (port-settings-set! (current-output-port) '(buffering: #f))
 (displayln "ABI-UTF8-PROOF-BOOTSTRAP") (force-output)
-(load "t/fixtures/tla-sany-differential/preload.ss")
-(prefer-compiled-interfaces!)
+(load "t/fixtures/module-loading/observations.ss")
+
 (call-with-compiled-interface-trace
  (lambda ()
    (preload-runtime-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")

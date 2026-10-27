@@ -2,8 +2,8 @@
 ;;; Complete requests compare independent scanner/LR preparation kernels.
 (port-settings-set! (current-output-port) '(buffering: #f))
 (displayln "ENGINE-CPU-BOOTSTRAP") (force-output)
-(load "t/fixtures/tla-sany-differential/preload.ss")
-(prefer-compiled-interfaces!)
+(load "t/fixtures/module-loading/observations.ss")
+
 (call-with-compiled-interface-trace
  (lambda ()
    (preload-runtime-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")

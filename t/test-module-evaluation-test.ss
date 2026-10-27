@@ -3,16 +3,13 @@
         (only-in :std/io/tempfile make-temporary-file-name)
         (only-in ./fixtures/module-loading/source-evaluation
                  with-source-evaluation source-export-value))
-(include "fixtures/tla-sany-differential/preload.ss")
+(include "fixtures/module-loading/observations.ss")
 
 (def (evaluation-observation suffix body-values failure-stage
       (id 'gerbil-parser/src/testing/language-source-assertions))
   (let* ((prelude (gx#make-prelude-context #f))
          (module (gx#make-module-context id prelude 'evaluation-control
-                   (if (and (equal? suffix ".ssi")
-                            (compiled-file (symbol->string id) ".ssi"))
-                     (compiled-file (symbol->string id) ".ssi")
-                     (string-append "evaluation-control" suffix))))
+                   (string-append "evaluation-control" suffix)))
          (trace '()) (failure (list 'expected-evaluation-failure)))
     (def (visit stage)
       (set! trace (cons stage trace))
@@ -22,9 +19,6 @@
     (gx#module-context-e-set! module
       (delay-atomic (begin (visit 'body) (apply values body-values))))
     (def (evaluate selected) (gx#core-eval-module selected))
-    (def (admit name)
-      (unless (equal? name (symbol->string id)) (error "wrong runtime identity" name))
-      (visit 'native))
     (let (result #f)
       ;; Framework diagnostics use the caller's owned port, never snapshots.
       (call-with-output-string
@@ -36,7 +30,7 @@
                   (if (eq? exception failure) 'failed (list 'unexpected exception)))
                 (lambda ()
                   (call-with-values
-                    (lambda () (evaluate-observed-module module evaluate admit)) list)))))))
+                    (lambda () (evaluate-observed-module module evaluate)) list)))))))
       (list (reverse trace) result))))
 
 (def write-evaluation-program (parser-test-datum-writer values))
@@ -54,8 +48,8 @@
     (try
       ;; Actual cold SDK wrappers: two genuine three-second initializers.
       ;; No timer emits progress; only completed module boundaries report it.
-      (put left ".scm" '(thread-sleep! 3))
-      (put right ".scm" '(thread-sleep! 3))
+      (put left ".scm" '(begin (thread-sleep! 3) (displayln "NATIVE-INITIALIZED left") (force-output)))
+      (put right ".scm" '(begin (thread-sleep! 3) (displayln "NATIVE-INITIALIZED right") (force-output)))
       (put root ".scm" `(begin (load-module ,left) (load-module ,right)))
       (put root ".ssi" '(begin))
       (add-load-path! directory)
@@ -68,13 +62,13 @@
 
 (deflanguage-parser-tests test-module-evaluation-test "selected compiled evaluation"
   (engine)
-  (scenario "cold chained initialization reports real work within the idle fence"
+  (scenario "native chained initializers own their completion reports"
     (using (with-cold-evaluation) (module root left right)
       (act (evaluate-observed-module module gx#core-eval-module))
       (equal (and (assoc root (list-modules)) #t) #t)
       (equal (and (assoc left (list-modules)) #t) #t)
       (equal (and (assoc right (list-modules)) #t) #t)))
-  (scenario "nested SDK source helpers report actual forces and initialize once"
+  (scenario "native source helpers initialize once without promise replacement"
     (using (with-source-evaluation #f) (context)
       (act (evaluate-observed-module context gx#core-eval-module))
       (scope ((first (source-export-value context 'result)))
@@ -91,11 +85,10 @@
         (lambda (condition) (equal? (error-message condition) "source parent failed first")))))
   (matrix "compiled and source contexts preserve zero and multiple body values"
     (setup) ((suffix '(".ssi" ".ss")) (results '(() (first second))))
-    (bindings (expected (if (equal? suffix ".ssi") '(prelude native body) '(prelude body))))
+    (bindings (expected '(prelude body)))
     (equal (evaluation-observation suffix results #f) (list expected results)))
-  (matrix "prelude and admission failures prevent later effects and preserve identity"
-    (setup) ((row '((prelude (prelude)) (native (prelude native))
-                   (body (prelude native body)))))
+  (matrix "prelude and body failures prevent later effects and preserve identity"
+    (setup) ((row '((prelude (prelude)) (body (prelude body)))))
     (bindings (stage (car row)) (expected (cadr row)))
     (equal (evaluation-observation ".ssi" '(unused) stage) (list expected 'failed)))
   (scenario "installing a template-only source edge does not initialize its body"

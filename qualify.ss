@@ -2,13 +2,11 @@
 ;;; Native qualification entry; declarations own process contracts.
 (displayln "QUALIFICATION-START") (force-output)
 ;;; The CLI consumes runtime procedures, never macro interfaces. Gerbil loading
-;;; remains authoritative; the shared adapter handles source-only wrappers.
-(load-module "gerbil-parser/src/testing/module-loader")
-(def load-runtime-service (eval 'gerbil-parser/src/testing/module-loader#load-parser-module))
+;;; remains authoritative; there is no Parser runtime loader.
 (def (profile-value module name)
-  (load-runtime-service module)
+  (load-module module)
   (eval name))
-(load-runtime-service "gerbil-parser/t/support/qualification/process")
+(load-module "gerbil-parser/t/support/qualification/process")
 (def run-observed-process (eval 'gerbil-parser/t/support/qualification/process#run-observed-process))
 (def process-result-output (eval 'gerbil-parser/t/support/qualification/process#process-result-output))
 (def process-result-status (eval 'gerbil-parser/t/support/qualification/process#process-result-status))

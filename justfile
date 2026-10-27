@@ -510,7 +510,7 @@ test-performance-before-compile: build-qualification
 
 regenerate-language-abi-fixtures: build-qualification
     GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD/.." gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/regenerate-language-abi-fixtures.log --require LANGUAGE-ABI-FIXTURES-GENERATED -- gxi \
-      -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-test-imports "t/generate-language-abi-alignment.ss")' \
+      -e '(load "t/fixtures/module-loading/observations.ss")  ' \
       -e '(import (only-in :gerbil-parser/t/generate-language-abi-alignment write-language-abi-fixtures!)) (write-language-abi-fixtures! "rust/gerbil-parser-artifact/tests/fixtures/languages.json")' \
       -e '(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)) (test-child-process-exit! 0)'
 
@@ -607,14 +607,14 @@ benchmark-lr-grammar-construction contexts="256" samples="3":
 
 # Complete immutable Examples syntax and lossless artifact receipt.
 tla-sany-corpus corpus: build-qualification
-    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" GERBIL_PARSER_LR_TRACE=1 gerbil env gxi qualify.ss run --timeout 600 --idle-timeout 5 --log .data/tla-source.log -- gerbil env gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil-parser/languages/tla-plus/sany-candidate")' t/fixtures/tla-sany-differential/corpus.ss {{quote(corpus)}}
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" GERBIL_PARSER_LR_TRACE=1 gerbil env gxi qualify.ss run --timeout 600 --idle-timeout 5 --log .data/tla-source.log -- gerbil env gxi -e '(load "t/fixtures/module-loading/observations.ss") (preload-module "gerbil-parser/languages/tla-plus/sany-candidate")' t/fixtures/tla-sany-differential/corpus.ss {{quote(corpus)}}
 # Current-source scanner execution; plan-batch includes one plan and requests bindings.
 benchmark-contextual-scanner axes="16" samples="20" words="128" literals="0" phase="scan" requests="1": build-qualification
     GERBIL_LOADPATH=.. GERBIL_PATH=$PWD/.gerbil GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 --log /private/tmp/parser-contextual-scanner-scale.log --require SCANNER-SCALE-OK -- gxi t/benchmarks/contextual-scanner/matched-scale.ss {{axes}} {{samples}} {{words}} {{literals}} {{quote(phase)}} {{requests}}
 
 # Complete contextual ParseArtifact pairs; plan creation is included per batch.
 benchmark-contextual-parser requests="16" samples="5": build-qualification
-    GERBIL_LOADPATH=.. GERBIL_PATH=$PWD/.gerbil GERBIL_PARSER_LR_TRACE=1 GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 --log /private/tmp/parser-contextual-parser-scale.log --require CONTEXTUAL-PARSER-SCALE-OK -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (preload-module "gerbil/tools/gxtest")' t/benchmarks/contextual-scanner/matched-parser.ss {{requests}} {{samples}}
+    GERBIL_LOADPATH=.. GERBIL_PATH=$PWD/.gerbil GERBIL_PARSER_LR_TRACE=1 GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 --log /private/tmp/parser-contextual-parser-scale.log --require CONTEXTUAL-PARSER-SCALE-OK -- gxi -e '(load "t/fixtures/module-loading/observations.ss") (preload-module "gerbil/tools/gxtest")' t/benchmarks/contextual-scanner/matched-parser.ss {{requests}} {{samples}}
 
 # Complete deferred batches; each sample reports real token and byte coverage.
 benchmark-contextual-deferred delimiters="512" samples="5": build-qualification
@@ -662,7 +662,7 @@ benchmark-gql-actors gerbil_path=".gerbil": build-qualification
 
 # Real C ABI edits, full payload parity, natural GC; phase tracing is separate.
 benchmark-source-edits samples="20" lines="128": build-qualification
-    gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log /private/tmp/parser-source-edit-cost.log --require SOURCE-EDIT-BENCHMARK-OK -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (call-with-compiled-interface-trace (lambda () (eval (quote (import :gerbil-parser/t/benchmarks/source-edits/benchmark))) (eval (quote (main "{{samples}}" "{{lines}}")))))'
+    gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log /private/tmp/parser-source-edit-cost.log --require SOURCE-EDIT-BENCHMARK-OK -- gxi -e '(load "t/fixtures/module-loading/observations.ss") (call-with-compiled-interface-trace (lambda () (eval (quote (import :gerbil-parser/t/benchmarks/source-edits/benchmark))) (eval (quote (main "{{samples}}" "{{lines}}")))))'
 
 # Verification-only model; production parser stays Scheme.
 formal:
@@ -766,12 +766,12 @@ benchmark-capture-prefix reference=".data/selector-input/reference/lib" scope="s
 # Recorded lexical queries and LR replays diagnose costs; this is not a speedup gate.
 diagnose-capture-cost: build-qualification
     gerbil env gerbil compile -O t/benchmarks/capture-prefix/phase-cost.ss
-    gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/capture-phase-cost.log --require '^CAPTURE-COST-REPLAY-OK tokens=256 significant=256$' -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-module "gerbil-parser/t/benchmarks/capture-prefix/phase-cost") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process") (eval (quote (import :gerbil-parser/t/benchmarks/capture-prefix/phase-cost :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process))) (eval (quote (main))) (eval (quote (test-child-process-exit! 0)))'
+    gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/capture-phase-cost.log --require '^CAPTURE-COST-REPLAY-OK tokens=256 significant=256$' -- gxi -e '(load "t/fixtures/module-loading/observations.ss")  (preload-module "gerbil-parser/t/benchmarks/capture-prefix/phase-cost") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process") (eval (quote (import :gerbil-parser/t/benchmarks/capture-prefix/phase-cost :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process))) (eval (quote (main))) (eval (quote (test-child-process-exit! 0)))'
 
 # Inclusive diagnosis is separate from the matched complete-request CPU gate.
 diagnose-capture-input: build-qualification
     gerbil env gerbil compile -O t/benchmarks/capture-prefix/profile.ss
-    gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/capture-input-stages.log --require SELECTOR-STAGE-DIAGNOSIS-OK -- gxi -e '(load "t/fixtures/tla-sany-differential/preload.ss") (prefer-compiled-interfaces!) (preload-module "gerbil-parser/t/benchmarks/capture-prefix/profile") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process") (eval (quote (import :gerbil-parser/t/benchmarks/capture-prefix/profile :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process))) (eval (quote (main))) (eval (quote (test-child-process-exit! 0)))'
+    gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .data/capture-input-stages.log --require SELECTOR-STAGE-DIAGNOSIS-OK -- gxi -e '(load "t/fixtures/module-loading/observations.ss")  (preload-module "gerbil-parser/t/benchmarks/capture-prefix/profile") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process") (eval (quote (import :gerbil-parser/t/benchmarks/capture-prefix/profile :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process))) (eval (quote (main))) (eval (quote (test-child-process-exit! 0)))'
 
 # The production package has no ASP dependency; tools are explicitly installed.
 prepare-dev:

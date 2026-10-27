@@ -1,6 +1,6 @@
 ;;; One prepared runtime per actual native image; no runtime binding replacement.
-(load "t/fixtures/tla-sany-differential/preload.ss")
-(prefer-compiled-interfaces!)
+(load "t/fixtures/module-loading/observations.ss")
+
 (def (main image (scope "selector-input"))
   (unless (member scope '("selector-input")) (error "unknown native experiment scope" scope))
   (unless (equal? image "candidate") (add-load-path! image))

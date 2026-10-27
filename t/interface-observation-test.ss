@@ -1,6 +1,6 @@
 ;;; Reporting never replaces SDK lookup, and failed imports remain retryable.
 (import :gerbil-parser/language-test-support :gerbil/expander)
-(include "fixtures/tla-sany-differential/preload.ss")
+(include "fixtures/module-loading/observations.ss")
 (def (interface-report-count output prefix)
   (length (filter (lambda (line) (string-prefix? prefix line))
                   (string-split output #\newline))))

@@ -49,7 +49,7 @@ class ModelInputControls(unittest.TestCase):
         )
         modules += tuple((name, {"lean-model", "quint-protocol"}) for name in (
             "src/grammar/declaration-types.ss", "src/graph/graph-query-types.ss",
-            "src/language/source-boundary-types.ss", "src/testing/module-loader.ss",
+            "src/language/source-boundary-types.ss", "src/testing/language-product.ss",
         ))
         for name, expected in modules:
             with self.subTest(input=name):

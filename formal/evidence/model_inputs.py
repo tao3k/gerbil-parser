@@ -28,7 +28,7 @@ SHARED_INPUTS = (
     "src/declarations.ss",
     "language-test-support.ss",
     "test-processes.ss",
-    "build-language-conformance-link.ss",
+    "build-language-conformance.ss",
     ".github/workflows/ci.yml",
     ".github/workflows/scheme.yml",
     "docs/research/dense-lr-item-space.org",

@@ -1,13 +1,20 @@
 #!/usr/bin/env gxi
 ;;; Standalone research products consume the actual native package import graph.
+(import (for-syntax
+          (only-in :std/source this-source-file)
+          (only-in :yuanxu/module-system/building/source-package register-module-build-source!)))
+(begin-syntax
+  (register-module-build-source! (path-directory (this-source-file)) 'gerbil-parser))
 (import (only-in :std/build-script defbuild-script)
         (only-in :std/source this-source-file)
+        (only-in :yuanxu/module-system/building/source-package register-module-build-source!)
         (only-in :clan/poo/object .get)
-        (only-in "./init.ss" gerbil-parser.init.exports)
         (only-in "./build-ffi-tests.ss" ffi-build-spec)
         (only-in :yuanxu/module-system/building/source-closure package-library-spec)
         (only-in "./src/build-support/compiler-profile.ss"
                  compiler-build-spec initialize-compiler-build!))
+(import (only-in "./init.ss" gerbil-parser.init.exports))
+(register-module-build-source! (path-directory (this-source-file)) 'gerbil-parser)
 
 ;; These are program inputs, not a manually maintained transitive helper list.
 (def research-entry-sources

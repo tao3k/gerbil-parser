@@ -144,6 +144,14 @@ jobs:
           path: ${{ runner.temp }}/scheme-products.tar.gz
           retention-days: 2
           compression-level: 0
+      - name: Preserve failed native preparation products
+        if: failure()
+        run: |
+          if [ -d "$GERBIL_PATH/lib" ]; then
+            timeout --signal=TERM --kill-after=5s 180s \
+              bash tools/ci/prepared-products.sh failure \
+                "$PWD/.data/package-failures/preparation.tar.gz" preparation-step-failed
+          fi
       - name: Upload preparation logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

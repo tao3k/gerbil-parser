@@ -97,7 +97,7 @@ build-qualification:
 
 # Focused native suites; test-all discovers the same suites once.
 test-qualification-suites: build-qualification
-    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil test -v 3 t/qualification-plans-test.ss t/bootstrap-test.ss
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" gerbil test -v 3 t/qualification-plans-test.ss
 
 # Exercise the downstream admission caller after support-module relocation.
 test-process-admission: build-qualification

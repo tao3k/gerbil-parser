@@ -7,9 +7,4 @@
     (scope ((options (source-procedure "src/build-support/compiler-profile.ss" 'compiler-c-options '())))
       (equal (options "-O1 -fwrapv") "-O1 -fwrapv -U___SINGLE_HOST -D___MULTIPLE_HOSTS")
       (equal (options "-O2 -Iinclude") "-O2 -Iinclude -U___SINGLE_HOST -D___MULTIPLE_HOSTS")))
-  (scenario "research closure rejects Suite dependencies even if artifacts exist"
-    (scope ((admit (source-procedure "build-language-conformance-link.ss" 'validate-research-product-closure! '())))
-      (equal (admit '("gerbil-parser/languages/tla-plus/fixtures" "std/test/base"))
-             '("gerbil-parser/languages/tla-plus/fixtures" "std/test/base"))
-      (raises (admit '("gerbil-parser/languages/tla-plus/parser-test")) exception?)))
 )

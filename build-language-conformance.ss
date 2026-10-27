@@ -17,5 +17,9 @@
                           research-entry-sources)))
 (parameterize ((current-output-port (current-error-port)))
   (initialize-compiler-build!))
-(defbuild-script (research-build-spec) optimize: #t)
+(defbuild-script
+  (append (research-build-spec)
+    (compiler-build-spec
+      '((exe: "t/research-main" bin: "gerbil-parser-conformance"))))
+  optimize: #t)
 (def (compile-static-conformance!) (main "compile"))

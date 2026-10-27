@@ -108,3 +108,32 @@ workflow adds no replacement manifest, credential, loader or admission layer.
 The remaining failed-products.sh only preserves diagnostic outputs and source
 observations; it cannot issue approval. The former identity-file negative test
 is retired machinery, not evidence of framework admission correctness.
+
+* Repeated mechanism audit
+Removed the CI-only Scheme bootstrap and its Suite: compiler archive SHA256 is
+already checked against the configured download; a second hardcoded release
+schema/revision/platform approval and a private worker detector add no compiler
+capability. GitHub environment files now publish only normal Gerbil relocation
+and2GiB runtime options. The workflow declares two workers. The macOS PATH roster
+and installer-path assertion are also removed; GitHub action/native PATH updates
+select installed tools without an invented whole-host identity.
+
+Removed the dependency-cache trial Function admission and update fallback.
+Cache restoration is transport, and native deps --install checks package metadata
+on every path. Removed unconditional gerbil clean: std/make owns freshness;
+clean/retry must not serve as a correctness repair.
+
+Removed the custom conformance linker, object timestamp/options/translation
+stamps, private task queue and sixteen-module grouping. Core projects actual
+research/library input imports; std/build-script declares the research executable
+and std/make owns object scheduling, reuse and linking. The previous closure
+validator and its self-mirroring test belonged only to the deleted linker.
+Compiler host-option tests and domain loading/error/mutation controls remain.
+The conformance supervisor keeps its240-second/idle5 envelope; actual compiler
+operation observation uses the existing compiler observer, not a second trace.
+
+Retained download SHA256 checks (archive integrity), platform C/link flags,
+native GitHub download/extract composition, and diagnostic failure custody.
+None issues framework approval. Core owns source/input/output/approval checks;
+CI transports archives and invokes native package/test entries. No replacement
+manifest, cache verdict, package manager or loader is introduced.

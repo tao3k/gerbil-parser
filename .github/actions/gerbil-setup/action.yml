@@ -1,5 +1,5 @@
-name: Immutable Gerbil SDK
-description: Admit a cached SDK by full digest and platform, using GCC
+name: Gerbil compiler setup
+description: Install the configured Gerbil compiler archive and platform dependencies
 inputs:
   release-os:
     required: true
@@ -71,37 +71,24 @@ runs:
         CARGO_HOME: ${{ runner.temp }}/parser-ci-tools
       with:
         tool: just
-    # The prepared generation binds PATH. macOS runner images carry optional
-    # Ruby/Android/etc. entries that vary between independent matrix jobs.
-    # Declare the actual CI tool search path before either writer or reader.
-    - name: Select reproducible macOS tool search path
-      if: runner.os == 'macOS'
-      run: |
-        just_executable="$(command -v just)"
-        test -x "$just_executable"
-        test "$just_executable" = "$HOME/.install-action/bin/just"
-        ci_path="$HOME/.install-action/bin:$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/opt/rustup/bin:/opt/homebrew/opt/coreutils/libexec/gnubin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin"
-        PATH="$ci_path" command -v just
-        PATH="$ci_path" command -v timeout
-        PATH="$ci_path" rustc --version
-        echo "PATH=$ci_path" >> "$GITHUB_ENV"
-      shell: bash
-    - name: Cache immutable SDK archive
+    - name: Cache Gerbil compiler archive
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
       with:
-        path: ${{ runner.temp }}/gerbil-sdk.tar.gz
-        key: parser-sdk-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.release-sha256 }}
-    - name: Extract immutable Gerbil host SDK
+        path: ${{ runner.temp }}/gerbil-compiler.tar.gz
+        key: parser-compiler-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.release-sha256 }}
+    - name: Extract and activate Gerbil compiler
       env:
         GERBIL_BUILD_CORES: 2
       run: |
-        test -f "$RUNNER_TEMP/gerbil-sdk.tar.gz" || curl --fail --location --retry 3 --output "$RUNNER_TEMP/gerbil-sdk.tar.gz" \
+        test -f "$RUNNER_TEMP/gerbil-compiler.tar.gz" || curl --fail --location --retry 3 --output "$RUNNER_TEMP/gerbil-compiler.tar.gz" \
           "https://github.com/tao3k/gerbil-bazel/releases/download/${{ inputs.release-tag }}/${{ inputs.release-tag }}.tar.gz"
-        echo '${{ inputs.release-sha256 }}  '"$RUNNER_TEMP/gerbil-sdk.tar.gz" | shasum -a 256 --check
+        echo '${{ inputs.release-sha256 }}  '"$RUNNER_TEMP/gerbil-compiler.tar.gz" | shasum -a 256 --check
         mkdir -p "$GERBIL_RELEASE_ROOT"
-        tar -xzf "$RUNNER_TEMP/gerbil-sdk.tar.gz" -C "$GERBIL_RELEASE_ROOT" --strip-components=1
-        GERBIL_HOME="$GERBIL_RELEASE_ROOT/current" \
-          GAMBOPT="~~=$GERBIL_RELEASE_ROOT/current,~~bin=$GERBIL_RELEASE_ROOT/current/bin,~~lib=$GERBIL_RELEASE_ROOT/current/lib" \
-          "$GERBIL_RELEASE_ROOT/current/bin/gxi" tools/ci/bootstrap.ss \
-            "$GERBIL_RELEASE_ROOT" '${{ inputs.release-os }}' '${{ inputs.release-arch }}'
+        tar -xzf "$RUNNER_TEMP/gerbil-compiler.tar.gz" -C "$GERBIL_RELEASE_ROOT" --strip-components=1
+        {
+          echo "GERBIL_PREFIX=$GERBIL_RELEASE_ROOT"
+          echo "GERBIL_HOME=$GERBIL_RELEASE_ROOT/current"
+          echo "GAMBOPT=~~=$GERBIL_RELEASE_ROOT/current,~~bin=$GERBIL_RELEASE_ROOT/current/bin,~~lib=$GERBIL_RELEASE_ROOT/current/lib,max-heap=2G,debug=q"
+        } >> "$GITHUB_ENV"
+        echo "$GERBIL_RELEASE_ROOT/bin" >> "$GITHUB_PATH"
       shell: bash

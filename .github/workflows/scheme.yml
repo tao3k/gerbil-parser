@@ -61,15 +61,8 @@ jobs:
         run: |
           mkdir -p "$GERBIL_PATH/pkg"
           gerbil pkg dir --add git.cons.io/mighty-gerbils/gerbil-directory
-          if [ "${{ steps.package-cache.outputs.cache-hit }}" = "true" ]; then
-            if ! gerbil env gerbil interactive -e '(begin (import :yuanxu/object-family/interface (only-in :clan/poo/mop Fun validate) (only-in :clan/poo/number Integer)) (unless (= ((validate (Fun Integer <- Integer) identity) 7) 7) (error "native Function dependency check failed")) (displayln "dependency-cache-ready"))'; then
-              gerbil deps --update
-            fi
-          else
-            gerbil deps --install
-          fi
+          gerbil deps --install
           (cd dev && GERBIL_PATH="$GITHUB_WORKSPACE/.gerbil" gerbil deps --install)
-          gerbil env gerbil interactive -e '(begin (import :yuanxu/object-family/interface :asp-gerbil-scheme/building-api :asp-gerbil-scheme/src/benchmark/framework (only-in :clan/poo/mop Fun validate) (only-in :clan/poo/number Integer)) (unless (= ((validate (Fun Integer <- Integer) identity) 7) 7) (error "native Function dependency check failed")) (displayln "dependencies-ready"))'
       - name: Save Gerbil package cache
         if: steps.package-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
@@ -85,7 +78,6 @@ jobs:
         run: gerbil env gxi dev/build.ss compile
       - name: Build parser and language packs
         run: |
-          gerbil clean
           # The official env command prepends the package bin directory to PATH.
           # Use it for the base writer as well as every extension writer.
           # Keep two workers and the heap envelope; the native package writer
@@ -108,12 +100,6 @@ jobs:
             --log .data/conformance-preparation-imports.log --require "^OK$" \
             -- gerbil test -v 3 \
               t/build-owner-import-test.ss
-      - name: Compile reusable Scheme library objects
-        run: |
-          gerbil env gxi qualify.ss run --timeout 240 --idle-timeout 5 \
-            --log .data/native-library-objects.log --require COMPILED-LIBRARY-OBJECTS-READY \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss") ' \
-            -e '(call-with-compiled-interface-trace (lambda () (load "build-language-conformance-link.ss") (eval (quote (main "library-objects"))))) (exit 0)'
       # Core support discovery follows native compiled imports. The C ABI owner
       # must publish its products/options before generic support consumption.
       - name: Compile FFI Scheme fixtures once

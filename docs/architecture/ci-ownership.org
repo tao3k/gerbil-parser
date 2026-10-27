@@ -306,3 +306,16 @@ bind observations to the real build selection, not to parser-semantic claims.
 Compiler-step GAMBOPT values append the2GiB options to the activated relocation
 options; they must not replace the distribution's ~~ paths. The package manager
 retains relocation-only options and still invokes the unmodified native tool.
+
+* Shared ABI idle failure and redundant import removal
+The exact-CI-archive preparation reached native research/static compilation,
+then the shared ABI adapter hit its existing30s idle control before main emitted
+output (elapsed30.680s, status137, empty adapter log). Original products/logs
+remain preserved. No90s/30s control was changed.
+
+The CLI still manually imported gerbil/compiler and each ABI root before loading
+build-shared-library.ss. That duplicate bridge is removed: the adapter imports
+the compiler API normally and compile-module owns the wrapper's actual imports.
+This is a source change requiring new execution evidence, not a clean/retry
+claim. The compiler host initializer and target-local pkg-config link options
+remain owned by the adapter.

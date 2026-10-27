@@ -65,13 +65,7 @@
            (shim (path-expand "runtime.o" directory)) (bundle (path-expand "gpembed" directory))
            (aot-log (string-append ".data/qualification/" (path-strip-directory directory) "-aot.log"))
            (ld-options (cond-expand (darwin (string-append "-dynamiclib -Wl,-install_name," output))
-                                    (else "-shared -Wl,-z,defs")))
-           (preload (with-output-to-string ""
-             (lambda ()
-              (write '(gx#import-module (quote :gerbil/compiler) #f #t))
-              (for-each (lambda (module)
-                         (write `(gx#import-module (quote ,(string->symbol (string-append ":" module))) #f #t))) modules)
-              (write '(void))))))
+                                    (else "-shared -Wl,-z,defs"))))
      (call-with-output-file source
       (lambda (port)
        (write `(import ,@(let loop ((rest modules) (index 0))
@@ -89,7 +83,7 @@
                      ".data/qualification/shared-runtime.log" timeout: 90 idle-timeout: 30)
      (setenv "GERBIL_GSC" (path-expand "bin/gsc" (gerbil-home)))
      (setenv "GERBIL_GCC" compiler)
-     (run-qualified! ["gxi" "-e" preload "build-shared-library.ss" source bundle
+     (run-qualified! ["gxi" "build-shared-library.ss" source bundle
                       (string-append "-save-temps=obj -fPIC -fwrapv -fno-strict-aliasing -foptimize-sibling-calls -I"
                                      (path-expand "include" root))
                       (string-append ld-options " " shim)]

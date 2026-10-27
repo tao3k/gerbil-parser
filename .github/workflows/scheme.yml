@@ -172,7 +172,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           fetch-depth: 0
-      - name: Restore admitted Gerbil products
+      - name: Restore Gerbil build products
         uses: ./.github/actions/gerbil-restore
         with:
           release-os: ${{ inputs.release-os }}
@@ -270,7 +270,7 @@ jobs:
     steps:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-      - name: Restore admitted Gerbil products
+      - name: Restore Gerbil build products
         uses: ./.github/actions/gerbil-restore
         with:
           release-os: ${{ inputs.release-os }}
@@ -463,7 +463,7 @@ jobs:
     steps:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-      - name: Restore admitted Gerbil products
+      - name: Restore Gerbil build products
         uses: ./.github/actions/gerbil-restore
         with:
           release-os: ${{ inputs.release-os }}
@@ -539,7 +539,7 @@ jobs:
     steps:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-      - name: Restore admitted Gerbil products
+      - name: Restore Gerbil build products
         uses: ./.github/actions/gerbil-restore
         with:
           release-os: ${{ inputs.release-os }}
@@ -589,7 +589,7 @@ jobs:
     steps:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-      - name: Restore admitted Gerbil products
+      - name: Restore Gerbil build products
         uses: ./.github/actions/gerbil-restore
         with:
           release-os: ${{ inputs.release-os }}
@@ -643,7 +643,7 @@ jobs:
     steps:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-      - name: Restore admitted Gerbil products
+      - name: Restore Gerbil build products
         uses: ./.github/actions/gerbil-restore
         with:
           release-os: ${{ inputs.release-os }}

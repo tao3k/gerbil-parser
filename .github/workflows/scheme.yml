@@ -33,7 +33,6 @@ env:
   GERBIL_BUILD_CORES: 2
   GERBIL_RELEASE_ROOT: ${{ github.workspace }}/.ci/gerbil-release/${{ inputs.gerbil-label }}
   GERBIL_SDK_SHA256: ${{ inputs.release-sha256 }}
-  GERBIL_PREPARED_HEAD: ${{ github.sha }}
 jobs:
   prepare:
     name: Prepare Scheme (${{ inputs.release-os }})
@@ -136,7 +135,7 @@ jobs:
           mkdir -p .gerbil/ci
           gerbil env gxi qualify.ss shared-library --language-module gerbil-parser/t/fixtures/shared-scanner/records-engine-abi --output "$library"
       - name: Pack exact-head Scheme products
-        run: bash tools/ci/prepared-products.sh pack "$RUNNER_TEMP/scheme-products.tar.gz"
+        run: tar -czf "$RUNNER_TEMP/scheme-products.tar.gz" .gerbil
       - name: Publish prepared Scheme products
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -149,7 +148,7 @@ jobs:
         run: |
           if [ -d "$GERBIL_PATH/lib" ]; then
             timeout --signal=TERM --kill-after=5s 180s \
-              bash tools/ci/prepared-products.sh failure \
+              bash tools/ci/failed-products.sh \
                 "$PWD/.data/package-failures/preparation.tar.gz" preparation-step-failed
           fi
       - name: Upload preparation logs

@@ -1,5 +1,5 @@
-name: Restore admitted Gerbil products
-description: Activate the configured compiler and admit this head's prepared products.
+name: Restore Gerbil build products
+description: Activate the configured compiler and extract this run's build products.
 inputs:
   release-os:
     description: Prepared product platform
@@ -28,6 +28,9 @@ runs:
       with:
         name: scheme-${{ inputs.release-os }}-${{ inputs.release-arch }}-${{ github.sha }}
         path: ${{ runner.temp }}/scheme-products
-    - name: Admit prepared Scheme products
+    - name: Extract Scheme build products
       shell: bash
-      run: bash tools/ci/prepared-products.sh restore "$RUNNER_TEMP/scheme-products/scheme-products.tar.gz"
+      run: |
+        tar -xpzf "$RUNNER_TEMP/scheme-products/scheme-products.tar.gz"
+        mkdir -p "$GERBIL_PATH/pkg"
+        gerbil pkg dir --add git.cons.io/mighty-gerbils/gerbil-directory

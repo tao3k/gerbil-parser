@@ -34,7 +34,7 @@ helpers such as provenance-language even if no native Suite imports them.
 
 * CI consolidation
 Six consumers share one native composite action: existing compiler activation,
-download exact-head products, existing prepared-product admission. Release/root/
+download products from the current workflow run, extract with native tar. Release/root/
 head environment is declared once. Consumers have no build-on-restore fallback.
 
 Compiler-policy and five research Suite reruns were removed after actual
@@ -74,7 +74,7 @@ verification repository was removed. Other repositories were not cleaned.
 * Evidence boundary
 Official actionlint1.7.12 and YAML parsing passed. The initial revised native
 entry passed183 modules plus separate test-plan Suite, zero ERROR and catalog
-checks. Exact-head Linux/macOS preparation, artifact recovery and downstream
+checks. Linux/macOS preparation, artifact recovery and downstream
 claims remain independent gates at PR13; prior local/remote epochs are not reused
 as acceptance of the new Core cohort.
 
@@ -93,3 +93,18 @@ no normal static product. Signed test-lib support is not a replacement for that
 normal static closure. The conformance entry now declares the actual library
 root records-engine-abi; Core package-library-spec derives its imports. No
 transitive fixture roster, loader or consumer build fallback is added.
+
+* Transport is not framework admission
+The custom .gerbil/ci/identity file and its five-field comparison are removed,
+along with the pack/restore script modes and duplicated prepared-head variable.
+GitHub transports the named current-run/platform artifact; native tar preserves
+its bytes, modes and timestamps. The shared action only activates, downloads and
+extracts. It does not certify source currentness, method results or approvals.
+
+Core TestingScript retains its independent source/input/output/approval checks
+when consuming test support. Gerbil/std-make own ordinary compiled products;
+existing runtime/qualification controls retain their separate claims. The CI
+workflow adds no replacement manifest, credential, loader or admission layer.
+The remaining failed-products.sh only preserves diagnostic outputs and source
+observations; it cannot issue approval. The former identity-file negative test
+is retired machinery, not evidence of framework admission correctness.

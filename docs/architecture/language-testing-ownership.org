@@ -93,3 +93,11 @@ Its copied baseline and obsolete preload CPU comparison are retired together;
 the existing CI lane now runs native runtime positive/negative controls. The
 complete-generation benchmark retains identical Rust-output and matched CPU
 controls. No replacement warm-versus-reload speedup is claimed.
+
+* Cold package prefix correction
+CI40471455063 failed on both Linux and macOS before dependency compilation:
+native gxpkg could not create $GERBIL_PATH/pkg/directory-list. The workflow
+created $HOME/.gerbil/pkg while GERBIL_PATH selected the workspace prefix. An
+older dependency cache had supplied that directory; the new manifest's cache
+miss exposed the path error. Create $GERBIL_PATH/pkg before native registration.
+Do not change the compiler, package manager, cache key or dependency authority.

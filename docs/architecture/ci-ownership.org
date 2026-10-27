@@ -12,7 +12,7 @@ GitHub Actions owns job dependencies and artifact transport.
 |---------+--------------+-----------|
 | Library | build.ss | Existing init-selected normalized production spec |
 | FFI fixtures | build-ffi-tests.ss | Existing C headers, actual objects, link options and ordered producer phases |
-| Research programs | build-language-conformance.ss | Declare two real entry files; Core package-library-spec discovers imports; Gerbil builds normal static/dynamic products |
+| Research programs | build-language-conformance.ss | Declare actual program/library roots; Core package-library-spec discovers imports; Gerbil compiles and links normal products |
 | Test support | build-test-support.ss | Core for-directory/for-files discovers full native Suite support; exact std-make-spec value enters Core building/script for compilation, artifact admission and subset publication |
 
 Research products and signed test-lib publications have different output and

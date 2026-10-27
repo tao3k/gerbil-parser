@@ -1,0 +1,61 @@
+#+TITLE: CI ownership and redundant branch retirement
+#+LANGUAGE: en
+
+* Native ownership
+CI is a consumer of the declared package, not a second module loader or builder.
+The sole direct dependency remains in gerbil.pkg. Yuanxu/Core projects source,
+Scopes and native support; Gerbil std/build-script and std/make compile it.
+GitHub Actions owns job dependencies, matrix selection and artifact transport.
+No new source inventory, test runner, compiler environment or scheduler is added.
+
+* Removed duplication
+| Surface | Correction | Retained control |
+|---------+------------+------------------|
+| Six consumer compiler/download/restore sequences | One native composite action gerbil-restore, calling existing gerbil-setup, download-artifact and prepared-products restore | Exact head, platform, compiler digest and prepared-product admission; no build-on-restore fallback |
+| Seven copies of release/root/head environment | One reusable-workflow environment declaration | CPU test heap remains local; two workers stay explicit globally |
+| Conformance plus support compilation | Conformance already calls the shared init-projected support spec, so remove its duplicate CI support step | Both standalone entries use optimize:true; developer support entry remains available |
+| Compiler-policy and five research Suite reruns | Run once in the complete native t/... languages/... entry | Actual prior MODULE-OK records confirm all six are in the183-module roster |
+| Obsolete module-preload CPU branch | Remove the matrix item and redundant native-loading step | Module-loading, wrapper and observation Suites remain in the complete roster; historical measurements stay historical |
+
+FFI remains a distinct producer before generic support discovery. Its C headers,
+object dependencies and link options stay in build-ffi-tests; the shared support
+projection consumes native compiled imports. The demonstrated cold-order failure
+and same-command positive control are recorded in language-testing-ownership.org.
+
+* Required distinctions
+Rust contracts/formal models, lints/package publication and ignored AOT performance
+are different claims; their native matrix selection remains. Source witness
+currentness, isolated macro phases, the intentionally failing Suite, process
+ownership and source/compiled DSL controls are not replaced by runtime test success.
+Linux-only external corpus tooling and manually selected CPU/diagnostic research
+have explicit platform/purpose boundaries. Those conditions remain declarations,
+not alternate module implementations or redundant success paths.
+
+* Git retirement
+The remote maintenance/scheme and fix/native-scheme-cohort-20261021 branches were
+associated with a closed PR and no current open PR. They were deleted with exact
+expected-SHA leases. Main and PR13 codex/final-event-offset-aot remain.
+
+The local archive/core-pin-20261024, archive/local-project-policy-20261024 and stale
+codex/final-event-offset-aot pointer were preserved in a complete Git bundle, then
+removed. The active alignment/parser-current branch was renamed to the actual
+PR branch. Local main now tracks origin/main; stale remote-tracking refs were
+removed. No commit rewrite, default-branch change or merge was performed.
+
+The external integration custody parser-retired-branches-20261027.bundle contains
+all five retired refs with complete history. Native bundle verification passed;
+a temporary bare repository restored all five refs and git fsck --full passed.
+The temporary verification repository was removed. Recovery uses ordinary Git
+fetch from the bundle; no hidden archive branch remains in the working repository.
+
+* Validation contract
+Static YAML parsing and actionlint must accept the new workflow/action boundaries.
+The native developer build must run its FFI prerequisite before the shared support
+projection. Complete native Suites retain their prior Case/Fixture controls;
+process, compiled CLI, source currentness and restoration remain independent gates.
+Linux/macOS must pass on the final PR head with two workers and existing limits.
+A prior full local pass or earlier failed remote head does not close this CI change.
+
+Static validation passed with official actionlint1.7.12 and YAML parsing. The
+release archive matched its official SHA256 manifest. Branch retirement is
+complete; final implementation/CI validation remains tracked by PR13.

@@ -101,7 +101,7 @@ is added. All original invalid-input checks remain.
 
 The removed custom loader no longer has a meaningful current reference algorithm.
 Its copied baseline and obsolete preload CPU comparison are retired together;
-the existing CI lane now runs native runtime positive/negative controls. The
+the obsolete CPU lane is removed; native runtime controls remain in the complete Suite entry. The
 complete-generation benchmark retains identical Rust-output and matched CPU
 controls. No replacement warm-versus-reload speedup is claimed.
 
@@ -134,3 +134,5 @@ and CONFORMANCE-LINKED. No old product was restored. Both platform logs show the
 same header failure. Observed exit137 in the negative control/macOS log accompanies
 reason=error-output: the supervisor terminated after a compiler error; it does
 not independently establish a timeout or OOM. Existing limits remain unchanged.
+
+CI consolidation and Git retirement are detailed in [[file:ci-ownership.org][CI ownership]].

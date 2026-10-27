@@ -23,4 +23,4 @@
 
 (def (shared-test-build-spec)
   (compiler-build-spec ((.get (test-support-source) std-make-spec))))
-(defbuild-script (shared-test-build-spec))
+(defbuild-script (shared-test-build-spec) optimize: #t)

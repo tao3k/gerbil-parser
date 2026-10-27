@@ -31,17 +31,14 @@ env:
   GERBIL_PATH: ${{ github.workspace }}/.gerbil
   GERBIL_LOADPATH: ${{ github.workspace }}/.gerbil/lib:${{ github.workspace }}/..
   GERBIL_BUILD_CORES: 2
+  GERBIL_RELEASE_ROOT: ${{ github.workspace }}/.ci/gerbil-release/${{ inputs.gerbil-label }}
+  GERBIL_SDK_SHA256: ${{ inputs.release-sha256 }}
+  GERBIL_PREPARED_HEAD: ${{ github.sha }}
 jobs:
   prepare:
     name: Prepare Scheme (${{ inputs.release-os }})
     runs-on: ${{ inputs.os }}
     timeout-minutes: 120
-    env:
-      GERBIL_RELEASE_ROOT: ${{ github.workspace }}/.ci/gerbil-release/${{ inputs.gerbil-label }}
-      GERBIL_SDK_SHA256: ${{ inputs.release-sha256 }}
-      GERBIL_PREPARED_HEAD: ${{ github.sha }}
-      # Keep the fixed task budget explicit; SDK defaults are not qualification.
-      GERBIL_BUILD_CORES: 2
     steps:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
@@ -128,8 +125,6 @@ jobs:
             gerbil env gxi qualify.ss run --timeout 240 --idle-timeout 5 \
               --log .data/language-conformance-build.log \
               -- gxi build-conformance.ss
-      - name: Compile Scheme test support
-        run: GERBIL_BUILD_VERBOSE=1 gerbil env gxi build-test-support.ss compile
       - name: Prepare standalone language library once
         run: |-
           library="$PWD/.gerbil/ci/libparsernative.so"
@@ -161,29 +156,18 @@ jobs:
     needs: prepare
     runs-on: ${{ inputs.os }}
     timeout-minutes: 45
-    env:
-      GERBIL_RELEASE_ROOT: ${{ github.workspace }}/.ci/gerbil-release/${{ inputs.gerbil-label }}
-      GERBIL_SDK_SHA256: ${{ inputs.release-sha256 }}
-      GERBIL_PREPARED_HEAD: ${{ github.sha }}
     steps:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           fetch-depth: 0
-      - name: Activate Gerbil compiler
-        uses: ./.github/actions/gerbil-setup
+      - name: Restore admitted Gerbil products
+        uses: ./.github/actions/gerbil-restore
         with:
           release-os: ${{ inputs.release-os }}
           release-arch: ${{ inputs.release-arch }}
           release-tag: ${{ inputs.release-tag }}
           release-sha256: ${{ inputs.release-sha256 }}
-      - name: Download exact-head Scheme products
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: scheme-${{ inputs.release-os }}-${{ inputs.release-arch }}-${{ github.sha }}
-          path: ${{ runner.temp }}/scheme-products
-      - name: Admit prepared Scheme products
-        run: bash tools/ci/prepared-products.sh restore "$RUNNER_TEMP/scheme-products/scheme-products.tar.gz"
       - name: Verify native process contracts
         run: just test-process-contracts
       - name: Verify installed compiler reservation and instruction producers
@@ -232,18 +216,8 @@ jobs:
         run: |
           just test-process-admission
           just test-plan
-      - name: Verify compiler policy with native Gerbil test
-        run: |
-          gerbil env gxi qualify.ss run --timeout 90 \
-            --log .data/compiler-policy-native.log --require "^OK$" -- \
-            gerbil test -v 3 t/fixtures/compiler-policy.ss
       - name: Reject intentionally failed native Suite
         run: just test-harness-refusal
-      - name: Verify research Suite declarations with Gerbil test
-        run: |
-          gerbil env gxi qualify.ss run --timeout 240 \
-            --log .data/research-gerbil-test.log --require "^OK$" -- \
-            just test-research-suites
       - name: Verify Scheme DSL and POO declaration closure
         id: dsl-research
         run: gerbil env gxi test-processes.ss research .data/dsl-research
@@ -287,27 +261,16 @@ jobs:
     needs: prepare
     runs-on: ${{ inputs.os }}
     timeout-minutes: 45
-    env:
-      GERBIL_RELEASE_ROOT: ${{ github.workspace }}/.ci/gerbil-release/${{ inputs.gerbil-label }}
-      GERBIL_SDK_SHA256: ${{ inputs.release-sha256 }}
-      GERBIL_PREPARED_HEAD: ${{ github.sha }}
     steps:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-      - name: Activate Gerbil compiler
-        uses: ./.github/actions/gerbil-setup
+      - name: Restore admitted Gerbil products
+        uses: ./.github/actions/gerbil-restore
         with:
           release-os: ${{ inputs.release-os }}
           release-arch: ${{ inputs.release-arch }}
           release-tag: ${{ inputs.release-tag }}
           release-sha256: ${{ inputs.release-sha256 }}
-      - name: Download exact-head Scheme products
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: scheme-${{ inputs.release-os }}-${{ inputs.release-arch }}-${{ github.sha }}
-          path: ${{ runner.temp }}/scheme-products
-      - name: Admit prepared Scheme products
-        run: bash tools/ci/prepared-products.sh restore "$RUNNER_TEMP/scheme-products/scheme-products.tar.gz"
       - name: Record macOS Gerbil mapping baseline
         if: runner.os == 'macOS'
         run: |
@@ -490,27 +453,17 @@ jobs:
     runs-on: ${{ inputs.os }}
     timeout-minutes: 45
     env:
-      GERBIL_RELEASE_ROOT: ${{ github.workspace }}/.ci/gerbil-release/${{ inputs.gerbil-label }}
-      GERBIL_SDK_SHA256: ${{ inputs.release-sha256 }}
-      GERBIL_PREPARED_HEAD: ${{ github.sha }}
       GERBIL_PARSER_NATIVE_HOST_LIBRARY: ${{ github.workspace }}/.gerbil/ci/libparsernative.${{ inputs.release-os == 'darwin' && 'dylib' || 'so' }}
     steps:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-      - name: Activate Gerbil compiler
-        uses: ./.github/actions/gerbil-setup
+      - name: Restore admitted Gerbil products
+        uses: ./.github/actions/gerbil-restore
         with:
           release-os: ${{ inputs.release-os }}
           release-arch: ${{ inputs.release-arch }}
           release-tag: ${{ inputs.release-tag }}
           release-sha256: ${{ inputs.release-sha256 }}
-      - name: Download exact-head Scheme products
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: scheme-${{ inputs.release-os }}-${{ inputs.release-arch }}-${{ github.sha }}
-          path: ${{ runner.temp }}/scheme-products
-      - name: Admit prepared Scheme products
-        run: bash tools/ci/prepared-products.sh restore "$RUNNER_TEMP/scheme-products/scheme-products.tar.gz"
       - name: Identify Rust toolchain
         id: rust-version
         run: echo "version=$(rustc -Vv | shasum -a 256 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
@@ -577,27 +530,16 @@ jobs:
     needs: prepare
     runs-on: ${{ inputs.os }}
     timeout-minutes: 45
-    env:
-      GERBIL_RELEASE_ROOT: ${{ github.workspace }}/.ci/gerbil-release/${{ inputs.gerbil-label }}
-      GERBIL_SDK_SHA256: ${{ inputs.release-sha256 }}
-      GERBIL_PREPARED_HEAD: ${{ github.sha }}
     steps:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-      - name: Activate Gerbil compiler
-        uses: ./.github/actions/gerbil-setup
+      - name: Restore admitted Gerbil products
+        uses: ./.github/actions/gerbil-restore
         with:
           release-os: ${{ inputs.release-os }}
           release-arch: ${{ inputs.release-arch }}
           release-tag: ${{ inputs.release-tag }}
           release-sha256: ${{ inputs.release-sha256 }}
-      - name: Download exact-head Scheme products
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: scheme-${{ inputs.release-os }}-${{ inputs.release-arch }}-${{ github.sha }}
-          path: ${{ runner.temp }}/scheme-products
-      - name: Admit prepared Scheme products
-        run: bash tools/ci/prepared-products.sh restore "$RUNNER_TEMP/scheme-products/scheme-products.tar.gz"
       - name: Compare TLA+ candidate structure with pinned SANY
         run: |
           jar="$RUNNER_TEMP/tla2tools-v1.7.4.jar"
@@ -638,27 +580,16 @@ jobs:
     needs: prepare
     runs-on: ${{ inputs.os }}
     timeout-minutes: 45
-    env:
-      GERBIL_RELEASE_ROOT: ${{ github.workspace }}/.ci/gerbil-release/${{ inputs.gerbil-label }}
-      GERBIL_SDK_SHA256: ${{ inputs.release-sha256 }}
-      GERBIL_PREPARED_HEAD: ${{ github.sha }}
     steps:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-      - name: Activate Gerbil compiler
-        uses: ./.github/actions/gerbil-setup
+      - name: Restore admitted Gerbil products
+        uses: ./.github/actions/gerbil-restore
         with:
           release-os: ${{ inputs.release-os }}
           release-arch: ${{ inputs.release-arch }}
           release-tag: ${{ inputs.release-tag }}
           release-sha256: ${{ inputs.release-sha256 }}
-      - name: Download exact-head Scheme products
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: scheme-${{ inputs.release-os }}-${{ inputs.release-arch }}-${{ github.sha }}
-          path: ${{ runner.temp }}/scheme-products
-      - name: Admit prepared Scheme products
-        run: bash tools/ci/prepared-products.sh restore "$RUNNER_TEMP/scheme-products/scheme-products.tar.gz"
       - name: Verify matched Source edit calls and phase observations
         run: |
           GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
@@ -700,29 +631,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lane: ${{ fromJSON(inputs.cpu-scope == 'capture' && '["capture"]' || '["scanner","events","engine","ranked","utf8","tokio","module-generation","module-preload","selector-input","capture"]') }}
+        lane: ${{ fromJSON(inputs.cpu-scope == 'capture' && '["capture"]' || '["scanner","events","engine","ranked","utf8","tokio","module-generation","selector-input","capture"]') }}
     env:
-      GERBIL_RELEASE_ROOT: ${{ github.workspace }}/.ci/gerbil-release/${{ inputs.gerbil-label }}
-      GERBIL_SDK_SHA256: ${{ inputs.release-sha256 }}
-      GERBIL_PREPARED_HEAD: ${{ github.sha }}
       GAMBOPT: max-heap=3G,debug=q
     steps:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-      - name: Activate Gerbil compiler
-        uses: ./.github/actions/gerbil-setup
+      - name: Restore admitted Gerbil products
+        uses: ./.github/actions/gerbil-restore
         with:
           release-os: ${{ inputs.release-os }}
           release-arch: ${{ inputs.release-arch }}
           release-tag: ${{ inputs.release-tag }}
           release-sha256: ${{ inputs.release-sha256 }}
-      - name: Download exact-head Scheme products
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: scheme-${{ inputs.release-os }}-${{ inputs.release-arch }}-${{ github.sha }}
-          path: ${{ runner.temp }}/scheme-products
-      - name: Admit prepared Scheme products
-        run: bash tools/ci/prepared-products.sh restore "$RUNNER_TEMP/scheme-products/scheme-products.tar.gz"
       - name: Identify Rust toolchain
         id: rust-version
         run: echo "version=$(rustc -Vv | shasum -a 256 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
@@ -845,16 +766,6 @@ jobs:
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/module-generation-cpu.log --require '^MODULE-LOADING-CPU-PROOF-OK generation$' \
             -- gxi t/benchmarks/module-loading/benchmark.ss generation
-      # The custom preparation algorithm and copied reference were removed.
-      # Keep this lane as native positive/negative loading qualification, without
-      # claiming that warm-load and reload are equivalent CPU workloads.
-      - name: Qualify native runtime loading and failure recovery
-        if: matrix.lane == 'module-preload'
-        run: |
-          taskset -pc "$CPU_PROOF_PROCESSOR" "$$"
-          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
-            --log .data/module-loading-native-controls.log --require '^OK$' \
-            -- gerbil test -v 5 t/module-loading-test.ss t/module-wrapper-test.ss t/interface-observation-test.ss
       - name: Prove Rust Tokio complete 64-record requests
         if: matrix.lane == 'tokio'
         env:

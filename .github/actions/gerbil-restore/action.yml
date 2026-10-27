@@ -1,0 +1,33 @@
+name: Restore admitted Gerbil products
+description: Activate the configured compiler and admit this head's prepared products.
+inputs:
+  release-os:
+    description: Prepared product platform
+    required: true
+  release-arch:
+    description: Prepared product architecture
+    required: true
+  release-tag:
+    description: Configured Gerbil compiler release
+    required: true
+  release-sha256:
+    description: Configured compiler archive digest
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Activate Gerbil compiler
+      uses: ./.github/actions/gerbil-setup
+      with:
+        release-os: ${{ inputs.release-os }}
+        release-arch: ${{ inputs.release-arch }}
+        release-tag: ${{ inputs.release-tag }}
+        release-sha256: ${{ inputs.release-sha256 }}
+    - name: Download exact-head Scheme products
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: scheme-${{ inputs.release-os }}-${{ inputs.release-arch }}-${{ github.sha }}
+        path: ${{ runner.temp }}/scheme-products
+    - name: Admit prepared Scheme products
+      shell: bash
+      run: bash tools/ci/prepared-products.sh restore "$RUNNER_TEMP/scheme-products/scheme-products.tar.gz"

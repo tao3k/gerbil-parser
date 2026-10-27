@@ -189,8 +189,7 @@ jobs:
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/source-dependency-proof-input.log \
-            -- gxi \
-              t/generate-source-dependency-witness.ss check formal/ParserEngine/SourceDependencyWitness.lean
+            -- gerbil env gerbil-parser-source-dependency-witness check formal/ParserEngine/SourceDependencyWitness.lean
       - name: Verify generated arithmetic Scheme LR is current
         run: gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss check src/compiler/arithmetic-drive.ss
       - name: Verify generic POO Scheme reductions are current
@@ -215,7 +214,7 @@ jobs:
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/source-callback-gc.log --require SOURCE-CALLBACK-GC-OK \
-            -- gxi -e '(begin (import :gerbil-parser/t/benchmarks/source-edits/benchmark) (verify-callback-gc))'
+            -- gerbil env gerbil-parser-source-edits --verify-callback-gc
       - name: Verify isolated test macro phase ownership
         run: |
           timeout --signal=TERM --kill-after=5s 90s gerbil -:max-heap=1G,debug=q test -v 3 \
@@ -297,24 +296,21 @@ jobs:
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/result-projections-generation.log --require RESULT-PROJECTIONS-RUST-GENERATED \
-            -- gxi \
-            t/generate-result-projections.ss /tmp/result-projections.rs
+            -- gerbil env gerbil-parser-result-projections /tmp/result-projections.rs
           rustfmt --edition 2024 /tmp/result-projections.rs
           cmp /tmp/result-projections.rs rust/gerbil-parser-runtime/tests/fixtures/generated/result_projections.rs
       - name: Verify ordered result catalog Rust AOT regeneration
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/ordered-results-generation.log --require ORDERED-RESULTS-RUST-GENERATED \
-            -- gxi \
-            t/generate-ordered-results.ss /tmp/ordered-results.rs
+            -- gerbil env gerbil-parser-ordered-results /tmp/ordered-results.rs
           rustfmt --edition 2024 /tmp/ordered-results.rs
           cmp /tmp/ordered-results.rs rust/gerbil-parser-runtime/tests/fixtures/generated/ordered_results.rs
       - name: Verify shared Command Source Rust AOT regeneration
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/command-source-generation.log --require COMMAND-SOURCE-RUST-GENERATED \
-            -- gxi \
-            t/generate-command-source.ss /tmp/command-source.rs /tmp/command-source.bin
+            -- gerbil env gerbil-parser-command-source /tmp/command-source.rs /tmp/command-source.bin
           rustfmt --edition 2024 /tmp/command-source.rs
           cmp /tmp/command-source.rs rust/gerbil-parser-runtime/tests/fixtures/generated/command_source.rs
           cmp /tmp/command-source.bin rust/gerbil-parser-runtime/tests/fixtures/generated/command_source.bin
@@ -322,16 +318,14 @@ jobs:
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/word-parts-generation.log --require WORD-PARTS-RUST-GENERATED \
-            -- gxi \
-            t/generate-word-parts.ss /tmp/word-parts.rs
+            -- gerbil env gerbil-parser-word-parts /tmp/word-parts.rs
           rustfmt --edition 2024 /tmp/word-parts.rs
           cmp /tmp/word-parts.rs rust/gerbil-parser-runtime/tests/fixtures/generated/word_parts.rs
       - name: Verify shared region recognition Rust AOT regeneration
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/region-boundaries-generation.log --require REGION-BOUNDARIES-RUST-GENERATED \
-            -- gxi \
-            t/generate-region-boundaries.ss /tmp/region-boundaries.rs
+            -- gerbil env gerbil-parser-region-boundaries /tmp/region-boundaries.rs
           rustfmt --edition 2024 /tmp/region-boundaries.rs
           cmp /tmp/region-boundaries.rs rust/gerbil-parser-runtime/tests/fixtures/generated/region_boundaries.rs
       - name: Verify shared scanner and contextual Rust AOT regeneration
@@ -339,14 +333,12 @@ jobs:
           gerbil env gxi t/fixtures/shared-scanner/generate.ss /tmp/shared-scanner.rs
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/bash-scanner-generation.log --require BASH-SCANNER-RUST-GENERATED \
-            -- gxi \
-            t/fixtures/shared-scanner/generate-bash.ss /tmp/bash-scanner.rs
+            -- gerbil env gerbil-parser-bash-scanner /tmp/bash-scanner.rs
           rustfmt --edition 2024 /tmp/bash-scanner.rs
           cmp /tmp/bash-scanner.rs rust/gerbil-parser-runtime/tests/fixtures/generated/bash_scanner.rs
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/binding-names-generation.log --require BINDING-NAMES-RUST-GENERATED \
-            -- gxi \
-            t/generate-binding-names.ss /tmp/binding-names.rs
+            -- gerbil env gerbil-parser-binding-names /tmp/binding-names.rs
           rustfmt --edition 2024 /tmp/binding-names.rs
           cmp /tmp/binding-names.rs rust/gerbil-parser-runtime/tests/fixtures/generated/binding_names.rs
           gerbil env gxi t/fixtures/shared-scanner/generate-contextual.ss /tmp/records-contextual.rs
@@ -455,8 +447,7 @@ jobs:
             gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
             --log .data/native-abi.log --require NATIVE-ABI-OK \
             --require 'ABI-RUNTIME-GENERATED-MATCH calls=3' \
-            -- gxi \
-            -e '(import :gerbil-parser/t/fixtures/ffi/abi-probe :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) (main) (test-child-process-exit! 0)'
+            -- gerbil env gerbil-parser-abi-probe
       - name: Verify Rust ownership over the C ABI
         run: |
           CARGO_TARGET_DIR="$PWD/target" \
@@ -472,16 +463,14 @@ jobs:
             --log .data/rust-native-ownership.log --require RUST-NATIVE-OK \
             --require 'RUST-NATIVE-OWNERSHIP-OK handles=2 results=113' \
             --require RUST-NATIVE-100-CALLS \
-            -- gxi \
-            -e '(import :gerbil-parser/t/fixtures/ffi/rust-language-probe) (main)'
+            -- gerbil env gerbil-parser-rust-language-probe
       - name: Verify language-independent C ABI and ASP performance
         run: |
           GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
             gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/language-abi.log --require LANGUAGE-ABI-OK \
             --require LANGUAGE-ABI-100-CALLS \
-            -- gxi \
-            -e '(import :gerbil-parser/t/fixtures/ffi/language-probe) (main)'
+            -- gerbil env gerbil-parser-language-probe
       - name: Verify independent C and Rust lifecycle
         run: GERBIL_BUILD_CORES=2 GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" gerbil env gxi qualify.ss host
       - name: Upload qualification logs

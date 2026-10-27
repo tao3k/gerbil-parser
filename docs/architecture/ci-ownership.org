@@ -552,3 +552,21 @@ observed a0.0268 P90 cost ratio, but the after-phase reference control P10 was
 Other full comparisons hit original total budgets or reject a different historical
 package declaration. No unchanged retry, reduced workload or widened threshold
 establishes a research result. The complete-research timing policy remains open.
+
+The next macOS generation failure is the same source-startup boundary in result
+projection generation. All remaining bounded generation methods are therefore
+explicit entries in the same existing native program declaration: result,
+ordered result, Command, Word, region, binding, source witness and Bash scanner.
+Their existing main procedures are exported; no algorithms, method arguments,
+output bytes, numeric criteria or90s/5s controls change. The declaration is the
+single root inventory from which Core projects each actual import closure.
+
+Fresh macOS receipts confirm the remaining callback and ABI failures occur before
+their first workload output while re-expanding source imports. The existing edit
+program gains a native --verify-callback-gc entry mode calling the unchanged
+control. ABI/language probes are standard program products of their existing
+producer closure. The Rust staticlib consumer's existing build entry now emits
+its actual executable, removing the temporary dynamic-module linkage mode and
+its separate linker-object selection; Cargo still owns the archive and native
+std/build-script owns compilation/linking. Existing method counts, markers and
+lifecycle limits remain unchanged. No runtime test recursively starts a Suite.

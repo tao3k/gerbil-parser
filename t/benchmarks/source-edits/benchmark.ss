@@ -144,7 +144,7 @@
       (error "callback collection control lacks a GC receipt" collections))
     (displayln "SOURCE-CALLBACK-GC-OK collections=" collections) (force-output))
   (test-child-process-exit! 0))
-(def (main . args)
+(def (run-edit-benchmark . args)
   (let ((samples (if (pair? args) (string->number (car args)) 20))
         (lines (if (> (length args) 1) (string->number (cadr args)) 128)))
     (unless (and (integer? samples) (<= 2 samples 200)
@@ -161,3 +161,9 @@
       (unless (= baseline (language-handle-count)) (error "benchmark leaked handles")))
     (displayln "SOURCE-EDIT-BENCHMARK-OK") (force-output)
     (test-child-process-exit! 0)))
+
+;; Both native entry modes execute the existing probes without source imports.
+(def (main . args)
+  (if (equal? args '("--verify-callback-gc"))
+    (verify-callback-gc)
+    (apply run-edit-benchmark args)))

@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(export main)
 ;;; Scheme-owned lexical field order for catalog constructors used by Commands.
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
         (only-in :gerbil-parser/t/fixtures/bash-products bash-results)

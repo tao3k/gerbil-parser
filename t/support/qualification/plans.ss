@@ -5,10 +5,6 @@
 (def (compiled-product! root module)
  (let (product (path-expand (string-append "lib/gerbil-parser/" module ".o1") root))
   (unless (file-exists? product) (error "missing compiled module; build this checkout first" product))))
-(def (compiled-main module expression)
- ["gxi" "-e"
-  (string-append "(import :" module " :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) "
-                 expression " (test-child-process-exit! 0)")])
 (def (execute-stage! stage logs)
  (displayln "NATIVE-STAGE " (qualification-stage-name stage)) (force-output)
  (run-qualified! (qualification-stage-command stage)
@@ -69,15 +65,15 @@
        (run "ffi-header" [(getenv "CC" "cc") "-std=c11" "-Wall" "-Wextra" "-Werror" "-Wno-unused-command-line-argument"
                           "-fsyntax-only" "-Iinclude" "t/ffi-header-smoke.c"])
        (run "ffi-abi-build" '("gxi" "build-ffi-tests.ss" "compile") #t)
-       (run "ffi-abi" (compiled-main "gerbil-parser/t/fixtures/ffi/abi-probe" "(main)") #f
+       (run "ffi-abi" ["gerbil" "env" "gerbil-parser-abi-probe"] #f
                      '("NATIVE-ABI-OK" "ABI-RUNTIME-GENERATED-MATCH calls=3"))
-       (run "language-abi" (compiled-main "gerbil-parser/t/fixtures/ffi/language-probe" "(main)") #f
+       (run "language-abi" ["gerbil" "env" "gerbil-parser-language-probe"] #f
                      '("LANGUAGE-ABI-OK" "LANGUAGE-ABI-100-CALLS"))
        (setenv "CARGO_TARGET_DIR" (path-expand "target"))
        (run "rust-native-build" '("cargo" "build" "--locked" "--manifest-path" "t/fixtures/rust-language-abi/Cargo.toml") #t '() 90)
        (setenv "GERBIL_PARSER_RUST_NATIVE_ARCHIVE" (path-expand "target/debug/librust_language_abi_fixture.a"))
        (run "rust-native-link" '("gxi" "build-rust-ffi-tests.ss" "compile") #t '() 90)
-       (run "rust-native-ownership" (compiled-main "gerbil-parser/t/fixtures/ffi/rust-language-probe" "(main)") #f
+       (run "rust-native-ownership" ["gerbil" "env" "gerbil-parser-rust-language-probe"] #f
                      '("RUST-NATIVE-OK" "RUST-NATIVE-OWNERSHIP-OK handles=2 results=113" "RUST-NATIVE-100-CALLS") 90)
        (qualify-runtime-host!))
       (for-each (lambda (module) (compiled-product! compiled-root module))

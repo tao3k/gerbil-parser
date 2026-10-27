@@ -68,7 +68,10 @@
 
 (def ffi-specs (list producer-spec entry-spec consumer-spec))
 ;; Keep the SDK's single metadata/spec/clean protocol as well as its builder.
-(defbuild-script (compiler-build-spec (append (producer-spec) (entry-spec) (consumer-spec))))
+(def (ffi-build-spec)
+  (compiler-build-spec (append (producer-spec) (entry-spec) (consumer-spec))))
+(export ffi-build-spec main)
+(defbuild-script (ffi-build-spec))
 (let (sdk-main main)
  (set! main
   (lambda args

@@ -600,3 +600,15 @@ Source-edit controls. An earlier manual invocation accidentally replaced the
 archive activation's GAMBOPT relocation options and tried the producer's old gsc
 path. That scene is retained; preserving the normal activation options fixes the
 command environment without a source change or increased resource budget.
+
+The1c022d21 macOS FFI failure is earlier than Linux: no main output before the
+unchanged5s idle fence. CI's bounded commands unnecessarily started gerbil env
+inside an already active gerbil env gxi qualify.ss. The native gxpkg env-exec
+calls setup-local-path! and invokes its child with inherited environment; the
+process qualifier preserves that PATH. CI now calls the declared program directly,
+removing eighteen redundant environment tool hops. No PATH inventory or launcher
+is added. Local actual Rust ownership/Source controls pass with this exact route
+in0.37s; this is functional evidence, not a cold-start comparative speedup claim.
+Remote unchanged-bound acceptance remains required. Local multi-suite diagnostics
+which deliberately establish a separate native toolchain environment retain their
+own necessary environment entry; they are not replaced by a manual bin search.

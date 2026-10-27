@@ -9,6 +9,23 @@ from parser_evidence import Check, NativeReview, Observation, observe, review
 
 
 class HostControls(unittest.TestCase):
+    def test_only_native_build_preparation_may_omit_deadline_and_markers(self):
+        with self.assertRaises(ValueError):
+            Check("lean-model", (sys.executable, "-V"), ("source",), ("OK",), timeout=None)
+        with self.assertRaises(ValueError):
+            Check("lean-model", (sys.executable, "-V"), ("source",), ())
+        with self.assertRaises(ValueError):
+            Check("scheme-build", (sys.executable, "-V"), ("source",), (), timeout=0)
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "source").write_text("revision")
+            for code, expected in ((0, "passed"), (7, "failed")):
+                check = Check("scheme-build", (sys.executable, "-c", f"exit({code})"),
+                              ("source",), (), timeout=None)
+                result = observe(root, check)
+                self.assertEqual((result.outcome, result.exit_code), (expected, code))
+                self.assertIsNone(result.record()["deadline"])
+
     def test_nonzero_exit_cannot_be_admitted_by_a_marker(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

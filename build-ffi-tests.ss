@@ -13,7 +13,7 @@
              (darwin '("-ld-options" "-Wl,-undefined,dynamic_lookup"))
              (else (if (or (not (current-ffi-linking?)) (null? objects)) '()
                        (list "-ld-options" (native-module-link-options objects)))))))
-;;; SDK build specs evaluate inside their ordinary main. Delay each spec until
+;;; Gerbil build specs evaluate inside their ordinary main. Delay each spec until
 ;;; its preceding producer phase has finished, under the single publication lock.
 (def (ffi-build-phase spec)
   (defbuild-script (compiler-build-spec (spec)))
@@ -67,12 +67,12 @@
    (compiled-spec "t/benchmarks/language-abi/utf8-cpu")))
 
 (def ffi-specs (list producer-spec entry-spec consumer-spec))
-;; Keep the SDK's single metadata/spec/clean protocol as well as its builder.
+;; Keep Gerbil's single metadata/spec/clean protocol as well as its builder.
 (def (ffi-build-spec)
   (compiler-build-spec (append (producer-spec) (entry-spec) (consumer-spec))))
 (export ffi-build-spec main)
 (defbuild-script (ffi-build-spec))
-(let (sdk-main main)
+(let (build-main main)
  (set! main
   (lambda args
     (let (compile? (or (null? args) (equal? (car args) "compile")))
@@ -80,4 +80,4 @@
                       (or compile? (and (pair? args) (equal? (car args) "spec")))))
         (if compile?
           (for-each (lambda (spec) (apply (ffi-build-phase spec) args)) ffi-specs)
-          (apply sdk-main args)))))))
+          (apply build-main args)))))))

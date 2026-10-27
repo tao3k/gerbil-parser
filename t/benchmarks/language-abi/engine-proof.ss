@@ -2,12 +2,10 @@
 ;;; Complete requests compare independent scanner/LR preparation kernels.
 (port-settings-set! (current-output-port) '(buffering: #f))
 (displayln "ENGINE-CPU-BOOTSTRAP") (force-output)
-(load "t/fixtures/module-loading/observations.ss")
 
-(call-with-compiled-interface-trace
- (lambda ()
-   (preload-runtime-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
-   (preload-runtime-module "gerbil-parser/t/benchmarks/language-abi/utf8-cpu")))
+
+(begin (load-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
+   (load-module "gerbil-parser/t/benchmarks/language-abi/utf8-cpu"))
 (def leave (eval 'gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process#test-child-process-exit!))
 (def (main (mode "combined") (unicode "false"))
   (with-catch

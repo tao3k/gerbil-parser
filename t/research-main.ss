@@ -5,14 +5,18 @@
         (prefix-in (only-in :gerbil-parser/t/fixtures/language-pack-research/list-runtime main) native-poo-runtime-)
         (prefix-in (only-in :gerbil-parser/t/fixtures/language-pack-research/provenance-language main) provenance-))
 (export main)
+(def research-programs
+  (list (cons "concise-runtime" concise-runtime-main)
+        (cons "history" history-main)
+        (cons "native-poo-runtime" native-poo-runtime-main)
+        (cons "provenance" provenance-main)
+        (cons "all-language-benchmark"
+          (lambda args (apply benchmark-main (if (null? args) ["1"] args))))))
 (def (main name . args)
-  (let (program (assoc name (list (cons "concise-runtime" concise-runtime-main)
-                                (cons "history" history-main)
-                                (cons "native-poo-runtime" native-poo-runtime-main)
-                                (cons "provenance" provenance-main))))
-    (cond (program
-           (unless (null? args) (error "unexpected research arguments" args))
-           ((cdr program)))
-          ((equal? name "all-language-benchmark")
-           (apply benchmark-main (if (null? args) ["1"] args)))
-          (else (error "unknown research program" name)))))
+  (if (equal? name "--list")
+    (begin
+      (unless (null? args) (error "unexpected catalogue arguments" args))
+      (for-each (lambda (program) (displayln (car program))) research-programs))
+    (let (program (assoc name research-programs))
+      (unless program (error "unknown research program" name))
+      (apply (cdr program) args))))

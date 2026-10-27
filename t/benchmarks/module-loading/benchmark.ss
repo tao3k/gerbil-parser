@@ -4,10 +4,10 @@
         (only-in :gerbil-parser/src/language/module-input language-module-descriptor)
         (only-in :gerbil-parser/src/compiler/rust-runtime language-rust-runtime-module-source)
         (only-in :gerbil-parser/src/ffi/rust-runtime-aot rust-runtime-source))
-(load "t/fixtures/module-loading/observations.ss")
-(preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
+
+(load-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!))
-(preload-module "gerbil-parser/t/support/qualification/benchmark-qos")
+(load-module "gerbil-parser/t/support/qualification/benchmark-qos")
 (import (only-in :gerbil-parser/t/support/qualification/benchmark-qos admit-benchmark-qos!))
 (def report-port (current-output-port))
 (def (report row)

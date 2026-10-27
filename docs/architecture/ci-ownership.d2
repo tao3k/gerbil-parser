@@ -3,9 +3,9 @@ packages: "Declared package pins\ngerbil.pkg -> Core -> inherited POO"
 install: "Native gerbil deps --install\nfail-fast /no retry fallback"
 compiler: "Package-owned compilation\n2 workers /2GiB parent +child compiler\nCore retains300s /Parser has no180s cap"
 index: "Native gxpkg final retag\ngxtags default Emacs format +native heap default\nnonempty output required /no registry edits"
-products: "Native lib +static +test-lib\nactual compiler +source +ABI association"
+products: "Native lib +static +ordinary test helpers\nactual compiler +source +ABI association"
 abi: "Shared ABI build owner\nreuse compiler host initialization\nstd/make pkg-config-libs for OpenSSL"
-tests: "Core TestingScript -> Gerbil Harness\n3GiB /900s /actual Case +MODULE-OK records"
+tests: "Native gerbil test -> Gerbil Harness\n3GiB /900s /actual Case +MODULE-OK records"
 transport: "Current-run/platform artifact\nnative tar /no custom admission"
 restore: "New-process native consumers\nno compile fallback\nCore independently checks currentness and approvals"
 controls: "Negative controls\nsource/output/approval refusal\ninstallation failure remains failure"
@@ -19,5 +19,5 @@ products -> transport -> restore -> tests
 controls -> tests
 old -> regression -> index
 
-standalone: "OPEN /exact macOS CI archive\nIndependent two-form source: standalone SKIP, module TAG\nNo replacement launcher /no SDK edit"
+standalone: "OPEN /exact macOS CI archive\nIndependent two-form source: standalone SKIP, unified TAG\nFormal distribution PR58 restores native aliases\nSuite status 0/42; help0; missing70\nCore projected helper compile PASS /same2GiB\nPR58 backport: e5296bf8 /2591dcd +dcd677c\nOriginal self-build scope /Parser limits unchanged\n7e1ddc4 Linux40559760040 publication PASS\nInstalled/relocated controls PASS; actual archive SHA verified\nDarwin40559766825 publication PASS\nBoth archive SHA256 values verified\nEarlier7c49 carrier failure retained separately\nParser native CI and recovery OPEN"
 index -> standalone

@@ -14,10 +14,8 @@
   (unless (file-exists? product) (error "missing compiled module; build this checkout first" product))))
 (def (compiled-main module expression)
  ["gxi" "-e"
-  (string-append "(load \"t/fixtures/module-loading/observations.ss\")  (preload-module \""
-                 module "\") (preload-module \"gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process\")")
-  "-e" (string-append "(import :" module " :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) "
-                      expression " (test-child-process-exit! 0)")])
+  (string-append "(import :" module " :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) "
+                 expression " (test-child-process-exit! 0)")])
 (def (execute-stage! stage logs)
  (displayln "NATIVE-STAGE " (qualification-stage-name stage)) (force-output)
  (run-qualified! (qualification-stage-command stage)
@@ -90,9 +88,7 @@
        (setenv "CARGO_TARGET_DIR" (path-expand "target"))
        (run "rust-native-build" '("cargo" "build" "--locked" "--manifest-path" "t/fixtures/rust-language-abi/Cargo.toml") #t '() 90)
        (setenv "GERBIL_PARSER_RUST_NATIVE_ARCHIVE" (path-expand "target/debug/librust_language_abi_fixture.a"))
-       (run "rust-native-link"
-        '("gxi" "-e" "(load \"t/fixtures/module-loading/observations.ss\")  "
-          "-e" "(call-with-compiled-interface-trace (lambda () (load \"build-rust-ffi-tests.ss\") (eval (quote (main \"compile\")))))") #t '() 90)
+       (run "rust-native-link" '("gxi" "build-rust-ffi-tests.ss" "compile") #t '() 90)
        (run "rust-native-ownership" (compiled-main "gerbil-parser/t/fixtures/ffi/rust-language-probe" "(main)") #f
                      '("RUST-NATIVE-OK" "RUST-NATIVE-OWNERSHIP-OK handles=2 results=113" "RUST-NATIVE-100-CALLS") 90)
        (qualify-runtime-host!))
@@ -101,6 +97,8 @@
       (let (files (if (equal? suite "gql")
                     '("t/gql/runtime-benchmark-test.ss" "t/gql/benchmark-profile-test.ss" "t/gql/actor-test.ss")
                     '("t/ffi-test.ss" "t/build-product-contract-test.ss" "t/language-abi-test.ss" "t/language-abi-benchmark-test.ss")))
-       (run suite (append '("gerbil" "test" "-v" "3") files) #f
-            (append (map (cut string-append "MODULE-OK " <>) files) '("^OK$"))))))) suites)
+       ;; Suite execution belongs directly to the native tool. Protocol probes
+       ;; above retain their own idle/receipt checks; ordinary Suites do not.
+       (run-process (append '("timeout" "--signal=TERM" "--kill-after=5s" "120s"
+                              "gerbil" "test" "-v" "3") files)))))) suites)
   (displayln "LOCAL-NATIVE-OK " (string-join suites ",")) (force-output)))

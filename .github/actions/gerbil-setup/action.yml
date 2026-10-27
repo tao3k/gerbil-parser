@@ -40,24 +40,11 @@ runs:
         HOMEBREW_NO_AUTO_UPDATE: 1
         HOMEBREW_NO_INSTALL_CLEANUP: 1
       run: |
-        brew list --formula ghostscript >/dev/null 2>&1 && brew unlink ghostscript || true
-        brew install coreutils gcc jq openssl pkg-config sqlite zlib
+        brew install coreutils gcc jq openssl@3 pkg-config sqlite zlib
         coreutils_bin="$(brew --prefix coreutils)/libexec/gnubin"
         test -x "$coreutils_bin/timeout"
         echo "$coreutils_bin" >> "$GITHUB_PATH"
-        gcc_prefix="$(brew --prefix gcc)"
-        gcc_bin="$(
-          find "$gcc_prefix/bin" -maxdepth 1 -type f -name 'gcc-[0-9]*' \
-            | awk -F- '{print $NF "\t" $0}' \
-            | sort -n \
-            | tail -n 1 \
-            | cut -f2-
-        )"
-        test -x "$gcc_bin"
-        echo "GERBIL_GCC=$gcc_bin" >> "$GITHUB_ENV"
-        openssl_prefix="$(brew --prefix openssl@3 2>/dev/null || brew --prefix openssl)"
-        sqlite_prefix="$(brew --prefix sqlite)"
-        echo "LIBRARY_PATH=$openssl_prefix/lib:$sqlite_prefix/lib${LIBRARY_PATH:+:$LIBRARY_PATH}" >> "$GITHUB_ENV"
+        openssl_prefix="$(brew --prefix openssl@3)"
         macos_major="$(sw_vers -productVersion | cut -d. -f1)"
         echo "PKG_CONFIG_PATH=$openssl_prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" >> "$GITHUB_ENV"
         echo "MACOSX_DEPLOYMENT_TARGET=$macos_major.0" >> "$GITHUB_ENV"
@@ -85,10 +72,15 @@ runs:
         echo '${{ inputs.release-sha256 }}  '"$RUNNER_TEMP/gerbil-compiler.tar.gz" | shasum -a 256 --check
         mkdir -p "$GERBIL_RELEASE_ROOT"
         tar -xzf "$RUNNER_TEMP/gerbil-compiler.tar.gz" -C "$GERBIL_RELEASE_ROOT" --strip-components=1
+        source "$GERBIL_RELEASE_ROOT/activate"
+        # Gambit's public configure dump owns the actual native compiler binding.
+        eval "$("$GERBIL_HOME/bin/gambuild-C")"
+        command -v "$C_COMPILER" >/dev/null
         {
-          echo "GERBIL_PREFIX=$GERBIL_RELEASE_ROOT"
-          echo "GERBIL_HOME=$GERBIL_RELEASE_ROOT/current"
-          echo "GAMBOPT=~~=$GERBIL_RELEASE_ROOT/current,~~bin=$GERBIL_RELEASE_ROOT/current/bin,~~lib=$GERBIL_RELEASE_ROOT/current/lib"
+          echo "GERBIL_PREFIX=$GERBIL_PREFIX"
+          echo "GERBIL_HOME=$GERBIL_HOME"
+          echo "GAMBOPT=$GAMBOPT"
+          echo "GERBIL_GCC=$C_COMPILER"
         } >> "$GITHUB_ENV"
         echo "$GERBIL_RELEASE_ROOT/bin" >> "$GITHUB_PATH"
       shell: bash

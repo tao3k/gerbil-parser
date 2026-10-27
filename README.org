@@ -28,23 +28,30 @@ Core owns selected-source preparation, normalization and required-product
 checks; Gerbil =std/make= owns scheduling and compilation.
 
 =gerbil pkg build github.com/tao3k/gerbil-parser= uses this entry. The
-=qualify-library= recipe also invokes =build.ss= directly. Optional command,
+=qualify-library= recipe invokes the native =gerbil build= command. Optional command,
 FFI and test build entries keep their existing Gerbil declarations and compiler
 options. No Parser publication wrapper or package-input policy sits around them.
 Ordinary build completion is not a separately issued review or delivery approval.
-Qualification records actual command results and required test markers.
+Qualification records actual commands and outcomes. Native test status belongs
+to Gerbil; Parser does not parse Harness output to manufacture an exit status.
 
 The prefix-wide library snapshot, reverse-dependent/namespace policy,
 reader/writer publication barrier, separate qualified-build wrapper and copied
 conformance cache are removed together. There is no scan of all installed
 packages to manufacture Parser input ownership. Conformance preparation invokes
-the existing declared module and link owners; source-only test classification
-belongs to =scripts/test-plan.ss=. That script does not manage a cache.
+the existing declared module and link owners. Native =gerbil test= owns Suite
+discovery and execution; Core's =init.exports.tests= supplies demanded helper
+imports to =std/make=. The separate test plan and evaluator/loader mirrors are
+removed.
 
 =src/build-support= retains compiler options and the necessary native-object
 link adapter. The shared byte/text output pump is owned by existing Core Ops;
-Gerbil =run-process= retains process execution and failure propagation. No
-Gerbil/compiler source or installed toolchain is modified.
+Gerbil =run-process= retains process execution and failure propagation. Parser does not
+rewrite an installed compiler. The formal tool-entry maintenance release stays
+on the validated Gerbil2591dcd/Gambitdcd677c cohort: upstream aliases and native
+failed-Suite exit propagation replace extra tools/output-status wrappers. Its
+immutable published platform archives are selected by CI; unrelated compiler/VM
+upgrades are excluded.
 
 Two workers and the existing heap limits remain. Parser package/helper/catalog
 build entries have no 180-second cutoff; focused test, idle and failure-evidence

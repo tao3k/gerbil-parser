@@ -1,11 +1,11 @@
 #!/usr/bin/env gxi
-;;; SDK compiler owns static closure and job execution; no generated C rewriting.
+;;; Gerbil compiler owns static closure and job execution; no generated C rewriting.
 (import (only-in "./src/build-support/compiler-profile.ss" initialize-compiler-build! call-with-compiler-import-progress)
         (only-in :gerbil/compiler compile-module compile-exe execute-pending-compile-jobs!)
         (only-in :std/make pkg-config-libs)
         (only-in :std/os/fcntl __fcntl1 __fcntl2 F_GETFL F_SETFL O_NONBLOCK)
         (only-in :std/os/error do-syscall))
-;;; Compiler children inherit these descriptors; use the SDK's native OS API.
+;;; Compiler children inherit these descriptors; use Gerbil's native OS API.
 (def (blocking-standard-streams!)
   (for-each
     (lambda (fd)

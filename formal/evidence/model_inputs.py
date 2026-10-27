@@ -26,7 +26,7 @@ SHARED_INPUTS = (
     "src/schema.ss",
     "src/declarations.ss",
     "language-test-support.ss",
-    "test-processes.ss",
+    "t/research-main.ss",
     "build-language-conformance.ss",
     ".github/workflows/ci.yml",
     ".github/workflows/scheme.yml",

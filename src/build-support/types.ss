@@ -6,7 +6,7 @@
 (export BuildSupportScope BuildSupportScopeContract BuildSpecification)
 
 ;; std/make owns option/metadata semantics, including nested submodule specs.
-;; Any is retained only for that forwarded SDK-owned tail, not the source name.
+;; Any is retained only for that forwarded std/make option tail, not the source name.
 ;; Recreating its option language here would duplicate the native build system.
 (define-type BuildSpecification (List (Or String (Pair Keyword (Pair String (List Any))))))
 

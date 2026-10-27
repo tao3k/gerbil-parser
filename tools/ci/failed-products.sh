@@ -6,8 +6,8 @@ prefix="${GERBIL_PATH:-$PWD/.gerbil}"
 mkdir -p "$(dirname "$archive")"
 {
   printf 'FAILED-PRODUCTS admission=none status=%s\n' "${2:?expected failed command status}"
-  printf 'source=%s\nprefix=%s\nworkers=%s\nruntime=%s\nsdk-sha256=%s\n' \
-    "$(git rev-parse HEAD)" "$prefix" "${GERBIL_BUILD_CORES:-unset}" "${GAMBOPT:-unset}" "${GERBIL_SDK_SHA256:-unavailable}"
+  printf 'source=%s\nprefix=%s\nworkers=%s\nruntime=%s\ncompiler-sha256=%s\n' \
+    "$(git rev-parse HEAD)" "$prefix" "${GERBIL_BUILD_CORES:-unset}" "${GAMBOPT:-unset}" "${GERBIL_COMPILER_SHA256:-unavailable}"
   git status --short
   for source in "$prefix"/pkg/github.com/*/*; do
     if [ -e "$source/.git" ]; then
@@ -22,7 +22,7 @@ for name in lib bin test-lib pkg/TAGS pkg/tags; do
   if [ -e "$prefix/$name" ]; then members+=("$name"); fi
 done
 test "${#members[@]}" -gt 0
-# Exclude source checkouts/.git credentials and SDK files. Native tar retains
+# Exclude source checkouts/.git credentials and compiler distribution files. Native tar retains
 # object bytes/modes/times (and platform metadata where supported).
 # This is custody after failure, not an atomic publication or load environment.
 tar -czf "$archive" -C "$prefix" "${members[@]}"

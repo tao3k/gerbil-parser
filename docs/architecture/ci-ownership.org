@@ -13,24 +13,26 @@ GitHub Actions owns job dependencies and artifact transport.
 | Library | build.ss | Existing init-selected normalized production spec |
 | FFI fixtures | build-ffi-tests.ss | Existing C headers, actual objects, link options and ordered producer phases |
 | Research programs | build-language-conformance.ss | Declare actual program/library roots; Core package-library-spec discovers imports; Gerbil compiles and links normal products |
-| Test support | build-test-support.ss | Core for-directory/for-files discovers full native Suite support; exact std-make-spec value enters Core building/script for compilation, artifact admission and subset publication |
+| Test support | build-test-support.ss | Core discovers Suite import closure; std/build-script and std/make compile ordinary helper products in the native prefix |
 
-Research products and signed test-lib publications have different output and
-admission domains. Each has one native build entry. Combining them as a single
-superset would lose those distinctions. Both use the existing compiler host
-initializer; support does not rewrite Core's returned spec. Its own build and
-compiler-policy source files are observed inputs. No builder, signer or import
-walker is implemented in Parser.
+Each product has one existing native build entry. Core's existing build slot projects the demanded helper imports with their
+native options. The raw test-selection spec contains Suite roots and is not
+a helper build plan; it is not passed through another package closure walker.
+No Parser importer, evaluator cache, signature authority or runtime handoff is
+introduced. Native source/currentness protocols remain with Core where required
+by the product; ordinary test helper loading uses Gerbil's native prefix.
 
-Development and CI consume signed support through Core TestingScript, which
-checks source, outputs and approvals before invoking native gerbil test. The
-shared test-native command never compiles; test-all prepares its prerequisites.
-The complete test profile retains3GiB/900s. No test file starts a build or another
-test harness.
+The shared test-native command never compiles; test-all prepares prerequisites.
+It invokes gerbil test directly with recursive t/..., languages/... and
+scripts/tests/... selection, retaining3GiB/900s. Test files only declare Suites,
+Cases and Fixtures. Native process status is authoritative after the formal
+Gerbil tool-entry fix; Parser does not parse Harness output to invent a status.
+This command migration requires the rebuilt published compiler capability.
 
-FFI precedes support consumption. Research declares entry sources once, not
-transitive fixture names. Normal package import discovery covers research-only
-helpers such as provenance-language even if no native Suite imports them.
+FFI precedes support consumption. Research declares actual entry sources;
+package-library-spec discovers their imports. The conformance executable itself
+publishes its program names via --list; CI invokes each native product with its
+existing10-second bound. The extra Scheme test-process scheduler is removed.
 
 * CI consolidation
 Six consumers share one native composite action: existing compiler activation,
@@ -43,8 +45,8 @@ Case or Fixture was removed. The retired custom-loader CPU item was removed;
 native load/reload/error/observation controls remain in the full Suite entry.
 Source witness freshness, isolated macro phases, deliberate failure, process
 ownership, Rust claim selection, platform corpus and manual research have distinct
-purposes and remain. Test-lib is included in the existing complete-prefix snapshot;
-failed-product custody also retains it, without granting recovery admission.
+purposes and remain. The existing complete-prefix snapshot transports ordinary
+native helper products; transport alone does not grant product admission.
 
 * Failure controls and source epochs
 The cold package prefix failure was a HOME/configured-prefix mismatch; correct
@@ -326,3 +328,113 @@ artifacts for30s. That second failure is retained independently. The adapter
 now uses the existing compiler-profile completed-import/evaluation reporting
 inside its native compile call. No new driver, heartbeat or importer is added;
 original import errors/results and the90s/30s controls remain authoritative.
+
+* Native tool-entry correction and pending consolidation
+Gerbil distribution PR58 restores upstream unified tool aliases and makes
+failed Suites exit42 while preserving help0. Focused source controls pass:
+success0, failure42, help0, missing input70. Installed Linux/macOS controls and
+an immutable published capability remain required before current-head acceptance.
+https://github.com/tao3k/gerbil-bazel/pull/58
+
+Parser79012241 CI40539494920 passed Linux preparation, FFI, corpus and Rust.
+Darwin preparation refused empty TAGS; Linux generation and semantics refused
+module lookup inside observations.ss. The consolidation removes that wrapper,
+its implementation-mirroring tests and redundant private evaluator tests.
+Actual parser source/reload/failed-load recovery tests and FFI ownership probes
+remain. The earlier182-module run's p95 timing refusal remains open and unchanged.
+Local command/reader/spec checks are not complete Harness or restored acceptance.
+
+The first ordinary-helper experiment incorrectly fed raw Suite demand through
+package-library-spec. It attempted to compile t/antlr4-source-test and exhausted
+the unchanged2GiB heap. That failed experiment is retained, not retried unchanged.
+The corrected entry reads Core's already-projected build.spec, eliminating that
+second closure walker and production-target enumeration. Compiler stream zero/
+multiple values, exceptions and actual module recovery controls remain required.
+
+The superseded main-based PR58 carrier's Linux full build failed before Gerbil,
+at Gambit7c490c3 _num.c generation: define-prim cannot inline ##fxzero?. The
+same error occurs on unmodified distribution main9b5900d CI38038915449.
+This is an independent source baseline blocker; no compiler/Gambit algorithm
+change or revision fallback is included in the tool-entry authorization.
+The new immutable compiler capability and Parser native negative exit gate
+therefore remain open. Focused source-entry checks are not called release CI.
+
+The Core-projected ordinary-helper compile exits0 with two workers/2GiB.
+Three focused native Suites pass: module-loading, compiler-process and
+qualification-plans, with complete native Harness success and no errors.
+An earlier compiler-profile Case used unconfigured default gcc and failed;
+explicit GERBIL_GCC=/opt/homebrew/bin/gcc-16 aligns the real CI provider.
+Both logs are retained. No source assertion, heap, duration or negative control
+was relaxed. This is focused current-source evidence, not full or restored CI.
+
+* Current maintenance cohort and native entry cleanup
+The user selected the original validated compiler cohort. PR58 now targets
+release/v0.19-2591dcd based on the original published distributione5296bf8.
+Corrected producer7e1ddc4 keeps Gerbil2591dcd and native Gambitdcd677c,
+original platform flags/runtime patches and the original self-build memory policy.
+It fixes capacity at two workers, removes extra AOT tool construction and
+propagates the native test result from the getopt execution callback. Parser
+package compilation remains2GiB and complete tests remain3GiB. The original
+publication workflow validates installed and relocated commands before publishing.
+Linux40559760040 passed the full source build, six upstream runtime modules,
+native entry controls and relocated controls. Downloaded immutable archive bytes
+verify SHA25688d08d3d10e297164191a9b31ee309d215a01727877c9e1c19b0d7dc737a5744;
+the delivered receipt confirms the original compiler/VM and configure arguments.
+Darwin40559766825 also passed installed/relocated controls and immutable
+publication. Downloaded Darwin bytes verify SHA256
+c53d62f26ff382f8956576963edc3eb9193098dc48de78d44b8a3df63636bd18.
+Both platform compiler publications passed; Parser cold/restored qualification
+remains required. Earlier7c490 failures describe the
+superseded repair carrier, not this cohort.
+The older distribution consumer CI fails because its f0badc7 release and bottle
+URLs return404; that configuration must select the verified maintenance assets.
+
+Parser activates the published package's own activate file and reads the real
+C_COMPILER from Gambit's configure dump. It does not scan installed GCC names
+or reconstruct compiler runtime options. OpenSSL3 is explicit; no Ghostscript
+unlink, default-OpenSSL fallback or ambient LIBRARY_PATH override remains.
+Existing std/make owners supply link inputs. Native gerbil build independently
+returns0 for a real valid module and70 for syntax failure. An initial nonexecutable
+fixture refusal is preserved; the successful control fixed only that fixture's
+required executable mode, not the compiler or build policy.
+
+The formal evidence collector no longer wraps package construction in a240s
+qualifier. Only scheme-build preparation may omit deadline/markers; it records
+native exit and unchanged inputs without claiming semantics. Runtime, model and
+performance checks retain their deadlines/markers. Four host observation controls,
+six input-discovery controls and source/product drift controls pass. Full native
+qualification still requires the maintenance compiler and current-source CI.
+
+The first maintenance publisher candidatefb265 incorrectly applied the Parser
+heap ceiling to Gerbil self-build. Linux passed Gambit/bootstrap/stage1 then
+failed stdlib; logs and source ZIP are retained. Corrected7e1ddc4 removes that
+extra source/build-option patch and restores the original producer policy.
+Parser compilation2GiB, tests3GiB and two workers remain unchanged. Darwin's
+wrong-scope run was cancelled before publication. The corrected producer passed both platform publications; no old result is
+borrowed as current Parser qualification.
+
+* Remaining project adapters and their boundary
+| Retained owner | Project-specific reason | Framework responsibility |
+|----------------+-------------------------+--------------------------|
+| compiler-profile | Native host options and forwarding actual compiler work diagnostics | Gerbil compiles; Core drains process streams; no importer or preloader is recreated |
+| FFI build phases | C/ABI producers must exist before entry and consumer compilation; the cold missing-header failure is preserved | Each phase uses std/build-script/std/make; no parallel target catalog or test executor |
+| runtime qualification | Actual runtime/FFI failure, idle and ownership controls | Native process tools and existing protocol deadlines; ordinary Suite/build commands are not supervised here |
+| failed-products.sh | Requested custody of failed project objects and context | Native tar and hashes; admission=none; no compiler environment or identity credential |
+| CI composite actions | Reuse compiler activation and transport the current run's exact products | Delivered activate/configure dump and native tar; Core independently admits products |
+
+The hardcoded macOS SDK mapping baseline and sdk-load-diagnostics.sh are removed.
+They checked one old module, added a separate signature gate, and referenced the
+obsolete gerbil-sdk.tar.gz name. Gerbil/the OS own actual loading and its failure;
+archive checksums, native logs and failed-product custody remain. Compiler digest
+metadata is named GERBIL_COMPILER_SHA256 and is displayed only, not minted as a
+project identity. No replacement preflight, status parser or loader is introduced.
+
+The optional source-performance executor is also retired. Its recursive custom
+source digest, temporary namespace symlink, test catalog and parsed Harness
+approval duplicated existing source/native responsibilities. The development
+recipe selects the same8 unchanged performance Suite files and invokes native
+gerbil test with the original1GiB/120s per-Suite envelope and source-parent path.
+No Suite, numeric performance assertion or runtime/FFI negative control is removed.
+There is no synthetic PERFORMANCE-SOURCE-OK verdict. Protocol probes retain idle
+checks; ordinary Suite calls in local plans and the evidence collector now use
+the native tool directly. Core continues to own demanded source/currentness.

@@ -101,14 +101,14 @@ jobs:
             gerbil-label: release-v0.19-2591dcd
             release-os: linux
             release-arch: x86_64
-            release-tag: gerbil-v0.19-2591dcd9b7c6d2c4e9dd8611a17c5b1a5d82bbdb-linux-x86_64-portable-full-single-host-unlimited-patchf5cedd8168cb
-            release-sha256: 9844ba362fdf6f1c5e8a4411e462a466d52dee0d541f8e84f61091cec0e5e740
+            release-tag: gerbil-v0.19-2591dcd9b7c6d2c4e9dd8611a17c5b1a5d82bbdb-linux-x86_64-portable-full-single-host-unlimited-patche35312b4a951
+            release-sha256: 88d08d3d10e297164191a9b31ee309d215a01727877c9e1c19b0d7dc737a5744
           - os: macos-latest
             gerbil-label: release-v0.19-2591dcd
             release-os: darwin
             release-arch: aarch64
-            release-tag: gerbil-v0.19-2591dcd9b7c6d2c4e9dd8611a17c5b1a5d82bbdb-darwin-aarch64-gcc16-arm64-aot-tools-single-host-unlimited-patchf5cedd8168cb
-            release-sha256: 8d9c88434aed6301eaebb719bf52472f05c2368eafc630e8a9f1d67cc9895a21
+            release-tag: gerbil-v0.19-2591dcd9b7c6d2c4e9dd8611a17c5b1a5d82bbdb-darwin-aarch64-gcc16-arm64-single-host-unlimited-patche35312b4a951
+            release-sha256: c53d62f26ff382f8956576963edc3eb9193098dc48de78d44b8a3df63636bd18
     uses: ./.github/workflows/scheme.yml
     with:
       os: ${{ matrix.os }}

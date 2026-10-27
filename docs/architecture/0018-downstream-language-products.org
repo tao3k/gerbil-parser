@@ -867,8 +867,9 @@ Direct =test-suite.ss t languages= still qualifies all source owners. The source
 interface cleanup remains necessary for shared fixture imports, while fully covered
 modules are no longer prepared or executed as direct source test owners.
 
-=gxi scripts/tests/test-plan-test.ss= validates owner and Suite coverage, including
-omission and repetition controls. =gxi test-processes.ss conformance= exercises
+The test-plan and test-processes commands described in this historical protocol
+are retired. Native =gerbil test= now owns discovery/execution; the recorded
+omission and repetition experiment exercised
 the actual production runner functions for caller thread ownership, duplicate Suite
 objects, assertion failure and completion timeout. Diagnostic runtimes use the same
 3 GiB heap budget as the shared source test runtime.

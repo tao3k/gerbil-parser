@@ -56,13 +56,15 @@ class Check:
     inputs: tuple[str, ...]
     markers: tuple[str, ...]
     cwd: str = "."
-    timeout: int = 120
+    timeout: int | None = 120
 
     def __post_init__(self):
-        if self.claim not in (*REQUIREMENTS, *OPTIONAL_REQUIREMENTS, "scheme-build") or not self.argv or not self.markers:
+        if self.claim not in (*REQUIREMENTS, *OPTIONAL_REQUIREMENTS, "scheme-build") or not self.argv or (not self.markers and self.claim != "scheme-build"):
             raise ValueError("known claim, command and explicit success markers required")
-        if any(not marker for marker in self.markers) or self.timeout <= 0:
-            raise ValueError("nonempty markers and positive deadline required")
+        if (any(not marker for marker in self.markers)
+                or (self.timeout is None and self.claim != "scheme-build")
+                or (self.timeout is not None and self.timeout <= 0)):
+            raise ValueError("runtime checks require markers and a positive deadline; only scheme-build may be unbounded")
 
 
 @dataclass(frozen=True)

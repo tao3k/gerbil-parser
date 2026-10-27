@@ -494,15 +494,12 @@ test-build-product-contract output load_path:
 
 # Compiled Fixture/Suite helpers share the same native dependency graph. Rebuild
 # them before discovery so renamed source imports cannot replay old products.
-test-all: build-qualification build-test-support
-    #!/usr/bin/env bash
-    set -euo pipefail
-    mkdir -p .gerbil/test-results
-    output_file="$(mktemp .gerbil/test-results/all.XXXXXX)"
-    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=3G,debug=q" GERBIL_LOADPATH="${GERBIL_PATH:-$PWD/.gerbil}/lib:$PWD/.." gerbil test -v 3 t/... languages/... 2>&1 | tee "$output_file"
-    if grep -E 'ERROR (CHECK|CASE|HARNESS|MODULE)|Heap overflow|Stack overflow' "$output_file" >/dev/null; then exit 1; fi
-    grep -F 'HARNESS-OK' "$output_file" >/dev/null
-    grep -Fx 'OK' "$output_file" >/dev/null
+test-all: build-qualification build-test-support test-native
+
+# Consume Core's already-issued source/support association. Core launches the
+# original Gerbil Harness; this recipe creates neither a compiler nor a runner.
+test-native:
+    gerbil env gxi -:max-heap=2G,debug=q -e '(begin (import :clan/poo/object (only-in "./build-test-support.ss" test-support-source)) (def source (test-support-source)) (def native (.get source execution)) (def profile (.cc (.get native profile) heap-limit-bytes: 3221225472 max-duration-milliseconds: 900000)) (def result (.call (.cc native profile: profile idle-timeout: #f log: ".data/native-gerbil-test.log") .run)) (display (.get result output)))'
 
 # All contracts execute from current source; every suite has a hard deadline.
 test-performance-before-compile: build-qualification

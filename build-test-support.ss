@@ -5,7 +5,7 @@
         (only-in "./src/build-support/compiler-profile.ss" initialize-compiler-build!))
 (import (only-in :clan/poo/object .get .call)
         (only-in "./init.ss" gerbil-parser.init.exports))
-(export shared-test-build-spec main)
+(export test-support-source shared-test-build-spec main)
 
 ;; Init owns discovery, native import closure and source currentness. This is
 ;; exactly the same native Suite roster as gerbil test t/... languages/... .

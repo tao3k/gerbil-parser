@@ -241,12 +241,7 @@ jobs:
               t/fixtures/test-macro-phase/author-controls.ss
       - name: Run Scheme tests
         timeout-minutes: 15
-        run: |
-          GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD/.." \
-            GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=3G,debug=q" GERBIL_PARSER_LR_TRACE=1 \
-            gerbil env gxi qualify.ss run --timeout 900 \
-              --log .data/native-gerbil-test.log --require "^OK$" -- \
-              gerbil test -v 3 t/... languages/...
+        run: just test-native
       - name: Verify native command
         run: |
           gerbil env gparse help

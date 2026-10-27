@@ -50,7 +50,6 @@
                   "scripts/tests/history-commit-test.ss"
                   "scripts/generate-source-parser.ss"
                   "scripts/generate-reductions.ss"
-                  "scripts/test-plan.ss"
                   "scripts/tests/test-plan-test.ss"
                   "build-test-driver.ss"
                   "build-test-support.ss"

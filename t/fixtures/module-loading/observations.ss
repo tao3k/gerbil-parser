@@ -8,9 +8,14 @@
     (parameterize ((current-expander-module-import
       (lambda (path reload?)
         (displayln "INTERFACE-IMPORT " path) (force-output)
-        (let (context (importer path reload?))
-          (displayln "INTERFACE-IMPORTED " path) (force-output)
-          context))))
+        (with-catch
+          (lambda (exception)
+            (displayln "INTERFACE-IMPORT-FAILED " path) (force-output)
+            (raise exception))
+          (lambda ()
+            (let (context (importer path reload?))
+              (displayln "INTERFACE-IMPORTED " path) (force-output)
+              context))))))
       (thunk))))
 
 (def (evaluate-observed-module module evaluate)

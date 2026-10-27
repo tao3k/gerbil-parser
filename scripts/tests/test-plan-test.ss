@@ -1,14 +1,17 @@
-;;; Suite declarations only; the development command invokes gerbil test.
-(import :std/test)
-(include "../test-plan.ss")
+;;; Native test discovery is owned by init/Core; this Suite launches no runner.
+(import :std/test
+        (only-in :clan/poo/object .get .call)
+        (only-in "../../init.ss" gerbil-parser.init.exports))
 (export test-plan-test)
 (def test-plan-test
-  (test-suite "native test build selection"
-    (test-case "test modules remain source Suite inputs"
-      (check (conformance-source-only? "t/a-test") => #t)
-      (check (and (conformance-source-only? "t/research-main") #t) => #t)
-      (check (conformance-source-only? "t/helper") => #f))
-    (test-case "declared conformance Suites exist without a private executor"
-      (let (files (conformance-covered-test-files))
+  (test-suite "Core-owned native test selection"
+    (test-case "native directories retain actual Suite inputs"
+      (let* ((tests (.get gerbil-parser.init.exports tests))
+             (files (append (.get (.call tests .for-directory "t") spec)
+                            (.get (.call tests .for-directory "languages") spec))))
         (check (> (length files) 0) => #t)
-        (for-each (lambda (file) (check (file-exists? file) => #t)) files)))))
+        (for-each (lambda (file)
+                    (check (file-exists? file) => #t)
+                    (check (string-suffix? "-test.ss" file) => #t)) files)
+        (check (and (member (path-expand "t/native-function-boundary-test.ss") files) #t) => #t)
+        (check (and (member (path-expand "languages/arithmetic/parser-test.ss") files) #t) => #t)))))

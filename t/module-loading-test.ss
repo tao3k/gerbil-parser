@@ -4,7 +4,9 @@
                  with-module-file with-runtime-file write-program write-datum)
         (only-in :gerbil-parser/src/language/module-input language-module-descriptor)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-language)
-        (only-in :gerbil-parser/src/ffi/rust-runtime-aot rust-runtime-source))
+        (only-in :gerbil-parser/src/ffi/rust-runtime-aot rust-runtime-source)
+        (only-in :yuanxu/module-system/source/admission
+                 call-with-module-source-read-cache module-source-read))
 (include "fixtures/module-loading/observations.ss")
 
 (def write-grammar
@@ -72,8 +74,19 @@
              (call-with-output-file ,file (lambda (port) (write ',replacement port)))
              (def grammar (make-language-grammar +language-grammar-schema+
                            "before" "v1" "loader.test.v1" #f #f #f #f)))))
-        (raises (language-module-descriptor file) (lambda (_) #t))
+        (raises
+          (call-with-module-source-read-cache
+            (lambda () (module-source-read file) (language-module-descriptor file)))
+          (lambda (_) #t))
         (equal (language-grammar-language (language-module-descriptor file)) "after"))))
+  (scenario "unchanged failed initialization and selector errors retain native state"
+    (using (with-module-file ".ss") (file)
+      (act (write-program file write-datum '(begin (export grammar) (error "one native failure"))))
+      (scope ((first (with-catch values (lambda () (language-module-descriptor file) #f))))
+        (equal (and first #t) #t)
+        (equal (eq? first (with-catch values (lambda () (language-module-descriptor file) #f))) #t))
+      (act (write-program file write-grammar "repaired"))
+      (equal (language-grammar-language (language-module-descriptor file)) "repaired")))
   (scenario "same-size DSL edits invalidate Rust generation"
     (using (with-module-file ".ss") (file)
       (act (write-program file write-syntax "!"))

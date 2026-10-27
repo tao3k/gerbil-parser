@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Real callbacks cross native Function boundaries, including nested results.
 (import :gerbil-parser/language-test-support
-        (only-in :clan/poo/object .o .cc .ref)
+        (only-in :clan/poo/object .o .cc .ref .get .call)
+        (only-in "../init.ss" gerbil-parser.init.exports)
         (only-in :clan/poo/mop validate TypeError? define-type Type. element?)
         (only-in :clan/poo/type Record Symbol String OrFalse)
         (only-in :gerbil-parser/graph-query-support
@@ -15,7 +16,6 @@
 (define-type (ScannerContext @ Type.)
   .element?: (lambda (v) (and (scanner-context? v) (element? String (scanner-context-label v)))))
 (def GraphRow (Record id: [Symbol] parent: [(OrFalse Symbol)] kind: [Symbol]))
-(include "../scripts/test-plan.ss")
 (deflanguage-parser-tests native-function-boundary-test "native parser Function boundaries"
   (engine)
     (scenario "graph admission retains checked callbacks and never executes them"
@@ -125,5 +125,5 @@
         (raises ((validate ActionSelectorFactory (lambda _ 42)) '#() '#() #f #f)
                 TypeError?)))
     (property "native conformance selection retains the boundary Suite"
-      (bindings (covered (conformance-covered-test-files)))
-      (equal (and (member "t/native-function-boundary-test.ss" covered) #t) #t)))
+      (bindings (covered (.get (.call (.get gerbil-parser.init.exports tests) .for-directory "t") spec)))
+      (equal (and (member (path-expand "t/native-function-boundary-test.ss") covered) #t) #t)))

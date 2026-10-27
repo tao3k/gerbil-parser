@@ -2,13 +2,16 @@
 (import :gerbil/expander
         (only-in ./descriptor language-grammar?)
         (only-in :yuanxu/module-system/source/admission
-                 module-source-read module-source-admit-current!))
+                 module-source-read module-source-admit-current!
+                 call-with-module-source-fresh-reads))
 (export language-module-descriptor)
-;; Track source identity only; contexts and evaluation stay SDK-owned.
+;; Last attempted bytes select official reload only. This table stores no
+;; context, descriptor, loaded-state, exception or admission verdict.
 (def source-observations (make-hash-table))
 ;; File inputs re-admit changed content, including same-size/same-time edits.
 ;; Library inputs use the SDK snapshot; explicit reload is not recursive.
 (def (language-module-descriptor input reload?: (reload? #f))
+ (call-with-module-source-fresh-reads (lambda ()
  (unless (and (string? input) (positive? (string-length input)))
   (error "language build input requires a module path" input))
  (let* ((split (let loop ((at 0))
@@ -24,11 +27,11 @@
          (changed? (and observed (not (equal? observed (hash-get source-observations canonical)))))
          (context
           (begin
-            ;; Official reload replaces the context before evaluation. A failed
-            ;; replacement must not leave a historical identity admitting it.
-            (when observed (module-source-admit-current! (list observed)))
-            (when (and file? (or reload? changed?))
-              (hash-remove! source-observations canonical))
+            ;; Core rechecks bytes across effects. Gerbil alone caches a failed
+            ;; initializer; the same bytes must not trigger speculative retries.
+            (when observed
+              (module-source-admit-current! (list observed))
+              (hash-put! source-observations canonical observed))
             (import-module
              (if (char=? (string-ref path 0) #\:) (string->symbol path) path)
              (or reload? changed?) #t)))
@@ -42,8 +45,6 @@
            (module-context-export context))))
    (unless (= (length descriptors) 1)
     (error "language build input must select exactly one descriptor" input (length descriptors)))
-   ;; Commit only after evaluation and descriptor selection succeed.
-   (when observed
-     (module-source-admit-current! (list observed))
-     (hash-put! source-observations canonical observed))
-   (car descriptors))))
+   ;; An initializer cannot make its historical input pass current admission.
+   (when observed (module-source-admit-current! (list observed)))
+   (car descriptors))))))

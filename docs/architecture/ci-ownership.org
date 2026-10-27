@@ -249,3 +249,17 @@ selects /usr/bin for Homebrew collect2 on Darwin unless the caller explicitly
 sets COMPILER_PATH. The shared ABI entry now calls that same initializer before
 compilation. There is no new linker resolver or altered SDK. The original
 native-shared-pkg-config failure log is retained independently of OpenSSL.
+
+The synchronized responsibility view is [[file:ci-ownership.d2][CI ownership and heap scope]].
+
+* Local indexing receipt limitation
+The final native installation on Core86d2b9a/POOc0d4763 returned0 without a
+format override. Its TAGS output was empty, so this is not a valid-index receipt.
+A single-file control preserves the distinction: the installed standalone
+ gxtags executable skips POO object.ss with either relative or absolute paths;
+ gxi calling the same tool's public module entry tags it and emits about17KiB.
+These are diagnostics only. The public module call is not substituted into
+package installation. Fresh portable CI remains an independent required check;
+the local standalone/module behavior difference is unresolved and cannot be
+hidden behind the successful package-manager exit status. No compiler source or
+installed executable was edited.

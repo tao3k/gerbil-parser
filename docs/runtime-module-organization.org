@@ -60,7 +60,8 @@ synthetic heartbeat or an initializer-failure exemption.
 
 * Public language and declaration entry
 
-The package selects =prelude: :tao3k/yuanxu/prelude= in =gerbil.pkg=.
+The package selects its own =prelude: :tao3k/parser/prelude= in =gerbil.pkg=,
+whose base is =:tao3k/yuanxu/prelude=.
 =init.ss= invokes the public =yuanxu!= declaration supplied by that prelude;
 consumers do not import =module-system/selection/init-syntax= directly.
 The prelude provides the shared Gerbil/POO language and a deferred declaration
@@ -76,3 +77,32 @@ The separate language-source-contract Suite could not load its test benchmark,
 which requires the independently declared ASP development dependency; that
 attempt is not counted as a pass. Full development/benchmark and remote CI
 qualification remain separate gates.
+
+* Product language and reviewed downstream interfaces
+
+The Parser prelude owns the Parser language entry. It inherits Yuanxu's common
+Gerbil/POO/Module declaration surface and exposes =deflanguage=,
+=defgrammar-syntax= and =deftext-profile= through deferred native imports.
+Declaring a grammar keeps the caller's source and lexical context; ordinary
+prelude import initializes neither Parser engines nor the Module System.
+
+Runtime products are imported through =artifact-support=, =text-support=,
+=source-line-support=, =graph-projection-support= and =graph-query-support=.
+The immutable Fold program protocol uses =event-fold-program-support=;
+generation and compilation use =language-build-support= and
+=rust-syntax-support=. Tests use =language-test-support=. =only-in= still
+selects the required names. Downstream code does not depend on =src/= paths.
+
+Pure text functions now have one implementation in =text-support.ss=.
+Rust lowering imports those same functions rather than owning runtime text
+behavior. This keeps a runtime text import from initializing compiler modules.
+Existing published roots discover these interfaces through the native import
+closure; no extra hand-maintained source catalog is added.
+
+The product-entry candidate completed native build within 2 GiB/600 seconds,
+including the owned =tao3k/parser/prelude= products. Its public-interface,
+runtime, graph-query and source-grammar Suites passed 22 cases in 4 Suites
+within 1 GiB/120 seconds. The three new controls run independent consumers:
+ordinary prelude import plus inherited macro phases, an actual grammar using
+the deferred public declarations, and pure text behavior without compiler
+initialization. These are local installed-SDK results, not full remote CI.

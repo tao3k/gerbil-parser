@@ -1,6 +1,7 @@
 ;;; Stable library boundary for grammar authors and downstream bindings.
 
-(import ./grammar/algebra
+(import ../source-line-support
+        ./grammar/algebra
         ./grammar/lexical-algebra
         ./declarations
         ./language/descriptor
@@ -10,14 +11,15 @@
         ./compiler/bound-ir
         ./compiler/parser-ir
         ./runtime/machine
-        ./runtime/artifact
+        ../artifact-support
         ./runtime/cst
         ./runtime/token
         ./runtime/lexer
         ./runtime/incremental
         ./runtime/recovery
         ./runtime/parser)
-(export (import: ./grammar/algebra)
+(export (import: ../source-line-support)
+        (import: ./grammar/algebra)
         (import: ./grammar/lexical-algebra)
         (import: ./declarations)
         (import: ./language/descriptor)
@@ -27,7 +29,7 @@
         (import: ./compiler/bound-ir)
         (import: ./compiler/parser-ir)
         (import: ./runtime/machine)
-        (import: ./runtime/artifact)
+        (import: ../artifact-support)
         (import: ./runtime/cst)
         (import: ./runtime/token)
         (import: ./runtime/lexer)

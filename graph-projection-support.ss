@@ -13,3 +13,9 @@
         graph-projection?
         graph-projection-digest
         generate-graph-projection-runtime-module)
+
+(import (only-in ./src/graph/graph-projection-objects
+                 graph-projection-nodes graph-node-syntax-kind graph-node-category
+                 graph-node-label graph-node-fields graph-field-token graph-field-name graph-field-mode))
+(export graph-projection-nodes graph-node-syntax-kind graph-node-category
+        graph-node-label graph-node-fields graph-field-token graph-field-name graph-field-mode)

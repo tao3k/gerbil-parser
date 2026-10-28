@@ -10,3 +10,12 @@
         RustRuntimeStrategy. RustRuntimeStrategyContract make-rust-runtime-strategy
         FusedReductionStrategy. FusedReductionStrategyContract make-fused-reduction-strategy
         declare-language-build-strategy emit-language-build-strategy)
+
+;;; Explicit compiler services are separate from request and value protocols.
+(import (only-in ./event-fold-program-support prepare-event-fold-program)
+        (only-in ./src/compiler/event-fold-scheme-modules event-fold-scheme-module-sources)
+        (only-in ./src/compiler/event-fold-scheme-build compile-event-fold-scheme-units)
+        (only-in ./src/build-support/compiler-profile initialize-compiler-build! run-build-tool)
+        (only-in ./src/runtime/machine parser-machine-grammar-digest))
+(export prepare-event-fold-program event-fold-scheme-module-sources
+        compile-event-fold-scheme-units initialize-compiler-build! run-build-tool parser-machine-grammar-digest)

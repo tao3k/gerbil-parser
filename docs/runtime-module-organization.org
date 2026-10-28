@@ -57,3 +57,22 @@ and interface admission, with the original static imports and control bodies
 unchanged. The controls passed locally in 9.75 seconds, retaining a five-second
 idle limit, 90-second total limit and one-GiB heap. Interface tracing is not a
 synthetic heartbeat or an initializer-failure exemption.
+
+* Public language and declaration entry
+
+The package selects =prelude: :tao3k/yuanxu/prelude= in =gerbil.pkg=.
+=init.ss= invokes the public =yuanxu!= declaration supplied by that prelude;
+consumers do not import =module-system/selection/init-syntax= directly.
+The prelude provides the shared Gerbil/POO language and a deferred declaration
+entry, while Yuanxu retains selection, source admission and native build
+ownership. Importing the prelude alone does not load Parser subsystems or
+execute a generator. Parser runtime and grammar APIs keep their existing module
+identities; the prelude does not reexport the entire parsing engine.
+
+The shared-prelude candidate completed native =gerbil build --optimized= with
+2 GiB/600 seconds on the installed macOS ARM64 SDK. Native runtime,
+graph-query and source-grammar Suites passed 19 cases under 1 GiB/120 seconds.
+The separate language-source-contract Suite could not load its test benchmark,
+which requires the independently declared ASP development dependency; that
+attempt is not counted as a pass. Full development/benchmark and remote CI
+qualification remain separate gates.

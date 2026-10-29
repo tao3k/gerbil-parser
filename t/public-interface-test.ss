@@ -5,7 +5,7 @@
         (only-in :std/misc/ports read-all-as-string))
 (export public-interface-test)
 (def (output-of code)
-  (run-process (list "gxi" "-:max-heap=1G,debug=q" "-e" (object->string code))
+  (run-process (list "gxi" "-:max-heap=2G,debug=q" "-e" (object->string code))
     stdout-redirection: #t coprocess: read-all-as-string))
 (def (fixture file)
   (path-expand (string-append "fixtures/parser-prelude/" file)
@@ -37,6 +37,25 @@
                         (error "Runtime loaded the retired API umbrella"))
                       (displayln "PUBLIC-RUNTIME-OK"))))
       (check-equal? (and (string-contains output "PUBLIC-RUNTIME-OK") #t) #t))
+    (test-case "native compiler capabilities do not construct the strategy catalogue"
+      (def output
+        (output-of '(begin
+                      (import (only-in :gerbil-parser/compiler-build-support
+                                       initialize-compiler-build! run-build-tool)
+                              (only-in :gerbil-parser/event-fold-build-support
+                                       event-fold-scheme-module-sources compile-event-fold-scheme-units))
+                      (unless (and (procedure? initialize-compiler-build!)
+                                   (procedure? run-build-tool)
+                                   (procedure? event-fold-scheme-module-sources)
+                                   (procedure? compile-event-fold-scheme-units))
+                        (error "native compiler capability changed"))
+                      (when (ormap (lambda (owner) (assoc owner (list-modules)))
+                                   '("gerbil-parser/src/compiler/build-strategy~0"
+                                     "gerbil-parser/src/compiler/runtime-strategy~0"
+                                     "gerbil-parser/language-support/development~0"))
+                        (error "native compiler capability loaded unrelated strategies"))
+                      (displayln "PUBLIC-NATIVE-COMPILER-OK"))))
+      (check-equal? (and (string-contains output "PUBLIC-NATIVE-COMPILER-OK") #t) #t))
     (test-case "public text values do not initialize a compiler"
       (def output
         (output-of '(begin

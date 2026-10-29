@@ -9,6 +9,8 @@
                      "src/compiler/contextual-parser-ir"
                      "src/compiler/decision-code"
                      "language-build-support"
+                     "compiler-build-support"
+                     "event-fold-build-support"
                      "rust-runtime-support"
                      "line-structure-support"
                      "graph-projection-support")))

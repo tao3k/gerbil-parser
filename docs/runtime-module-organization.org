@@ -106,3 +106,29 @@ within 1 GiB/120 seconds. The three new controls run independent consumers:
 ordinary prelude import plus inherited macro phases, an actual grammar using
 the deferred public declarations, and pure text behavior without compiler
 initialization. These are local installed-SDK results, not full remote CI.
+
+* CI macro hygiene repair (2026-10-29)
+
+At =8e9f83c=, CI run =40738830265= refused three public prelude
+transformers under =asp-strict-v1=. Each transformer passed a raw symbol to
+its shared lowering helper, leaving no syntax-context evidence in its own
+parser-owned MacroFact. The public wrappers now pass syntax identifiers;
+the helper projects their names only when forming the native import prefix.
+The existing caller scope, source location, lazy import and DSL owner remain.
+No macro profile, severity, exclusion or admission rule changes.
+
+Local native rebuild succeeds. The public-interface Suite executes three
+Cases with final =MODULE-OK=, =HARNESS-OK= and =OK= under 1 GiB/120 seconds.
+The original development entry, with pinned ASP =3054db6=, reports
+=COMPLETE findings=614 errors=0= and =PARSER-BUILD-CATALOG-OK=, then completes
+its existing native development build. A preceding separate catalog attempt
+expired at 120 seconds without a receipt; it is not counted as a pass.
+
+The macOS preparation failure is independent: the fixed SDK's standalone
+=gxtags= returns =SKIP= and creates an empty index even for a dependency-free
+source containing =(export answer) (def answer 42)=. The same SDK's official
+=gerbil tags= generates a nonempty index for that source. Its package manager
+invokes the standalone tool. The existing nonempty dependency-index gate
+remains required. A newer official SDK =e35312b4a951= restores the multicall
+symlink, but local startup diagnostics expire and do not qualify an SDK pin
+change. This repair does not claim full or remote CI acceptance.

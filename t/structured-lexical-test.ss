@@ -1,28 +1,13 @@
 (import :gerbil-parser/language-test-support)
-(import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; Real language profiles and an independently generated portable grammar.
 (import :std/test
-        (only-in :gerbil-parser/language-support deflanguage)
-        (only-in :gerbil-parser/languages/tla-plus/grammar
-                 tla-proof-start tla-proof-reference tla-identifier)
+        (only-in :gerbil-parser/t/fixtures/structured-lexical
+                 structured-lexical-language-grammar)
         (only-in :gerbil-parser/languages/tla-plus/parser tla-plus-sany-candidate-language-grammar)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-ir)
         (only-in :gerbil-parser/src/runtime/scan make-text-profile-scanner)
         (only-in :gerbil-parser/src/grammar/lexical-algebra text-profile?)
         (only-in "structured-lexical-cases.ss" structured-lexical-cases))
-(export  structured-lexical-language-grammar)
-(begin
- (deflanguage structured-lexical
-  (syntax
-   (lexical
-    (root entry)
-    (lex (space Space (whitespace+))
-      (identifier Identifier (text-profile (ref tla-identifier)))
-      (proof-step-name ProofStep (text-profile (ref tla-proof-start)))
-      (proof-reference ProofReference (text-profile (ref tla-proof-reference))))
-    (extras space)))
-  (rules (entry (node Entry (choice identifier proof-step-name proof-reference)))))
- (bind-fixture-grammar-release structured-lexical "structured-lexical" "v1" "structured-lexical.v1") )
 (deflanguage-parser-tests structured-lexical-test "portable structured lexical IR"
   (engine)
   (scenario "real TLA+ rules use closed IR and character endpoints at arbitrary offsets"

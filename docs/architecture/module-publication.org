@@ -62,3 +62,17 @@ Optional Config binding does not mean an empty admitted source role. Each Config
 now declares =(export)=, matching Core's existing source-admission control, and
 publishes no setting or prototype alias. This correction preserves the pinned
 Core contract and requires no upstream change.
+
+* Shared lexical declaration ownership
+The structured lexical generator imports its actual grammar fixture, rather than
+a TestSuite module. Native test publication supplies Suite metadata for interpreted
+execution; it does not promise a compiled Suite runtime. The grammar declaration
+therefore belongs to t/fixtures/structured-lexical.ss, consumed directly by both
+the original Suite and Rust generator. No second declaration or re-export remains.
+
+The original two lexical Cases pass through gerbil test, including malformed
+classes, empty spans, nullable children and arbitrary offsets. The case corpus
+and checked-in Rust output are unchanged. Local generation under the original
+90-second total and five-second idle limits still fails the idle gate before
+the generated receipt; this is not a regeneration pass. Remote exact-head
+generation must confirm the unchanged rustfmt/cmp checks.

@@ -1,6 +1,6 @@
 #!/usr/bin/env gxi
 (import (only-in :gerbil-parser/src/compiler/rust-runtime language-rust-runtime-module-source)
-        (only-in :gerbil-parser/t/structured-lexical-test structured-lexical-language-grammar)
+        (only-in :gerbil-parser/t/fixtures/structured-lexical structured-lexical-language-grammar)
         (only-in "structured-lexical-cases.ss" structured-lexical-cases))
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!))
 (def (main output)

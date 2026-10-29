@@ -19,10 +19,9 @@
 ;; Host compiler policy is process-local; Core and Gerbil own ordinary package recovery.
 (parameterize ((current-output-port (current-error-port)))
   (initialize-compiler-build!))
-;; Bound retained Gerbil expansion state independently of Gerbil's Gambit/C
-;; executor. Respect a smaller configured budget, including serial builds.
+;; Native resource admission owns concurrency for this machine.
+;; Preserve explicit caller limits without a package-local worker ceiling.
 ;; Import/expansion diagnostics are not part of the standard spec/meta datum.
 (defbuild-script
-  (parameterize ((current-output-port (current-error-port))) (modules-spec '()))
-  parallelize: (min 2 (string->number (getenv "GERBIL_BUILD_CORES" "0"))))
+  (parameterize ((current-output-port (current-error-port))) (modules-spec '())))
 (export main)

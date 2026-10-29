@@ -706,6 +706,8 @@ integer is insufficient to represent that publication.
 Execution APIs have one source owner: =src/runtime/machine.ss=,
 =src/runtime/lexical-expression.ss= and =src/runtime/lexical-lexer.ss=. The old
 compiler forwarding files are removed; actual consumers and emitted imports
-use the runtime identities. =src/api.ss= remains the broad supported library
-surface, while =src/declarations.ss= is the narrow grammar-author surface used
-to avoid pulling execution machinery into declaration consumers.
+use the runtime identities. The redundant =src/api.ss= umbrella is removed.
+The Parser prelude owns the language/declaration entry; selected domain Modules
+and their capability interfaces retain runtime, build and native ownership.
+=src/declarations.ss= supplies grammar authoring vocabulary without execution
+machinery. Source-line publication belongs to Runtime directly.

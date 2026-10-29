@@ -3,7 +3,7 @@
 (export Build)
 (def Build (.o kind: 'module/build roots: '("fold-tape" "fold-cost")
                library-roots: '("src/runtime/machine" "src/runtime/lexical-expression"
-                     "src/runtime/lexical-lexer" "parser-actor-support"
+                     "src/runtime/lexical-lexer" "artifact-support" "source-line-support" "parser-actor-support"
                      "rust-runtime-event-support"
                      "src/runtime/incremental"
                      "src/runtime/recovery"

@@ -2,7 +2,7 @@
 (import (only-in :clan/poo/object .o))
 (export Build)
 (def Build (.o kind: 'module/build roots: '()
-               library-roots: '("src/api" "src/declarations"
+               library-roots: '("src/declarations"
                      "language-support"
                      "language-source-support"
                      "language-support/iso-bnf-language"

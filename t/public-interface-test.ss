@@ -20,6 +20,23 @@
       (check-equal?
         (and (string-contains (output-of `(import ,(fixture "grammar.ss")))
                              "PARSER-PRELUDE-GRAMMAR-OK") #t) #t))
+    (test-case "Runtime publishes native capabilities without the API umbrella"
+      (def output
+        (output-of '(begin
+                      (import (only-in :gerbil-parser/source-line-support fold-source-byte-spans)
+                              (only-in :gerbil-parser/artifact-support parse-artifact-valid?))
+                      (unless (and (not (parse-artifact-valid? #f))
+                                   (equal? (reverse
+                                             (fold-source-byte-spans
+                                               (string->utf8 "a\r\nb") '()
+                                               (lambda (from until rows)
+                                                 (cons (list from until) rows))))
+                                           '((0 3) (3 4))))
+                        (error "Runtime public capability changed"))
+                      (when (assoc "gerbil-parser/src/api" (list-modules))
+                        (error "Runtime loaded the retired API umbrella"))
+                      (displayln "PUBLIC-RUNTIME-OK"))))
+      (check-equal? (and (string-contains output "PUBLIC-RUNTIME-OK") #t) #t))
     (test-case "public text values do not initialize a compiler"
       (def output
         (output-of '(begin

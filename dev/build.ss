@@ -46,7 +46,7 @@
         (for-each (lambda (name)
                     (unless (member name names) (error "missing public build target" name)))
           '("language-support" "language-test-support" "graph-query-support"
-            "src/api" "src/runtime/machine"
+            "artifact-support" "source-line-support" "src/runtime/machine"
             "src/runtime/lexical-expression" "src/runtime/lexical-lexer"))
         (for-each (lambda (name)
                     (let (entry (assoc name (map cdr production)))
@@ -55,7 +55,7 @@
           '("src/ffi/language-abi" "src/ffi/language-abi-context" "src/ffi/rust-aot-abi"))
         (for-each (lambda (name)
                     (when (member name names) (error "retired build target is still published" name)))
-          '("modules/parser/types" "modules/parser/objects" "modules/parser/config"
+          '("src/api" "modules/parser/types" "modules/parser/objects" "modules/parser/config"
             "modules/parser/interface" "src/modules/types" "src/modules/objects"
             "src/modules/loader" "src/modules/parser/interface" "build-modules"
             "src/compiler/machine" "src/compiler/lexical-expression" "src/compiler/lexical-lexer"

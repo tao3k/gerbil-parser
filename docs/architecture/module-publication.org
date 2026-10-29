@@ -20,7 +20,7 @@ returned by Scope admission. Parser must not implement any of those mechanisms.
 | Compiler integration | Pure compiler option/spec/link functions and standard build script | build.ss calls the existing initializer directly; no init/Config/Scope execution effect |
 | Runtime | Actual machine and lexical execution sources | Three compiler forwarding modules removed; real and emitted imports use runtime |
 | FFI | Source-owned schema versions and ABI Build contribution | Scope must match canonical schema values; arbitrary UInt metadata no longer passes |
-| Public library entries | Broad src/api and narrow src/declarations; language/graph/ABI extension surfaces | Facades assemble supported interfaces, not a second implementation or module registry |
+| Public library entries | Parser prelude and domain-owned capability interfaces; narrow src/declarations vocabulary | Redundant src/api full import/re-export umbrella removed; no replacement aggregate or alias |
 | Build declarations | Owner public roots and foreign options; Core derives import closure | Runtime owns runtime public roots; Compiler no longer republishes forwarding paths |
 | Development audit | Independent native package inventory comparison | Remains a validation oracle, not the production membership list |
 

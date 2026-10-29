@@ -132,3 +132,44 @@ invokes the standalone tool. The existing nonempty dependency-index gate
 remains required. A newer official SDK =e35312b4a951= restores the multicall
 symlink, but local startup diagnostics expire and do not qualify an SDK pin
 change. This repair does not claim full or remote CI acceptance.
+
+* Remove the duplicate API umbrella (2026-10-29)
+
+=src/api.ss= had no import consumers. It only re-exported grammar,
+compiler, runtime and native-scanner interfaces through one eager aggregate,
+and Language's Build retained that aggregate as a publication root. Delete
+both. The existing independent catalog now refuses the retired =src/api=
+target, retaining its complete source-discovery comparison and all ABI options.
+
+The Parser prelude remains the inherited language and lazy declaration entry.
+Yuanxu owns Module loading and the domain interfaces own their capabilities.
+Runtime directly publishes its existing =artifact-support= and
+=source-line-support= entries, whose previous publication edge was the
+removed umbrella. Scanner implementation
+and foreign compilation stay with Runtime; no wrapper replaces =src/api= and
+no complete runtime is imported into the prelude. Installed stale outputs must
+be removed with the native clean/build lifecycle before catalog qualification.
+
+The subsequent =42c3f4c= Linux CI passes strict policy and production build,
+then exposes a research source-origin refusal: =build-language-conformance=
+registers its source package without repeating the product-language identity,
+so old Core retains the installed prelude =.ssi=. Core's existing source
+gateway now derives its owned language from native metadata/header instead.
+Parser's primary build uses that same gateway without a second language-name
+literal. Strict native origin equality remains unchanged.
+
+Final local no-umbrella qualification: the native production build succeeds
+under 2 GiB/600 seconds and no =src/api= source or installed product remains.
+All four independent public-interface Cases pass; the unchanged runtime,
+graph-query and source-grammar Suites pass another 19 Cases. Each native test
+invocation retains 1 GiB/120 seconds, original assertions and final OK markers.
+The full development entry passes the independent catalog, retired-API refusal
+and pinned strict policy (614 findings, zero errors), then completes its native
+build under the existing compiler envelope.
+
+The conformance spec now succeeds with the source-owned prelude. A full local
+conformance compile passes that former source-origin refusal and compiles its
+research sources, but later fails to link =_Exit= on the installed older Darwin
+SDK. An earlier invocation lacked OpenSSL's pkg-config path and is also kept
+as a failure. Neither is counted as a complete conformance pass; the released
+Linux/macOS CI products still require their original gates.

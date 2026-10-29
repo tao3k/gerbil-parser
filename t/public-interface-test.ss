@@ -56,6 +56,25 @@
                         (error "native compiler capability loaded unrelated strategies"))
                       (displayln "PUBLIC-NATIVE-COMPILER-OK"))))
       (check-equal? (and (string-contains output "PUBLIC-NATIVE-COMPILER-OK") #t) #t))
+    (test-case "installed Fold program admission owns data and retains DAG sharing"
+      (def entry (path-expand "lib/gerbil-parser/event-fold-program-support.ssi" (gerbil-path)))
+      (check-equal? (file-exists? entry) #t)
+      (def output
+        (output-of `(begin
+          (import (only-in ,entry snapshot-fold-data event-fold-program?))
+          (let* ((text (string-copy "abc")) (node (list text))
+                 (owned (snapshot-fold-data (list node node))))
+            (unless (and (eq? (car owned) (cadr owned))
+                         (not (event-fold-program? #f)))
+              (error "Fold program data contract changed"))
+            (string-set! text 0 #\z)
+            (unless (equal? (caar owned) "abc")
+              (error "Fold program retained mutable caller data")))
+          (unless (with-catch (lambda (_) #t)
+                    (lambda () (snapshot-fold-data (lambda () #t)) #f))
+            (error "Fold program accepted executable data"))
+          (displayln "PUBLIC-FOLD-PROGRAM-OK"))))
+      (check-equal? (and (string-contains output "PUBLIC-FOLD-PROGRAM-OK") #t) #t))
     (test-case "public text values do not initialize a compiler"
       (def output
         (output-of '(begin

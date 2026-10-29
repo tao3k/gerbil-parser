@@ -11,6 +11,7 @@
                      "language-build-support"
                      "compiler-build-support"
                      "event-fold-build-support"
+                     "event-fold-program-support"
                      "rust-runtime-support"
                      "line-structure-support"
                      "graph-projection-support")))

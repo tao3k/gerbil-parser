@@ -1,0 +1,219 @@
+;;; Native Core projection retains the complete library and foreign options.
+;; Consume installed descriptors by package identity. Re-evaluating their source
+;; beside installed constructors would create a second nominal family.
+(import :gerbil-parser/language-test-support
+        (only-in :clan/poo/object .o .cc .get .ref .slot?)
+        (only-in :std/source this-source-file)
+        (only-in :std/misc/ports read-all)
+        (only-in :clan/poo/mop element? validate TypeError? define-type Type.)
+        (only-in :clan/poo/type String Symbol TypeValuePair Record OrFalse)
+        (only-in :yuanxu/module-system/source/admission current-module-source-observer)
+        (only-in :yuanxu/module-system/building/source-package register-module-build-source!)
+        (only-in :yuanxu/ops/progress call-with-execution-progress execution-progress!)
+        (only-in :clan/poo/number Integer UInt)
+        (only-in :gerbil-parser/src/compiler/types GrammarIR)
+        (only-in :gerbil-parser/src/utilities/types UtilitiesScopeContract UtilitiesScope)
+        (only-in :gerbil-parser/src/grammar/types GrammarScopeContract)
+        (only-in :gerbil-parser/src/graph/types GraphScopeContract)
+        (only-in :gerbil-parser/src/ffi/types ForeignInterfaceScopeContract)
+        (only-in :gerbil-parser/src/language/types LanguageScopeContract)
+        (only-in "../init.ss" gerbil-parser.init.exports)
+        (only-in :gerbil-parser/languages/arithmetic/parser parse-arithmetic)
+        (only-in :gerbil-parser/languages/arithmetic/grammar arithmetic-grammar)
+        (only-in :gerbil-parser/src/grammar/declaration-objects make-grammar Grammar. GrammarRole.)
+        (only-in :gerbil-parser/src/schema +language-grammar-schema+)
+        (only-in :gerbil-parser/src/grammar/declaration-types GrammarContract GrammarRoleContract)
+        (prefix-in (only-in :gerbil-parser/src/compiler/normalize compile-grammar) compiled.))
+(def parser-source-root (path-expand ".." (path-directory (this-source-file))))
+;; Actual native source operations advance Ops progress; no timer or heartbeat.
+(def (selected-test-scope name)
+  (let ((prior (current-module-source-observer)) (completed 0))
+    (call-with-execution-progress #f #f
+      (lambda (_progress)
+        (parameterize ((current-module-source-observer
+          (lambda (kind amount)
+            (when prior (prior kind amount))
+            (when (or (memq kind '(reads compiler-identity-reads role-parses
+                                    publication-preparation-walks public-preparation-walks))
+                      (and (pair? kind) (memq (car kind)
+                        '(reader-projection-end reader-compile-end reader-eval-end))))
+              (set! completed (+ completed 1))
+              (execution-progress! 'source-scope-operations completed)))))
+          (let (paths (load-path))
+            (dynamic-wind
+              (lambda () (register-module-build-source! parser-source-root 'gerbil-parser))
+              (lambda () (.get (.ref (.get gerbil-parser.init.exports Components) name) scope))
+              (lambda () (set-load-path! paths)))))))))
+
+;; A concrete consumer owns its struct representation and passes its POO Type.
+(defstruct scope-test-row (key value) transparent: #t)
+(define-type (ScopeTestRow @ Type.)
+  .element?: (lambda (value)
+    (and (scope-test-row? value)
+         (element? Symbol (scope-test-row-key value))
+         (element? String (scope-test-row-value value)))))
+
+;; A type failure must be the native admission error, not an arbitrary target bug.
+(def (type-rejected? thunk)
+  (with-catch (lambda (condition) (TypeError? condition))
+    (lambda () (thunk) #f)))
+(deflanguage-parser-tests library-init-test "native Core library projection"
+  ;; Role evaluation and native source registration use the process expander.
+  ;; Retain two Workers; this owner declares its existing exclusive capability.
+  (engine)
+  (scenario "domain modules are selected directly without a modules container"
+    (sequential ((components (.get gerbil-parser.init.exports Components))
+                 (graph (selected-test-scope 'graph)))
+      (each (name) ('(build-support compiler ffi grammar graph language runtime testing utilities))
+        (equal (.slot? components name) #t))
+      (equal (.slot? components 'modules) #f)
+      (each (name) ('(build-support compiler ffi grammar graph language runtime testing utilities))
+        (equal (call-with-input-file
+                 (path-expand (string-append "src/" (symbol->string name) "/config.ss")
+                              parser-source-root) read-all) '((export))))
+      (each (path) ('("src/compiler/machine.ss" "src/compiler/lexical-expression.ss"
+                     "src/compiler/lexical-lexer.ss"))
+        (equal (file-exists? (path-expand path parser-source-root)) #f))
+      ;; Actual compiled imports must not silently retain the retired owners.
+      (equal (filter (lambda (entry)
+                       (and (string? (car entry))
+                            (or (string-prefix? "gerbil-parser/src/modules/" (car entry))
+                                (string-prefix? "gerbil-parser/src/compiler/machine" (car entry))
+                                (string-prefix? "gerbil-parser/src/compiler/lexical-expression" (car entry))
+                                (string-prefix? "gerbil-parser/src/compiler/lexical-lexer" (car entry)))))
+                     (list-modules)) '())
+      (equal (file-exists? (path-expand "src/modules" parser-source-root)) #f)
+      (equal (file-exists? (path-expand "src/testing/module-loader.ss" parser-source-root)) #f)
+      (each (path) ('("src/grammar/declaration-types.ss" "src/grammar/declaration-objects.ss"
+                     "src/language/line-structure-objects.ss" "src/language/source-event-scope-funs.ss"
+                     "src/graph/graph-query-objects.ss" "src/graph/graph-projection-types.ss"
+                     "src/declarations.ss"))
+        (equal (file-exists? (path-expand path parser-source-root)) #t))
+      (equal (element? GraphScopeContract graph) #t)
+      (equal (element? GraphScopeContract (.o)) #f)
+      (equal (element? GraphScopeContract (.cc graph make-graph-query-context: 42)) #f)))
+  (scenario "actual service Scopes validate and reject malformed values"
+    (sequential
+      ((utilities (selected-test-scope 'utilities))
+       (grammar (selected-test-scope 'grammar)))
+      (equal (element? UtilitiesScopeContract utilities) #t)
+      (equal (element? GrammarScopeContract grammar) #t)
+      (equal ((.get (cdr ((.get utilities list-operations-for) Integer Integer)) append-unique) '(1) 2) '(1 2))
+      (equal ((.get grammar grammar-expression?) '(empty)) #t)
+      (equal (element? UtilitiesScopeContract (.o)) #f)
+      (equal (element? UtilitiesScopeContract (.cc utilities list-operations-for: 42)) #f)
+      (equal (element? GrammarScopeContract (.cc grammar lexical-expression?: 42)) #f)))
+  (scenario "specific signatures reject input and output mismatches"
+    (sequential
+      ((raw (selected-test-scope 'utilities))
+       (selection ((.get raw list-operations-for) String String))
+       (typed (cdr selection))
+       (runtime (selected-test-scope 'runtime))
+       (testing (selected-test-scope 'testing))
+       (build (selected-test-scope 'build-support))
+       (graph (selected-test-scope 'graph))
+       (compiler (selected-test-scope 'compiler))
+       (calls 0))
+      (equal (element? TypeValuePair selection) #t)
+      (equal (type-rejected? (lambda () ((.get raw list-operations-for) 42 String))) #t)
+      (equal (type-rejected? (lambda () ((.get raw list-operations-for)))) #t)
+      (equal (type-rejected? (lambda ()
+        ((.get (validate UtilitiesScope
+           (.cc raw list-operations-for: (lambda (_row _key) (cons String 42)))) list-operations-for) String String))) #t)
+      (equal ((.get typed append-unique) '("a") "b") '("a" "b"))
+      (equal ((.get raw text-lines) "a\nb") '("a" "b"))
+      (equal ((.get raw ascii-whitespace?) #\space) #t)
+      (equal ((.get raw string-index-from) "abc" "b" 0) 1)
+      (equal (type-rejected? (lambda () ((.get raw string-index-from) "abc" "b" "0"))) #t)
+      (equal (type-rejected? (lambda () ((.get typed append-unique) '(42) "a"))) #t)
+      (equal (type-rejected? (lambda () ((.get raw ascii-whitespace?) 32))) #t)
+      (equal (type-rejected? (lambda () ((.get typed append-unique) '("a") 2))) #t)
+      (equal (type-rejected? (lambda ()
+        ((.get typed merge-keyed-row) '("a") "b"
+          (lambda (row) (set! calls (+ calls 1)) 42) (lambda (_) '())))) #t)
+      (equal calls 1)
+      (equal ((.get typed merge-keyed-row) '("a") "b" (lambda (row) row) (lambda (_) '())) '("a" "b"))
+      (equal (type-rejected? (lambda ()
+        ((.get typed merge-keyed-row) '("a") "b" 42 (lambda (_) '())))) #t)
+      (equal (type-rejected? (lambda ()
+        ((.get (validate UtilitiesScope
+                (.cc raw text-lines: (lambda (_) '(42)))) text-lines) "x"))) #t)
+      (equal (.slot? build 'initialize-build!) #f)
+      (equal (type-rejected? (lambda () ((.get build native-module-link-options) '(42)))) #t)
+      (equal (type-rejected? (lambda () ((.get build compiler-build-spec) 42))) #t)
+      (equal (type-rejected? (lambda () ((.get testing parser-test-form-admitted?) '(quote x) '(42)))) #t)
+      (equal (type-rejected? (lambda () ((.get graph make-graph-query-context) String Symbol Symbol 42))) #t)
+      (equal (type-rejected? (lambda () ((.get compiler compile-grammar) 42))) #t)
+      (equal (type-rejected? (lambda () ((.get compiler compile-grammar) (.o)))) #t)
+      (equal (type-rejected? (lambda () ((.get compiler compile-grammar) '((schema . "unknown") (grammar . test))))) #t)
+      (equal ((.get graph graph-query-view?) (Record) UInt Symbol
+        (cdr (.get ((.get graph make-graph-query-context) (Record) UInt Symbol
+          (.o records: '() id-of: (lambda (_) 0) parent-of: (lambda (_) #f) kind-of: (lambda (_) 'node))) view))) #t)
+      (equal (element? ForeignInterfaceScopeContract
+        (.cc (selected-test-scope 'ffi) language-abi-version: -1)) #f)
+      (sequential ((ffi (selected-test-scope 'ffi)))
+        (equal (element? ForeignInterfaceScopeContract ffi) #t)
+        (equal (element? ForeignInterfaceScopeContract
+          (.cc ffi language-abi-version: (+ 1 (.get ffi language-abi-version)))) #f)
+        (equal (element? ForeignInterfaceScopeContract
+          (.cc ffi artifact-abi-version: (+ 1 (.get ffi artifact-abi-version)))) #f)
+        (equal (element? ForeignInterfaceScopeContract
+          (.cc ffi event-abi-version: (+ 1 (.get ffi event-abi-version)))) #f)
+        (equal (element? ForeignInterfaceScopeContract
+          (.cc ffi rust-aot-abi-version: (+ 1 (.get ffi rust-aot-abi-version)))) #f))
+      (equal (element? LanguageScopeContract
+        (.cc (selected-test-scope 'language) grammar-schema: "unknown")) #f)
+      (equal (type-rejected? (lambda () ((.get runtime parse-artifact-roundtrip) '((schema . "invalid"))))) #t)))
+  (scenario "struct rows and POO Types share the same explicit service"
+    (sequential
+      ((utilities (selected-test-scope 'utilities))
+       (selection ((.get utilities list-operations-for) ScopeTestRow Symbol))
+       (operations (cdr selection))
+       (first (make-scope-test-row 'first "a"))
+       (second (make-scope-test-row 'second "b")))
+      (equal (element? (car selection) operations) #t)
+      (equal (element? TypeValuePair selection) #t)
+      (equal ((.get operations append-unique) (list first) second) (list first second))
+      (equal ((.get operations merge-keyed-row) (list first) second scope-test-row-key
+                (lambda (_) '())) (list first second))
+      (equal (type-rejected? (lambda () ((.get operations append-unique) (list first) "row"))) #t)
+      (equal (type-rejected? (lambda () ((.get operations append-unique) (list first)
+                  (make-scope-test-row 42 "value")))) #t)
+      (equal (type-rejected? (lambda () ((.get operations append-unique) (list first)
+                  (make-scope-test-row 'key 42)))) #t)
+      (equal (type-rejected? (lambda ()
+        ((.get operations merge-keyed-row) (list first) second scope-test-row-value (lambda (_) '())))) #t)))
+  (scenario "IR sections and native source names reject opaque or malformed values"
+    (sequential ((compiler (selected-test-scope 'compiler))
+                 (build (selected-test-scope 'build-support)))
+      (equal (element? GrammarIR arithmetic-grammar) #t)
+      (each (row) ((list (cons 'rules (lambda () '()))
+                        (cons 'rules '((start (unknown-expression))))
+                        (cons 'lexical-rules '((word (unknown-lexical-expression))))
+                        (cons 'extras '(word))
+                        (cons 'unexpected '())))
+        (equal (element? GrammarIR (cons row (filter (lambda (old) (not (eq? (car old) (car row)))) arithmetic-grammar))) #f))
+      (equal (element? GrammarIR (cons (car arithmetic-grammar) arithmetic-grammar)) #f)
+      (equal (type-rejected? (lambda () ((.get build compiler-build-spec) '((gxc: 42))))) #t)
+      (equal (type-rejected? (lambda () ((.get build compiler-build-spec) '((gxc:))))) #t)
+      (equal ((.get build compiler-build-spec) '((ssi: "entry" (submodules: ("child")))))
+             '((ssi: "entry" (submodules: ("child")))))))
+  (scenario "compiled products interoperate through structural Scopes"
+    (equal (eq? Grammar. (.get GrammarContract proto)) #t)
+    (equal (eq? Grammar. (.get (.cc GrammarContract) proto)) #t)
+    (equal (eq? (.get GrammarRoleContract proto) (.get (.cc GrammarRoleContract) proto)) #t)
+    (sequential
+      ((runtime (selected-test-scope 'runtime))
+       (compiler (selected-test-scope 'compiler))
+       (language (selected-test-scope 'language))
+       (artifact (parse-arithmetic "1 + 2"))
+       (ir ((.get compiler compile-grammar) arithmetic-grammar))
+       (open-grammar (make-grammar 'scope-test '() '()))
+       (open-ir ((.get compiler compile-grammar) open-grammar)))
+      (equal ((.get runtime parse-artifact-valid?) artifact) #t)
+      (equal ((.get runtime parse-artifact-success?) artifact) #t)
+      (equal ((.get runtime parse-artifact-roundtrip) artifact) "1 + 2")
+      (equal ((.get runtime parse-artifact-valid?) '((schema . "invalid"))) #f)
+      (equal ir (compiled.compile-grammar arithmetic-grammar))
+      (equal open-ir (compiled.compile-grammar open-grammar))
+      (equal (.get language language-grammar-schema) +language-grammar-schema+))))

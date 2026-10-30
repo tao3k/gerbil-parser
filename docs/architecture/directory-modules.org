@@ -1,0 +1,174 @@
+#+TITLE: Directory Modules and the Parser Build
+#+LANGUAGE: en
+
+* Ownership
+
+=init.ss= selects the nine real =src/*= subsystem publications through one
+Yuanxu =load-modules= window. Each has a typed service Scope, existing service
+prototype, Interface declaration selecting that prototype, and required Config role.
+Config is a binding-free =(export)= when no local settings exist; Core owns its optional binding. Root =build.ss= consumes
+the same init-owned =std-make-spec= and invokes host initialization
+directly at the executable build boundary. Gerbil =std/make= remains the
+compiler and job-scheduling owner; parallelism remains capped at two workers.
+
+| Module | Published service / owned additional entries |
+|--------+----------------------------------------------|
+| build-support | Compiler-option and native-link functions; explicit host initialization |
+| compiler | Grammar normalization; generator/build public entries and dynamic Scheme emitter |
+| ffi | Original schema-owned ABI versions; three C leaves with include/link options |
+| grammar | Grammar/Role contracts, objects and syntax; contextual declarations and expression algebras |
+| language | Source structures, event scopes and boundaries; format identities, language/adaptor and declaration facades |
+| graph | Typed graph-query services, graph projection and syntax declarations |
+| runtime | Structural artifact services; native execution/incremental/recovery/actor/event entries |
+| testing | Test-form admission, witness/assertion APIs and evaluator-safe compiler-wrapper replay |
+| utilities | Existing pure list and string functions |
+
+* One build projection
+
+Module =Build= declarations contribute owner-relative =roots= for additional
+native leaves and optional package-relative =library-roots= for supported public
+entrypoints. Core's existing =package-library-spec= derives actual native imports
+from those entrypoints without running their runtime initializers. Core checks
+package/source correspondence, confines regular sources, captures their current
+bytes and preserves explicit native compiler options. Build roles themselves are
+phase-bound inputs and are not installed as runtime modules.
+
+This replaces =build-modules.ss= and the former =modules/parser= catalog-forwarding
+publication. Public entry declarations are not copies of every private file.
+The independent development PackageSpec audit compares its native source
+inventory with the selected projection, excluding the eight phase-only Build
+roles. Its legacy =check-catalog= command/marker remains compatible with callers;
+it no longer imports or maintains a production source catalog. Development
+policy consumes the verified projection rather than another membership list.
+
+* Execution and compatibility
+
+Machine/lexical execution now belongs to =src/runtime/{machine,lexical-expression,
+lexical-lexer}.ss=. Runtime consumers use that owner directly. The old compiler
+execution paths are removed; consumers import the runtime owners directly.
+No parser algorithm or ABI version changes. FFI Scope reads versions from
+=src/schema.ss=; it does not interpret C declarations or initialize handles while
+selecting a Module. C leaves are compiled at the explicit Build boundary.
+
+Native Scheme imports determine compiler dependencies. Module =requires= is for
+injected Scope services; a source import is not mechanically duplicated there.
+The Core shared-source reentry guard remains active. Public library compilation
+uses the native compiler graph instead of evaluating library runtime code in the
+Scope reader.
+
+* Qualification boundary
+
+Source/Scope checks, native import coverage, compilation, cold/recovery behavior
+and Linux/macOS CI are independent gates. A warm result is not cold qualification.
+Old cleanup CI cannot qualify the directory-Module refactor. Existing heap and
+test/process limits remain; Parser's removed 180-second build cap is not restored.
+
+* Source and compiled value boundary
+
+Scope functions must accept values that are valid across the source projection
+and compiled-product boundary. Private source wrappers create distinct nominal
+Gerbil struct types. Therefore machine execution and nominal language descriptors
+remain in the existing compiled Gerbil APIs; Scope does not claim to accept
+those opaque values. Runtime Scope validates/roundtrips structural ParseArtifact
+data, Language Scope publishes schema-owned format identities, and Compiler
+Scope accepts the existing open POO grammar protocol.
+
+The entry test actually parses arithmetic through the compiled facade, validates
+and roundtrips its result through Runtime Scope, and normalizes the compiled POO
+grammar through Compiler Scope. A nominal cross-world diagnostic failed before
+this boundary was corrected. The language descriptor now imports its format
+identity from schema.ss rather than repeating its value.
+
+Full native inventory comparison remains in the existing development CI gate.
+The source unit checks public/ABI/phase boundaries and actual interoperability;
+it does not repeat a complete package scan inside a bounded test owner.
+
+* Named Record Types
+
+Each Scope field shape is declared once with native POO =define-type= and
+=Record=. =Fun= supplies compact fixed signatures; =Function= remains only for
+optional signatures. The Record owns inheritance, defaults, construction and
+normalization. Objects reuse its prototype through the existing Contract proto
+association. =YuanxuContract= adds only publication identity, contextual
+admission and evidence; it references the named Record instead of redeclaring
+its fields. This follows the existing POO class-publication mechanism.
+
+* Grammar Contract ownership and shared declarations
+
+The 10.109 audit exposed two independent correctness failures on the prior
+5825b32 baseline: private exact-descriptor shortcuts ignored in-place rejecting
+obligations, and refined validation returned the original value instead of Core's
+normalized evidence candidate. GrammarRoleContract and GrammarContract now
+inherit Core admission, membership and validation without Parser overrides.
+POO Record owns the field inventory, shape and normalization; Core retains
+prototype ancestry and contextual obligations; Parser retains composition rules.
+Native shape admission raises TypeError, while contextual rejection produces
+negative evidence. Compatibility scalar Contracts remain public and use Core's
+predicate-contract constructor because other contextual responsibilities use them.
+
+Keyed list merge uses the matching list cell to distinguish a present false row
+from absence. Existing collision callbacks, idempotent identity and row order
+remain unchanged. The compiler imports the existing append-unique utility.
+Runtime and compiler share LR terminal/precedence leaves; compiler-only nonempty
+terminal, bounded indexes and flat fork requirements remain separate from
+runtime projections. Shared precedence syntax preserves each phase's scalar
+domain: runtime defaults to native exact Integer; compiler explicitly retains
+its historical integer? acceptance, including inexact integral values. This is
+not a grammar compatibility or cache-version change. Grammar IR consumers read the existing schema declaration;
+no schema, ABI, package pin or installed compiler policy is changed.
+
+New regression controls cover normalization, mutable Contract rejection and
+restoration, exception identity, false row collision/idempotence, exact list
+ordering and positive/negative LR leaves. Existing grammar composition, native
+Function and LR producer controls remain required. The graph-index representation
+and optional persistent collection adoption are a separate selection decision;
+this change does not silently choose a new key comparer or backend.
+
+See [[file:contract-ownership.d2][ownership diagram]]. Validation results must name the exact source head and
+separate local source/compiled execution from Linux/macOS CI.
+
+The initial local refactor writer passes (170.09s, two workers/2GiB), and six
+focused source modules pass 39 cases. The full-source attempt before complete
+test-product preparation stops at language-entries import (idle5); its sampled
+stack is in native dlopen and its generated loader is missing beside native
+objects. Those diagnostics are retained; they are not full qualification.
+Prepared-source, compiled conformance and exact-head CI remain required.
+
+Source witnesses follow these owners as well: appendUniqueSource reads the
+utility declaration; precedenceSource and terminalLeafSource read lr-data.ss.
+Independent Lean AST expectations include the runtime exact-rank helper and the
+compiler's explicit integer? argument. Mutation controls reject widening the
+compiler predicate or replacing native Integer. The existing generator refreshes
+SourceData.lean; the original source-currentness failure remains a valid negative
+control, not a reason to restore duplicated declarations or waive freshness.
+
+CompilerGrammar inherits the Grammar value Record and refines only its three
+compiler input containers; it does not repeat kind/schema/name declarations.
+Source execution controls bind the shared precedence helper's actual optional
+default and native Integer capability lexically. All original body forms and
+parameters remain admitted by the existing source executor. Compiler and runtime
+rank-domain controls remain distinct; there is no header rewrite or dummy reader.
+
+After migrating both witness readers, full local current-source execution passes
+147 modules/1097 cases (160.23s), with two Workers/3GiB and unchanged total90/idle5.
+The shared-Record writer passes37.01s; three focused source/Scope owners pass24.02s.
+The complete Lean build passes273 targets, including independent AST and mutation
+controls. These local gates do not replace final exact-head Linux/macOS CI.
+
+* Recovery from compiled test products
+
+A first local full run after the domain move detected retired =~0= identities
+from previously compiled conformance fixtures, despite the production package
+build passing. =test-all= had depended only on qualification support, so its
+existing compiled test products were never brought current. The negative
+runtime-identity Case retained this failure. =test-all= now also depends on the
+existing =build-test-support= entry (including the test driver). Standard
+=defbuild-script=/=std/make= owns dependency invalidation and recompilation;
+no cleanup, old-path forwarding or custom artifact loader repairs the result.
+Cold CI independently builds the same support products before running Suites.
+
+The failed native invocation returned status0 despite ERROR CHECK/CASE/HARNESS
+and no final OK. The development =test-all= recipe now uses the existing entry
+receipt policy: preserve output, reject native ERROR diagnostics, require
+HARNESS-OK and exact final OK. This does not replace Gerbil's test executor or
+run a nested Suite. CI qualification already performs native output admission.

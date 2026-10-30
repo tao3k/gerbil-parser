@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Full-size deterministic failure-frontier recovery workload.
 
-(import :gerbil-parser/languages/arithmetic/v1/parser
+(import :gerbil-parser/languages/arithmetic/parser
         :gerbil-parser/src/runtime/artifact
         :gerbil-parser/src/runtime/recovery)
 (export recovery-frontier-scenario

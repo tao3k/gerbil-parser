@@ -1,0 +1,66 @@
+#+title: Preparation scratch ownership and complete cold qualification
+
+* Current-head failure
+
+PR 13 head =dd5ee6a= passed Ubuntu preparation and execution. Its macOS
+conformance preparation reached =CONFORMANCE-LINKED= before failing the
+existing 240-second total fence. The second inventory still contained 13,017
+files; the log then reported a four-second GC, 22 GB cumulative allocation,
+and 953 MB live data. This places the failure in post-link content admission,
+not GCC compilation. It does not prove every allocation originated in hashing.
+
+The source allocated a fresh 65,536-byte buffer for every hashed file: about
+814 MiB of transient buffer capacity per 13,017-file snapshot. The compiler's
+retained heap magnifies the cost. Read-only inode inspection found no duplicate
+physical files; dropping duplicate paths would not address this run.
+
+* Contract-preserving correction
+
+=make-preparation-file-digester= owns one buffer for one synchronous snapshot.
+Every file still opens, reads its complete contents, starts a fresh SHA-256
+state, and supplies only the valid read prefix to each digest update. Paths,
+ordering, source and product identities, fresh enumerations, and failure
+rejection remain unchanged. There is no digest cache, timestamp shortcut,
+shared global buffer or relaxed timeout. Independent snapshots own independent
+scratch. Installed digest consumption is synchronous and remains an external
+primitive contract; no SDK or Gambit source is changed or built.
+
+=PreparationScratch.read_prefix=, =stream_digest= and =batch_digests= prove
+prefix isolation and ordered independent-file digests for arbitrary chunks,
+including empty and short final reads. =stream_capacity= preserves the buffer
+bound for reads within capacity. These laws model ownership and streaming,
+not a cryptographic implementation or a CPU speed claim.
+
+The existing =library-publication-test= owner now has thirteen macro-owned
+scenarios. Its source-extracted allocator probe checks exactly one 64 KiB
+allocation per snapshot. Seven files cross empty, short, exact-boundary and
+multi-buffer lengths, with independent official one-shot SHA-256 results.
+Same-size edits are rehashed; a missing file still rejects the snapshot.
+
+* Qualification and remaining diagnosis
+
+| Existing gate | Current local receipt |
+|---------------+-----------------------|
+| Standard current-package clean/cold build | Exit zero, 132.62 seconds, 180 total / 5 idle |
+| Original four preparation owners | Exit zero, 47.11 seconds, 90 total / 5 idle |
+| Real grammar/source witness generation | Exit zero, 11.69 seconds, 90 total / 5 idle |
+| Same sixteen-owner first complete cold aggregate | Exit zero, 147.95 seconds wall, 180 total / 5 idle |
+| Full Lean product and explicit axiom audit | 273 jobs passed; no new axioms or placeholders |
+| Source/model evidence controls | Six existing tests passed |
+
+An additional local CI preparation probe reached
+=COMPILED-LIBRARY-OBJECTS-READY= but failed the five-second idle fence without
+natural exit. Its failure is retained. A subsequent diagnostic instrumented
+actual main-return and exit boundaries and exited zero in 4.81 seconds; this
+is a warm diagnostic, not a cold qualification replacement or a proved cause
+of the earlier idle failure. No host-shutdown bypass is introduced.
+
+The first independent conformance probe used a different compiler PATH and
+was rejected by publication admission. A matched-environment identity check
+found no input or environment difference. The matched complete CI-stage probe reached the final link and failed in
+74.11 seconds because the installed SDK's link metadata names an unavailable
+OpenSSL library directory (=ld: library crypto not found=). This is a local
+external-toolchain prerequisite failure, not conformance acceptance or the
+remote post-link timeout. Installed SDK metadata remains untouched. New-head
+remote CI is checked separately; the original complete cold aggregate above
+is not replaced by these diagnostics.

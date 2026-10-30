@@ -1,0 +1,36 @@
+;;; -*- Gerbil -*-
+;;; Local declaration-boundary experiment; no change to public deflanguage.
+(import (only-in "../../../src/language/grammar" deflanguage)
+        (only-in "expression-vocabulary"
+                 left-binary-tier right-binary-tier recursive-right-chain))
+(export deflanguage/tiers)
+
+(defsyntax (deflanguage/tiers stx)
+  (def (lower-row row)
+    (syntax-case row (left-tier right-tier right-chain)
+      ((name (left-tier operand operators customization ...))
+       (identifier? #'name)
+       #'(name (left-binary-tier name operand operators customization ...)))
+      ((name (right-tier operand operators customization ...))
+       (identifier? #'name)
+       #'(name (right-binary-tier name operand operators customization ...)))
+      ((name (right-chain operand operators customization ...))
+       (identifier? #'name)
+       #'(name (recursive-right-chain name operand operators customization ...)))
+      ((name (left-tier argument ...))
+       (raise-syntax-error #f "left-tier requires an operand and operators" stx row))
+      ((name (right-tier argument ...))
+       (raise-syntax-error #f "right-tier requires an operand and operators" stx row))
+      ((name (right-chain argument ...))
+       (raise-syntax-error #f "right-chain requires an operand and operators" stx row))
+      ((name expression)
+       (identifier? #'name)
+       row)
+      (_ (raise-syntax-error #f "expected a named rule with one expression" stx row))))
+  (syntax-case stx (rules)
+    ((_ prefix identity-section root-section lexical-section
+        (rules row ...) tail ...)
+     (with-syntax (((lowered-row ...) (stx-map lower-row #'(row ...))))
+       #'(deflanguage prefix identity-section root-section lexical-section
+           (rules lowered-row ...) tail ...)))
+    (_ (raise-syntax-error #f "expected language sections with a rules section" stx))))

@@ -1,0 +1,32 @@
+;;; Select host-native Cargo/Rust together and preserve relocated SDK mappings.
+(import ./process :std/string/misc)
+(export native-environment!)
+(def (native-environment!)
+ (def (query name command (optional? #f))
+  (let (result (run-observed-process command (string-append ".data/qualification/" name ".log") timeout: 5 idle-timeout: 5))
+   (if (and (zero? (process-result-status result)) (not (process-result-reason result)))
+    (string-trim (utf8->string (process-result-output result)))
+    (if optional? #f (error "native tool query failed" name)))))
+ (let* ((cargo (or (query "cargo-path" '("which" "cargo") #t)
+                   (query "cargo-path" [(path-expand ".cargo/bin/rustup" (getenv "HOME")) "which" "cargo"])))
+        (tool-directory (path-directory cargo)))
+  (setenv "PATH" (string-join [tool-directory (path-expand "bin" (gerbil-home))
+                              "/opt/homebrew/bin" "/usr/local/bin" "/usr/bin" "/bin" "/usr/sbin" "/sbin"] ":"))
+  (for-each (lambda (entry)
+    (let (name (car entry))
+     (when (or (string-prefix? "CARGO_PROFILE_" name)
+               (member name '("NIX_CC" "NIX_CFLAGS_COMPILE" "NIX_LDFLAGS" "CARGO_BUILD_TARGET"
+                              "RUSTFLAGS" "CARGO_ENCODED_RUSTFLAGS" "RUSTC" "RUSTDOC" "RUSTC_WRAPPER" "RUSTC_WORKSPACE_WRAPPER")))
+      (setenv name) (displayln "NATIVE-ENV-REMOVED " name) (force-output)))) (get-environment-variables))
+  (cond-expand
+   (darwin
+    (setenv "CC" "/usr/bin/clang") (setenv "CXX" "/usr/bin/clang++")
+    (setenv "SDKROOT" (query "sdk-path" '("/usr/bin/xcrun" "--show-sdk-path")))
+    (let* ((version (query "rust-host" [(path-expand "rustc" tool-directory) "-vV"]))
+           (host-line (find (lambda (line) (string-prefix? "host: " line)) (string-split version #\newline))))
+     (unless host-line (error "rustc did not report native host"))
+     (let (host (substring host-line 6 (string-length host-line)))
+      (setenv (string-append "CARGO_TARGET_"
+                (string-map (lambda (char) (if (char=? char #\-) #\_ (char-upcase char))) host) "_LINKER") "/usr/bin/clang")
+      (displayln "NATIVE-TOOLCHAIN " host " SDK=" (getenv "SDKROOT")) (force-output))))
+   (else (void)))))

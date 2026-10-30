@@ -1,0 +1,11 @@
+#+title: RFC 0007 — Contextual Parser IR and Compiler Dispatch
+#+startup: overview
+
+* Scope and navigation
+
+This index separates design, source correspondence and historical qualification.
+Each linked topic retains its original premises, failures and evidence limits.
+Host and compiler behavior remain external premises; no host build is required.
+
+- [[file:0007-contextual-parser-ir/status.org][Status]]
+- [[file:0007-contextual-parser-ir/03-explicit-reusable-contextual-scanner-plans.org][2026-10-03: explicit reusable contextual scanner plans]]

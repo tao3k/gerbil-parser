@@ -13,8 +13,21 @@
                  syntax-field-end syntax-field-children)
         (only-in ../runtime/token
                  token? token-kind token-lexeme token-start token-end))
-(export check-parser-ast parser-ast-pattern parser-ast-diff
+(export check-parser-ast check-accepted-parse
+        parser-ast-pattern parser-ast-diff
         parser-artifact-ast-diff)
+
+;;; Evaluate the source and candidate once, then assert the complete accepted
+;;; artifact against any number of independent parser routes. `defrules`
+;;; introduces its local bindings hygienically.
+(defrules check-accepted-parse ()
+  ((_ source candidate reference ...)
+   (let* ((expected-source source)
+          (result candidate))
+     (check (parse-artifact-valid? result) => #t)
+     (check (parse-artifact-success? result) => #t)
+     (check (parse-artifact-roundtrip result) => expected-source)
+     (check result => reference) ...)))
 
 ;; This is an AST grammar for this parser engine, not a general data matcher.
 ;; Fields and byte spans are mandatory; omitted structure cannot pass by a

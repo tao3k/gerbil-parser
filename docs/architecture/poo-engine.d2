@@ -1,0 +1,19 @@
+direction: right
+library: "Library\nprototypes + methods + data language"
+selection: "Profile / Scenario target\ncanonical backend + grammar + inputs"
+prepare: "POO / Core preparation\nnative precedence + method selection\nretain actual kernels"
+state: "Private runtime state\nstructs / vectors / bitsets\nexact runtime and executor identity"
+request: "Request context\noffsets + constructor + tokens"
+execute: "Execute prepared kernels\nno per-token generic redispatch"
+proof: "LeanPoo method compilation laws\nsource association + native controls\nhost assumptions explicit"
+library -> selection -> prepare -> state
+state -> execute
+request -> execute
+prepare -> proof
+execute -> proof
+lifecycle: "Core / Flow lifecycle\nContext + normalized Scope + source authority"
+lifecycle -> prepare
+lifecycle -> state
+
+selection_result: "prepare-lr-semantics(backend)\nretained factories + capability reducers\nexplicit new selection after contribution"
+prepare -> selection_result -> state

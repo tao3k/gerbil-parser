@@ -3,8 +3,8 @@
 
 (import (only-in ./compiler/parser-ir parser-ir-canonical)
         (only-in ./runtime/artifact parse-artifact-success?)
-        (only-in ../languages/arithmetic/v1/parser
-                 arithmetic-parser-ir parse-arithmetic-v1))
+        (only-in ../languages/arithmetic/parser
+                 arithmetic-parser-ir parse-arithmetic))
 (export gparse-build
         gparse-inspect
         gparse-check
@@ -28,7 +28,7 @@
 
 ;; : (-> String Fixnum)
 (def (gparse-check source)
-  (let (artifact (parse-arithmetic-v1 source))
+  (let (artifact (parse-arithmetic source))
     (write-line artifact)
     (if (parse-artifact-success? artifact) 0 1)))
 

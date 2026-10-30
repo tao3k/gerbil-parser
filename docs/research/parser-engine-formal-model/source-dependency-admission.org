@@ -1,0 +1,460 @@
+#+title: Complete source dependency admission
+
+* Semantic obligation
+
+The lexical rule used by the existing Scheme evaluation model requires a
+successful environment lookup before a variable can evaluate. Supplying a list
+of imported names is insufficient unless it covers every free reference of the
+extracted procedure. The same obligation applies to assignment targets and to
+references inside closures that may execute later. Quoted data is not a read.
+
+This refines the [[file:reader-tree-witnesses-and-native-source-admission.org][source admission contract]] and
+[[file:test-macro-phases.org][phase separation contract]]. It concerns executable source witnesses;
+it makes no parser throughput claim and does not change LR construction.
+
+* Defects found in the implementation
+
+The real =production-vocabulary= source now reads RHS nonterminal references.
+The former explicit dependency list omitted =production-rhs=, =base-symbol=,
+=nonterminal-symbol?= and =nonterminal-name=. A direct SDK expansion and visitor
+probe reports all four omissions; the complete list reports none. A test of the
+previous list now fails before the extracted procedure can be created.
+
+The publication observer also omitted =reject-lr-conflict= because its selected
+fixtures never entered that branch. The new check rejects such an incomplete
+procedure even when a fixture would not invoke the missing callback. The
+observer now supplies an explicit callback that fails if unexpectedly invoked.
+
+A separate =event-walk-source-test= helper built a procedure from only the first
+body expression. A trailing expression could disappear from both execution and
+dependency admission. Declaration adapters now retain =cddr=, including every
+body form, and the regression adds an undeclared trailing callback. The layout
+constructor and reflected LR fragments use the same checked entry point.
+
+* Shared execution capability
+
+[[file:../../../src/testing/source-execution.ss][The source execution capability]] performs one SDK core expansion. It extends the
+installed compiler's =::collect-expression-refs= visitor, overriding only
+=%#ref= and =%#set!=. The SDK continues to own all recursive traversal, hygienic
+binding resolution, local scopes, case-lambda, let/letrec variants, annotations
+and structural operators. The assignment override records its target and calls
+=compile-e= on the complete RHS with the same visitor instance.
+
+Every unresolved identifier is appended to the callback trace using cons and a
+final reverse. There is no raw-symbol search, ambient =eval= lookup, dependency
+cache or second source expander. Known compiler bindings are accepted as resolved. A Gambit =##= reference also
+requires a procedure in its actual host primitive slot. The prefix alone and an
+ordinary ambient global procedure are insufficient; no ambient =eval= lookup
+supplies a capability. The native controls test both negative cases.
+An unsupported core node fails the SDK method dispatch instead of supplying an
+empty dependency list.
+
+Preparation rejects non-procedure core literals and any remaining unresolved
+reference. It then passes the exact checked syntax to =eval-syntax*=. Evaluating
+the original source again would permit a stateful macro to expand differently;
+the control installs such a macro and requires exactly one expansion.
+
+The capability is requested through the shared SDK module loader only when a
+source witness is actually executed. The generic test facade and source-data
+reader do not import the compiler service. Existing LR and event-walk adapters
+share that request instead of keeping independent unchecked evaluators.
+
+* General proof and LeanPoo composition
+
+[[file:../../../formal/ParserEngine/SourceDependencies.lean][SourceDependencies]] proves the project-owned recording/admission contract for
+arbitrary finite visitor trees. These are universal theorems, not enumeration of
+the current procedures or a bounded set of identifier names.
+
+| Contract | General result |
+|----------+----------------|
+| =complete= | Successful traversal contains a name exactly when the independent occurrence predicate requires it. |
+| =record_exact= / =recorded_complete= | Mutable cons/reverse recording preserves every required occurrence and traversal order. |
+| =supplied_requires= | Lexical supply removes exactly the corresponding unresolved obligations. |
+| =supplied_complete= | An empty residual list is equivalent to complete coverage of the original obligations. |
+| =prepared_covers_source= | LeanPoo's selected typed factories supply every required source capability. |
+| =admitted_closed= | Admission retains the same checked tree and leaves no unresolved occurrence. |
+| =deferred_omission= / =rhs_omission= | Skipping closure bodies or assignment RHS breaks completeness. |
+
+[[file:../../../formal/ParserEngine/SourceDependencyExecution.lean][SourceDependencyExecution]] consumes generated reader data from the actual
+=expanded-source-dependencies= procedure, both reference methods and the complete
+source module. The concrete SDK visitor inheritance and both override
+registrations are checked project facts, not additional host premises. It admits
+the complete producer scope, proves the callback's Scheme assignment step, then
+proves arbitrary callback sequences against the existing heap/closure semantics.
+The proof also derives actual =Invoke= traces of the retained lexical closure;
+it does not stop at an assumed foreach loop. The actual final =reverse= restores
+exactly the complete visitation order. This
+closes the project recorder's native mutable execution, not only a pure list
+analogue. CI checks the reader witness against the current source reader AST.
+
+[[file:../../../formal/ParserEngine/SourceDependencyAdapter.lean][SourceDependencyAdapter]] additionally consumes both actual declaration adapters.
+For arbitrary parameter, supplied-dependency and body lists, it proves Scheme
+evaluation constructs the lambda with every body form in order. It formalizes
+the noninjective first-expression projection that caused the earlier omission.
+The upstream protocols are now composed by the declaration-reading and
+transformation models below. Foreign byte reading and installed compiler
+semantics remain external; the selected declaration is no longer an unexplained
+input to the composition theorem.
+
+The proofs compose with =SourceEnvironment= and its existing Scheme =resolve=
+and variable-evaluation rule. A bound mutable cell can still be uninitialized;
+name admission does not establish a runtime value. Retained factories continue
+to read the invocation heap and observe later writes, rather than freezing an
+earlier value. The unified construction audit reports all new theorem axioms.
+
+[[file:../../../formal/quint/SourceDependencies.qnt][The Quint lifecycle control]] complements these proofs with single expansion,
+check-before-execution and retained-core identity invariants. Mutation controls
+reject a second expansion, unchecked execution and replacement of the checked
+core. These bounded controls do not replace the arbitrary-tree Lean theorems.
+
+* Declaration reading and transformation into admission
+
+[[file:../../../formal/ParserEngine/SourceDeclarationReading.lean][SourceDeclarationReading]] consumes the real port-reader and matcher declarations.
+Its operational transcript consumes every source form, records matches by cons,
+and reverses only at EOF. =reads_exact= proves the complete ordered filter for
+arbitrary finite input streams and arbitrary existing accumulators. =read_iff=
+connects successful unique selection to that complete transcript in both
+directions. =selected_occurs= retains the original complete form; identical
+duplicate declarations still reject. A reader exception after a valid match is
+not EOF and cannot publish that prefix.
+
+[[file:../../../formal/ParserEngine/SourceDeclarationPredicate.lean][SourceDeclarationPredicate]] gives the actual predicate a first-order denotation
+for proper-list, length, tag, header-pair and symbol-name tests. Its emitted
+syntax is the current matcher body. =predicate_corresponds= proves equality with
+the selector for every representable reader datum, name and body length;
+=predicate_read_iff= composes that result with the whole read transcript. The
+project's matcher is therefore not a caller-supplied premise. Installed Scheme
+primitive and short-circuit interpretation, including the reader's symbol
+interning, remain external semantics. Unsupported source-data encodings do not
+gain admission from this representable-datum theorem.
+
+[[file:../../../formal/ParserEngine/SourceDeclarationTransformation.lean][SourceDeclarationTransformation]] uses the existing Scheme closure, environment
+and heap semantics. =invoke_closure= derives execution of the actual extracted
+transform call from its complete closure body and lexical binding. Captured
+writes thread into the result heap. =checked_closure= computes the native guard
+predicates and returns an optional =GuardedCall= witness from that execution;
+it no longer accepts an independent =accepted= proof from its caller. The
+=original_test_corresponds=, =result_test_corresponds= and =guards_accept_iff=
+theorems derive that acceptance from the actual predicate denotations for
+arbitrary representable declarations. Both predicates emit the complete native
+guard expressions recorded by the source witness; =unique_execution= applies the existing
+determinism theorem to the same starting heap. It does not justify re-running a
+stateful transform against its updated heap.
+
+The composition audit found that the existing data conversion rejected keyword
+atoms. Actual LR declarations contain keyword arguments such as =test:=, so
+assuming conversion success would exclude real source from a supposedly generic
+contract. The Scheme value model now represents keyword data distinctly from
+symbols. =literal_total= proves successful conversion for every representable
+reader datum and =checked_closure= constructs both conversions itself. It no
+longer asks the caller to supply conversion success for a selected declaration.
+
+The model exposed a missing interface constraint: an arbitrary transform could
+introduce a new parameter and turn an unresolved dependency into a local name.
+The shared adapter now checks that the original is a procedure declaration and
+that transformation preserves its entire name/parameter header. It invokes the
+transform once, then checks the complete transformed body through the existing
+SDK expansion and dependency capability. =changed_interface_rejects= proves the
+header-injection rejection generally. The complete real source includes both
+guards around exactly one transform invocation, and is covered by the generated
+source witness.
+
+=read_transform_prepare= combines unique whole-source selection, retained real
+Scheme call execution, interface preservation and explicit expansion of the
+project-normalized lambda. It now consumes the complete computed preparation
+result, deriving the literal guard, absence of residual obligations, evaluation
+of that same core and final procedure-result classification. The former theorem
+expanded a raw declaration and assumed independent successful dependency
+preparation; that weaker composition has been replaced. LeanPoo's typed supply
+and publication factories remain the capability boundary described below.
+Installed compiler semantics still relates this exact lambda input to its
+expanded syntax and visitor tree.
+
+The mutable-data audit also found that comparing two aliases after a callback
+is insufficient: an in-place header mutation can change both sides.
+=aliased_snapshot_overwritten= and =distinct_snapshot_retained= prove the
+failure and preservation conditions for arbitrary heaps and callback writes.
+The adapter
+now snapshots the header and gives the callback a separate copy of the complete
+declaration, using the installed host's object-graph codec. Separate round trips
+keep the original source, guard snapshot and callback storage distinct, including
+mutable literal strings and vectors. The source witness checks that concrete
+codec composition. Codec round-trip correctness and storage separation are
+explicit external host premises, as are ordinary reader primitives; no host
+implementation is built or modified. Native macro controls mutate a parameter
+list and an optional default string in place and require rejection while the
+original source values remain unchanged.
+
+* Publication ownership and the complete dependency request
+
+The next audit found that the returned declaration still aliased the callback's
+retained result. Input isolation protects the original but cannot protect a
+published result from later callback writes. The adapter now copies the returned
+object graph before checking its header and returning it. The same independently
+owned object is used by subsequent lambda construction and dependency admission.
+Native controls retain callback output, mutate names, body expressions, nested
+vectors and strings after publication, and require the published declaration to
+stay unchanged. A complete =source-procedure= request also retains its literal
+string after the callback changes its retained copy.
+
+[[file:../../../formal/ParserEngine/SourceDeclarationStorage.lean][SourceDeclarationStorage]] reuses =SchemeStorage.cell= and the existing indexed
+and symbolic write primitives. =replay_frame= proves preservation for arbitrary
+finite mutation histories whose addresses exclude the owned publication slot.
+=published_factory_reads= and =published_variable_evaluates= connect that frame
+to LeanPoo's exact selected factory and the Scheme variable rule. The negative
+=aliased_factory_changes= theorem proves that the same named factory follows a
+callback write if publication and callback storage alias.
+
+The unified =request_after_mutations= theorem binds publication allocation to
+the actual post-transform heap. Its fresh-storage premise supplies the existing
+allocator's freshness proof. The helper call environment and external compiler's
+source environment are distinct: the helper's =declaration= or =header= binding
+cannot silently satisfy a source-level lexical obligation. One LeanPoo checklist
+uses tagged reference/declaration capabilities, so even equal textual names do
+not collide. =declaration_does_not_supply_reference= proves rejection of this
+model failure generally; the native controls reject all helper-only names and
+accept an explicitly supplied same-name source parameter.
+
+Compiler input is explicitly =SourceDependencyAdapter.lambdaData= of that same
+published declaration and its supplied dependencies. =lambda_data_evaluates=
+proves that the actual extracted Scheme cons/append constructor creates this
+value for arbitrary complete bodies, including keyword data.
+=accepted_lambda_shape= derives the constructor envelope from successful guards.
+The project-owned normalization is therefore separate from external compiler
+expansion, rather than being hidden inside an abstract expansion function.
+
+The host object codec owns round-trip value preservation and graph separation
+for supported stable inputs during each copy. The logical cell/field proof does
+not verify the codec's physical pair, vector or string implementation, GC, or
+arbitrary concurrent mutation during copying. No SDK/Gambit source or installed
+object is modified or built.
+
+Body instrumentation may intentionally change observations. This protocol does
+not assert semantic equivalence for arbitrary user callbacks, nor does lexical
+capability admission establish initialized cell contents or callback termination.
+The existing construction, storage and FIFO contracts continue to carry those
+separate behavioral obligations. No arbitrary transform-equivalence axiom was
+introduced.
+
+| Unified obligation | Model | Real Scheme boundary | Regression |
+|--------------------+-------+----------------------+------------|
+| Resolve exactly one complete declaration | =predicate_corresponds=, =read_iff= | =read-source-definition-port= | duplicates, quote, trailing reader error |
+| Keep binder identity through instrumentation | =accepted_interface=, =changed_interface_rejects= | =transform-source-declaration= | header injection and retargeting reject |
+| Retain published storage across later writes | =replay_frame=, =request_after_mutations= | copy callback output before guard and publication | retained header/body/vector/string mutation |
+| Derive native guard acceptance | =guards_accept_iff= | complete emitted guard predicates | invalid envelopes and changed headers reject |
+| Execute the retained transformation once | =invoke_closure=, =unique_execution= | single =transform= call, threaded heap | effectful counter is one |
+| Admit every transformed lexical obligation | =read_transform_prepare=, =prepared_covers_source= | full-body lambda and SDK visitor | appended unresolved reference rejects |
+
+[[file:../../../formal/quint/SourceDeclarations.qnt][The declaration lifecycle controls]] reject duplicate or missing declarations,
+read errors, interface changes, transformed missing dependencies, early calls,
+repeated calls and missing output isolation. Publication precedes guard and
+inspection; retained-callback mutation controls run both before and after the
+guard while preserving the detached published value. They complement the arbitrary-stream and closure proofs;
+they do not replace them.
+
+* Nested producer provenance and shared source sites
+
+The unified constructor consumes named nested LR producers, including emission,
+template, growth and interning helpers. Their provenance depends on the actual
+nested-source reader, not only the top-level declaration selector. The audit
+found that its private traversal skipped =quote= but descended into
+=quote-syntax= and =syntax= data. Same-named data could be counted as a producer
+or make a real producer appear ambiguous. A native regression containing one
+real producer and two literal syntax copies reproduces the ambiguity before
+the repair. Negative controls compare the exact selection error rather than
+accepting an unrelated exception.
+
+The mutation-site observer copied the same traversal and inherited the same
+literal-data error. Both adapters now use =parser-source-sites= in the existing
+[[file:../../../src/testing/source-witness.ss][source-witness engine module]]. One ordered traversal owns the three direct
+quotation barriers. The declaration adapter reuses the existing matcher and adds
+the procedure-header restriction; the mutation adapter selects =set!= and
+=vector-set!= sites. Empty lists and non-pair data never invoke the selector.
+No new loader, dependency cache or independent runtime evaluator is introduced.
+
+[[file:../../../formal/ParserEngine/SourceSiteExtraction.lean][SourceSiteExtraction]] proves this protocol for arbitrary representable trees and
+stable selector predicates. =complete= relates every collected site to an
+independent ancestry predicate. =ordered= proves equality with filtering an
+independent preorder, preserving the entire sequence and duplicates, rather
+than merely agreeing on membership. =selected_iff= and =selected_visible= derive
+unique nested declaration provenance from that sequence. =factory_visible=
+composes whole-file outer declaration selection with the exact nested producer
+retained by LeanPoo, through =read_nested_sound=;
+same-named syntax data cannot supply this capability. Generated reader data
+checks the shared traversal and both complete adapters against actual Scheme
+source. These results apply to the structural source-witness protocol; compiler
+expansion, hygienic binding, quasiquotation interpretation and unrestricted
+Scheme execution remain outside it.
+
+The native fixture tests all three direct quotation forms, one real declaration
+among quoted copies, duplicate real declarations, empty traversal and ordered
+nested mutation sites. All assertions use the existing parser-test macro.
+[[file:../../../formal/quint/SourceSites.qnt][SourceSites]] separately controls quote barriers and source ordering, including
+mutations that omit a barrier or reverse pending siblings. Its bounded controls
+complement the arbitrary-tree Lean proofs and are included in the existing
+Quint test command.
+
+The first witness regeneration after changing the shared engine module was
+rejected because the installed package generation no longer matched its source.
+That failure is preserved. Standard package clean/build is required before
+regeneration; no stale compiled interface or bypass supplies the new helper.
+
+* Complete preparation audit
+
+The remaining-premise audit found a composition error in the model:
+=SourceDependencies.admit= accepts a closed data tree, whereas the real
+=prepare-source-procedure= rejects any expanded core that is not a lambda or
+case-lambda literal. Dependency closure is an intermediate obligation, not a
+complete procedure-admission certificate. The Scheme implementation already
+contains the missing guard; no parser runtime repair is inferred from this
+model counterexample.
+
+[[file:../../../formal/ParserEngine/SourceProcedureAdmission.lean][SourceProcedureAdmission]] now models the complete guard boundary.
+=check_iff= derives acceptance from both the literal classification and the
+complete visitor result for arbitrary representable core forms and trees.
+=checked_closed= produces lexical closure from those checks, rather than
+requiring it as an input certificate. =checked_supplied_coverage= reuses the
+exact LeanPoo factories to connect native residual closure to every required
+supplied capability. =execution_checked= retains the same checked core through
+evaluation and derives the final procedure-result check; =execution_ready=
+provides the converse success rule. =nonprocedure_result_rejected= covers the
+last rejection branch even if an external evaluator violates its expected
+literal-result behavior. The concrete preparation source witness binds this
+protocol to its native guards, traversal order and same-core evaluation.
+
+Native macro controls verify the decisive counterexample: dependency-free
+numbers, quoted data and computed procedure expressions fail procedure
+preparation; a case-lambda literal succeeds with both arities. The Quint
+lifecycle distinguishes quoted data inside a literal from a nonliteral core,
+and rejects omission of either the literal or final-result guard.
+
+| Remaining premise | Classification and discharge boundary |
+|-------------------+---------------------------------------|
+| Nested producer and mutation-site provenance | Shared traversal, arbitrary-tree completeness/order and exact LeanPoo producer selection are derived; normal-return stable predicates and primitive list operations remain external. |
+| Whole-file declaration selection and header acceptance | Derived by the reader transcript and native predicate proofs; no caller matcher or guard certificate. |
+| Transform body execution and normal return | Existing Scheme closure/heap semantics covers a supplied complete execution derivation; totality of arbitrary user callbacks is not asserted. |
+| Published data graph isolation | Project codec composition and logical frame theorem; physical codec round-trip, graph allocation and stable inputs remain host premises. |
+| Complete lexical closure and procedure admission | Derived by the visitor, computed native guard model and exact LeanPoo capability selection; closed data alone is rejected. |
+| Core syntax to visitor tree, binding classification and evaluator result | Installed compiler semantics and stable retained syntax remain external; arbitrary mismatched trees are not admissible compiler observations. |
+| Physical records, semantic origins and construction inputs | The unified construction contract validates its supported encodings; arbitrary metadata extraction and unrestricted Scheme execution are not covered by this source-witness contract. |
+
+This table is a maintained boundary audit, not a claim that every parser-owned
+source obligation or arbitrary Scheme program has been proved. The actual
+construction lifecycle continues to consume its retained producer, storage,
+FIFO and paper-target proofs separately. Model coverage and native qualification
+are distinct evidence; no CPU optimization follows from this change.
+
+* Real source and execution controls
+
+[[file:../../../t/source-dependency-test.ss][The source dependency suite]] uses the existing constrained test macros for reads,
+assignment targets and RHS, deferred closures, lexical shadowing, mutation,
+optional defaults, verified host primitives, forged kernel names, ambient global
+functions, quote/quote-syntax, the actual LR procedure, trailing body
+forms, stateful macro expansion and rejection of executable setup expressions.
+The real LR and event-walk suites execute the shared checked capability.
+Reader controls also cover quoted definitions, complete trailing forms, duplicate
+selection, malformed trailing input, one-time effectful transforms, interface
+mutation and an unresolved reference appended by a transform. All use the
+existing =deflanguage-parser-tests= macro.
+
+Qualification retains the same original 16-owner cold aggregate, four workers,
+180/5 aggregate budget and 90-second combined preparation/execution per owner.
+Standard cold package build remains 180/5; the original four preparation owners
+remain 90/5. Additional affected-source controls also use 90/5. A focused pass
+or warm process cannot substitute for the complete first cold aggregate.
+
+* Explicit trust boundary
+
+The installed SDK's reader, core expansion, binding classification, inherited
+visitor coverage and core evaluator remain compiler premises. The separate host
+primitive slot and its stability during a request are runtime premises. The
+installed object-graph codec supplies isolated copies of supported reader data;
+its round-trip and allocation behavior are also external host premises. The project now
+reuses those actual mechanisms instead of assuming an arbitrary hand-maintained
+source name list is complete. The proof is relative to those compiler premises;
+it is not a verification of the Gerbil compiler or Gambit implementation.
+
+A lexical reference proof does not establish termination, callback behavior,
+initialized heap cells, dynamically computed module loads, or the completeness
+of an arbitrary transitive module-effect graph. Those obligations retain their
+existing contracts. No SDK/Gambit code or installed object is modified or built.
+
+* Qualification runtime dependency boundary
+
+A previous macOS semantics job failed in the Unicode backpressure control's
+completion wait, after the real target-ready acknowledgement. Its four-second
+readiness, six-second completion, 0.8-second child idle fence and 1.2-second
+intentional consumer pause remain unchanged.
+
+The source audit identified another phase crossing: =qualify.ss= imported
+runtime-only services through expander interfaces. The CLI now obtains only the
+selected runtime service through the existing shared module loader. That adapter
+continues to delegate cache/error ownership to the SDK and handles source-only
+wrappers in their proper evaluator context. A direct SDK call alone was rejected
+by the raw wrapper's =declare= in the Gerbil evaluator; that failed experiment
+is retained. No new loader, cache, whole-library copy or admission bypass was
+introduced. Both pre/post source and product validation remain in the same
+library-reader lock.
+
+The compiler-process suite installs an expander-import callback that rejects
+any interface request, then loads the real CLI and resolves its runtime service
+in a fresh GXI. This checks the actual phase boundary, rather than merely
+matching source text. Original backpressure controls retain every Unicode line,
+exact child-log byte count, process status and final receipt.
+
+The current macOS semantics failure recurred at the completion fence after the
+target-ready acknowledgement. The phase correction above therefore does not
+establish that every completion failure is resolved. A source audit found that
+the process error observer still repeated string-state checks for every byte
+after a line had already diverged from either accepted error prefix. It now
+retains a skipped-line state until newline, preserves partial prefixes across
+arbitrary byte chunks, and recognizes the same error delimiters without UTF-8
+fragment decoding. Parser-test macros compare every byte split with an
+independent regular-expression oracle, including Unicode and binary prefixes.
+The original readiness, completion, idle and consumer-pause fences remain;
+no bytes, flood lines, final receipts or padded-startup control are removed.
+Local unchanged controls passed before and after the scanner repair. The
+ordinary/padded completion observations were 3.86/3.70 seconds before and
+3.81/3.60 seconds after; this small uncontrolled difference cannot establish the
+scanner as the cause of the remote six-second failure. Completion failures now
+retain elapsed time, captured byte count and child status, so a later failure
+can distinguish unfinished output from post-output exit/admission work.
+Remote macOS confirmation belongs to the newly submitted commit, separately
+from local controls. This qualification repair is not a parser CPU-gain claim.
+
+* Preserved negative qualification
+
+The first complete aggregate rejected the publication observer's missing conflict
+callback and the source fixture's forbidden string assembly. Both were corrected
+without weakening their checks. A later cold build reached the existing
+180-second total deadline while other builds were active; it remains a failed,
+unattributed resource receipt. A complete subsequent 16-owner process passed,
+then the broader LR source control identified legitimate host primitives being
+misclassified as missing expander bindings. The primitive-slot rule addresses
+that classification separately from ordinary unresolved source dependencies.
+
+The previously fixed CI compiler failure had an independent cause: SDK tool
+launches retain the inherited =GAMBOPT= relocation prefix and append the same
+heap/debug settings. A real installed =gsc= probe with a temporary logical bin
+map demonstrates that the old assignment loses it and the corrected assignment
+retains it. Resource values, standalone-product isolation and SDK bytes are
+unchanged. No timing above is interpreted as a CPU optimization result.
+
+* Current qualification
+
+| Gate | Result | Existing limit |
+|------+--------+----------------|
+| Standard clean and complete package build | 152.23 s, exit 0 | 180/5 |
+| Original four preparation owners | 62.20 s, exit 0 | 90/5 |
+| Original 16-owner first cold aggregate | 170.06 s end to end, exit 0 | 180/5 |
+| Dependency, LR source and real compiler controls | 55 cases, 9.71 s, exit 0 | 90/5 |
+| Source dependency witness freshness | 2.33 s, exit 0 | 90/5 |
+| Lean model and unified axiom audit | 251 jobs passed | unchanged |
+| Source-site Quint controls | 6 tests; 1000 traces passed | unchanged |
+
+The cold aggregate uses the original owner list and four workers. The broader
+controls include verified and missing kernel primitives, an ordinary ambient
+kernel-named function, retained stateful closures, and a macro that rejects any
+second expansion. A fixture initially passed an invalid syntax template to the
+SDK; its identifier template was corrected without changing the engine or the
+original aggregate. All failed receipts remain separate from these passes.

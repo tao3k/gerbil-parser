@@ -1,247 +1,713 @@
 #+title: gerbil-parser
 
-=gerbil-parser= is a Gerbil-owned programmable syntax engine built on hygienic
-macros, POO composition, parser-flow normalization, and AOT-compiled parser
-artifacts.  The optional Rust/Rowan product executes those same immutable
-Parser IR tables without running Scheme at parse-request time.
+A programmable syntax engine in Gerbil Scheme, with declarative language packs,
+lossless parse artifacts, and Rust integration.
 
-The language-neutral compiler and runtime live under =src/=.  Their public
-language-import API is the top-level =language-support.ss= facade beside
-=build.ss=, so package imports do not expose the physical =src/= directory.
-Its implementations remain under =src/language-support/=.  Bundled and downstream language packs live under
-=languages/<language>/<version>/=; grammar, parser entry, fixtures, tests, and
-native corpus stay together.  POO and =poo-flow=
-are used only while compiling grammar object graphs; generated parser hot paths
-do not perform dynamic POO dispatch.
+Languages declare syntax and metadata; the engine owns scanning, grammar
+normalization, LR construction, parsing and result publication. Hygienic macros
+and POO prototypes provide constrained extension points. Gerbil remains the
+compiler authority for generated Rust products.
 
-The repository owns the generic Rust/Rowan runtime and generated language
-products under =rust/=.  Downstream repositories consume these products rather
-than rebuilding ParseArtifact-to-Rowan sinks.  Gerbil remains the sole grammar,
-normalization, conflict-resolution, and table-generation authority.  The first
-executable reference grammar proves both the pure Scheme runtime and the
-Rust/Rowan AOT path from the same immutable Parser IR.
+This is an active implementation and research project. Supported syntax and
+portable products are qualified per language and target; a shared authoring
+interface does not imply complete language coverage or backend parity.
 
-* Rust/Rowan AOT product
+* Native package dependency
 
-=src/compiler/rust-rowan.ss= lowers canonical Parser IR v1 to immutable Rust
-tables.  =rust/gerbil-parser-rowan= owns their generic lexer/LR executor,
-lossless Rowan green-tree construction, diagnostics, and source/grammar-bound
-receipt.  Generated modules are ordinary Cargo source artifacts; downstream
-parse requests do not initialize Gambit and do not interpret Scheme.
+The one direct production dependency is Core. Its native declaration owns the
+inherited POO revision; Parser does not repeat that pin. Runtime imports and the
+installed dependency closure retain both public owners.
 
-The arithmetic v1 reference grammar and ISO/IEC 39075:2024 GQL are generated
-products.  The generic runtime closes deterministic LALR and bounded
-selective-GLR execution, the closed native lexical algebra, dynamic precedence,
-equivalent-completion merging, trivia-preserving byte roundtrip, and
-fail-closed ambiguity rejection.  The pinned 14-source OpenGQL corpus is the
-first GQL admission gate.  Pinned external scanners, recovery parity,
-generated field accessors, and wider differential corpora remain explicit
-downstream-cutover gates; directory presence alone does not claim them.
+* Native package build
 
-** Rust consumer contract
+Gerbil is the default compiler and standard build toolchain. =init.ss= selects
+Parser with =yuanxu!=; its Scope publishes the existing =build-modules.ss=
+catalog. =build.ss= hands the complete catalog and all three FFI specifications
+through the same init-owned =std-make-spec= to Core's =defbuild-script= adapter.
+Core owns selected-source preparation, normalization and required-product
+checks; Gerbil =std/make= owns scheduling and compilation.
 
-An upstream-maintained language is a generated Rust crate layered over the
-small generic runtime. A Rust consumer imports its =LANGUAGE= value (or its
-convenience =parse= function); it does not rebuild a lexer, precedence table,
-Rowan sink, or ParseArtifact adapter, and a custom DSL does not compile the GQL
-tables:
+=gerbil pkg build github.com/tao3k/gerbil-parser= uses this entry. The
+=qualify-library= recipe also invokes =build.ss= directly. Optional command,
+FFI and test build entries keep their existing Gerbil declarations and compiler
+options. No Parser publication wrapper or package-input policy sits around them.
+Ordinary build completion is not a separately issued review or delivery approval.
+Qualification records actual command results and required test markers.
 
-#+begin_src rust
-use gerbil_parser_rowan_gql::LANGUAGE;
+The prefix-wide library snapshot, reverse-dependent/namespace policy,
+reader/writer publication barrier, separate qualified-build wrapper and copied
+conformance cache are removed together. There is no scan of all installed
+packages to manufacture Parser input ownership. Conformance preparation invokes
+the existing declared module and link owners; source-only test classification
+belongs to =scripts/test-plan.ss=. That script does not manage a cache.
 
-let parsed = gerbil_parser_rowan::parse(&LANGUAGE, source)?;
-let root = parsed.syntax();
-#+end_src
+=src/build-support= retains compiler options and the necessary native-object
+link adapter. The shared byte/text output pump is owned by existing Core Ops;
+Gerbil =run-process= retains process execution and failure propagation. No
+Gerbil/compiler source or installed toolchain is modified.
 
-A downstream custom DSL follows the same =languages/<dsl>/<version>/grammar.ss=
-contract. The complete pack keeps =grammar.ss=, =parser.ss=, =fixtures.ss=,
-=parser-test.ss=, and its native =corpus/= together; the Rust product is a
-projection of that same declared language, not a separate grammar. A direct
-custom grammar imports only the narrow authoring facade:
+Two workers and the existing heap limits remain. Parser package/helper/catalog
+build entries have no 180-second cutoff; focused test, idle and failure-evidence
+limits remain unchanged. Failure archives preserve the original status and
+cannot be restored as successful prepared products. CI's existing transport
+identity remains distinct from compiler correctness and review authorization.
 
-#+begin_src scheme
-(import (only-in :gerbil-parser/rust-rowan-grammar-support deflanguage))
-#+end_src
+* Explicit callable and data boundaries
 
-Repository-owned generation may import the grammar binding and the public
-=:gerbil-parser/rust-rowan-support= facade, then emit an ordinary Rust module:
+Native POO Types and Functions check each invocation. Graph callers choose their
+Row, Id and Kind Types; the Context retains these choices and a TypeValuePair
+for its admitted view. Its accessors return Id, OrFalse(Id), and Kind. False is
+reserved for no parent. Query arguments and targets use the same chosen Types.
 
 #+begin_src scheme
-(import :gerbil-parser/rust-rowan-support
-        :my-dsl/languages/example/v1/grammar)
-
-(generate-language-rust-rowan-module
- "src/generated/example_v1.rs"
- example-v1-language-grammar)
+(import :gerbil-parser/graph-query-support
+        (only-in :clan/poo/object .o .ref)
+        (only-in :clan/poo/type Record Symbol OrFalse))
+(def Row (Record id: [Symbol] parent: [(OrFalse Symbol)] kind: [Symbol]))
+(def context
+  (make-graph-query-context Row Symbol Symbol
+    (.o records: (list (.o id: 'root parent: #f kind: 'section))
+        id-of: (lambda (record) (.ref record 'id))
+        parent-of: (lambda (record) (.ref record 'parent))
+        kind-of: (lambda (record) (.ref record 'kind)))))
+(graph-query-map context 'section (lambda (_) #t))
 #+end_src
 
-The generated module is compiled into the downstream Rust crate and executes
-without Gerbil, Python, a subprocess, or a runtime grammar interpreter.  Gerbil
-is the AOT grammar/compiler authority; Cargo consumers depend only on the Rust
-engine and their generated module.
+=make-source-scanner ContextType ModeType source initial-context step= installs
+=SourceScannerStepOf(ContextType, ModeType)=. It accepts source/UInt offset/
+ContextType/ModeType and returns exactly optional Symbol, UInt end, ContextType.
+A caller-owned defstruct works through its POO Type, including field predicates.
+Initial and replacement Contexts are checked. Progress, EOF, span bounds and
+worker ownership remain algorithmic invariants. Original callback exceptions
+propagate. The contextual IR executor retains its own nominal scanner structs.
 
-Rust-driven authoring uses the same authority through the dedicated build-only
-=gerbil_parser_rowan_compile= ABI. Build Support passes a =grammar.ss= path to
-the precompiled Gerbil generator, receives the existing Rust/Rowan backend
-output as owned bytes, and writes it into Cargo's =OUT_DIR=. It does not parse
-Scheme or rebuild Grammar IR/LR tables in Rust, and the parse-time dependency
-still contains only the Rowan engine plus generated tables. The generator is a
-separate native product; the Cargo-only authoring claim remains open until that
-product can be distributed and used on admitted Linux and macOS targets
-without a Gerbil installation.
-The same owner is exposed as the =gerbil-parser-rowan-aot= executable for
-standalone bundle qualification; it initializes Gerbil's expander internally
-and never invokes =gerbil=, =gxi=, or =gxc= while generating a module.
-Its =defbuild-script= declaration projects a public ASP Building API package
-spec into std/make, so the declared Scheme module graph and native TLS options
-remain ordinary build data instead of a release script tracing and copying
-Gerbil's mutable object cache. CI executes the result under =env -i= with no
-Gerbil command on =PATH= and explicit expansion-metadata roots. Packaging
-those immutable interfaces with the executable remains a release boundary;
-runtime object-cache reconstruction is gone.
+=ActionSelectorFactory= validates raw action rows, indexed row structs, and a
+returned selector of UInt/optional-token -> optional LRActionEntry. Entries have
+concrete terminal/action structure; malformed operands and cyclic branches fail
+Type admission. Types do not establish parser transition correctness.
 
-=t/fixtures/rust-rowan-downstream= is the executable consumer contract. It has
-no =gerbil.pkg= and imposes no Gerbil installation on the Rust consumer.
-Upstream generation CI verifies its Scheme source pack and checks the
-committed Rust module through the public AOT facade. The independent Cargo
-workspace then compiles and tests that module for lossless Rowan structure,
-receipts, and typed rejection using only the Rust runtime dependency.
+Utilities publishes concrete string services plus
+=list-operations-for(RowType, KeyType) -> TypeValuePair=. It has no default row/key
+Type. Compiler accepts structural Grammar or schema-bound GrammarIR. IR headers,
+row carriers and grammar/lexical expression data are checked by their existing
+validators; semantic resolution remains the compiler's responsibility. Grammar
+family prototypes are stable across Contract refinements within their own module
+realization. Structural compiler inputs permit source/compiled interoperability.
 
-After building the Gerbil package, regenerate and verify the committed module:
+** Remaining Any sites
 
-#+begin_src sh
-gerbil env gxi generate-rust-rowan.ss \
-  rust/gerbil-parser-rowan-arithmetic/src/generated/mod.rs
-cargo fmt --all
-cargo test --workspace --locked
-cargo test --release -p gerbil-parser-rowan-scenarios --test performance_test -- \
-  --ignored --nocapture --test-threads=1
+These seven declarations retain their actual universal semantics; none is renamed
+to a nominal alias to conceal a weak signature.
+
+| Location | Position | Reason |
+|----------+----------+--------|
+| grammar/types.ss grammar-expression? | Candidate | Malformed arbitrary candidates must return false |
+| grammar/types.ss lexical-expression? | Candidate | Same recognition boundary for lexical syntax |
+| runtime/types.ss parse-artifact-valid? | Candidate | Classification returns false; consuming methods require ParseArtifact |
+| graph/types.ss graph-query-view? | Candidate only | Row/Id/Kind parameters are explicit; a malformed candidate still returns false |
+| testing/types.ss parser-test-form-admitted? | Inspected reader/form data | Syntax inspection does not evaluate the supplied datum; name lists are List Symbol |
+| graph/graph-query-types.ss GraphQueryPredicateOf | Result only | Scheme true values include strings/member tails; Row input remains checked |
+| build-support/types.ss BuildSpecification | Native option/metadata tail | Source names are String; std/make owns nested option/submodule payload semantics |
+
+The emitted Rust =Guard::Any= string in rust-scanner.ss is an enum variant, not a
+POO Type. SourceScannerStepOf, Graph accessors and GrammarIR contain no Any.
+
+Scope/API checks (=t/library-init-test.ss=) and external native entry checks
+(=t/library-build-entry-test.ss=) have distinct owners. Both retain total90/idle5;
+the Source Scope owner declares its existing exclusive expander capability and
+reports actual source reads/parses/evaluations through Ops. Timers, cached check
+replays and unconditional heartbeat output do not count as progress. The Worker
+pool remains two. Native entry tests clear inherited GERBIL_LOADPATH and validate
+one noisy spec against the complete public/ABI requirements; the development
+native inventory gate independently checks the ordinary spec.
+
+The exact source association during native Make belongs to Core's existing
+compiler-input owner. Its private dynamic source index preserves the selected
+inputs while std/make temporarily changes the search path for timestamps. Byte
+and package guards still run, and outside-owner/unselected sources use canonical
+native lookup. No Gerbil/SDK edits or alternate build environment are required.
+
+* Separate backend baselines
+
+The [[file:t/benchmarks/backend-baseline/README.org][matched backend protocol]] measures the same changing arithmetic sources
+with parsing and lossless text reconstruction, serially. This is NOT Org Fold,
+FFI/Tokio/Python acceptance or an SMP test. No SMP feature is blanket skipped.
+Scheme is an optimized Gerbil executable running on the VM, not Rust AOT.
+
+Local macOS arm64 measurements on 2026-10-16, parser =04e2cdb= and bridge IR
+=2c82b845=, have twenty complete batches per backend/load. Grammar and all
+sixty paired corpus digests agree. Wall, per-request P95/P99 and throughput
+below are medians of twenty batches; RSS is the peak of the whole process.
+
+| Backend   | Requests/batch | Wall (ms) | P95 (us) | P99 (us) | Requests/s | Peak RSS (bytes) |
+|-----------+----------------+-----------+----------+----------+------------+------------------|
+| Rust AOT  |           1000 |     4.370 |    4.375 |    5.146 |     228845 |          2244608 |
+| Scheme VM |           1000 |    19.073 |   12.000 |  643.000 |      52511 |         33865728 |
+| Rust AOT  |          10000 |    44.535 |    4.500 |    5.459 |     224543 |          4079616 |
+| Scheme VM |          10000 |   149.806 |   12.000 |   20.500 |      66753 |         46710784 |
+| Rust AOT  |         100000 |   455.274 |    4.583 |    6.688 |     219648 |         18415616 |
+| Scheme VM |         100000 |  1285.035 |   12.000 |   18.000 |      77820 |        166772736 |
+
+Rust input String/vector reserved capacity is 68000/680000/6800000 bytes per
+batch respectively, excluding corpus, outputs, sampler and runtime. It is
+not a total memory measurement; Scheme capacity is unavailable, not zero.
+The Scheme 1000-request P99 observation is retained, not excluded as noise;
+its cause is not established by this baseline. Different clocks and the full
+roundtrip boundary are documented in the protocol. These results establish
+separate baselines, not an optimization, backend equivalence or a new VM SLA.
+The historical Fold gate below remains an explicitly unachieved target;
+neither this arithmetic result nor model success promotes a real-Org baseline.
+
+* Real Org Fold backend baseline
+
+The [[file:t/benchmarks/backend-baseline/ORG.org][complete Org Fold protocol]] now compares the full shared Org declaration,
+not arithmetic or the outline demo. Both backends produce OEV1; all sixty
+paired changing-input batches match their input and complete output digests.
+This measures Fold and tape materialization, NOT public Org graph projection,
+FFI/Tokio/Python delivery or SMP parallelism. Serial sampling is not an SMP skip.
+
+Parser =58faa58=, upstream Rust IR =2c82b845=; local macOS arm64 measurements,
+twenty batches per backend/load. Wall includes stream validation; per-request
+P95/P99 exclude hashing. Values are batch medians; RSS is whole-process peak.
+
+| Backend   | Requests/batch | Wall (ms) | P95 (us) | P99 (us) | Requests/s | Peak RSS (bytes) |
+|-----------+----------------+-----------+----------+----------+------------+------------------|
+| Rust AOT  |           1000 |    76.001 |  114.459 |  124.292 |      13158 |          4014080 |
+| Scheme VM |           1000 |    34.827 |   51.000 |   62.000 |      28713 |         31113216 |
+| Rust AOT  |          10000 |   763.780 |  114.771 |  126.000 |      13093 |         13664256 |
+| Scheme VM |          10000 |   341.066 |   50.000 |   59.500 |      29320 |        105693184 |
+| Rust AOT  |         100000 |  8166.499 |  116.146 |  140.438 |      12245 |        107741184 |
+| Scheme VM |         100000 |  3634.205 |   51.000 |   66.500 |      27517 |        788316160 |
+
+Rust is slower on this full declaration despite being faster on arithmetic;
+the arithmetic result cannot establish real Fold performance. Neither product
+meets the historical throughput goal. No runtime optimization or target waiver
+is admitted by this benchmark-only change; previous qualified baselines remain.
+[[file:t/benchmarks/backend-baseline/receipts/20261016-org/][Raw batch/resource and diagnostic receipts]] are retained alongside the
+[[file:t/benchmarks/backend-baseline/ORG.org][source identity, boundaries and GC/RSS diagnosis]].
+
+* Experimental Fold qualification (not accepted)
+
+The engine-owned [[file:t/benchmarks/parser-throughput/README.org][parser throughput qualification protocol]]
+defines hard 1000/10000/100000-request wall gates of 0.010/0.100/1.000 seconds
+and a minimum 100000 requests/s. It reports per-request P95/P99 with explicit
+units, fails inadequate candidates at preflight, and requires twenty batches
+per load for full acceptance. Its included generated line fixture is NOT full
+Org, Rust/Tokio or Python acceptance; real adapters must retain their own
+compiled source identity and semantic oracle. No achieved Org speed is claimed.
+
+Consumer-local selector facts now have explicit read/write support and barrier
+invalidation, with separate Lean semantic lemmas and bounded Quint scope tests.
+Actual AOT controls pass, but matched changing-input preflights remain below
+the throughput gate. The latest supported-run experiment measures 41.504-44.692
+ms per 1000 requests (P95 60-64 us, P99 75-171 us; 22375-24094 requests/s;
+process RSS 28884992-28934144 bytes), versus 42.048-44.423 ms for its control.
+This is not a qualified improvement or twenty-batch acceptance. Full lane
+results, artifact hashes and source-bound model receipts are retained in
+[[file:FOLD-TASK-RECEIPT.md][the task receipt]]. No baseline promotion follows from model success.
+
+An additional scalar-expression inlining candidate passed the actual AOT and
+model chain but failed matched performance: 39.846-128.127 ms per 1000 requests,
+with process RSS 30883840-30916608 bytes versus 28753920-28819456 bytes for the
+control. It was withdrawn; isolated faster lanes do not justify promotion.
+The twenty-batch matrix remains gated on the unchanged 10 ms preflight.
+
+Whole-program single-use call fusion is now connected to production tape AOT,
+before module partitioning. Six directed controls and 24 complete actual tapes
+pass with source-bound Lean/Quint/AOT receipts. The generated product has 1300
+functions instead of 3310 and 5371 private call sites instead of 7381. These
+are static counts, not proof of fewer dynamic scans or allocations.
+
+Six matched changing-input 1000-request preflights per product (NOT full
+acceptance) have wall medians 36.666 ms candidate versus 43.726 ms control,
+CPU medians 36.339 versus 43.615 ms, and process RSS medians 26550272 versus
+28803072 bytes. Candidate call P95 is 51-55 us, P99 63-156 us; throughput
+21368.43-27753.11 requests/s. The 46.798 ms candidate spike remains a negative
+observation, not excluded; five GCs occur in every lane. The 10 ms hard gate
+still fails. Baseline is unchanged; no large-load twenty-batch matrix or
+public Org/FFI/Python/SMP speed admission. Full controls and negative results
+are in the task receipt, with logical/model versus runtime boundaries.
+Serial allocation diagnostics show identical observed bytes per no-GC request
+for all three fixtures (15904/24976/31888 bytes); this subset includes observer
+overhead and is not total allocation. Call fusion has not demonstrated reduced
+allocation or GC pressure.
+
+An additional exclusive-publication candidate follows official =std/io/bio=:
+seal the tape owner, clear its buffer reference, shrink the privately owned
+=u8vector=, and transfer it instead of copying the complete output. Real AOT
+tapes agree. Three fixture no-GC-request allocation observations decrease from
+15904/24976/31888 to 14608/23456/28528 bytes/request (observation overhead is
+included, GC-crossing requests excluded). Eight diagnostic lanes per product
+have wall medians 35.6985 versus 37.3205 ms and CPU medians 35.6645 versus
+36.279 ms; candidate P95 50-56 us, P99 60-133 us, 25957.84-28354.32 requests/s.
+GC count is 4 versus 5. Four RSS-qualified lanes each have medians 26583040
+versus 26558464 bytes: slightly higher RSS, not memory reclamation evidence.
+Concurrent compiler activity and retained negative lanes preclude a stable
+speed admission. Every 1000-request lane still fails the 10 ms gate.
+
+A subsequent shared-next-byte lowering passed model/AOT and NUL/empty/end
+controls, but was withdrawn: CPU median 36.5015 versus 36.2355 ms and P50
+30 versus 29 us, with slightly higher RSS. Fewer source reads alone did not
+offset the added per-byte binding/guard. Independent semantic controls remain.
+Stall probes captured an 8157 us call with only 319 us CPU, no GC and three
+involuntary switches under compiler contention; they do not retrospectively
+classify the earlier 46.798 ms batch. Neither trial promotes a baseline or
+admits a large-load matrix, public Org parsing, Python, Tokio or SMP performance.
+
+Two whole-span recognition/counter/ordered-residual leaf implementations were
+also executed and withdrawn, rather than admitted on model results. The first
+four matched 1000-request lanes have CPU medians 37.066 versus 36.2945 ms;
+the revised compiler-owned entry has 36.691 versus 36.001 ms, wall medians
+37.041 versus 36.119 ms, and RSS medians 26648576 versus 26566656 bytes.
+Revised candidate P95 is 52-56 us, P99 89-116 us, throughput
+12873.66-27386.76 requests/s; its 77.678 ms slow lane is retained. Every lane
+passes complete tape comparison but fails the unchanged 10 ms gate. These
+are four diagnostic lanes/product, NOT the requested twenty-batch acceptance.
+
+The retained real-Fold count-only product now records span and consumer work:
+1000 changing requests execute 45996 admitted spans over 326949 byte visits
+(mean 7.108 bytes/span), plus 71640 fallback byte transitions. Span buckets
+are 6335 at length1, 11332 at2-4, 25995 at5-16 and2334 over16. These are
+dynamic visits, not unique source coverage or timing; diagnostic hooks are
+absent from production products. Static traversal finds33 admitted loop
+occurrences out of285; the inline guard cells are not loop-invariant. The next
+execution-region design must account for their dependency writes, rather than
+hoist stale state, cache input/results or turn each short span into an FFI call.
+Lean reuses the existing counter semantics and proves length/carry encoding;
+Quint separately checks borrow/commit/residual lifecycle. The retained actual
+AOT conformance is source-bound; matched-performance remains explicitly open.
+
+The whole-engine Execution.lean model now treats ordered dependent consumers
+and immutable recognition facts together; existing Quint lifecycle checks
+retain source/bounds invalidation and event order. A local-zero-transition
+trial passed 13 directed controls and 24 actual AOT tapes, but was withdrawn:
+matched 1000-request walls were 42.116-46.836 ms (P95 63-67 us, P99 84-129 us;
+21351.10-23743.95 requests/s; process RSS 28803072-28868608 bytes), versus
+stable controls 43.244-43.803 ms. A 55.164 ms control spike remains recorded.
+This did not establish consistent improvement or the 10 ms gate. The overall
+compiler-to-model refinement and cost attribution remain open; no full matrix,
+baseline promotion or downstream speed claim follows from model success.
+
+Dependency-selected interval execution now chooses a narrow or wide byte
+classification once per ordinary interval; both use one scanner without
+per-byte state guards or a maintained runtime cache. Eleven run controls and
+24 real AOT tape controls pass, with Lean/Quint source binding requalified at
+head 16f5399. The first 240 s qualification timeout remains recorded; a fresh
+retry passed without widening the budget. Matched changing-input preflights
+measure 41.011-43.931 ms per 1000 requests, Fold-call P95 58-63 us and P99
+63-109 us, throughput 22762.97-24383.70 requests/s, and whole-process RSS
+28770304-28803072 bytes. Stable controls measure 42.219-42.779 ms; the first
+57.987 ms control spike is retained. These observations establish neither a
+stable speed improvement nor the 10 ms gate. No baseline promotion or full
+twenty-batch matrix; dependent active consumer transitions remain open.
+
+The independent AOT link now completes after recovery of an unowned object
+lock; build entrypoints reject existing locks without deleting them. The
+single-body recognition prototype and its horizontal-anchor extension each
+pass 24 actual Org complete-tape controls. The latter's four changing-input
+1000-request preflights take 44.320-45.312 ms, with request P95 63-64 us,
+P99 96-124 us, throughput 22069-22563 requests/s and whole-process peak RSS
+27.5625-27.578125 MiB. The 10 ms gate still fails: no baseline promotion or
+three-load twenty-batch acceptance is claimed. See the
+[[file:docs/research/event-fold-recognition-architecture.org][recognition architecture and evidence boundaries]].
+
+The newer dependency-derived private calling convention passes four focused
+controls and the complete source-bound Lean/Quint/Scheme-to-real-AOT chain.
+It removes unused helper environment arguments without request caches. One
+matched 1000-request round measures 43.217-43.471 ms (P95 60-62 us, P99 95-107 us,
+23004-23139 requests/s, peak RSS 28803072-28835840 bytes); a reversed round is
+unstable for both control and candidate, reaching 142.624-148.276 ms for the
+candidate. Neither round passes 10 ms or qualifies a speed claim. The borrowed
+ordinary-run C scan was rejected and rolled back. All raw negative results are
+retained in the [[file:FOLD-TASK-RECEIPT.md][task receipt]]. No baseline promotion or full matrix.
+
+An exact-byte reset/increment run-summary experiment also passed seven native
+admission controls, 24 actual Org tapes and the complete source-bound model/AOT
+chain. It reduced static inline trigger alphabets to 16/17, but strictly serial
+reverse control/candidate CPU remained about 43-44 ms for 1000 requests, with no
+material throughput gain and slightly higher candidate RSS (28852224-28868608
+bytes). It was withdrawn; mathematical refinement is not performance acceptance.
+Live baseline probes reproduce a 111.849 ms diagnostic batch (71.842 ms CPU):
+a 4.908 ms request has only 0.438 ms CPU, zero GC and two involuntary switches.
+Monotonic time agrees, supporting OS descheduling for that reproduced stall;
+the historical 142-148 ms batches remain unclassified. Probe overhead excludes
+these results from throughput acceptance. The 10 ms gate and full-matrix rule
+remain unchanged; the baseline binaries are preserved.
+
+Whole-residual byte-region dispatch was also tested and withdrawn. Its actual
+Org controls and source-bound Lean/Quint/AOT checks passed, but the last reversed
+1000-request batch regressed to 82.181 ms (P95/P99 209/603 us, 12168 requests/s,
+RSS 30801920 bytes) versus 43.807 ms for the preceding control. The stable
+reverse comparison improved CPU only about five percent while process RSS grew
+roughly 2 MB. Lower GC counts do not establish a speedup. All eight lanes retain
+complete independent tape comparisons and failed preflight; no full matrix or
+promotion follows. A separate idle-state/byte-trigger admission implementation
+also passes the complete source-bound model/AOT chain and 24 actual Org tapes,
+but is withdrawn: eight serial matched lanes still fail 10 ms. Its candidate
+range is 42.067-75.223 ms, P95/P99 reaches 157/428 us, throughput is
+13294-23772 requests/s and process RSS is 28884992-28901376 bytes. Controls are
+44.102-46.747 ms. These are preflight observations, not twenty-batch acceptance;
+the fastest singleton is not a promoted baseline. Dependency-supported state
+partitioning and executed admission coverage remain open.
+
+The actual generated Org Fold now has upstream =real.ss= admission and a
+separate diagnostic =profile.ss=. Both compare complete independent events;
+neither uses an Orgize runtime or FFI queue. The real-Fold preflight remains
+failed, and the source-fact reuse experiment was reverted. See the
+[[file:docs/research/event-fold-whole-path-performance.org][whole-path evidence and optimization plan]];
+diagnostic call counts are not uninstrumented performance claims.
+
+The guarded idle-state experiment removes irrelevant mutable-state execution
+without assuming read-only configuration is zero. Two sequential changing-input
+preflights measure 102.591/103.150 ms per 1000 requests (P95 135/152 us,
+P99 403/392 us, 9747.444/9694.619 requests/s, 30 GCs), versus same-source control
+131.982/138.163 ms and 56 GCs. No-GC request allocation counter means decrease
+36-44 percent, including observer overhead; peak RSS increases slightly.
+The 10 ms gate remains failed. This is not twenty-batch, FFI, Tokio, Python or
+baseline acceptance. Lean transition obligations and Quint lifecycle histories
+are bound to actual AOT controls by the native ASCENT evidence owner; successful
+models and conformance cannot fill the missing matched-performance requirement.
+
+A single common-byte kernel adds necessary-byte classification without
+generating a separate kernel for every byte region. Two subsequent matched
+preflights measure 88.284/90.422 ms per 1000 changing requests, P95 112/113 us,
+P99 312/356 us, 11327.081/11059.255 requests/s and 27 GCs; current-source control
+is 122.040/120.904 ms and 56 GCs. No-GC allocation means decrease 38-52 percent
+but process peak RSS increases about 1.2 MB. Real AOT complete-tape controls
+pass; the 10 ms gate still fails. These opt-in experiments do not change the
+accepted baseline or qualify Rust/FFI/Python/Tokio performance.
+
+Subsequent active-state cofactoring and loop-local guard caching both passed
+24 real AOT controls but regressed matched preflight wall time. Both were
+reverted; modest RSS savings do not substitute for throughput acceptance.
+The existing best experimental product and production baseline remain intact.
+
+Direct-tape effect-only transitions remove private owner-return plumbing and
+restore syntactic tail positions without adding a runtime cache. Two matched
+1000-request preflights measure 72.575/73.322 ms, P95 96/96 us, P99 142/142 us,
+13778.849/13638.471 requests/s, five GCs and peak RSS 29.64/29.67 MB, versus
+the previous best experimental control at 96.537/90.398 ms and 27 GCs.
+All 24 real AOT event-tape controls pass. This is additional preflight evidence,
+not the still-failed 10 ms gate, twenty-batch acceptance or a production change.
+Matched no-GC request allocation means decrease from 123/231/122 KB to
+16/25/32 KB across plain-links/quote-heavy/doc inputs, including observation
+overhead and excluding GC-interrupted requests. Lean, Quint and native Ascent
+bind source controls to the actual AOT product; performance admission is open.
+
+The next experimental =tape-pruned= product removes discarded pure branches,
+including ordered cursor-derived scans only inside a validated byte loop.
+Errors, future queries, unknown effects and frame changes remain barriers.
+Matched sequential 1000-request preflights are 69.201/71.196 ms, P95 90/96 us,
+P99 144/156 us, 14450.658/14045.733 requests/s and peak RSS 29.475/29.491 MB;
+the retained tail control is 74.197/73.520 ms. GC remains five per batch.
+All 24 real AOT tapes and four effect/range controls pass. The <=10 ms gate
+still fails: no twenty-batch acceptance or production baseline promotion.
+Removing the remaining named-helper owner results or reusing token offsets
+regressed wall time and was reverted despite smaller static call graphs.
+
+The next =tape-run= experiment coalesces overwrite-only ordinary-byte segments:
+one segment scan, then the last byte's seven inline metadata overwrites. No
+runtime cache; active modes, eventful/state-dependent bodies and special bytes
+retain their original execution. All 24 real AOT tapes and five admission
+regressions pass. Candidate 1000-request diagnostic wall is 62.059--103.421 ms,
+P95 86--263 us, P99 96--575 us, 9669--16114 requests/s, peak RSS 29.426--29.458 MB,
+with five GCs. Matched controls include major non-CPU pauses; one pair regresses
+amid unrelated host CPU contention. These measurements do not qualify a stable
+speedup, the <=10 ms gate, or the still-unrun 100000-request twenty-batch matrix.
+The baseline is unchanged; the path remains an opt-in research candidate.
+
+The rejected dependency/effect execution-plan experiment reused official list
+utilities and the compile-time list builder. Its 1000-request matched preflight
+is 216.313 ms (4622.931 requests/s), versus 218.790 ms for the control; both
+fail the 10 ms gate. This single batch is not an accepted speedup or a full
+twenty-batch result. Its lowering integration was rolled back; conservative
+analysis tests remain. Shared source classification, typed state execution
+and actual event-consumer integration remain open architectural work.
+
+The combined frame/current-byte/dependency-ABI/event-buffer candidate was also
+rejected and rolled back: 1000 real changing requests took 245.616 ms versus
+219.381 ms for the matched immutable control (4071.396 versus 4558.280
+requests/s). P95/P99 were 193/6280 us versus 234/730 us; GC counts were
+15 versus 10, and whole-process peak RSS was 194.859 versus 181.750 MiB.
+RSS includes retained oracle/input and code; Rust capacity is outside this
+Scheme-only boundary. Neither product passed the 10 ms preflight. The
+canonical consumer still materialized lists after buffer production, so this
+experiment did not qualify removal of consumer work. No twenty-batch or
+baseline-promotion claim follows. Post-rollback source/native controls passed.
+
+The new direct OEV1 consumer candidate eliminates event-list materialization
+and the two consumer list traversals, while prepared loop-byte regions select
+only relevant ordered rules. Actual Org native wire/override controls passed
+24 cases, alongside 100 canonical and 90 independent wire differential cases.
+Matched single-batch changing-input results for 1000 real Org requests:
+
+| Fold + OEV1 path | Batch wall (ms) | Request P95/P99 (us) | Requests/s | GC | Process peak RSS (MiB) |
+|-----------------+-----------------+---------------------+------------+----+------------------------|
+| Canonical list + existing consumer | 198.975 | 254/304 | 5025.757 | 8 | 170.781 |
+| Direct consumer + byte regions | 171.141 | 212/247 | 5843.135 | 6 | 169.875 |
+
+Both failed the unchanged 10 ms preflight. This is NOT a twenty-batch result,
+baseline promotion, FFI/Tokio/Python acceptance or proof of memory savings.
+RSS retains the input/oracle and loaded grammar; allocation totals under GC
+and Rust capacity are not admitted here. Candidate code remains experimental.
+Residual scan/state execution still prevents the requested throughput gate.
+
+The next validated-loop-byte candidate removes duplicate reads/range checks
+and filters total state guards by byte before slot reads. Five freshly linked
+Rust/FFI integration suites passed separately (public parse/Tokio, index,
+owned projection, Org parity and host child-wait ownership). Matched sequential
+single preflights, with the previous direct product as control:
+
+| Fold + direct OEV1 | Wall (ms) | P95/P99 (us) | Requests/s | GC | Process peak RSS (MiB) |
+|-------------------+-----------+-------------+------------+----+------------------------|
+| Previous direct product | 181.078 | 221/284 | 5522.482 | 7 | 177.641 |
+| Validated loop byte | 142.709 | 157/192 | 7007.267 | 7 | 172.422 |
+
+Both fail the unchanged 10 ms gate. This 21.19 percent singleton wall reduction
+is NOT twenty-batch qualification or baseline promotion. CPU was 178.319 versus
+142.525 ms; equal GC counts do not explain the gain. Memory includes retained
+oracle/input/code, not Rust reserved capacity. These request timings do not
+include FFI, graph projection or Tokio; separate integration correctness does
+not extend their boundary. Shared whole-range prescan fusion remains open.
+
+=parser-actor-support.ss= is the public facade for explicitly created local
+Gerbil actors. Applications own worker count and lifecycle; imports start no
+background service. =spawn-parser-actor= accepts an already prepared machine,
+=parser-actor-parse= returns the same lossless artifact as synchronous parsing,
+and =parser-actor-stop!= joins the worker. Timeout bounds reply waiting rather
+than preempting an active parse. Keep the shared machine immutable after
+initialization; actor scheduling does not change the LR algorithm.
+* Language authoring
+
+A language pack exposes three Scheme interfaces:
+
+| File | Responsibility |
+|------+----------------|
+| =grammar.ss= | Declarative syntax and pinned grammar resources |
+| =parser.ss= | Production POO Loader, metadata and parse entry |
+| =parser-test.ss= | Development Loader, fixtures and declarative conformance tests |
+
+Grammar sources and corpus files remain resources beside these interfaces.
+Versions, contracts and source digests belong to metadata, not versioned module
+names. Scanner implementations, parser state and C/Rust bridge code belong to
+the engine.
+
+For example, a small identifier language declares its syntax in =grammar.ss=:
+
+#+begin_src scheme
+(import (only-in :gerbil-parser/language-support/grammar deflanguage))
+(export example-syntax)
+
+(deflanguage example
+  (syntax
+    (lexical
+      (root name)
+      (lex (identifier Identifier (identifier)))))
+  (rules (name (node Name (field value identifier)))))
 #+end_src
 
-The workspace =Build Support= crate owns the ASP Rust policy and its
-=tests/asp-rust-gate.rs= activation once. Product crates do not depend on Build
-Support; =cargo test -p gerbil-parser-build-support --test asp-rust-gate=
-activates the =Dev Gate= only in the development workspace.
-The gate runs in =deny= mode, so every ASP Rust warning or error is
-test-blocking. CI runs that target separately with =--nocapture= so policy
-diagnostics remain visible instead of being hidden by libtest output capture.
-Immutable language-crate tables are compiler output verified against Grammar IR
-in native CI; policy governs their generator and handwritten runtime owners.
-Normal and build dependency graphs do not contain Build Support or ASP Rust.
+Its =parser.ss= publishes the entry through the Loader:
 
-* Native command
+#+begin_src scheme
+(import (only-in :gerbil-parser/language-support/entry
+                 deflanguage-parser-loader)
+        ./grammar)
+(export example-language parse-example)
 
-=build.ss= is the package AOT entry. It discovers and installs the reusable
-library, runtime ParseArtifact FFI, and build-only Rust/Rowan generator FFI as
-separate products without forcing downstream library consumers to compile a
-command they do not use. =build-gparse.ss= is the sibling first-party
-=defbuild-script= entry for the optional native =gparse= command; it adds no
-second command implementation or package scheduler.
-=build-rust-rowan-aot.ss= independently materializes the build-time
-=gerbil-parser-rowan-aot= executable.
+(deflanguage-parser-loader example-language
+  (grammar example-syntax)
+  (parse parse-example)
+  (slots metadata: '((language . "example")
+                    (version . "v1")
+                    (contract . "example.syntax.v1"))))
+#+end_src
+
+The Loader is a POO object. Inheritance, value overrides and extension contracts
+are admitted before publishing the parse entry. Fixture values are ordinary
+slots; the engine owns evaluation, catalog construction and service binding.
+=deflanguage-parser-tests= constrains test declarations and checks acceptance,
+lossless source, identities and structural expectations.
+
+See the [[file:languages/README.org][language authoring guide]] and
+[[file:docs/architecture/0018-downstream-language-products.org][downstream product guide]] for development Loaders,
+POO extensions, fixtures and product generation.
+
+* Execution and integration
+
+| Product | Execution boundary |
+|---------+--------------------|
+| Scheme library | Prepared engine parser returns a lossless ParseArtifact |
+| Independent Rust AOT | Generated immutable scanner/parser tables run in the generic Rust runtime; no Scheme VM at request time |
+| C ABI and Rust FFI | A reusable Gerbil runtime and language handle execute Scheme parsing; Rust owns result buffers and borrows indexed views |
+
+Parse artifacts preserve source text, syntax structure and spans, with source
+and grammar identities. The artifact is the shared publication boundary for
+traversal and downstream tooling.
+
+The language-independent C ABI initializes the runtime once and reuses handles
+across requests. Its optional Rust Tokio integration queues requests to a
+persistent Scheme owner thread. Applications own queue limits and lifecycle.
+See [[file:rust/gerbil-parser-ffi/README.org][Rust FFI and Tokio ownership]] and
+[[file:rust/gerbil-parser-artifact/README.org][Rust artifact admission and navigation]].
+
+Independent AOT uses the same admitted Grammar/Parser IR through a separate
+product gate. It does not automatically support every Scheme source parser or
+POO policy. See [[file:docs/architecture/0006-rust-aot.org][Rust AOT design]] and the
+[[file:t/fixtures/runtime-record-assignments/README.org][standalone record-language consumer]].
+
+* Build and try
+
+Use the repository's Gerbil environment and dependencies pinned in
+=gerbil.pkg=. Scheme compilation uses Gerbil's GCC configuration.
 
 #+begin_src sh
+gxpkg deps --install
 GERBIL_BUILD_CORES=12 gerbil build
 GERBIL_BUILD_CORES=12 gerbil env gxi build-gparse.ss compile
-GERBIL_BUILD_CORES=12 gerbil env gxi build-rust-rowan-aot.ss compile
-gparse help
-gparse check "1 + 2 * value"
+.gerbil/bin/gparse help
+.gerbil/bin/gparse check "1 + 2 * value"
 #+end_src
 
-The package manager exposes its native binary directory on =PATH= for the bare
-command. Before package activation, the same native artifact can be invoked
-directly from that standard build directory; the repository does not own a
-second shell launcher.
+The command is an optional consumer of the library. It does not own a separate
+parser implementation. Rust workspace checks run with:
 
-=src/main.ss= owns only =:std/getopt= declarations and dispatch.
-=src/cli.ss= is the thin command adapter.  Grammar compilation, lexing, parsing,
-ParseArtifact events, and diagnostics remain in their library owners.
-
-* Package layout
-
-The engine parser module follows the POO Flow package roles: =objects.ss= owns POO
-grammar object families, =types.ss= owns schema identities, and =funcs.ss= owns
-small performance-sensitive parser functions.  The single public authoring
-boundary is the top-level =language-support.ss= facade; its re-exported
-=deflanguage-grammar= macro expands
-one declaration into the grammar object, canonical Parser IR, native machine,
-and immutable language descriptor.  General list utilities stay at the package
-utility boundary rather than becoming parser-module miscellany.
-
-A supported language uses one colocated package surface:
-
-#+begin_src text
-languages/hcl/v2-24/
-  grammar.ss
-  parser.ss
-  fixtures.ss
-  parser-test.ss
-  corpus/
+#+begin_src sh
+cargo test --workspace --all-features --locked
 #+end_src
 
-=grammar.ss= owns the versioned identity and one =deflanguage-grammar= or
-=deflanguage-antlr4-grammar= declaration.  =parser.ss= uses
-=deflanguage-parser= with that descriptor to
-generate the public parse function; it cannot repeat or replace the identity,
-contract, or machine.  Fixtures and tests never move into =src/= and do not
-enter the =gparse= executable closure.
-=defsyntax-corpus= declares all files in one expansion-time manifest.  The HCL
-pack vendors all 15 raw =.hcl= inputs from the v2.24.0 official specsuite.  The
-GQL pack pins OpenGQL grammar 1.9.0 by commit and SHA-256 digest, validates all
-1,018 source rules, and AOT-materializes all 574 parser rules with 444 lexer or
-fragment rules.  Its 14 upstream sample programs then prove typed terminals,
-structural CST kinds, case-insensitive keywords, and byte-exact roundtrip.
+Native Scheme, generated products and real C/Rust hosts have separate
+qualification lanes. See the [[file:docs/architecture/qualification.org][qualification guide]] for their commands and
+[[file:.github/workflows/ci.yml][CI entrypoint]] for the current job graph.
 
-Grammar-source formats are language-neutral engine adapters.  ISO WG3 BNF,
-ANTLR4 source admission, and fixture/corpus declaration machinery are internal
-to =src/language-support/= and exported only through
-=:gerbil-parser/language-support=.  A language pack only
-selects a pinned source and declares its versioned lowering under
-=languages/<language>/<version>/=.  The openCypher 2024.1 pack validates and
-structures all 352 productions from the official BNF.  Exact-source overlays
-right-factor the result-statement path, normalize nullable prefixes and
-qualified references, and remove duplicate list/map constructor parses without
-mutating the pinned source.  The commit-bound TCK syntax audit expands 3,897
-queries from 220 feature files: all 3,298 expected-success or runtime-error
-queries are accepted with byte-exact roundtrip, while the remaining 39 parser
-rejections are compile-error cases.  This closes syntax acceptance for that
-manifest; it does not claim execution or semantic-result conformance.
+* Reference languages and implementation boundaries
 
-The TLA+ =v1= pack exercises the same native generation path for module
-envelopes, declarations, structured precedence expressions, conditionals,
-quantifiers, collections, function constructors, theorem lines, comments, and
-nested block comments.  Its syntax authority is the native
-=TLAPlusGrammar= in chapter 15 of /Specifying Systems/; the official SANY
-=tla+.jj= source at release =v1.7.4= is pinned for executable conformance.  It
-does not enter the runtime or replace the Gerbil parser engine.  The pack also
-pins a byte-exact =HourClock.tla= source from the TLA+ Foundation Examples
-repository.  The pinned 99-production SANY inventory is admitted at expansion
-time, while malformed recognized syntax fails closed without an unknown-token
-fallback.  The optional =qualification.ss= boundary composes that native
-syntax admission with the official external TLC executable and returns one
-typed Gerbil receipt binding source, configuration, tool and state-space
-identities.  TLC remains the model-checking authority and is never copied into
-the parser engine; a syntax rejection stops before TLC is launched.  PlusCal,
-proof syntax, multiline layout, and the full official
-syntax corpus remain explicit future contracts.
+The builtin packs are Arithmetic, Bash, HCL, HL7, FHIRPath, openCypher, GQL and
+TLA+. All use the three-interface authoring boundary. Their syntax coverage,
+source admission and portable capabilities differ; consult the
+[[file:languages/README.org][per-language status]] before selecting a product.
 
-* Architecture RFCs
+Bash currently uses the shared Scheme source engine. Complete standalone Bash
+Command/Source AOT remains open. Scheme-only CST policies also require a shared
+representation and parity evidence before independent Rust execution.
 
-- =docs/architecture/0001-parser-compiler.org= fixes the pure Gerbil/AOT
-  authority boundary.
-- =docs/architecture/0002-typed-structural-algebras.org= defines distinct
-  LexicalExpr, GrammarExpr, QueryPattern, and ProjectionPlan feature contracts.
-  The current implementation admits LexicalExpr v1 and the canonical
-  generic hygienic GrammarExpr machine plus fixed HCL v2.24.0 and ISO/IEC
-  39075:2024 reference contracts; later features require independent executable
-  evidence rather than directory presence.
-- =docs/architecture/0003-parse-artifact.org= establishes ParseArtifact v1 as
-  the sole parse publication, with lossless CST events and replay-only sinks.
-- =docs/architecture/0004-versioned-language-contracts.org= defines fixed HCL
-  v2.24.0 and ISO/IEC 39075:2024 conformance identities plus the public
-  downstream DSL grammar boundary.  =defsyntax-fixture= embeds versioned native
-  syntax files at macro expansion, while =defsyntax-corpus= owns multi-file
-  manifests, so downstream conformance tests and
-  benchmarks share one declarative source contract without runtime file I/O.
-- =docs/architecture/0006-rust-rowan-aot.org= keeps =grammar.ss= authoritative
-  while publishing reusable Rust parser and Rowan CST products.
+* Research and performance evidence
+
+Research informs executable engine changes and matched benchmarks. Performance
+claims apply to the measured workload, runtime and control, rather than every
+language or a general comparison with tree-sitter.
+
+- [[file:docs/research/README.org][Research map and reproduction commands]]
+- [[file:docs/research/upstream-bridge-tokio-admission.org][Complete Rust request CPU evidence]]: ASCII and Unicode 64-record requests
+  through Tokio, FFI, Scheme scanning/LR parsing, publication and Rust admission;
+  includes controls, rejected experiments and the qualified comparison scope.
+- [[file:docs/research/parser-engine-formal-model.org][Parser engine formal model]] and
+  [[file:docs/research/parser-evidence-chain.org][evidence chain]]: model-level obligations and their connection to native
+  observations, with explicit proof boundaries.
+- [[file:docs/architecture/0001-parser-compiler.org][Compiler architecture]] and
+  [[file:docs/architecture/0003-parse-artifact.org][ParseArtifact design]]
+
+* Development dependencies
+The production package uses the Gerbil build entry and has no ASP runtime
+dependency. Run =just prepare-dev= before development tests and optional Rust
+compiler tools. ASP is pinned in =dev/gerbil.pkg=. =just check-policy= compares
+all production Gerbil targets with the original native source discovery declaration
+and applies the existing source policy to those same inputs. No test or policy
+finding is suppressed by the production/development split.
+
+* Bounded package diagnostics and failed-product custody
+
+The strict writer retains two workers and a2GiB maximum, with no180-second
+build cutoff. Elapsed time is measured, never treated as an admission receipt.
+=COMPILER-INTERFACES= retains real completed imports and now reports cumulative
+admission and reporting cost. =COMPILER-COST= reports the union of active evaluation intervals
+without counting nested or concurrent evaluations twice. The fields are diagnostic and are
+not an additive cost partition, admission receipt or liveness heartbeat.
+Checks still precede imports; compiler values/exceptions and trace restoration
+are preserved. The direct source API control passes; the latest four-module
+source-contract attempt reaches its120s boundary without completing and is not
+reported accepted. Complete native/CI validation remains required.
+
+On strict failure, the original status is retained. A separate bounded custody
+action records source/revision metadata and archives installed lib/bin/products,
+excluding checkout credentials and Gerbil files. The failure archive has no prepared
+restore identity and cannot be loaded by the prepared-products restore action.
+The always-run CI log artifact also retains these failed products. Archives and
+raw logs remain execution artifacts, never source-control or reuse credentials.
+
+Compiler cost counters use short locks around updates only; no lock is retained
+across an importer, evaluator or output operation. The crossed-worker synthetic
+control keeps the trailing active interval after the first worker returns.
+
+* Parser-first source alignment history
+
+An earlier 2026-10-25 alignment used Core/Yuanxu PR19 head
+=0353d86ac017442506e89617e86e6ef778a3111e=. The current =gerbil.pkg= owns
+the selected immutable revision; POO remains inherited from Core. Only Parser
+build-entry cutoffs are removed; Core/Yuanxu, Gerbil, other packages and test
+resource policies are not changed. A completed build after this policy change
+is evaluated under the new policy, never re-labelled as passing the old180s SLO.
+
+See [[file:docs/architecture/directory-modules.org][directory Module and build ownership]] for the init-to-std/make chain.
+
+The source Scope fixture selects its source root only during exclusive Scope
+construction and restores the native load path on success or exception. It does
+not register a source-first root during shared test-owner admission: doing so
+would reinitialize public nominal Types beside installed constructors.
+
+The package spec fixture reuses call-with-compiler-import-progress for both
+native import and evaluator work, and forwards Core's real source read/reader
+phase events after expansion. Cache hits and elapsed-time observations cannot
+emit progress. The observer binds its diagnostic output port at entry so nested
+spec datum redirection cannot capture diagnostic records. Existing total90/idle5
+controls remain; no timer or second builder is added.
+
+* Source modules and declaration ownership
+
+=init.ss= selects the =src= domain modules through Yuanxu. There is no
+=src/modules= container or =modules= service. Core owns selection, normalized
+Scope admission and the =std-make-spec= projection; Gerbil owns compilation and
+runtime module loading.
+
+| Owner | Responsibility | Public declaration / build boundary |
+|-------+----------------+-------------------------------------|
+| =src/grammar= | Grammar and Role Types, objects, composition syntax, contextual declarations, expression algebras | =declaration-*.ss= and the Grammar Scope |
+| =src/language= | Source fragments, line structures, event scopes, boundaries and lowering forms, language assembly | Language Scope and Build |
+| =src/graph= | Graph projection declarations, graph syntax and typed queries over language-owned views | Graph Scope; =graph-*-support.ss= |
+| =src/testing= | Parser-specific execution/export and witness support | Native Gerbil import/load APIs; no module-loader or dependency walker |
+| =src/declarations.ss= | Author-facing composition of grammar and source declarations | Re-exports domain owners; no registry, loader or separate implementation |
+
+Yuanxu's init-owned test projection discovers the actual native Suite sources and
+support closure. The project-added =module-loader.ss=, import walker, live-promise
+rewriter and manual conformance catalog are removed. Gerbil owns source/compiled
+selection, initialization, cache state and exceptions. See
+[[file:docs/architecture/language-testing-ownership.org][language and testing ownership]] for retained domain responsibilities and current qualification.
+Removed paths have no forwarding aliases; consumers rebuild current sources.
+
+Qualification uses =dev/build.ss check-catalog= to compare Core's selected
+projection with independent package source discovery, and native =gerbil test=
+for actual service admission and execution. =library-init-test= checks every
+selected domain, rejects the retired container and malformed Graph Scopes, and
+runs typed graph operations. No test Case starts a build or another test run.
+
+* Direct publication and execution boundaries
+
+Interfaces select service prototypes directly through =core.exports=. The
+required =config.ss= role remains present but a binding-free =(export)= when no local settings exist;
+there is no =Config= alias that re-imports and republishes the Objects prototype.
+POO Records still define the actual field/method Types, and Core still admits
+and retains the normalized Scope. Empty requires/features declarations are Core
+publication shape, not a second selection mechanism.
+
+Build host initialization is invoked directly by =build.ss=. It is not a Scope
+method or a Config effect. Pure compiler-option/link services remain typed.
+FFI Scope versions must match the values in =src/schema.ss=; another unsigned
+integer is insufficient to represent that publication.
+
+Execution APIs have one source owner: =src/runtime/machine.ss=,
+=src/runtime/lexical-expression.ss= and =src/runtime/lexical-lexer.ss=. The old
+compiler forwarding files are removed; actual consumers and emitted imports
+use the runtime identities. The redundant =src/api.ss= umbrella is removed.
+The Parser prelude owns the language/declaration entry; selected domain Modules
+and their capability interfaces retain runtime, build and native ownership.
+=src/declarations.ss= supplies grammar authoring vocabulary without execution
+machinery. Source-line publication belongs to Runtime directly.

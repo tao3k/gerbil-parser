@@ -1,0 +1,55 @@
+;;; Compose parent-aware recovery through the existing cached future queries.
+(import (only-in :clan/poo/object .ref)
+        (only-in ./source-boundary-types source-boundary-query? source-boundary-parent?)
+        (only-in ./source-pattern-funs source-pattern-end)
+        (only-in ./line-structure-objects
+                 heading-line-marker heading-line-separator block-line-closing
+                 block-line-indent block-line-contents block-line-body-line
+                 block-line-unclosed block-line-heading-bound block-line-case-insensitive
+                 key-value-line-marker))
+(export source-container-boundary-condition)
+(def (query-condition query stop parent)
+  (let* ((heading (.ref query 'heading))
+         (marker (heading-line-marker heading)) (separator (heading-line-separator heading)))
+    (case (.ref query 'mode)
+      ((fixed)
+       (when (and parent (.ref parent 'name-start))
+         (error "fixed future query requires a literal parent boundary" parent))
+       (let* ((block (.ref query 'block)) (body (block-line-body-line block)))
+         (unless (and (eq? (block-line-unclosed block) 'recover-as-text)
+                      (block-line-heading-bound block)
+                      (block-line-case-insensitive block))
+           (error "unsupported native block recovery policy" block))
+         `(future-line-marker-before-boundary? ,(block-line-closing block) ,stop
+             ,marker ,separator ,(block-line-indent block)
+             ,(eq? (block-line-contents block) 'elements)
+             ,(if body (key-value-line-marker body) ""))))
+      ((named)
+       (let* ((indent (if (.ref query 'indent) '(line-skip-horizontal start) 'start))
+              (from (source-pattern-end indent (.ref query 'opening)))
+              (terminator (.ref query 'terminator))
+              (until (if terminator `(line-scan-until ,from ,terminator) `(line-scan-key ,from))))
+         (append
+           `(future-named-line-marker-before-boundary? ,from ,until
+              ,(.ref query 'closing) ,(.ref query 'suffix) ,stop ,marker ,separator
+              ,(.ref query 'indent) ,(.ref query 'heading-bound) ,(.ref query 'case-insensitive))
+           (if (and parent (.ref parent 'name-start))
+             `((state-offset ,(.ref parent 'name-start)) (state-offset ,(.ref parent 'name-end))
+               ,(.ref parent 'closing) ,(.ref parent 'suffix) ,(.ref parent 'case-insensitive))
+             '())))))))
+(def (source-container-boundary-condition query parents stack)
+  (unless (and (source-boundary-query? query) (symbol? stack) (list? parents)
+               (andmap source-boundary-parent? parents)
+               (let loop ((rest parents) (ids '()))
+                 (or (null? rest)
+                     (and (not (memv (.ref (car rest) 'id) ids))
+                          (loop (cdr rest) (cons (.ref (car rest) 'id) ids))))))
+    (error "invalid native container boundary composition" query parents stack))
+  (foldr
+    (lambda (parent otherwise)
+      (let (named? (.ref parent 'name-start))
+        `(or (and (uint-equal? (stack-top ,stack) (uint ,(.ref parent 'id)))
+                  ,(query-condition query (if named? "" (.ref parent 'closing)) parent))
+             ,otherwise)))
+    `(and (uint-equal? (stack-top ,stack) (uint 0)) ,(query-condition query "" #f))
+    parents))

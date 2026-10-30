@@ -1,0 +1,62 @@
+(import :gerbil-parser/language-test-support)
+(import :std/test (only-in :std/vector/u8vector little u8vector-uint-set!)
+        ../src/runtime/source-lines ../src/runtime/fold-tape)
+
+(deflanguage-parser-tests fold-buffer-consumer-test "Continuous source scan and fixed event records"
+  (engine)
+    (scenario "all record alignments preserve the full unsigned wire domain"
+      (each (alignment) ((iota 16))
+          (sequential ((header (make-u8vector alignment 77))
+                 (owner (make-fold-tape header))
+                 (reference (make-u8vector (+ alignment 23) 0)))
+            (act (u8vector-copy! reference 0 header))
+            (act (u8vector-set! reference alignment 1))
+            (act (u8vector-uint-set! reference (+ alignment 1) 65535 little 2))
+            (act (u8vector-set! reference (+ alignment 3) 2))
+            (act (u8vector-uint-set! reference (+ alignment 4) 65535 little 2))
+            (act (u8vector-uint-set! reference (+ alignment 6) 18446744073709551615 little 8))
+            (act (u8vector-uint-set! reference (+ alignment 14) 9223372036854775808 little 8))
+            (act (fold-tape-start! owner 65535))
+            (act (fold-tape-token! owner 65535 18446744073709551615 9223372036854775808))
+            (act (fold-tape-finish! owner))
+            (equal (fold-tape-publish! owner)  reference))))
+    (scenario "line offsets equal the character reference for mixed endings"
+      (each (source) ('("" "plain" "\r" "\n" "\r\n" "a\r\nb\rc\n" "é\r\nλ\rtail" "😀\n\r\nend"))
+          (scope ((reference (fold-source-lines source '()
+                             (lambda (_ from until rest) (cons (cons from until) rest))))
+                (actual (fold-source-byte-spans (string->utf8 source) '()
+                          (lambda (from until rest) (cons (cons from until) rest)))))
+            (equal actual  reference))))
+    (property "the scanner cannot precompute past a visitor mutation"
+      (bindings (bytes (string->utf8 "a\nbc")) (spans (fold-source-byte-spans bytes '()
+                      (lambda (from until rest)
+                        (when (zero? from) (u8vector-set! bytes 2 10))
+                        (cons (cons from until) rest)))))
+      (equal (reverse spans)  '((0 . 2) (2 . 3) (3 . 4))))
+    (scenario "visitor failure still stops traversal immediately"
+      (scope ((calls 0))
+        (raises
+          (fold-source-byte-spans (string->utf8 "a\nb\n") #f
+            (lambda (_from _until _state) (set! calls (+ calls 1)) (error "stop"))) true)
+        (equal calls  1)))
+    (scenario "publication transfers an exact isolated buffer including zero size"
+      (sequential ((header (u8vector 11 22 33)) (owner (make-fold-tape header))
+             (published (fold-tape-publish! owner)))
+        (act (u8vector-set! header 0 99))
+        (equal published  (u8vector 11 22 33))
+        (raises (fold-tape-finish! owner) true)
+        (raises (fold-tape-publish! owner) true))
+      (scope ((owner (make-fold-tape (u8vector))))
+        (equal (fold-tape-publish! owner)  (u8vector))
+        (raises (fold-tape-start! owner 0) true))
+      ;; Transfer after repeated growth, then collect while the sealed owner
+      ;; remains live. Publication must preserve exact bytes and stop writes.
+      (scope ((owner (make-fold-tape (u8vector 77))))
+        (each (index) ((iota 100)) (act (fold-tape-token! owner 9 index (+ index 1))))
+        (sequential ((published (fold-tape-publish! owner))
+               (snapshot (u8vector-copy published)))
+          (act (##gc))
+          (equal (u8vector-length published)  1901)
+          (equal published  snapshot)
+          (raises (fold-tape-token! owner 9 0 1) true)
+          (raises (fold-tape-publish! owner) true)))))

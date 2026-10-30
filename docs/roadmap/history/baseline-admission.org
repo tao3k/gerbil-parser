@@ -1,0 +1,94 @@
+#+title: Historical baseline admission receipts
+
+This module preserves prior design and qualification records. Its status notes
+are historical; the active execution plan is [[file:../0001-versioned-language-pack-closure.org][the convergence plan]].
+
+* Current convergence plan — 2026-10-06
+
+Authoring baseline: PR #13 =1b05ee4e0620e42ab062a366c64ee2b0a546780c=.
+Rust and Ubuntu native CI passed at that exact head, including shared Bash
+scanner generation. The source-backed recognition migration is a subsequent
+change and requires its own verification. This is the
+single execution plan for language-layer convergence. The coverage milestones
+below remain separate syntax obligations; their old publication-status notes
+are historical, not current CI state.
+
+** Current authoring receipt
+
+The three-interface ownership migration is implemented across all eight packs.
+The executable Scheme topology gate constrains the directory and mandatory
+Loader/test declarations. Engine source strategies, structured scanner/proof
+profiles, record projection and graph syntax expose reusable value contracts.
+The old procedural pack paths and compatibility qualification facade are removed.
+Generated arithmetic/HCL products and the HCL generator belong to =src/compiler/=;
+HCL's recursive provider keeps an explicit reviewed corridor.
+
+The stage criteria below remain stronger algorithm/portable-IR goals. Source
+strategy ownership alone does not satisfy S2/S3 portable shell execution or S4
+universal recursive lowering. No new end-to-end performance gain is claimed.
+
+** Inventory and ownership
+
+Eight language families publish ten POO loader objects. All ten already expose
+=grammars=, =metadata=, value =fixtures= and named =tests= services through
+=deflanguage-parser-loader=. TLA+ has three scopes; the other families have one.
+Entry unification does not establish shared scanner execution or Rust admission.
+There is no =sky= module in this checkout. Bash scanner modes and deferred
+markers now compile from a POO profile to shared contextual Scanner IR. The
+former shell scanner module and its alias surface are deleted.
+
+| Family / scope | Current declarations | Open convergence boundary | Owner |
+|---+---+---+---|
+| Arithmetic v1 | Concise DSL; one loader | Engine-owned =src/compiler/arithmetic-drive.ss= product | Engine compiler; pack retains expressions and precedence |
+| HCL v2.24 | Concise DSL; one loader | =src/compiler/recursive-source.ss= retains a closed HCL fast lexer and source/event actions | Engine strategy admission/emission; pack retains syntax |
+| GQL ISO-39075-2024 | Pinned ANTLR4 source; one loader | Qualify portable products and generic parser/actor mechanisms | Engine owns admission/execution; graph queries/projection remain domain code |
+| openCypher 2024.1 | Pinned ISO-BNF source; one loader | Qualify portable products and complete corpus coverage | Engine owns normalization/execution; pack retains source/corpus |
+| HL7 v2.5.1 | Concise DSL; one loader | No external declarations; header delimiter/data opcodes and segment text profiles are shared; header context now prepares once per request; other state transitions remain S2 | Shared lexical/context IR; pack retains ER7 delimiter roles |
+| FHIRPath v2.0.0 | Concise DSL; shared quoted profiles; one loader | Closed text profiles for identifier, number, date, datetime and time; no external lexical declarations | Shared lexical IR; pack retains profiles and projection |
+| TLA+ core/layout/SANY | Three concise DSL scopes and loaders | SANY has no external lexical declarations; module framing prepares source indexes and identifier/proof roles use closed text profiles; Scheme proof policy remains; full syntax coverage is separate | Engine owns source state/policy execution; pack retains proof and syntax rules |
+| Bash 5.3 | Source descriptor; one loader | POO =ScannerProfile.= compiles command/marker/body transitions to shared Scheme/Rust IR; Word results use shared source spans, nested boundary indexes and persistent token publication; =shell-parser.ss= interprets closed control programs; Word projection IR executes through =ResultProfile.=; standalone Rust Word/Command/Source recognition is implemented; full ParseArtifact identity/diagnostics, native binding and Source stack convergence remain open | Engine owns state/result mechanics; pack retains shell grammar and word structure |
+
+Total: zero external lexical declarations in grammar packs.
+Bash has a source parser rather than external lexical rows and is counted
+separately. These counts measure declaration sites, not semantic coverage or
+handwritten functions. Imported ANTLR/BNF sources stay authoritative; copying
+those grammars into a second handwritten DSL is not a migration requirement.
+Domain projections, pinned sources, fixtures and generated artifacts have
+legitimate language ownership. File count alone is not a convergence gate.
+
+** Loader admission is the authoring contract
+
+| Declaration boundary | Required constraint / engine owner | Current state |
+|---+---+---|
+| =grammar= / =source= | Descriptor kind, identity and fixed parse dispatch; canonical grammar/catalog checks happen in engine compilation | Admitted; source parser still a separately advertised migration scope |
+| Lexical/scanner roles | Versioned closed IR, input/span/progress bounds and exact producer identity; no unregistered worker procedure | Closed lexical roles enforced; header/module source contexts prepare once; Bash scanner is declared IR, while source recognition remains separate |
+| =fixtures= | =defsyntax-corpus= data; whole-corpus language/version/contract, unique ids and typed fixtures admitted before any parse | Admitted by the engine fixture service |
+| =tests= | Declared service identity plus execution/result protocol bound to the loader; arbitrary return values must not establish conformance | Private typed fixture-test declarations bind the exact descriptor; engine execution owns conformance. Bare procedures, duplicates and foreign descriptors reject |
+| =backends= | Closed strategy kind, exact Parser IR digest, procedure signature, duplicate/occupied-slot rejection before installation | Admitted atomically; HCL/Arithmetic strategy generalization remains |
+| POO extension slots | Effective inherited object passes base and extension contracts; identity/dispatch cannot be replaced | Admitted; declarations must retain POO extension support |
+| Rust / native C targets | Real producer/consumer capability and artifact checks, independent of loader metadata labels | Separate gates; source callbacks and Scheme policies cannot claim standalone Rust |
+
+The schema =gerbil-parser.language-entry.v2= replaces procedure-valued tests
+with =declare-language-fixture-test= declarations bound to the descriptor.
+All ten public loaders inherit the engine-derived default; =run-language-test=
+checks the registry before fixture conformance runs. New service kinds require
+explicit input/result contracts and POO admission.
+Additional language assertions continue through native Scheme/ASP test suites.
+
+** Stages and dependencies
+
+| Stage | Engine deliverable / affected packs | Exit condition | Dependency |
+|---+---+---+---|
+| S0 Baseline and worker isolation | Executable inventory over the ten real loaders; loader-admitted worker declarations; checkpoints bound to their creating source worker | Inventory agrees with admitted IR; raw/foreign scanner services reject at loader admission; malformed worker products reject at creation; foreign checkpoints reject before calling language code | Current baseline |
+| S1 Closed lexical profiles | Shared character classes, bounded runs, strict numeric/date/time composition and local guards; FHIRPath, TLA+ local lexemes, HL7 segment id/terminator | FHIRPath's scanner module disappears; local external roles disappear; Scheme/Rust endpoint and malformed-suffix behavior agree | S0 |
+| S2 Source context and transitions | One prepared source context, named source captures, mode/nesting/deferred obligations; HL7 separators, TLA+ module boundaries, Bash scanner | No header/prefix revalidation per token; closed transitions in both engines; snapshots bind worker/source/artifact; scanner callbacks replaced by data | S1; reuse existing contextual Scanner IR |
+| S3 Recognition/result boundary | Source recognition results admitted/lowered by the engine; Bash structured words, nodes, failure and here-document links | Pack emits grammar/recognition values; engine alone owns token bytes, result validation and success/failure artifacts; complete Bash tests remain lossless | S0; S2 for Bash shared-IR execution |
+| S4 Generated strategies | General strategy eligibility and emission for Arithmetic/HCL; declarations describe assumptions rather than language-name branches | Reproducible generated products, fresh/optimized semantic parity, no common-case performance regression, no HCL hardcoded lexer in engine | S1; independent of stateful grammar completion |
+| S5 Portable policy and downstream products | SANY proof-policy representation; language-independent native C and Rust products through the same descriptor | Each admitted product passes its real producer and consumer gate; unsupported policy/opcodes reject with rule/context; no Scheme callbacks disguised as Rust portability | Relevant S1–S4 parts; complete policy semantics |
+
+Work proceeds by engine capability, migrating every applicable pack together.
+A stage closes only after production callers migrate and obsolete callbacks or
+assembly paths are removed. Moving an old callback into =src/= alone does not
+close a stage. S4 can proceed alongside S2/S3; it does not wait for Bash full
+syntax. SANY portable proof policy does not block ordinary lexical lowering.
+

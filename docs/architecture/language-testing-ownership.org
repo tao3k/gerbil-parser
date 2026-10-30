@@ -1,0 +1,143 @@
+#+TITLE: Language and testing ownership under Yuanxu
+#+LANGUAGE: en
+
+* Source baseline and removed duplication
+The sole direct dependency in gerbil.pkg selects Yuanxu PR19 revision
+9b9f0abbbc4bdd4325f556c9c965726dd3a0aad7, inheriting POO revision
+e281ad2e33784cfb9951c684b6be78bd2f4b7fca. These are observed source revisions,
+not document-managed versions. Dependency installation and published native
+interfaces, rather than an inspection snapshot, are the execution sources.
+
+The former module-loader.ss was introduced by Parser commit855982b on October18;
+commit098629e relocated it from src/modules into testing. It was project code,
+not Yuanxu infrastructure. It is deleted, without a forwarding alias.
+
+| Removed surface | Native owner / replacement |
+|-----------------+----------------------------|
+| src/testing/module-loader.ss | Gerbil load-module and reload-module! |
+| tla-sany-differential/preload.ss | Native importer/runtime loader; no Parser import-form interpreter or source/compiled resolver |
+| tla-sany-differential/module-promises.ss | Native context promises; no mutation of live imported contexts |
+| scripts/test-plan.ss and manual conformance-modules catalog | init.exports.tests.for-directory / for-files |
+| Duplicate support/auxiliary roster | Core std-make-spec projection; native std/make schedules compiler work |
+| Copied historical reference-preload implementation | Native positive/negative loading controls; Git retains historical CPU evidence |
+
+* Responsibility and calling boundaries
+| Surface / file | Retained domain responsibility | Authority boundary |
+|----------------+--------------------------------+--------------------|
+| init.ss | Select actual src domains through yuanxu! | No second registry, scanner or linker |
+| build-test-support.ss | Demand native Suite directories; refine Darwin C timing link options | Core owns closure/currentness; std/build-script and std/make own execution |
+| build-language-conformance.ss | Core projects actual imports; std/build-script compiles and links research products | Separate normal product domain; no helper catalog, supervisor or test runner |
+| src/language/module-input.ss | Select exactly one language-grammar, with optional #export | Official import-module/eval; no replacement expander |
+| source-observations | Remember last attempted canonical source bytes to request native reload on edits | No descriptors, contexts, exceptions, loaded flags or admission verdicts retained |
+| Core source/admission | Fresh reads and pre/post currentness across initializer effects | Outer pure-read caches cannot approve changed content |
+| src/testing/language-product.ss | Check a requested optional test-product export is a procedure | load-module owns runtime state and errors |
+| t/fixtures/module-loading/observations.ss | Scoped native importer/evaluator completion logs | Delegates unchanged; no path probes, import walking, state table or approval |
+| t/fixtures/event-walk-source.ss | Complete AST/interface/dependency witness for actual Parser algorithms | Not module loading or source approval; native load-module resolves its execution service |
+| Research physical-object linking | Bind native chosen C/static products and required host options | Not a source/compiled resolver; unchanged in this slice |
+
+Source and runtime failure semantics differ. import-module owns source promises
+and retry behavior; load-module retains failed runtime exceptions until explicit
+reload. Parser must not invent a common exception cache. Diagnostic dynamic
+bindings restore the previous importer/evaluator and preserve zero/multiple values
+and exceptions. Synthetic context setters only construct test-owned fixtures;
+no production or imported-context promise is replaced.
+
+* Controls and failure custody
+Positive controls cover descriptor selection, same-size edits, Core post-effect
+source admission, real helper initialization once, native order, and typed init
+services. Negative controls retain malformed imports/arity, invalid selectors,
+initializer failures, source rewrite under an outer read-cache, deferred/quoted
+loads, and a first failed child preventing a later cold suffix.
+
+The initial candidate failures are retained in the enclosing integration logs:
+- A manually appended helper list duplicated a target already projected by Core;
+  the list was removed rather than deduplicated by another Parser scheduler.
+- An in-Suite build-projection check incorrectly required installed compiled
+  dependencies to be recompiled. An isolated native projection returned ().
+  The aggregate experiment additionally encountered a public-source identity
+  refusal. Nested projection was removed from that Suite; native build support
+  remains the executable closure check. This is no claim that arbitrary nested
+  source-reader use is fixed upstream.
+- Initial source controls contained an undefined exported binding and an illegal
+  compiler declaration in interpreted source. These fixtures were corrected.
+- A proposed raw load-scheme test hit a local runtime/Gambit arity mismatch. No
+  product uses that API here; runtime controls exercise load-module/reload-module!.
+  No compiler change or compatibility loader was introduced.
+
+The developer build-test-support recipe had reused the test-runtime1GiB option
+for compiler work. The new native projection exhausted that heap before compiler
+dispatch; the original failed log is retained. That recipe now uses the existing
+2GiB compiler budget, matching CI, while test heap/process limits remain.
+Two build workers and the existing compiler ceiling remain. Parser's former
+package180s build cap is not reinstated. std Djot remains paused. No Gerbil/SDK
+source, private installation environment or local dependency patch is introduced.
+
+* Qualification status
+The product-source candidate87c9e70 passed the normal developer sequence
+just qualify-library test-all check-build-catalog test-plan in289.19seconds:
+production/support compilation,183 native t/languages modules plus the separate
+test-plan Suite, zero ERROR records, native HARNESS/final OK and
+PARSER-BUILD-CATALOG-OK. The model-input controls separately passed all six tests.
+The subsequent a812d8d change affects CI prefix preparation and documentation,
+not those product sources. A native temporary registration fixture reproduced
+exit70 with the pkg directory absent and exit0 after creating the configured
+parent, with the actual directory-list checked. It installs no compiler or
+package and is not an alternative runtime environment.
+
+Linux/macOS cold preparation and downstream qualification are tracked by
+[[https://github.com/tao3k/gerbil-parser/pull/13/checks][the existing PR checks]]. Local
+success does not certify remote compilation, recovery or runtime admission.
+The original failures remain failure evidence, not acceptance receipts.
+Historical loader measurements do not establish current performance gains.
+
+* Native contract API alignment
+The first full run executed183 modules but failed negative classifier checks:
+old Parser classifiers emitted list diagnostics, while current Yuanxu evidence
+requires POO diagnostic objects. Predicate-only Contracts now use the public
+yuanxu-predicate-contract constructor through native define-type. Domain predicates
+remain unchanged. Shared line/graph classifiers delegate to yuanxu-type-classify
+with that native constructor; no Parser evidence factory or compatibility layer
+is added. All original invalid-input checks remain.
+
+The removed custom loader no longer has a meaningful current reference algorithm.
+Its copied baseline and obsolete preload CPU comparison are retired together;
+the obsolete CPU lane is removed; native runtime controls remain in the complete Suite entry. The
+complete-generation benchmark retains identical Rust-output and matched CPU
+controls. No replacement warm-versus-reload speedup is claimed.
+
+* Cold package prefix correction
+CI40471455063 failed on both Linux and macOS before dependency compilation:
+native gxpkg could not create $GERBIL_PATH/pkg/directory-list. The workflow
+created $HOME/.gerbil/pkg while GERBIL_PATH selected the workspace prefix. An
+older dependency cache had supplied that directory; the new manifest's cache
+miss exposed the path error. Create $GERBIL_PATH/pkg before native registration.
+Do not change the compiler, package manager, cache key or dependency authority.
+
+* FFI producer precedes support discovery
+CI40472984696 reached native Linux production/command/library-object compilation,
+then conformance preparation failed compiling records-abi: language.h was absent
+from that generic compiler invocation. Core correctly discovered an actual
+imported fixture, but its C-ABI owner had not yet run. The local initial full pass
+had old compiled FFI products and did not establish this cold dependency order.
+
+Move the existing build-ffi-tests producer before conformance/support consumption
+in CI; make the developer support target depend on the same native FFI entry.
+The FFI owner retains its header options, actual C object/link dependencies and
+producer/entry/consumer phases. Core retains source/compiled selection and the
+support closure. No target filter, second fixture list or copied C flags is added.
+The failed remote log and preexisting records-abi products are retained separately.
+
+The same native conformance command reproduced the missing language.h with15
+prior records-abi products moved to custody. FFI native compilation then exited0;
+the unchanged conformance command completed in76.29seconds with exit0, reason#f
+and CONFORMANCE-LINKED. No old product was restored. Both platform logs show the
+same header failure. Observed exit137 in the negative control/macOS log accompanies
+reason=error-output: the supervisor terminated after a compiler error; it does
+not independently establish a timeout or OOM. Existing limits remain unchanged.
+
+CI consolidation and Git retirement are detailed in [[file:ci-ownership.org][CI ownership]].
+
+The current manifest subsequently selected Yuanxu PR head ed5236b through
+parallel update43c7274. Its normalized test-build handoff is consumed through
+the public Core building/script adapter; see ci-ownership.org. The initial
+9b9f0ab revision above describes the audited baseline, not a version authority.

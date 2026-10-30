@@ -1,0 +1,91 @@
+import ParserEngine.Reduction
+
+namespace ParserEngine
+
+/-- The private buffer's active prefix has the same newest-first order as an
+    immutable checkpoint stack. Capacity and inactive cells are not public data. -/
+def freezeStack (storage : Array α) (depth : Nat) : List α :=
+  (storage.toList.take depth).reverse
+
+theorem freeze_stack_length (storage : Array α) (depth : Nat)
+    (fits : depth ≤ storage.size) :
+    (freezeStack storage depth).length = depth := by
+  simp [freezeStack, Nat.min_eq_left fits]
+
+/-- Growth/clearing may alter inactive cells only. This condition is discharged
+    by Scheme storage tests; it is not a proof of the native bulk primitives. -/
+theorem freeze_stack_ext (left right : Array α) (depth : Nat)
+    (same : left.toList.take depth = right.toList.take depth) :
+    freezeStack left depth = freezeStack right depth := by
+  exact congrArg List.reverse same
+
+theorem freeze_stack_roundtrip (stack : List α) :
+    freezeStack stack.reverse.toArray stack.length = stack := by
+  have all : stack.reverse.take stack.length = stack.reverse := by
+    simpa only [List.length_reverse] using (List.take_length : List.take stack.reverse.length stack.reverse = stack.reverse)
+  simp [freezeStack, all]
+
+/-- A checked LR frame owns one more active state than semantic values. -/
+theorem frozen_frame_aligned (states : Array Nat) (values : Array Children) (top : Nat)
+    (stateFits : top + 1 ≤ states.size) (valueFits : top ≤ values.size) :
+    (freezeStack states (top + 1)).length = (freezeStack values top).length + 1 := by
+  rw [freeze_stack_length states (top + 1) stateFits,
+      freeze_stack_length values top valueFits]
+
+/-- Writing one admitted value after the retained prefix publishes a cons onto
+    its immutable reverse-order frontier. No heap-safety claim is implied. -/
+theorem freeze_stack_push (before after : Array α) (top : Nat) (value : α)
+    (retained : after.toList.take (top + 1) = before.toList.take top ++ [value]) :
+    freezeStack after (top + 1) = value :: freezeStack before top := by
+  simp [freezeStack, retained, List.reverse_append]
+
+/-- Array indices in the private transition loop remain in the admitted capacity.
+    These arithmetic obligations do not certify native allocation or fixnum limits. -/
+theorem owned_reduction_index_fits (top width capacity : Nat)
+    (fits : top < capacity) (admitted : width ≤ top) :
+    top - width < capacity := by omega
+
+theorem owned_operand_index_fits (top width index capacity : Nat)
+    (fits : top < capacity) (admitted : width ≤ top) (operand : index < width) :
+    top - index - 1 < capacity := by omega
+
+theorem owned_shift_index_fits (top capacity : Nat) (fits : top < capacity) :
+    top + 1 < (if top + 1 < capacity then capacity else capacity * 2) := by
+  split <;> omega
+
+/-- One admitted unary transition replaces the active head and retains its
+    predecessor stack. Selection and semantic callbacks are assumptions here. -/
+def unaryStackStep (step : α → α) (stack : List α) : List α :=
+  match stack with
+  | [] => []
+  | head :: tail => step head :: tail
+
+/-- Carrying the current head through a chain and committing once is equivalent
+    to committing each selected unary transition. Native bounds, termination,
+    selector identity and CPU benefit remain separate executable obligations. -/
+theorem unary_chain_keeps_tail (steps : List (α → α)) (head : α) (tail : List α) :
+    steps.foldl (fun stack step => unaryStackStep step stack) (head :: tail) =
+      steps.foldl (fun value step => step value) head :: tail := by
+  induction steps generalizing head with
+  | nil => rfl
+  | cons step rest ih =>
+    simpa only [List.foldl_cons, unaryStackStep] using ih (step head)
+
+/-- Captured execution may pop private storage while retaining the same frozen
+immutable frontier. The active prefix must fit; inactive cells are irrelevant. -/
+theorem freeze_stack_pop (storage : Array α) (depth width : Nat)
+    (fits : depth ≤ storage.size) :
+    freezeStack storage (depth - width) = (freezeStack storage depth).drop width := by
+  simp only [freezeStack, List.drop_reverse, List.length_take, Array.length_toList,
+             Nat.min_eq_left fits, List.take_take]
+  congr 1
+  congr 1
+  omega
+
+theorem captured_entry_after_pop (storage : Array Nat) (depth width : Nat)
+    (fits : depth ≤ storage.size) :
+    (freezeStack storage (depth - width)).head? =
+      ((freezeStack storage depth).drop width).head? := by
+  rw [freeze_stack_pop storage depth width fits]
+
+end ParserEngine

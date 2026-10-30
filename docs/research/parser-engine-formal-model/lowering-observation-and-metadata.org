@@ -1,0 +1,142 @@
+#+title: Recursive store effects, observed emission and signed metadata
+
+* One construction boundary
+
+The target is still the grammar derivation and LR construction described in
+[[file:lowering-publication.org][the publication contract]]. [[file:lowering-emitter-source.org][Source emission]] feeds the existing retained
+LeanPoo construction product. The modules below extend its source boundary;
+they do not add a second factory, parser or performance qualification path.
+
+The audit identified a concrete extraction defect: the native grammar accepts
+negative precedence ranks, while the source-data renderer could only transport
+nonnegative integers. Recognition syntax indexes and production IDs cannot
+stand in for those signed values. The native conflict policy already uses
+=Construction.Priority.rank : Int=; its signed domain is retained.
+
+* Signed scalar transport
+
+=WalkSource.Datum.negative magnitude= represents =-(magnitude + 1)=. Zero and
+positive values retain =integer=, and production IDs and sizes remain natural
+numbers. =SignedSourceMetadata.roundtrip= and =injective= cover every integer;
+=renderer_magnitude= proves the arithmetic used by the actual renderer's
+negative branch. There is no negative-zero alternative or machine-word bound.
+
+The real source-data macro now emits this constructor for exact negative
+integers. =SchemeTableEvaluation= and =SchemeStorage= retain the scalar through
+literal evaluation, default binding, stored values and recursive calls. The
+mutual determinism proof covers the added evaluation rule. Source predicate,
+transformation and site-extraction inductions also cover the new scalar;
+negative metadata cannot silently disappear through an uncovered datum case.
+
+=SignedSourceMetadata.constructor= executes the actual five-field native
+constructor with either sign in its precedence field. This is scalar transport,
+not proof that the complete textual renderer or raw grammar normalizer has a
+Scheme-to-model simulation. Decimal formatting, exact integer arithmetic and
+reader behavior retain their installed-host contracts. Complete formatter
+control-flow correspondence remains a parser obligation.
+
+* Executed observation, including context effects
+
+| Source stage | General theorem | Boundary |
+|--------------+-----------------+----------|
+| Optional origin/proof notification | =LoweringObserverEvaluation.Notification.evaluates= | Actual closure or recursive invocation; disabled callbacks do not execute |
+| Root observed emitter | =body_eval=, =invoke= | Constructor, origin callback, proof callback, increment, insertion in source order |
+| Local proof context | =LoweringObservedClosure.Application.evaluates= | Real short-circuit evaluation and real context invocation |
+| Captured caller and local emit | =caller_bound=, =invoke= | Actual parameter order, captured root cells and complete local/root invocation |
+| Counter agreement | =counter_agreement_iff= | Exact condition needed for publication to retain the allocated record's ID |
+
+Callback return values are retained by the operational =when= rule and ignored
+only where the source sequence ignores them. They are not replaced with a
+boolean outcome or assumed to return void. A local proof context runs before
+the root constructor; its resulting heap supplies the constructor's counter
+read. Origin and proof callbacks then thread their actual heaps into the final
+counter and production-list reads. No unchanged-context-heap premise is used.
+
+This exposes a necessary distinction in the earlier publication abstraction:
+normal callback return does not itself prove noninterference. The observed
+source theorem permits distinct allocated and post-callback counter values;
+its agreement theorem states exactly when they coincide. Proving that admitted
+callbacks cannot affect protected stores remains a parser capability obligation,
+not a new host assumption or a demonstrated native counter-access bug.
+
+* Lazy observation and the native false path
+
+The native =child-path= allocates a list only when origin observation is enabled.
+Proof-only lowering therefore passes =#f= as its path. The former source theorem
+required a list even for disabled origin observation and excluded this valid
+execution. =Origin= now indexes the raw path datum: its disabled case accepts
+any datum; its enabled case requires the proper list consumed by =reverse=.
+=Notification.evaluates= requires argument evaluation only when the callback is
+enabled. Disabled observation cannot accidentally evaluate callback arguments.
+
+=LoweringObservationProfiles.helper_proof_only= derives the real identity
+context and a returning diagnostic callback from their closure bodies. For any
+payload, signed metadata, counter and retained record prefix, the actual
+local/root emitter accepts the native false path and commits the expected
+record. The proof supplies neither callback post-state nor frame oracle. This
+profile does not establish authority for arbitrary callbacks or mutable lists.
+
+* Generic recursive store simulation
+
+=SchemeMutationTrace.eval_generated= uses the mutual induction of the existing
+evaluator, including every recursive call, selected conditional/case branch,
+argument sequence, local procedure, named loop, map and for-each rule. It derives
+a finite physical write history with the same initial and final heaps.
+=invoke_generated= applies this to actual closures and recursive procedures;
+=LoweringObservedClosure.effects= consumes the complete source call above.
+
+The history uses the actual indexed/symbol table writes and source assignments.
+=Writes.append= composes intermediate stores; =Writes.frame= derives preservation
+of slots excluded by the history's footprint. No event log or final heap equality
+is supplied to the generator by the caller.
+
+This is a relational physical-store refinement. It does not establish a unique
+source-site event log, count observer notifications, infer termination, or prove
+that every admitted raw grammar has a returning lowering evaluation. In
+particular, it does not replace the remaining theorem that relates the full
+recursive dispatcher to the typed allocation/declaration/emission protocol.
+The existing paper derivation and LeanPoo admission gates remain necessary.
+
+* Unified remaining obligations
+
+- Prove returning lowering evaluation for every supported recursive constructor,
+  including the remaining field/alias actions and recursive proof recipes.
+  [[file:lowering-scheme-dispatch.org][Parallel precedence initialization and admission]] now execute from source;
+  its recursive child invocation remains an induction hypothesis.
+- Relate that execution to the typed mixed protocol and its source locations,
+  including observed map paths, choice contexts and recurrence proof recipes.
+- Establish callback authority and preservation of borrowed production objects.
+  Mutable cons cells, unsupported callback operations, exceptional exits and
+  continuation reentry are outside the current returning evaluator fragment.
+- Compose complete raw grammar and five-field record normalization with the
+  retained construction, conflict policy, actions and final AST consumers.
+
+These are parser obligations. Installed compiler and GC behavior remain external;
+Gambit and the SDK are neither modified nor built. Model closure still precedes
+local parser performance optimization.
+
+* Qualification
+
+| Gate | Local receipt |
+|------+---------------|
+| Current-package standard clean/cold build | Exit zero, 132.62 seconds, unchanged 180 total / 5 idle |
+| Original four preparation owners | Exit zero, 47.11 seconds, unchanged 90 total / 5 idle |
+| Real grammar/source witness generation | Exit zero, 11.69 seconds, unchanged 90 total / 5 idle |
+| Original sixteen-owner first complete cold aggregate, four workers | Exit zero, 147.95 seconds wall, unchanged 180 total / 5 idle |
+| Complete Lean build and explicit axiom audit | 273 jobs passed; no added axioms or placeholders |
+| Publication Quint controls | Sixteen directed controls and 1000 forty-step histories, seed one, passed |
+
+The original lowering-publication owner has twelve scenarios/matrices. Its matrix
+uses negative, zero and positive ranks beyond machine-word range through real
+recursive lowering. The original event-source owner has fifteen cases and
+checks actual macro rendering of signed arbitrary-precision scalars. Neither
+owner is replaced by a new harness. The bounded publication model adds negative
+rank transport and rejection of sign loss and observer counter interference;
+it is not a proof that all native callback effects satisfy the invariant.
+
+Current-head =dd5ee6a= CI passed Ubuntu but failed macOS conformance preparation
+at its existing total budget, after native linking. The diagnosis and
+[[file:preparation-scratch-ownership.org][snapshot scratch correction]] retain complete content admission. The additional
+local CI-stage exit failure is recorded there separately. New-commit remote
+qualification is checked after publication. Local timings are acceptance
+receipts, not CPU-gain claims.

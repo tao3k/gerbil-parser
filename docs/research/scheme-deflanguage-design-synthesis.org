@@ -1,0 +1,340 @@
+#+title: Scheme parser DSL design overview
+#+date: 2026-10-06
+
+* Research objective
+
+Develop the syntax vocabulary underneath =deflanguage= so that language authors
+can express intent, compose recurring grammar patterns and give the parser
+compiler useful structural information. This is a design study of the existing
+Scheme interface. Its questions concern expressiveness, semantics, authoring
+quality and compiler analysis. A defect hypothesis is not the research premise.
+
+Historical source baseline: =29dcb79dafcde202fc9818def3ac536cc20f47c4=.
+Executable-study baseline: =783381f33fa1b309ac4cc4b0012696f24c852d93= plus
+uncommitted local research fixtures. Receipts qualify their stated boundaries;
+no single source-aware package implementing every proposal has been qualified.
+The current =deflanguage=, =defgrammar-syntax=, canonical IR and three language
+pack interfaces are the starting architecture. Proposed vocabulary examples
+in the modules use current constructors. The local GQL implementation and its
+open compiler-product gate are recorded separately; broader proposals remain
+design work. Scheme remains the authoring and executable research language.
+
+* Research modules and reading order
+
+This overview owns the shared objective, fixed user boundary, evidence scope,
+open decisions and closure sequence. Detailed explanations live in the modules
+below. The call/array semantic control and actual GQL package anchor the same engine
+contract. The modules are connected responsibilities, not independent features.
+
+| Module | Question it owns | Connected output |
+|--------+------------------+------------------|
+| [[file:scheme-dsl-author-interface.org][Author interfaces]] | What does the user declare in the three files? | Complete current/candidate package and test DSL |
+| [[file:scheme-dsl-engine-admission.org][Engine admission]] | How does the engine elaborate, bind and publish it? | Canonical/context/cache/descriptor contract |
+| [[file:scheme-dsl-semantic-contracts.org][Semantic contracts]] | What must remain true through composition and execution? | Recognition/tree/field/source expectations and controls |
+| [[file:scheme-dsl-complexity-ownership.org][Complexity ownership]] | Does the boundary reduce author change and diagnosis effort? | Package tasks and engine maintenance obligations |
+| [[file:scheme-dsl-research-basis.org][Research basis]] | What do the papers support, and where does transfer stop? | Primary readings, design method and bounded hypotheses |
+
+The [[file:scheme-bash-source-frontend.org][complete Bash source frontend study]] owns the implemented syntax/rules
+migration and removal of legacy author recipes. It records common compiler
+ownership, native semantic evidence and remaining analysis/publication limits;
+three-file ownership alone is not treated as DSL qualification.
+
+The [[file:shared-scanner-staging-and-fusion.org][shared engine specialization study]] connects Gerbil compiler and runtime
+source patterns with staging/fusion research, source lifetime and complete-product
+controls. It keeps optimization below the same three author interfaces.
+
+Focused experiment documents remain evidence references. New conclusions should
+update their owning module and this overview's decision/evidence summary when
+needed. Do not append detailed experiments to this overview. Module boundaries
+should be revised when a topic no longer has one coherent responsibility.
+
+* Fixed user boundary: three DSL interfaces
+
+The agreed author-facing architecture is =grammar.ss=, =parser.ss= and
+=parser-test.ss=. DSL capabilities converge within these three interfaces;
+implementation complexity belongs to the engine. This is the design constraint
+for the integrated proposal, not an additional package interface to select.
+
+| User interface | Author expresses | Engine implements and validates |
+|----------------+------------------+---------------------------------|
+| grammar.ss | Grammar, lexical/tree policy and declarative reusable vocabulary | Macro elaboration, helper identities, checked POO composition, canonical admission, binding and analysis |
+| parser.ss | Public checked entry and declared services/products | Loader admission, dispatch, artifact loading, scanners and backend/FFI mechanisms |
+| parser-test.ss | Independent semantic expectations, fixtures and benchmark cases | Test execution, event/span comparison, reporting and measurement infrastructure |
+
+Reusable vocabulary is available through these DSL interfaces. A supported
+Scheme declaration of new vocabulary can remain in grammar.ss; users are not
+required to write a component factory module, source-map adapter or compiler
+closure. Engine implementation modules may export facilities internally, but
+that does not create a fourth required user interface. Optional library reuse
+must preserve the same three-interface authoring model.
+
+Native POO slot composition is the preferred author substrate; the existing
+merge/append/override/remove normalization labels are not four new author
+keywords. See [[file:scheme-poo-language-components.org::*Native POO substrate and parser operation labels][the native POO contract and matched controls]]. Parser-specific
+reference, field and provenance constraints remain engine responsibilities.
+
+The lower-level POO construction, canonical compiler and manual probe blocks in
+this research explain engine behavior and provide experimental controls. They
+are not mandatory steps for defining a parser. Public composition intent must
+be expressible by supported DSL declarations; underlying row keys, receipts and
+helper lifetime are engine responsibilities. Their inspectability supports
+explanation and diagnosis without requiring authors to maintain them.
+
+Scientific evaluation must therefore include whether a task can be completed
+through these three interfaces. If a routine grammar change requires direct IR
+assembly, a hand-maintained source map or knowledge of generated helper names,
+the proposed DSL boundary is incomplete even when the resulting parser is correct.
+
+* One objective and one representative language package
+
+The objective is to let authors state a language's intentional choices once,
+reuse grammar vocabulary through Scheme modules, and compile it through the
+existing parser engine with explainable origins. Checked POO composition remains
+an engine capability, not a required author protocol.
+
+Use the existing small call/array language as the common running case:
+=f(a,b)=, =[a,b]= and =f()=. It connects lexical declarations, component reuse,
+public tree fields, composition, source origins and native qualification. The
+expression-tier studies provide an additional binding-policy control; they do
+not replace this package-wide narrative with another proposed entry API.
+
+The complete explicit control is in
+[[file:../../t/fixtures/language-pack-research/list-language.ss][list-language.ss]]. Its author choices include identifier rules, punctuation,
+whitespace, the root, empty-container policy, rejection of trailing commas,
+per-item fields, conflicts and case sensitivity. A shorter DSL must preserve
+those choices or document a chosen default; a shorter form alone is not a
+semantic justification for hiding them.
+
+* The author-to-engine path
+
+| Stage | Input and responsibility | Output / current status |
+|-------+--------------------------+-------------------------|
+| Package declaration | Identity, root, lexical policy, intended public tree and target products | Existing language declarations; combined component author syntax pending |
+| Scheme elaboration | defrules forwards syntax; defsyntax handles context; ordinary Scheme functions share local contracts | Existing primitives or checked role construction; experimental vocabulary |
+| POO composition | Combine named contributions using checked merge/append/override/remove | Canonical Grammar IR plus composition receipt; existing mechanism |
+| Binding and analysis | Resolve references; use existing nullable/FIRST facts; keep tree and parsing policy explicit | Existing Bound IR and parser compiler; proposed author-facing obligations pending |
+| Artifact publication | Admit canonical input through the existing compiler owner and preserve admitted metadata | Shared canonical compiler and emission now retain compositionDigest in the composed fixture |
+| Execution and qualification | Parse through existing runtime; compare events, fields, spans, roundtrip and errors | Selected passing controls; combined source-aware package closure pending |
+
+This is one compilation architecture. It does not require a parser per component,
+a second Scheme compiler, or a new macro-specific grammar analysis engine.
+The author syntax, checked role values and canonical IR are different interfaces
+within that path; their phase and ownership must be specified together.
+
+* Integrated implementation decision review
+
+This review consolidates the paper-to-code argument. It prioritizes a complete
+author diagnosis task over adding an explanation mechanism without a consumer.
+The three-interface boundary is agreed. The first source-diagnostic slice below
+is now implemented locally; broader internal choices remain recommendations with
+explicit qualification work.
+
+| Decision | Present basis | Recommendation and remaining qualification |
+|----------+---------------+--------------------------------------------|
+| Author vocabulary | Existing Scheme macros and complete package controls | Retain ordinary Scheme abstraction; add no contribution/owner protocol |
+| Semantic admission | Existing canonical, POO, binding and catalog owners | Preserve one effective grammar and its origins through current owners |
+| First diagnostic integration | Existing checks plus transient expression associations implemented locally | Twelve admission/diagnostic cases plus 47 existing semantic cases pass with fresh native owners; selected package IR parity checked; full provenance route remains open |
+| Recursive fact explanations | Existing analyses plus a researched finite-cause model | Defer integration until a concrete existing consumer needs an explanation; no new nullable-item rejection |
+| Evidence lifetime | Current callbacks can be skipped on cache hits | Prefer current-input, request-scoped capture if needed; qualify replay cost and source identity |
+| Portable source evidence | Current persistent Bound IR sources are declaration-level data | Keep initial live syntax transient; richer artifact projection requires a tooling task |
+| Optimization admission | Recognition is only one observable contract | Require tree/field/span/policy parity and matched phase benchmarks |
+
+The implemented diagnostic task now also includes root shape and node/token kind
+obligations, with direct/macro, multiple-body and source-free controls. See the
+[[file:scheme-dsl-semantic-contracts.org::*Declaration obligations explain the authored term][declaration contract]] for Scheme rationale, falsifiers and limits; its
+[[file:scheme-dsl-engine-admission.org::*Declaration obligations retain author syntax][engine receipt]] retains the failing regression and matched native product control.
+
+The current code task is the integrated [[file:scheme-dsl-semantic-contracts.org::*One constructor contract across declaration entries][constructor-admission boundary]], spanning
+canonical algebra, concise author projection and canonical declaration lowering.
+Its [[file:scheme-dsl-engine-admission.org::*Integrated constructor admission and native qualification][native qualification]] includes composition/LR controls and the complete package,
+not just individual diagnostic examples. Shared canonical constraints and retained
+syntax absorb this complexity in existing engine owners; the three author files
+and native Scheme vocabulary remain the agreed interface.
+
+** First complete task: diagnose an existing invalid declaration
+
+This task has been integrated into the existing compiler owners. Its current
+scope is the [[file:scheme-dsl-semantic-contracts.org::*One constructor contract across declaration entries][constructor-admission contract]], including direct/vocabulary origins,
+forward helper validation, root/kind obligations and both declaration entries.
+The [[file:scheme-dsl-engine-admission.org::*Integrated constructor admission and native qualification][native qualification]] records 59 passing cases, three compiled owners and
+selected complete package IR parity. Earlier per-slice experiments remain evidence
+in that module; they are not separate delivery milestones.
+
+The POO normalizer now qualifies effective-source selection; general author capture and LR explanations remain dependent
+research tasks. They must serve an actual package consumer before becoming new
+implementation work. Do not expand the public author interface to accommodate
+unqualified mechanisms.
+
+* What the papers contribute to this one design
+
+| Research input | Role in the integrated design | Transfer boundary |
+|----------------+-------------------------------+-------------------|
+| Syntactic Abstraction in Scheme | Preserve syntax objects and contextual transformations | Actual Gerbil behavior needs native controls |
+| Compiled, Extensible, Multi-language DSLs | Shared core/compiler; pinned implementation responsibilities inspected | Its backend and performance results do not predict this parser |
+| Fortifying Macros | Specify local declaration contracts and resolve contextual dependencies in stages | No automatic Gerbil syntax-class implementation assumed |
+| Binding as Sets of Scopes | Separate host/module binding from grammar-domain identity | Racket's model is not claimed as Gerbil's implementation |
+| Keeping it Clean with Syntax Parameters | Carry scoped contextual syntax across cooperating macros | Declaration versus expression scope and nested policy need separate checks |
+| PEG semantics | State the algebra and conditions of transformations | Ordered choice and PEG restrictions are not CFG/LR rules |
+| Abstract interpretation | Bound conclusions by the resolved facts and reuse fixed points | Selected full-text sections studied; engine soundness proof remains open |
+| Object-algebra research | Consider composition and interpretation of reusable contributions | Existing checked POO is the concrete mechanism, not a new Java-derived engine |
+
+The [[file:scheme-dsl-research-basis.org][research basis module]] provides primary references and reading
+boundaries, including the integrated reading matrix and two incomplete reading
+areas. Their common contribution is a disciplined author-to-core design. The GQL
+implementation is one witness in that argument; it does not replace research on
+hygiene, scoped context, diagnosis, parsing algebra, analyses or POO extensibility.
+
+* Evidence map: what has and has not been integrated
+
+| Responsibility | Supporting study | Current bounded result |
+|----------------+------------------+------------------------|
+| Whole small list language | [[file:scheme-list-role-composition.org][List role composition]] | 62 runtime/composition checks and 2 collision checks, exit 0 |
+| Binding policy vocabulary | [[file:scheme-poo-language-components.org][Named tiers]] and [[file:scheme-rule-context-design.org][rule context]] | 65 and 59 native checks, exit 0; separate expression fixture |
+| Origins and persisted identities | [[file:scheme-component-provenance.org][Component provenance]] | Historical 17 construction/artifact checks; expanded control has 31 checks, exit 0; separate language receipt and timeout retained |
+| Effective contribution under mutation | [[file:scheme-dsl-semantic-contracts.org][Composition/catalog control]] | Expanded 37 checks, exit 0; includes projection controls; selected sources supplied manually |
+| Exact reader origins | [[file:scheme-source-origin-contract.org][Source origins]] | 12 construction checks, exit 0; actual-language drivers timed out |
+| Local and absent-source diagnostics | [[file:scheme-declaration-diagnostics.org][Declaration diagnostics]] | 48 and 6 checks, exit 0; combined driver timeout retained |
+| Wrapper/alias preservation | [[file:scheme-nested-declaration-context.org][Nested vocabulary]] | 24 forwarding and 28 author-contract checks, exit 0 |
+| Scoped delegated context | [[file:scheme-syntax-parameter-context.org][Syntax parameters]] | 9 scope, 28 diagnostic, 12 real-role checks, exit 0 |
+| Resolved consumption facts | [[file:scheme-list-role-composition.org][List semantic contract follow-ups]] | 35 item/FIRST and 29 repetition checks, exit 0 |
+| Expression-vocabulary package through checked Loader | [[file:../../t/fixtures/language-pack-research/package-expression-runtime.ss][Integrated local control]] | 85 checks, exit 0; selected events/fields/rejections and identity |
+| Same package through declarative test DSL | [[file:../../t/fixtures/language-pack-research/package-expression-parser-test.ss][Conformance declarations]] | 11 cases, suite OK and exit 0; overlaps manual control |
+| Inferred versus retained public fields | [[file:scheme-dsl-semantic-contracts.org][Matched list package DSL variants]] | 5 cases each, exit 0; initial combined invocation timeout retained |
+| Entire package/product lifecycle | Local composed canonical, published machine and checked entry controls | Production public composition syntax, general author capture and full native target gates remain open |
+
+Do not add these counts into a package pass total. Some fixtures overlap, some
+cover a different language, and successful local checks do not close failed
+combined invocations. Correctness, developer usability, compilation cost and
+runtime performance are different evidence obligations.
+
+* Integrated architecture decision and remaining boundary
+
+The research question is now singular: can a developer declare a composed
+language using native Scheme abstraction in grammar.ss, publish it through
+parser.ss and state its expectations
+in parser-test.ss, while the engine preserves semantics, effective ownership and
+artifact identity without requiring manual metadata or compiler knowledge?
+
+The working architecture is an extensible Scheme front end over one canonical
+parser compiler and runtime. Hygienic syntax preserves host binding/context;
+checked POO selects grammar contributions; existing inference, binding and
+analysis establish effective grammar facts; existing publication supplies the
+checked Loader. These responsibilities are one dependency chain. None is a
+separate public feature justified by its own passing fixture.
+
+| Connected design obligation | Why the next stage depends on it | Present boundary |
+|-----------------------------+---------------------------------+------------------|
+| Preserve authored syntax during elaboration | Diagnostics and contribution origins need the original declaration | Local syntax/origin controls; combined collection unresolved |
+| Select effective contributions and ownership | Catalog derivation and binding must describe the selected rules | POO operations qualified; automatic effective-source integration unresolved |
+| Derive catalogs and include explicit public obligations | Canonical publication must agree with observable trees | DSL variants and projection controls qualified separately |
+| Admit the canonical grammar intact | Binding, Parser IR and caches must consume the same grammar | Canonical publication, direct composed emission and checked Loader controls qualified locally |
+| Publish the descriptor/machine through the checked entry | User tests and runtime must exercise the admitted products | Expression package qualified; composed source-aware route not closed |
+
+The combined rationale uses the papers together: Scheme syntactic abstraction
+explains contextual elaboration; Fortifying Macros informs declaration checking;
+scoped-context research informs cooperative diagnostics; compiled extensible DSL
+research connects elaboration to a shared compiler. The pinned implementation
+reading supplies concrete ownership examples. Actual Gerbil controls establish
+only their stated boundaries. This chain is detailed in the
+[[file:scheme-dsl-research-basis.org][research basis]], rather than used to justify unrelated vocabulary features.
+
+The fixed decisions are the three user interfaces and engine ownership of
+mechanisms. The contribution/owner/compose candidate is withdrawn: it imposed a
+new author model without establishing a required language-package task. The
+[[file:scheme-dsl-author-interface.org::*Native Scheme abstraction is the author baseline][author baseline]] is the existing complete declaration with native Scheme
+abstraction. Existing POO roles and operations stay engine capabilities or their
+current lower-level API; they are not a new required concise DSL protocol.
+The [[file:scheme-dsl-engine-admission.org::*Source-grounded implementation route: one admitted package][source-grounded implementation route]] remains useful for consistent effective
+facts, receipt sealing and runtime publication. Any future public extension must
+follow a demonstrated limitation of the complete author package.
+
+#+begin_src scheme
+;; Existing author vocabulary under the agreed grammar.ss interface.
+(defgrammar-syntax (required-items label item separator)
+  (seq (field label item)
+       (repeat (seq separator (field label item)))))
+
+;; Question 1: Why is this DSL design better?
+;; Scheme vocabulary expresses reusable intent; the engine owns the whole admitted path.
+;; One language edit should flow to canonical grammar, products and independent tests.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Paper principles, pinned source responsibilities and native controls inform one chain.
+;; Verify the same composed package through all three interfaces, not summed fixture counts.
+;; Falsifier: manual catalogs/sources/IR are required, or different stages describe
+;; different effective grammars while the package is reported as qualified.
+;; Limit: the complete source-aware composition path is still not implemented/qualified.
+#+end_src
+
+The [[file:scheme-dsl-author-interface.org::*Complete package review: the actual GQL declaration and its consumers][actual GQL package review]] now grounds the author-complexity discussion in a
+production declaration and all its consumers. Its common-source emission refactor
+is now implemented locally: GQL retains its catalog export, derives metadata from
+the accepted products and uses one source-processing declaration. Existing source
+and GQL suites pass under a 10-second bound with exit 0; a wrong digest is rejected
+in expansion. Independent expected identities remain unchanged. The subsequent
+[[file:scheme-dsl-author-interface.org::*Whole-package gate: compiler products must match the source contract][compiler-product gate]] built the changed native macro, but GQL optimization found
+stale 9-field machine metadata against the current 12-field source; bounded
+dependency refreshes and separate Scheme emission did not complete. This is local
+source conformance with an open build gate, not installed or Rust/AOT closure.
+The call/array package remains the small semantic control; its receipts cannot
+establish author-task improvement for the GQL package.
+
+* Architectural delivery: thin author entry and focused engine owners
+
+The implementation sequence now refactors the engine ownership boundaries as
+one unit. The [[file:scheme-dsl-complexity-ownership.org::*Implemented internal owners: one author surface, explicit engine stages][implemented owner map]] records the extracted concise elaborator,
+lexical expression compiler, lexer generator and retained nominal machine owner.
+The public deflanguage entry delegates using real hygienic syntax bindings.
+Both DSL surfaces enter one compile-time declaration record and direct compiler
+function, without whole-declaration macro replay. Runtime assembly receives the
+same canonical grammar used for binding, compilation and publication. Analyses
+and cache/publication mechanisms retain their existing owners. Admission,
+compilation/publication and hygienic emission are now separate named phases.
+Normalized POO grammar and supplied context can use the same publication phase;
+effective-origin selection and composed runtime/Loader controls are locally
+qualified. A production public composition clause and full native runtime linkage
+remain open.
+No additional author clause or parallel analysis engine is introduced.
+
+The actual GQL grammar.ss, parser.ss and parser-test.ss route remains the large
+package control; call/array remains the small complete semantic control. Native
+qualification is an acceptance gate for this architecture, not the research
+agenda. Build troubleshooting must not displace the connected paper argument,
+engine refactoring and complete author-package evaluation.
+
+| Acceptance obligation | Evidence boundary | Required observation |
+|-----------------------+-------------------+----------------------|
+| Author semantics and hygiene | Existing complete controls run with current compiled declaration owners and source consumers | Same identity, catalogs, macro context, diagnostics, trees, fields and spans |
+| Canonical products | Complete call/array Grammar IR and Parser IR comparison | Same serialized products; no second compilation authority |
+| Native owner compilation | Three lexical/machine owners and four declaration owners compile in isolated output directories, exit 0 | Standard build discovery includes the new owners |
+| Native consumers | Existing installed LR/machine closure is inconsistent; GQL native compilation still exceeds the genuine-output watchdog | Rebuild and qualify the complete dependency and consumer closure |
+| Performance and application service | No speedup or concurrent-service closure admitted by this refactor | Matched stage measurements and queue/execute/cancel tests with qualified products |
+
+Parallel cold verification attempts exceeded the existing process bounds; those
+attempts are failures, even where assertion markers appeared. Source checks are
+rerun sequentially to avoid conflating resource contention with semantic results.
+Native module compilation, native consumer execution and GQL/Rust/AOT closure
+remain separate claims.
+
+* One package-level research and implementation sequence
+
+1. Use the complete existing grammar.ss declaration, parser.ss entry and
+   parser-test.ss expectations as the baseline. Identify a concrete author change
+   or diagnosis task before proposing any additional public syntax.
+2. Trace that declaration through existing elaboration, effective POO selection,
+   origin association, catalog inference/projection, binding and canonical publication.
+   Record the existing code owner at each boundary and any concrete extraction needed.
+3. Qualify that same route with one intentional contribution replacement: selected
+   rules, retained optional fields, effective origins, artifact reload and checked
+   Loader observations must agree. Reuse the explicit language as semantic control.
+4. Close the package's declared native products and bounded process-completion gates.
+   Then measure author change/diagnosis tasks and separate compile/load/parse phases.
+
+Progress means closing an edge in this complete path or resolving its public
+contract. More passing local cases, new paper lists or new wrapper macros are
+not independently package closure. Existing focused experiments remain supporting
+controls; add an experiment only when it answers a named unresolved edge in this
+sequence and state how its result changes the architecture decision.
+
+Keep detailed work in its existing module. Update this overview only when the
+architecture decision, evidence boundary or next package-level step changes.
+Research drafts remain local until design and review boundaries are agreed.

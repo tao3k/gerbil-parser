@@ -1,5 +1,3 @@
-(package:
- gerbil-parser
-depend:
- ("github.com/tao3k/poo-flow-core@dc46034fbcc19262c82fb757bc57035305d595e3"
-  "github.com/tao3k/asp-gerbil-scheme@19bf659450f619a410cef46b093ccaa6bb203c03"))
+(package: gerbil-parser
+ prelude: :tao3k/parser/prelude
+ depend: ("github.com/tao3k/gebril-yuanxu@79a5526a2ecd06408201be87b4a028b167c8d8a0"))

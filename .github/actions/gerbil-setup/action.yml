@@ -1,0 +1,94 @@
+name: Gerbil compiler setup
+description: Install the configured Gerbil compiler archive and platform dependencies
+inputs:
+  release-os:
+    required: true
+    description: release-os
+  release-arch:
+    required: true
+    description: release-arch
+  release-tag:
+    required: true
+    description: release-tag
+  release-sha256:
+    required: true
+    description: release-sha256
+runs:
+  using: composite
+  steps:
+    - name: Install Linux system dependencies
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          ca-certificates \
+          curl \
+          git \
+          jq \
+          libsqlite3-dev \
+          libssl-dev \
+          openjdk-17-jre-headless \
+          openssl \
+          pkg-config \
+          sqlite3 \
+          zlib1g-dev
+      shell: bash
+    - name: Install macOS system dependencies
+      if: runner.os == 'macOS'
+      env:
+        HOMEBREW_NO_AUTO_UPDATE: 1
+        HOMEBREW_NO_INSTALL_CLEANUP: 1
+      run: |
+        brew list --formula ghostscript >/dev/null 2>&1 && brew unlink ghostscript || true
+        brew install coreutils gcc jq openssl pkg-config sqlite zlib
+        coreutils_bin="$(brew --prefix coreutils)/libexec/gnubin"
+        test -x "$coreutils_bin/timeout"
+        echo "$coreutils_bin" >> "$GITHUB_PATH"
+        gcc_prefix="$(brew --prefix gcc)"
+        gcc_bin="$(
+          find "$gcc_prefix/bin" -maxdepth 1 -type f -name 'gcc-[0-9]*' \
+            | awk -F- '{print $NF "\t" $0}' \
+            | sort -n \
+            | tail -n 1 \
+            | cut -f2-
+        )"
+        test -x "$gcc_bin"
+        echo "GERBIL_GCC=$gcc_bin" >> "$GITHUB_ENV"
+        openssl_prefix="$(brew --prefix openssl@3 2>/dev/null || brew --prefix openssl)"
+        sqlite_prefix="$(brew --prefix sqlite)"
+        echo "LIBRARY_PATH=$openssl_prefix/lib:$sqlite_prefix/lib${LIBRARY_PATH:+:$LIBRARY_PATH}" >> "$GITHUB_ENV"
+        macos_major="$(sw_vers -productVersion | cut -d. -f1)"
+        echo "PKG_CONFIG_PATH=$openssl_prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" >> "$GITHUB_ENV"
+        echo "MACOSX_DEPLOYMENT_TARGET=$macos_major.0" >> "$GITHUB_ENV"
+      shell: bash
+    - name: Install native task tool
+      uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad
+      # The action chooses between CARGO_HOME/bin and .install-action/bin.
+      # Scope a fresh Cargo home to this installer so every job uses the latter,
+      # regardless of whether its runner image ships Homebrew or user Rustup.
+      env:
+        CARGO_HOME: ${{ runner.temp }}/parser-ci-tools
+      with:
+        tool: just
+    - name: Cache Gerbil compiler archive
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        path: ${{ runner.temp }}/gerbil-compiler.tar.gz
+        key: parser-compiler-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.release-sha256 }}
+    - name: Extract and activate Gerbil compiler
+      env:
+        GERBIL_BUILD_CORES: 2
+      run: |
+        test -f "$RUNNER_TEMP/gerbil-compiler.tar.gz" || curl --fail --location --retry 3 --output "$RUNNER_TEMP/gerbil-compiler.tar.gz" \
+          "https://github.com/tao3k/gerbil-bazel/releases/download/${{ inputs.release-tag }}/${{ inputs.release-tag }}.tar.gz"
+        echo '${{ inputs.release-sha256 }}  '"$RUNNER_TEMP/gerbil-compiler.tar.gz" | shasum -a 256 --check
+        mkdir -p "$GERBIL_RELEASE_ROOT"
+        tar -xzf "$RUNNER_TEMP/gerbil-compiler.tar.gz" -C "$GERBIL_RELEASE_ROOT" --strip-components=1
+        {
+          echo "GERBIL_PREFIX=$GERBIL_RELEASE_ROOT"
+          echo "GERBIL_HOME=$GERBIL_RELEASE_ROOT/current"
+          echo "GAMBOPT=~~=$GERBIL_RELEASE_ROOT/current,~~bin=$GERBIL_RELEASE_ROOT/current/bin,~~lib=$GERBIL_RELEASE_ROOT/current/lib"
+        } >> "$GITHUB_ENV"
+        echo "$GERBIL_RELEASE_ROOT/bin" >> "$GITHUB_PATH"
+      shell: bash

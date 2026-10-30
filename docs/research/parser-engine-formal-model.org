@@ -1,0 +1,157 @@
+#+title: Parser engine semantics and operation model
+
+* Scope and navigation
+
+This index separates design, source correspondence and historical qualification.
+Each linked topic retains its original premises, failures and evidence limits.
+Host and compiler behavior remain external premises; no host build is required.
+
+- [[file:parser-engine-formal-model/objective-and-evidence-boundary.org][Objective and evidence boundary]]
+- [[file:parser-engine-formal-model/reader-tree-witnesses-and-native-source-admission.org][Reader-tree witnesses and native source admission]]
+- [[file:parser-engine-formal-model/source-dependency-admission.org][Complete source dependency admission]]
+- [[file:parser-engine-formal-model/preparation-scratch-ownership.org][Preparation scratch ownership and cold qualification]]
+- [[file:parser-engine-formal-model/unified-representation-correspondence.org][Unified representation correspondence]]
+- [[file:parser-engine-formal-model/physical-placement-and-acquire-composition.org][Physical placement and acquire composition]]
+- [[file:parser-engine-formal-model/first-connected-kernel-retained-terminal-flow.org][First connected kernel: retained terminal flow]]
+- [[file:parser-engine-formal-model/cost-model-count-work-before-estimating-time.org][Cost model: count work before estimating time]]
+- [[file:parser-engine-formal-model/collection-continuation-reentry-and-distinct-lr-schedulers.org][Collection, continuation reentry and distinct LR schedulers]]
+- [[file:parser-engine-formal-model/generated-propagation-graphs-and-source-shaped-fifo-execution.org][Generated propagation graphs and source-shaped FIFO execution]]
+
+- [[file:parser-engine-formal-model/lr-state-suffix-correspondence.org][LR state and suffix producer correspondence]]
+- [[file:parser-engine-formal-model/prediction-interning-coordinates.org][Prediction queues, state interning and node coordinates]]
+- [[file:parser-engine-formal-model/template-materialization-publication.org][Generated prediction witnesses and published closure rows]]
+- [[file:parser-engine-formal-model/physical-sparse-goto.org][LR construction lifecycle contract]]
+- [[file:parser-engine-formal-model/construction-vocabulary.org][Construction vocabulary and remaining correspondence responsibilities]]
+- [[file:parser-engine-formal-model/lowering-publication.org][Native lowering publication and failure control]]
+- [[file:parser-engine-formal-model/lowering-traversal.org][Recursive lowering generation and construction correspondence]]
+
+* Current construction entry
+
+Use [[file:../../formal/ParserEngine/ConstructionConsumer.lean][ConstructionConsumer.construct]] for source-admitted LR construction.
+For ordered native production inputs, use
+[[file:../../formal/ParserEngine/ConstructionGrammar.lean][ConstructionGrammar.construct]]. It derives the CFG, checks physical IDs,
+augmentation, body reference coverage and all lowering-origin recipes, then
+invokes the same LeanPoo consumer. Callers supply neither a separate CFG nor a
+nonempty certificate. For reader names and tagged text operands, use
+[[file:../../formal/ParserEngine/ConstructionEncoding.lean][ConstructionEncoding.construct]]. Its checked directories preserve identity and
+every physical record position before invoking that same consumer. Host reader,
+interning and scalar extraction remain external; semantic metadata retains its
+separate admission boundary.
+Its [[file:parser-engine-formal-model/physical-sparse-goto.org][maintained contract map]] records the remaining admission boundaries.
+The map names each producer law, consumer, source owner and executable control.
+Keep source admission, universal algorithm proofs and native qualification
+distinct; update the map when an obligation changes.
+Its source-boundary table covers growth/append instructions, the distinct
+initial-state path and complete FIFO action emission. =source_complete= combines
+the actual generating factory, its safe actions, replay and physical row meaning.
+Parser-owned obligations must remain distinct from host assumptions.
+Source initialization and fresh installation generate their records from the
+shared LeanPoo value capability and instruction effects; abstract constructors
+are refinement targets rather than sources of preconstructed output records.
+The phase contract connects initial registration visibility, outer dequeue and
+accounting, target grouping and final publication to the same retained tick.
+Native controls observe those phases independently and reject missing or
+duplicated accounting events.
+The retained contract also carries all-prefix physical plan readiness:
+[[file:../../formal/ParserEngine/ConstructionReadiness.lean][ConstructionReadiness]] follows the actual source-order start/tick trajectory,
+including the returned constructor state. Its invariant supplies bounded
+physical plan decoding before every queued group call, rather than accepting
+a caller-provided plan or checking only the final cache.
+
+* Module ownership
+
+| Responsibility | Entry point | Meaning |
+|----------------+-------------+---------|
+| Proof imports | [[file:../../formal/ParserEngine/Components.lean][Components]] | Parser declaration owners |
+| Axiom reports | [[file:../../formal/ParserEngine/Audit/GrammarConstruction.lean][GrammarConstruction]], [[file:../../formal/ParserEngine/Audit/ParserExecution.lean][ParserExecution]], [[file:../../formal/ParserEngine/Audit/HostPremises.lean][HostPremises]] | Separate construction, request execution and external host premises |
+| Source observations | [[file:../../formal/evidence/model_inputs.py][model_inputs.py]] | Discover source owners; binding a file does not prove its semantics |
+| Observation controls | [[file:../../formal/evidence/test_model_inputs.py][test_model_inputs.py]] | Discovery, invalidation, missing inputs, layer separation and module size |
+| Host counterexamples | [[file:../../formal/quint/HostBoundary.qnt][HostBoundary.qnt]] | Bounded controls for external assumptions; no host build or repair |
+
+Documents and authored proof/control files have a 1,000-line maximum. Split at
+semantic boundaries before reaching that limit. Use responsibility or fixture
+names, never numbered continuation modules. Imported grammar originals and
+machine-generated Rust fixtures retain their upstream or generator identity;
+changes to their layout belong in the importer or generator.
+
+The input catalogue discovers compiler, runtime and control owners rather than
+copying filenames into collectors and tests. This conservative binding can
+invalidate both model observations after an implementation change. It does not
+claim that Lean or Quint proves every discovered source file.
+
+* Composable parser tests
+
+=deflanguage-parser-tests= accepts a private =(fixture)= profile with the same
+closed clause admission as =(engine)=. An engine declaration composes a fixture
+with =(suite "description" fixture-name)=. The engine registers its checks into
+the current suite in declaration order; fixtures are not exported as independent
+suites. A private owner tag rejects an arbitrary procedure used as a fixture.
+
+Lexical fixture fragments use semantic =.ssi= names. The source-style contract
+checks those fragments as well as test entry files. Fixture contents still pass
+through the parser test macros; moving a scenario does not bypass admission.
+The composition control checks that a child runs exactly once. The historical
+rejection matrix checks each result directly, without a manually maintained
+expected list length.
+
+* Current semantic frontier
+
+The parser model remains incomplete. The [[file:parser-engine-formal-model/lr-state-suffix-correspondence.org][LR state and suffix correspondence]]
+now proves reverse suffix execution, physical after-dot reads, ordered LR0
+closure publication and universal propagation-to-paper composition. The [[file:parser-engine-formal-model/prediction-interning-coordinates.org][construction protocol correspondence]] adds multi-seed prediction replay,
+grammar-row decoding, state-store preservation and two-pass coordinate
+extraction. The [[file:parser-engine-formal-model/template-materialization-publication.org][generated witness and publication composition]] now derives name coverage,
+completed queue replay, materialized templates and published closure meaning.
+The [[file:parser-engine-formal-model/physical-sparse-goto.org][physical extraction and sparse goto composition]] derives bounded advances,
+symbol-index injectivity, group membership and published target closure.
+The same contract now integrates earliest-item ordering, borrowed scratch, FIFO
+termination and complete row publication through =ConstructionProtocol.construct=.
+=CachedConstruction.construct= now consumes retained templates and selected
+traversal in that same complete queue, deriving cache coverage for every plan and
+identifying its final machine with this canonical paper contract. Physical
+plan references are now allocated and decoded through =PlanStorage=, while the
+same owned scratch state flows through each group call and target publication.
+=construct_aligned= and =tick_scratch= supply those representation/frame laws.
+Shared-index writes now feed the grouping consumer through =TemplateIndex=;
+=constructed_vector= derives a counted copy/write witness for the whole queue.
+=ConstructionExtraction= binds source allocation parameters and complete schemas
+to the executable storage recipe. =ConstructionConsumer= admits that source
+before executing the retained factory, then connects final physical-slot index
+queries and complete published rows to the same paper-level machine. Its
+maintained map records the joint three-vector history for every positive initial
+layout, the supported source protocol and the remaining external host premises.
+=ConstructionControl= decodes the growth declaration, proves the forward loop
+and intermediate owner stages, and realizes each joint history as safe source
+control; the LeanPoo consumer retains that realization for =source_execution=.
+The selected LeanPoo traversal capability now supplies direct/field callback
+order to the complete queue through =traversal_finish_exact=. Its paper target
+theorem applies to final edges; concrete host primitives and compiler lowering
+remain external to the restricted source model.
+No parser performance or compiler/host correctness claim follows from it.
+
+* macOS contextual request qualification
+
+CI run =39011639945= at =8c36ed4= failed in the source semantics lane. The
+last completed contextual case checked the admitted instruction product; the
+next case started at =07:10:09.744 UTC= and its owner hit the five-second idle
+budget at =07:10:14.868 UTC=. No first assertion was logged for that case.
+Its sequential setup compiled a product, prepared it and mapped four cold
+parse requests before reaching an assertion. The log identifies this unchecked
+setup interval; it does not identify an individual stalled host primitive.
+
+Each cold request now checks artifact validity and roundtrip immediately, then
+retains that product as the reference for the existing prepared-request and
+mutation-isolation checks. No synthetic progress, larger timeout, changed
+parser algorithm or host rebuild is involved. Local completion and remote CI
+remain separate qualification results.
+
+* Organization qualification
+
+The modularization retains all original topic headings and all 696 explicit
+axiom audit targets. The Lean package builds successfully with 113 jobs. The
+complete Quint command succeeds, including the separated 100 host-boundary
+controls. Python evidence and layout controls pass all 19 tests. Ten actual
+Scheme owners complete 253 cases with exit zero under the unchanged 90-second
+total and five-second idle limits. The source-style check includes =.ssi=
+fragments. These checks qualify organization and the stated test behavior;
+they do not establish the remaining universal parser refinement or CPU gains.

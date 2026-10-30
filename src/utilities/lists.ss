@@ -1,6 +1,10 @@
 ;;; Small general-purpose list primitives shared across compiler modules.
 
-(export append-unique
+(import (only-in :clan/poo/object .o)
+        (only-in :clan/poo/mop validate)
+        (only-in ./types ListOperationsScopeOf))
+
+(export make-list-operations append-unique
         merge-keyed-row)
 
 ;; append-unique
@@ -25,9 +29,19 @@
 ;;       ```
 ;;     %
 (def (merge-keyed-row rows row row-key conflict)
-  (let* ((key (row-key row))
-         (existing (find (lambda (value) (equal? (row-key value) key)) rows)))
-    (cond
-     ((not existing) (foldr cons (list row) rows))
-     ((equal? existing row) rows)
-     (else (conflict key)))))
+  (let (key (row-key row))
+    ;; A matched list cell proves presence even when its row is #f. Retain the
+    ;; original list on an idempotent merge and call row-key once per visit.
+    (let loop ((remaining rows))
+      (cond
+       ((null? remaining) (foldr cons (list row) rows))
+       ((equal? (row-key (car remaining)) key)
+        (if (equal? (car remaining) row) rows (conflict key)))
+       (else (loop (cdr remaining)))))))
+
+;; Explicit caller Types own row/key admission; the native pair owns the result.
+(def (make-list-operations Row Key)
+  (let ((type (ListOperationsScopeOf Row Key))
+        (append-method append-unique) (merge-method merge-keyed-row))
+    (cons type (validate type
+      (.o append-unique: append-method merge-keyed-row: merge-method)))))

@@ -1,0 +1,58 @@
+#+title: Request-isolated prepared EventFold state
+
+* Ownership and execution
+
+The engine now prepares a private EventFold program from closed strategy data.
+Preparation snapshots pairs and strings, preserves DAG sharing, rejects cycles
+and executable values, validates typed initial state, and indexes helper names.
+No source, runtime handle, GC root, request cache or mutable working state is
+retained in the program. Existing language declarations remain the author path;
+this is not a new callback DSL.
+
+Each root/helper layout contains an identity-keyed name index and immutable
+initial values (Boolean, unsigned integer or empty stack). A request copies the
+initial-value vector. Stack updates, parameter overrides and temporary bindings
+belong to that request. Temporary storage is allocated only when used. Removing
+and rebinding a declared slot preserves the existing missing-update policy;
+duplicate declarations retain first-binding semantics.
+
+The existing declaration macro captures one program at module initialization.
+Org's private POO strategy similarly holds the engine program and invokes it
+through a thin adapter. There is no downstream compilation cache or new process
+launcher. The dynamic =run-event-fold= entry prepares explicit caller data and
+uses the same executor; it is not a second parser.
+
+* Qualification and evidence limits
+
+The first native qualification used =8e98e830= plus this candidate, the existing
+Gerbil SDK and the existing Just owners. All 61 EventFold cases passed, including
+five new controls for request isolation, temporary bindings, first declarations,
+source snapshots/UTF-8, helper parameters and malformed/cyclic input. The hard
+idle watchdog, assertion propagation and final =OK= requirement remain intact.
+Subsequent upstream alignment requires fresh qualification; these results are
+not relabelled as a different source revision.
+
+The consumer's =021f97a7= diagnostic baseline completed 2,032 physical native
+requests for 2,000 documents: 32 parser batches plus 2,000 document-semantic
+crossings. Its first sample reported 754.850ms batch owner thread CPU and
+810.139ms all-request owner thread CPU. Rust syntax/graph/record stage wall sums
+were about 50ms. These counters have different scopes; overlapping worker wall
+sums, VM GC intervals and operation waits cannot be added as exclusive costs.
+
+The observed baseline gate still failed. Wall times were unstable under other
+host workloads: diagnostic best-of-five was 1.402s; a separate untraced run was
+2.868s. Neither result is an optimization claim or a replacement for earlier
+602ms/597ms historical samples. The original 100ms threshold is unchanged.
+
+* Remaining closure
+
+State preparation removes repeated layout construction and per-slot cells,
+not all strategy interpretation. =fold-statements= and predicate evaluation
+still inspect forms at runtime. Direct native strategy specialization remains
+an engine responsibility. Static byte-set preparation and per-document semantic
+crossings also require attribution and matched controls before further changes.
+
+Prepared-state functionality, complete consumer parity, both runtime choices,
+1,000/10,000-document concurrency and the unchanged latency gate are separate
+admissions. Native compilation or a passing unit suite alone closes none of the
+remaining performance gates.

@@ -29,7 +29,8 @@
   (let (evaluate (current-expander-module-eval))
     (parameterize ((current-expander-module-eval
       (lambda (module) (evaluate-observed-module module evaluate))))
-      (call-with-compiled-interface-trace thunk))))
+      (call-with-runtime-resolution-trace
+        (lambda () (call-with-compiled-interface-trace thunk))))))
 
 (def (call-with-runtime-resolution-trace thunk)
   (let (resolver ##get-module)

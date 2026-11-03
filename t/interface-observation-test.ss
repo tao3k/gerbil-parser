@@ -44,7 +44,9 @@
       (list calls (interface-report-count output "INTERFACE-IMPORT ")))))
 
 (def (runtime-resolution-observation)
-  (let ((original ##get-module) (calls 0) (failure (list 'expected))
+  (let ((original ##get-module)
+        (importer (gx#current-expander-module-import))
+        (evaluator (gx#current-expander-module-eval)) (calls 0) (failure (list 'expected))
         (result (list 'module)) (preserved? #f) (restored? #f))
     (def (resolver _id)
       (set! calls (+ calls 1))
@@ -57,15 +59,18 @@
             (lambda (port)
               (parameterize ((current-output-port port))
                 (set! preserved?
-                  (eq? result (call-with-runtime-resolution-trace
+                  (eq? result (call-with-module-evaluation-trace
                                 (lambda () (##get-module 'first)))))
                 (set! preserved?
                   (and preserved?
                     (with-catch (lambda (condition) (eq? condition failure))
                       (lambda ()
-                        (call-with-runtime-resolution-trace
+                        (call-with-module-evaluation-trace
                           (lambda () (##get-module 'failed))) #f))))
-                (set! restored? (eq? resolver ##get-module))))))
+                (set! restored?
+                  (and (eq? resolver ##get-module)
+                       (eq? importer (gx#current-expander-module-import))
+                       (eq? evaluator (gx#current-expander-module-eval))))))))
           (list calls preserved? restored?
                 (interface-report-count output "MODULE-RESOLVE "))))
       (lambda () (##get-module-set! original)))))
@@ -75,7 +80,7 @@
   (property "warm lookups, failure identity, retries and reloads preserve SDK dispatch"
     (bindings)
     (equal (interface-retry-observation) '(5 #t #t 5 1)))
-  (property "runtime resolver preserves results and restores ownership after failure"
+  (property "composed observers preserve results and restore all hooks after failure"
     (bindings)
     (equal (runtime-resolution-observation) '(2 #t #t 2)))
   (matrix "relative requests stay visible across caller contexts"

@@ -1,4 +1,4 @@
-direction: right
+direction: down
 vars: {
   d2-config: {
     theme-id: 200
@@ -6,50 +6,46 @@ vars: {
   }
 }
 
-sources: "Package declarations" {
+declarations: "Scheme and Cargo declarations" {
   shape: page
 }
-core: "Core source closure" {
-  style.fill: "#E8F0FE"
-}
-gerbil: "Gerbil compiler" {
-  style.fill: "#E8F0FE"
+
+build: "Build owners" {
+  direction: right
+  core: "Core source closure" {
+    style.fill: "#243B53"
+    style.font-color: "#F1F5F9"
+  }
+  gerbil: "Gerbil compiler" {
+    style.fill: "#243B53"
+    style.font-color: "#F1F5F9"
+  }
+  bridge: "gerbil-scheme-rust\nC ABI tools and program archive"
+  core -> gerbil: "build specification"
+  bridge -> gerbil: "official package operations"
 }
 
 products: "Separate product owners" {
-  direction: down
+  grid-columns: 2
   library: "Production library"
   ffi: "C ABI probes"
-  rust: "Rust-owned ABI program"
   research: "Standalone qualification libraries"
   support: "Signed Suite support"
+  rust: "Rust-owned ABI program"
 }
 
 transport: "Exact-run artifacts" {
   shape: cylinder
 }
 consumers: "Independent consumers" {
-  direction: down
-  standalone: "Official gxi entrypoints"
-  suite: "Core TestingScript → Gerbil Harness"
+  grid-columns: 3
+  standalone: "Official gxi\nScoped observations"
+  suite: "Core TestingScript\nGerbil Harness"
+  rust: "Rust host\nUpstream affine VM lifecycle"
 }
 
-sources -> core: "discover and bind inputs"
-core -> gerbil: "native build specification"
-gerbil -> products.library
-gerbil -> products.ffi
-gerbil -> products.research
-gerbil -> products.support
+declarations -> build: "package and Cargo source"
+build -> products: "compiler-owned products"
 products.library -> products.ffi: "ABI providers"
-bridge: "gerbil-scheme-rust" {
-  tooling: "C ABI build owner"
-  archive: "Compiler graph and archive"
-  owner: "Affine VM lifecycle"
-}
-bridge.tooling -> gerbil: "official package build"
-gerbil -> bridge.archive: "staged graph"
-bridge.archive -> products.rust
-products.rust -> bridge.owner: "initialize and drop"
 products -> transport
-transport -> consumers.standalone: "normal library products"
-transport -> consumers.suite: "source and publication checks"
+transport -> consumers: "restore and execute"

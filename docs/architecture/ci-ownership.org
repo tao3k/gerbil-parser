@@ -442,3 +442,40 @@ suite. Darwin's original public C ABI and structured lexical generation entries
 both pass their unchanged gates (49.586s and11.547s). Generated Rust is formatted
 and byte-compared against the checked-in fixture. These are local results;
 exact-head GitHub checks and the complete Scheme Suite remain separate gates.
+
+* Whole-script observation scope
+Run41594674168 passes all Ubuntu checks and Darwin FFI. Darwin generation instead
+exposes an unobserved entry: loading observations.ss only defines callbacks; it
+does not observe a subsequent CLI script. The header generator therefore reaches
+idle5s before either output receipt. That failure remains retained.
+
+All eight affected source/generator commands now wrap their entire official
+script load and main invocation in the existing module-evaluation observer.
+The load operation is Gambit's load-module-or-file, exactly the operation used
+by gxi-main; the original script, arguments, receipts, formatting and golden-byte
+comparisons remain. No alternate resolver, dependency catalog or loader cache is
+introduced. Module-evaluation observation composes the official native resolver
+hook with the existing expander import/evaluation parameters. The two formerly
+interface-only diagnostic scopes use that same composition. The existing
+failure-identity test checks that all three hooks restore after failure.
+The90s/idle5s gates still constrain the complete script execution.
+
+The Darwin Suite's separate failure is the existing50-pair Grammar construction
+benchmark:20samples, P95=120.759ms against100ms. The gate and workload remain
+unchanged and all samples are retained. This is not a Rust FFI failure and no
+performance improvement is inferred from the observer correction.
+
+Local generators may compile products in the selected prefix. Running them
+concurrently with signed test-support publication invalidates that publication;
+the native test entry correctly refuses build-required before launching a child.
+Complete local validation therefore serializes generation, support publication
+and the native Suite. An earlier raw Suite log cannot stand in for the refused
+attempt. CI consumers retain separate runner prefixes and exact-run artifacts.
+
+The corrected local generation job completes all13verification stages with the
+original guards and golden comparisons. After serial support publication, the
+original complete native Suite exits naturally0 with183MODULE-OK, HARNESS-OK and
+OK. Its unchanged Grammar construction gate reports20samples and P95=46.114ms
+against100ms. That local observation does not erase the retained Darwin failure
+or establish a construction optimization; the new exact-head CI must test both
+platforms again.

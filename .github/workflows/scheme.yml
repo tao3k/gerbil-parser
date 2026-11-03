@@ -204,8 +204,7 @@ jobs:
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/source-dependency-proof-input.log \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss")  ' \
-              t/generate-source-dependency-witness.ss check formal/ParserEngine/SourceDependencyWitness.lean
+            -- gxi -e '(load "t/fixtures/module-loading/observations.ss") (call-with-module-evaluation-trace (lambda () (##load-module-or-file "t/generate-source-dependency-witness.ss" void) ((eval (quote main)) "check" "formal/ParserEngine/SourceDependencyWitness.lean")))'
       - name: Verify generated arithmetic Scheme LR is current
         run: gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss check src/compiler/arithmetic-drive.ss
       - name: Verify generic POO Scheme reductions are current
@@ -227,7 +226,7 @@ jobs:
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/source-callback-gc.log --require SOURCE-CALLBACK-GC-OK \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss") (call-with-compiled-interface-trace (lambda () (eval (quote (import :gerbil-parser/t/benchmarks/source-edits/benchmark))) (eval (quote (verify-callback-gc)))))'
+            -- gxi -e '(load "t/fixtures/module-loading/observations.ss") (call-with-module-evaluation-trace (lambda () (eval (quote (import :gerbil-parser/t/benchmarks/source-edits/benchmark))) (eval (quote (verify-callback-gc)))))'
       - name: Verify isolated test macro phase ownership
         run: |
           gerbil env gxi qualify.ss run --timeout 90 \
@@ -278,8 +277,7 @@ jobs:
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/header-delimiter-generation.log \
             --require HEADER-DELIMITER-HL7-GENERATED --require HEADER-DELIMITER-RECORD-GENERATED \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss")  ' \
-            t/generate-header-delimiters.ss /tmp/hl7-header.rs /tmp/header-record.rs
+            -- gxi -e '(load "t/fixtures/module-loading/observations.ss") (call-with-module-evaluation-trace (lambda () (##load-module-or-file "t/generate-header-delimiters.ss" void) ((eval (quote main)) "/tmp/hl7-header.rs" "/tmp/header-record.rs")))'
           rustfmt --edition 2024 /tmp/hl7-header.rs /tmp/header-record.rs
           cmp /tmp/hl7-header.rs rust/gerbil-parser-runtime/tests/fixtures/generated/hl7_header.rs
           cmp /tmp/header-record.rs rust/gerbil-parser-runtime/tests/fixtures/generated/header_record.rs
@@ -319,24 +317,21 @@ jobs:
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log /tmp/result-projections-generation.log --require RESULT-PROJECTIONS-RUST-GENERATED \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss")  ' \
-            t/generate-result-projections.ss /tmp/result-projections.rs
+            -- gxi -e '(load "t/fixtures/module-loading/observations.ss") (call-with-module-evaluation-trace (lambda () (##load-module-or-file "t/generate-result-projections.ss" void) ((eval (quote main)) "/tmp/result-projections.rs")))'
           rustfmt --edition 2024 /tmp/result-projections.rs
           cmp /tmp/result-projections.rs rust/gerbil-parser-runtime/tests/fixtures/generated/result_projections.rs
       - name: Verify ordered result catalog Rust AOT regeneration
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log /tmp/ordered-results-generation.log --require ORDERED-RESULTS-RUST-GENERATED \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss")  ' \
-            t/generate-ordered-results.ss /tmp/ordered-results.rs
+            -- gxi -e '(load "t/fixtures/module-loading/observations.ss") (call-with-module-evaluation-trace (lambda () (##load-module-or-file "t/generate-ordered-results.ss" void) ((eval (quote main)) "/tmp/ordered-results.rs")))'
           rustfmt --edition 2024 /tmp/ordered-results.rs
           cmp /tmp/ordered-results.rs rust/gerbil-parser-runtime/tests/fixtures/generated/ordered_results.rs
       - name: Verify shared Command Source Rust AOT regeneration
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log /tmp/command-source-generation.log --require COMMAND-SOURCE-RUST-GENERATED \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss")  ' \
-            t/generate-command-source.ss /tmp/command-source.rs /tmp/command-source.bin
+            -- gxi -e '(load "t/fixtures/module-loading/observations.ss") (call-with-module-evaluation-trace (lambda () (##load-module-or-file "t/generate-command-source.ss" void) ((eval (quote main)) "/tmp/command-source.rs" "/tmp/command-source.bin")))'
           rustfmt --edition 2024 /tmp/command-source.rs
           cmp /tmp/command-source.rs rust/gerbil-parser-runtime/tests/fixtures/generated/command_source.rs
           cmp /tmp/command-source.bin rust/gerbil-parser-runtime/tests/fixtures/generated/command_source.bin
@@ -344,16 +339,14 @@ jobs:
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log /tmp/word-parts-generation.log --require WORD-PARTS-RUST-GENERATED \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss")  ' \
-            t/generate-word-parts.ss /tmp/word-parts.rs
+            -- gxi -e '(load "t/fixtures/module-loading/observations.ss") (call-with-module-evaluation-trace (lambda () (##load-module-or-file "t/generate-word-parts.ss" void) ((eval (quote main)) "/tmp/word-parts.rs")))'
           rustfmt --edition 2024 /tmp/word-parts.rs
           cmp /tmp/word-parts.rs rust/gerbil-parser-runtime/tests/fixtures/generated/word_parts.rs
       - name: Verify shared region recognition Rust AOT regeneration
         run: |
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log /tmp/region-boundaries-generation.log --require REGION-BOUNDARIES-RUST-GENERATED \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss")  ' \
-            t/generate-region-boundaries.ss /tmp/region-boundaries.rs
+            -- gxi -e '(load "t/fixtures/module-loading/observations.ss") (call-with-module-evaluation-trace (lambda () (##load-module-or-file "t/generate-region-boundaries.ss" void) ((eval (quote main)) "/tmp/region-boundaries.rs")))'
           rustfmt --edition 2024 /tmp/region-boundaries.rs
           cmp /tmp/region-boundaries.rs rust/gerbil-parser-runtime/tests/fixtures/generated/region_boundaries.rs
       - name: Verify shared scanner and contextual Rust AOT regeneration
@@ -367,8 +360,7 @@ jobs:
           cmp /tmp/bash-scanner.rs rust/gerbil-parser-runtime/tests/fixtures/generated/bash_scanner.rs
           gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log /tmp/binding-names-generation.log --require BINDING-NAMES-RUST-GENERATED \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss")  ' \
-            t/generate-binding-names.ss /tmp/binding-names.rs
+            -- gxi -e '(load "t/fixtures/module-loading/observations.ss") (call-with-module-evaluation-trace (lambda () (##load-module-or-file "t/generate-binding-names.ss" void) ((eval (quote main)) "/tmp/binding-names.rs")))'
           rustfmt --edition 2024 /tmp/binding-names.rs
           cmp /tmp/binding-names.rs rust/gerbil-parser-runtime/tests/fixtures/generated/binding_names.rs
           gerbil env gxi t/fixtures/shared-scanner/generate-contextual.ss /tmp/records-contextual.rs
@@ -422,9 +414,9 @@ jobs:
           env -i \
             HOME="$clean_home" \
             PATH=/usr/bin:/bin \
-            GERBIL_PATH="$PWD/.gerbil" \
-            GERBIL_PARSER_RUNTIME_AOT_LIB="$PWD/.gerbil/lib:$GERBIL_HOME/lib" \
-            "$PWD/.gerbil/bin/gerbil-parser-runtime-aot" \
+            GERBIL_PATH="$GERBIL_PATH" \
+            GERBIL_PARSER_RUNTIME_AOT_LIB="$GERBIL_PATH/lib:$GERBIL_HOME/lib" \
+            "$GERBIL_PATH/bin/gerbil-parser-runtime-aot" \
             "$fixture/languages/records/grammar.ss" \
             "$generated"
           rustfmt --edition 2024 "$generated"
@@ -587,7 +579,7 @@ jobs:
           GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
             gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/source-edit-cost.log --require SOURCE-EDIT-BENCHMARK-OK \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss") (call-with-compiled-interface-trace (lambda () (eval (quote (import :gerbil-parser/t/benchmarks/source-edits/benchmark))) (eval (quote (main "8" "32")))))'
+            -- gxi -e '(load "t/fixtures/module-loading/observations.ss") (call-with-module-evaluation-trace (lambda () (eval (quote (import :gerbil-parser/t/benchmarks/source-edits/benchmark))) (eval (quote (main "8" "32")))))'
       - name: Report GQL native component and actor costs
         run: |
           gerbil env gxi qualify.ss local \

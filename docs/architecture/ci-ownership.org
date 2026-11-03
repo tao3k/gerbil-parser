@@ -410,6 +410,11 @@ archive operand environment variable and reverse Rust-to-gxi link script are
 removed. Generic FFI and research preparation exclude the Rust-owned probe.
 No gerbil-scheme-rust entry belongs in gerbil.pkg.
 
+The standard just prepare-rust-abi entry builds through Cargo and publishes the
+fixture into the selected Gerbil prefix. Local FFI qualification requires this
+preparation, just as its existing compiled-library prerequisites do. CI uses the
+same entry. It contains no compiler/linker policy or alternate VM runner.
+
 Preparation publishes the exact-head/platform executable alongside existing
 Scheme products. Consumer checks retain the original staticlib build90s/idle30s
 and runtime90s/idle5s. The real Rust ownership source, foreign-thread rejection,

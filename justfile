@@ -518,6 +518,12 @@ build-test-driver:
 build-ffi-tests:
     gerbil env gxi build-ffi-tests.ss compile
 
+# Cargo consumes the upstream C ABI owner; this entry only publishes its fixture.
+prepare-rust-abi:
+    gerbil env cargo build --locked --manifest-path t/fixtures/rust-language-abi/Cargo.toml --target-dir target --features embedded-runtime --bin rust-language-abi-fixture
+    mkdir -p "${GERBIL_PATH:-.gerbil}/ci"
+    install -m 755 target/debug/rust-language-abi-fixture "${GERBIL_PATH:-.gerbil}/ci/rust-language-abi-fixture"
+
 test-language-abi-alignment: build-qualification build-test-driver build-ffi-tests
     mkdir -p .data
     gerbil env gxi qualify.ss run --timeout 180 --log .data/language-abi-alignment-test.log --require '^OK$' -- gerbil test -v 5 t/language-abi-alignment-test.ss

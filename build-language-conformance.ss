@@ -21,7 +21,17 @@
 (def research-entry-sources
   '("t/benchmarks/versioned-languages/all-languages.ss" "t/research-main.ss"
      ;; Actual standalone library input; Core discovers its static closure.
-     "t/fixtures/shared-scanner/records-engine-abi.ss"))
+     "t/fixtures/shared-scanner/records-engine-abi.ss"
+     ;; Official gxi qualification commands load these outside Core's signed
+     ;; Suite publication. They need normal library products, not test-lib.
+     "t/benchmarks/capture-prefix/controls.ss"
+     "t/fixtures/structured-lexical.ss"
+     "t/module-source-test.ss"
+     "t/fixtures/shared-scanner/bash.ss"
+     "t/fixtures/ffi/abi-probe.ss"
+     "t/fixtures/ffi/rust-language-probe.ss"
+     "t/fixtures/ffi/language-probe.ss"
+     "t/benchmarks/lr-request-stack/benchmark.ss"))
 (def research-executable-spec
   `((exe: "t/research-main" bin: "gerbil-parser-conformance"
           "-ld-options" ,(pkg-config-libs "openssl"))))

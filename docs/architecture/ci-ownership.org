@@ -339,3 +339,12 @@ loaded by qualification entrypoints outside Suite import discovery. Core retains
 closure discovery, admission and the native build specification. Host logical
 CPU capacity replaces fixed two-worker settings. All existing Suite, native TAGS
 nonempty, watchdog and heap checks remain mandatory. Fresh CI is required.
+
+The standalone roots belong to research-entry-sources in the existing normal
+package-library-spec owner, not the Suite roster. Core's test publication
+intentionally excludes interpreted Suite roots and writes support to test-lib;
+adding these files to for-files cannot make load-module find normal products.
+The normal research owner now declares all existing CI runtime-loaded entry
+sources. Core discovers their dependencies and preserves the existing FFI/
+production producer exclusions. No loader, source roster walker or new build
+entry is introduced. The signed Suite source roster remains unchanged.

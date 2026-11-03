@@ -29,7 +29,6 @@
      "t/module-source-test.ss"
      "t/fixtures/shared-scanner/bash.ss"
      "t/fixtures/ffi/abi-probe.ss"
-     "t/fixtures/ffi/rust-language-probe.ss"
      "t/fixtures/ffi/language-probe.ss"
      "t/benchmarks/lr-request-stack/benchmark.ss"))
 (def research-executable-spec

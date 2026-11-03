@@ -43,11 +43,41 @@
                 ((gx#current-expander-module-import) path #f)))))))
       (list calls (interface-report-count output "INTERFACE-IMPORT ")))))
 
+(def (runtime-resolution-observation)
+  (let ((original ##get-module) (calls 0) (failure (list 'expected))
+        (result (list 'module)) (preserved? #f) (restored? #f))
+    (def (resolver _id)
+      (set! calls (+ calls 1))
+      (if (= calls 2) (raise failure) result))
+    (dynamic-wind
+      (lambda () (##get-module-set! resolver))
+      (lambda ()
+        (let (output
+          (call-with-output-string
+            (lambda (port)
+              (parameterize ((current-output-port port))
+                (set! preserved?
+                  (eq? result (call-with-runtime-resolution-trace
+                                (lambda () (##get-module 'first)))))
+                (set! preserved?
+                  (and preserved?
+                    (with-catch (lambda (condition) (eq? condition failure))
+                      (lambda ()
+                        (call-with-runtime-resolution-trace
+                          (lambda () (##get-module 'failed))) #f))))
+                (set! restored? (eq? resolver ##get-module))))))
+          (list calls preserved? restored?
+                (interface-report-count output "MODULE-RESOLVE "))))
+      (lambda () (##get-module-set! original)))))
+
 (deflanguage-parser-tests interface-observation-test "SDK interface observation"
   (engine)
   (property "warm lookups, failure identity, retries and reloads preserve SDK dispatch"
     (bindings)
     (equal (interface-retry-observation) '(5 #t #t 5 1)))
+  (property "runtime resolver preserves results and restores ownership after failure"
+    (bindings)
+    (equal (runtime-resolution-observation) '(2 #t #t 2)))
   (matrix "relative requests stay visible across caller contexts"
     (setup) ((path '("relative.ss" ./parser (local Helper)))) (bindings)
     (equal (relative-interface-observation path) '(2 2))))

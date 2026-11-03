@@ -60,9 +60,6 @@
     '("gerbil-parser/src/ffi/language-abi~0"))))
 (def (consumer-spec)
   (list
-   ;; These two symbols are supplied by the actual Rust host, not Scheme.
-   ;; Reuse this owner's Darwin bundle policy; ELF retains its host lookup.
-   (compiled-spec "t/fixtures/ffi/rust-language-probe")
    (compiled-spec "t/fixtures/ffi/language-probe"
     '("gerbil-parser/src/ffi/language-abi~0"
       "gerbil-parser/t/fixtures/shared-scanner/records-abi~0"))

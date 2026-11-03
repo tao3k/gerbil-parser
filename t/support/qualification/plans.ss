@@ -89,12 +89,9 @@
                      '("LANGUAGE-ABI-OK" "LANGUAGE-ABI-100-CALLS"))
        (setenv "CARGO_TARGET_DIR" (path-expand "target"))
        (run "rust-native-build" '("cargo" "build" "--locked" "--manifest-path" "t/fixtures/rust-language-abi/Cargo.toml") #t '() 90)
-       (setenv "GERBIL_PARSER_RUST_NATIVE_ARCHIVE" (path-expand "target/debug/librust_language_abi_fixture.a"))
-       (run "rust-native-link"
-        '("gxi" "-e" "(load \"t/fixtures/module-loading/observations.ss\")  "
-          "-e" "(call-with-compiled-interface-trace (lambda () (load \"build-rust-ffi-tests.ss\") (eval (quote (main \"compile\")))))") #t '() 90)
-       (run "rust-native-ownership" (compiled-main "gerbil-parser/t/fixtures/ffi/rust-language-probe" "(main)") #f
-                     '("RUST-NATIVE-OK" "RUST-NATIVE-OWNERSHIP-OK handles=2 results=113" "RUST-NATIVE-100-CALLS") 90)
+       (run "rust-native-ownership" [(path-expand "ci/rust-language-abi-fixture" compiled-root)] #f
+                     '("RUST-NATIVE-OK" "RUST-NATIVE-OWNERSHIP-OK handles=2 results=113"
+                       "RUST-NATIVE-100-CALLS" "RUST-ABI-OWNER-CLEANUP-OK") 90)
        (qualify-runtime-host!))
       (for-each (lambda (module) (compiled-product! compiled-root module))
                 (if (equal? suite "gql") '("languages/gql/parser" "src/runtime/parser") '("src/ffi/rust-runtime-aot")))

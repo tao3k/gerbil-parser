@@ -29,15 +29,7 @@
   (property "phased FFI construction retains one official metadata response"
     (bindings)
     (equal (build-owner-metadata "build-ffi-tests.ss") '(("spec" "compile" "clean"))))
-  (scenario "Rust link owner declares macros with its explicit archive operand"
-    (scope ((previous (getenv "GERBIL_PARSER_RUST_NATIVE_ARCHIVE" #f)))
-      (protect
-        (body
-          ;; No build main is called: only an opaque linker operand is needed.
-          (act (setenv "GERBIL_PARSER_RUST_NATIVE_ARCHIVE" "import-only.a"))
-          (equal (build-owner-main? "build-rust-ffi-tests.ss") #t)
-          (equal (build-owner-metadata "build-rust-ffi-tests.ss") '(("spec" "compile" "clean"))))
-        (cleanup
-          (branch previous
-            (act (setenv "GERBIL_PARSER_RUST_NATIVE_ARCHIVE" previous))
-            (act (setenv "GERBIL_PARSER_RUST_NATIVE_ARCHIVE"))))))))
+(scenario "Rust program declarations use the official package lifecycle"
+  (scope ((owner "t/fixtures/rust-language-abi/build.ss"))
+    (equal (build-owner-main? owner) #t)
+    (equal (build-owner-metadata owner) '(("spec" "compile" "clean"))))))

@@ -6,6 +6,7 @@
         (only-in :std/misc/ports read-all-as-string)
         (only-in :std/test check test-case test-suite)
         (only-in :std/text/pregexp pregexp-match)
+        (only-in "../build-ffi-tests.ss" ffi-build-spec)
         (only-in :asp-gerbil-scheme/building-api
                  asp-gerbil-scheme-package-native-capabilities
                  asp-gerbil-scheme-portable-native-profile)
@@ -84,6 +85,14 @@
         (equal (string-contains command-source
                                 "asp-gerbil-scheme-package-spec!")
                 #f)))
+    (scenario "generic preparation leaves the Rust archive probe to its dedicated owner"
+      (scope ((names (map cadr (filter (lambda (item) (native-item-kind? 'gxc: item))
+                                      (ffi-build-spec)))))
+        (equal (and (member "t/fixtures/ffi/language-probe" names) #t) #t)
+        (equal (member "t/fixtures/ffi/rust-language-probe" names) #f)
+        (equal (and (string-contains
+                      (call-with-input-file "build-language-conformance.ss" read-all-as-string)
+                      "\"t/fixtures/ffi/rust-language-probe.ss\"") #t) #f)))
     (scenario "ASP Building API projects the Rust generator executable closure"
       ;; This is the production POO projector with deterministic host slots.
       ;; Host discovery (including brew/pkg-config) belongs to the actual build,

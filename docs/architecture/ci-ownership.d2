@@ -19,7 +19,8 @@ gerbil: "Gerbil compiler" {
 products: "Separate product owners" {
   direction: down
   library: "Production library"
-  ffi: "C and Rust ABI probes"
+  ffi: "C ABI probes"
+  rust: "Rust-owned ABI program"
   research: "Standalone qualification libraries"
   support: "Signed Suite support"
 }
@@ -40,7 +41,15 @@ gerbil -> products.ffi
 gerbil -> products.research
 gerbil -> products.support
 products.library -> products.ffi: "ABI providers"
-products.ffi -> products.research: "owned probe modules"
+bridge: "gerbil-scheme-rust" {
+  tooling: "C ABI build owner"
+  archive: "Compiler graph and archive"
+  owner: "Affine VM lifecycle"
+}
+bridge.tooling -> gerbil: "official package build"
+gerbil -> bridge.archive: "staged graph"
+bridge.archive -> products.rust
+products.rust -> bridge.owner: "initialize and drop"
 products -> transport
 transport -> consumers.standalone: "normal library products"
 transport -> consumers.suite: "source and publication checks"

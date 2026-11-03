@@ -121,6 +121,12 @@ jobs:
           if [ "$RUNNER_OS" = macOS ]; then library="$PWD/.gerbil/ci/libparsernative.dylib"; fi
           mkdir -p .gerbil/ci
           gerbil env gxi qualify.ss shared-library --language-module gerbil-parser/t/fixtures/shared-scanner/records-engine-abi --output "$library"
+      - name: Prepare Rust-owned Gerbil ABI program
+        run: |
+          export GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=2G,debug=q"
+          gerbil env cargo build --locked --manifest-path t/fixtures/rust-language-abi/Cargo.toml \
+            --features embedded-runtime --bin rust-language-abi-fixture
+          install -m 755 t/fixtures/rust-language-abi/target/debug/rust-language-abi-fixture .gerbil/ci/rust-language-abi-fixture
       - name: Pack exact-head Scheme products
         run: tar -czf "$RUNNER_TEMP/scheme-products.tar.gz" .gerbil
       - name: Publish prepared Scheme products
@@ -487,18 +493,13 @@ jobs:
             gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 30 \
             --log .data/rust-native-build.log --compiler-outputs "$PWD/target/debug" \
             -- cargo build --locked --manifest-path t/fixtures/rust-language-abi/Cargo.toml
-          GERBIL_PARSER_RUST_NATIVE_ARCHIVE="$PWD/target/debug/librust_language_abi_fixture.a" \
-            GERBIL_BUILD_VERBOSE=1 gerbil env gxi qualify.ss run \
-            --timeout 90 --idle-timeout 30 --log .data/rust-native-link.log \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss")  ' \
-            -e '(call-with-compiled-interface-trace (lambda () (load "build-rust-ffi-tests.ss") (eval (quote (main "compile")))))'
-          GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
-            gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
+          # The exact-head prepared executable uses the upstream VM owner. No
+          # dynamic probe or second Scheme/Rust linker runs in this consumer.
+          gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/rust-native-ownership.log --require RUST-NATIVE-OK \
             --require 'RUST-NATIVE-OWNERSHIP-OK handles=2 results=113' \
-            --require RUST-NATIVE-100-CALLS \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss")  (preload-module "gerbil-parser/t/fixtures/ffi/rust-language-probe")' \
-            -e '(import :gerbil-parser/t/fixtures/ffi/rust-language-probe) (main)'
+            --require RUST-NATIVE-100-CALLS --require RUST-ABI-OWNER-CLEANUP-OK \
+            -- "$PWD/.gerbil/ci/rust-language-abi-fixture"
       - name: Verify language-independent C ABI and ASP performance
         run: |
           GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \

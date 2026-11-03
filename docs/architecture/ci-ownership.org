@@ -13,6 +13,7 @@ GitHub Actions owns job dependencies and artifact transport.
 | Library | build.ss | Existing init-selected normalized production spec |
 | FFI fixtures | build-ffi-tests.ss | Existing C headers, actual objects, link options and ordered producer phases |
 | Research programs | build-language-conformance.ss | Declare actual program/library roots; Core package-library-spec discovers imports; Gerbil compiles and links normal products |
+| Rust ABI program | t/fixtures/rust-language-abi/build.ss and Cargo build.rs | Official C ABI package operations; upstream graph/archive builder and affine VM lifecycle |
 | Test support | build-test-support.ss | Core for-directory/for-files discovers full native Suite support; exact std-make-spec value enters Core building/script for compilation, artifact admission and subset publication |
 
 Research products and signed test-lib publications have different output and
@@ -371,11 +372,10 @@ the existing Engine. The package contract checks the immutable ASP owner format,
 as its adjacent Core check already does; manifests remain the revision authority.
 No dependency pin, test selection, performance gate or rejection control changes.
 
-Both local native preparation and Darwin CI expose a separate Rust-probe link
-failure. Those two foreign symbols belong to the real Rust host. The probe now
-uses the existing FFI consumer declaration and its Darwin bundle policy. The
-research source catalog still names actual runtime roots and excludes FFI-owned
-products; it neither invents another provider nor relinks the Rust host.
+The preceding generic Rust-probe declaration was insufficient: Linux later
+resolved a split foreign object before its Rust symbol provider. Its two symbols
+belong to the real Rust host. The upstream C ABI ownership section below
+supersedes that failed declaration and removes the competing producer.
 
 The first local combined focused invocation reached its120s bound and is retained
 as failure evidence. Standard test-file owns prerequisite publication followed by
@@ -393,3 +393,47 @@ and OK. The entire command exits naturally with status0 and its owned processes
 are reaped. This preserves compilation2GiB, Suite3GiB/900s and host CPU capacity.
 Raw failures, the complete successful output and process diagnostics remain in
 ignored cache storage. Exact-head remote CI is a separate required result.
+
+* Upstream C ABI ownership
+The Rust ABI fixture consumes gerbil-scheme-rust PR18 at
+838af1ab4e6c0c8177fed176efba448c694012b5 through Cargo only. Its build dependency
+uses GerbilRuntime to invoke the canonical bridge build.ss and the fixture's
+Scheme declarations in one affine owner. Gerbil's compiler stages the dependency
+graph; gerbil-scheme-aot-build owns native compilation, linkage and archive
+validation. Parser does not discover linker flags or spawn a second tooling VM.
+The separate historical IR code generator remains on its existing revision:
+the current upstream PR no longer exports that package.
+
+The fixture build.ss emits compiler-owned Scheme products without invoking gsc;
+the upstream archive builder supplies their single native producer. The old
+archive operand environment variable and reverse Rust-to-gxi link script are
+removed. Generic FFI and research preparation exclude the Rust-owned probe.
+No gerbil-scheme-rust entry belongs in gerbil.pkg.
+
+Preparation publishes the exact-head/platform executable alongside existing
+Scheme products. Consumer checks retain the original staticlib build90s/idle30s
+and runtime90s/idle5s. The real Rust ownership source, foreign-thread rejection,
+Source edits,2handles,113result releases and100calls remain unchanged. The
+executable initializes LinkedGerbilProgram, calls the Scheme contract and drops
+the upstream runtime naturally before reporting RUST-ABI-OWNER-CLEANUP-OK.
+Compilation is preparation work; no runtime deadline is enlarged to include it.
+
+Darwin's previous generation and public C ABI failures reach MODULE-LOAD and
+then exceed idle5s. The existing observation helper now uses Gambit's official
+module resolver hook, as the upstream runtime does. It delegates every lookup
+unchanged and restores the previous resolver through dynamic-wind on success
+and failure. Only real resolver activity reports progress: no timer heartbeat,
+loader selection changes or artificial admission are introduced.
+
+* Local upstream integration evidence
+The Cargo-owned isolated package prefix builds through the canonical bridge
+build.ss, then stages and links the real Parser module graph. The executable
+passes every existing ownership and Source edit assertion and reports cleanup
+before natural exit. The guarded isolated run exits0 in1.946s under the original
+90s/idle5s contract. The independent default staticlib build exits0 in2.400s
+under90s/idle30s; it does not enable the embedded runtime dependency feature.
+Rust workspace tests report171passed with the same2ignored tests as the existing
+suite. Darwin's original public C ABI and structured lexical generation entries
+both pass their unchanged gates (49.586s and11.547s). Generated Rust is formatted
+and byte-compared against the checked-in fixture. These are local results;
+exact-head GitHub checks and the complete Scheme Suite remain separate gates.

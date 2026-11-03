@@ -7,3 +7,8 @@ mod source_probe;
 #[cfg(feature = "tokio")]
 #[path = "../tests/unit/tokio_cpu.rs"]
 mod tokio_cpu;
+
+#[cfg(feature = "embedded-runtime")]
+mod owner;
+#[cfg(feature = "embedded-runtime")]
+pub use owner::verify_owned_program;

@@ -31,9 +31,20 @@
       (lambda (module) (evaluate-observed-module module evaluate))))
       (call-with-compiled-interface-trace thunk))))
 
+(def (call-with-runtime-resolution-trace thunk)
+  (let (resolver ##get-module)
+    (dynamic-wind
+      (lambda ()
+        (##get-module-set!
+          (lambda (id)
+            (displayln "MODULE-RESOLVE " id) (force-output)
+            (resolver id))))
+      thunk
+      (lambda () (##get-module-set! resolver)))))
+
 (def (preload-runtime-module module)
   (displayln "MODULE-LOAD " module) (force-output)
-  (let (result (load-module module))
+  (let (result (call-with-runtime-resolution-trace (lambda () (load-module module))))
     (displayln "MODULE-LOADED " module) (force-output)
     result))
 

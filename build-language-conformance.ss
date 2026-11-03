@@ -34,6 +34,8 @@
      "t/benchmarks/lr-request-stack/benchmark.ss"))
 (def research-executable-spec
   `((exe: "t/research-main" bin: "gerbil-parser-conformance"
+          "-cc-options" ,(string-append "-I" (path-expand "include" (path-directory (this-source-file)))
+                                       " -I" (path-directory (this-source-file)))
           "-ld-options" ,(pkg-config-libs "openssl"))))
 (def (research-build-spec)
   ;; Consume the authoritative declarations; do not rebuild their ABI products
@@ -44,7 +46,8 @@
   (compiler-build-spec
     (map (lambda (source)
            `(gxc: ,source "-cc-options"
-                  ,(string-append "-I" (path-expand "include" (path-directory (this-source-file))))))
+                  ,(string-append "-I" (path-expand "include" (path-directory (this-source-file)))
+                                  " -I" (path-directory (this-source-file)))))
       (package-library-spec (path-directory (this-source-file)) 'gerbil-parser
                             research-entry-sources
                             exclude: (map (lambda (target) (if (string? target) target (cadr target))) owned)))))

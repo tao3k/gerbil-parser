@@ -53,9 +53,14 @@
         (equal (string-contains
                  (call-with-input-file "build.ss" read-all-as-string)
                  "asp-gerbil-scheme") #f)
-        (equal (cadr (member 'depend:
-                       (call-with-input-file "dev/gerbil.pkg" read)))
-               (list "github.com/tao3k/asp-gerbil-scheme@9ae9bc377cbab4b84de52b512a2c03375a36d6c9"))
+        (equal (map (lambda (dependency)
+                      (let (match (pregexp-match
+                                    "^github\\.com/tao3k/(asp-gerbil-scheme)@[0-9a-f]{40}$"
+                                    dependency))
+                        (and match (cadr match))))
+                    (cadr (member 'depend:
+                            (call-with-input-file "dev/gerbil.pkg" read))))
+               '("asp-gerbil-scheme"))
         (equal (string-contains library-source
                                 "(exe: \"src/main\"")
                 #f)
@@ -71,7 +76,9 @@
                     (string-contains command-source
                                      "\"src/cli\"")
                     (string-contains command-source
-                                     "(exe: \"src/main\" bin: \"gparse\")")
+                                     "(exe: \"src/main\" bin: \"gparse\"")
+                    (string-contains command-source "(pkg-config-libs")
+                    (string-contains command-source "openssl")
                     #t)
                 #t)
         (equal (string-contains command-source

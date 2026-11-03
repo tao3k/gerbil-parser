@@ -1,27 +1,27 @@
 ;;; Downstream language and runtime boundaries use reviewed package interfaces.
-(import :std/test
+(import :gerbil-parser/language-test-support
         (only-in :std/source this-source-file)
         (only-in :std/misc/process run-process)
         (only-in :std/misc/ports read-all-as-string))
-(export public-interface-test)
 (def (output-of code)
   (run-process (list "gxi" "-:max-heap=2G,debug=q" "-e" (object->string code))
     stdout-redirection: #t coprocess: read-all-as-string))
 (def (fixture file)
   (path-expand (string-append "fixtures/parser-prelude/" file)
                (path-directory (this-source-file))))
-(def public-interface-test
-  (test-suite "Parser public language and runtime boundaries"
-    (test-case "product prelude is inert and inherits common macro phases"
-      (check-equal?
+
+(deflanguage-parser-tests public-interface-tests "Parser public language and runtime boundaries"
+  (engine)
+    (scenario "product prelude is inert and inherits common macro phases"
+      (equal
         (and (string-contains (output-of `(import ,(fixture "ordinary.ss")))
                              "PARSER-PRELUDE-INERT-OK") #t) #t))
-    (test-case "product prelude lowers real grammar declarations"
-      (check-equal?
+    (scenario "product prelude lowers real grammar declarations"
+      (equal
         (and (string-contains (output-of `(import ,(fixture "grammar.ss")))
                              "PARSER-PRELUDE-GRAMMAR-OK") #t) #t))
-    (test-case "Runtime publishes native capabilities without the API umbrella"
-      (def output
+    (scenario "Runtime publishes native capabilities without the API umbrella"
+      (scope ((output
         (output-of '(begin
                       (import (only-in :gerbil-parser/source-line-support fold-source-byte-spans)
                               (only-in :gerbil-parser/artifact-support parse-artifact-valid?))
@@ -35,10 +35,10 @@
                         (error "Runtime public capability changed"))
                       (when (assoc "gerbil-parser/src/api" (list-modules))
                         (error "Runtime loaded the retired API umbrella"))
-                      (displayln "PUBLIC-RUNTIME-OK"))))
-      (check-equal? (and (string-contains output "PUBLIC-RUNTIME-OK") #t) #t))
-    (test-case "native compiler capabilities do not construct the strategy catalogue"
-      (def output
+                      (displayln "PUBLIC-RUNTIME-OK")))))
+        (equal (and (string-contains output "PUBLIC-RUNTIME-OK") #t) #t)))
+    (scenario "native compiler capabilities do not construct the strategy catalogue"
+      (scope ((output
         (output-of '(begin
                       (import (only-in :gerbil-parser/compiler-build-support
                                        initialize-compiler-build! run-build-tool)
@@ -54,29 +54,29 @@
                                      "gerbil-parser/src/compiler/runtime-strategy~0"
                                      "gerbil-parser/language-support/development~0"))
                         (error "native compiler capability loaded unrelated strategies"))
-                      (displayln "PUBLIC-NATIVE-COMPILER-OK"))))
-      (check-equal? (and (string-contains output "PUBLIC-NATIVE-COMPILER-OK") #t) #t))
-    (test-case "installed Fold program admission owns data and retains DAG sharing"
-      (def entry (path-expand "lib/gerbil-parser/event-fold-program-support.ssi" (gerbil-path)))
-      (check-equal? (file-exists? entry) #t)
-      (def output
-        (output-of `(begin
-          (import (only-in ,entry snapshot-fold-data event-fold-program?))
-          (let* ((text (string-copy "abc")) (node (list text))
-                 (owned (snapshot-fold-data (list node node))))
-            (unless (and (eq? (car owned) (cadr owned))
-                         (not (event-fold-program? #f)))
-              (error "Fold program data contract changed"))
-            (string-set! text 0 #\z)
-            (unless (equal? (caar owned) "abc")
-              (error "Fold program retained mutable caller data")))
-          (unless (with-catch (lambda (_) #t)
-                    (lambda () (snapshot-fold-data (lambda () #t)) #f))
-            (error "Fold program accepted executable data"))
-          (displayln "PUBLIC-FOLD-PROGRAM-OK"))))
-      (check-equal? (and (string-contains output "PUBLIC-FOLD-PROGRAM-OK") #t) #t))
-    (test-case "public text values do not initialize a compiler"
-      (def output
+                      (displayln "PUBLIC-NATIVE-COMPILER-OK")))))
+        (equal (and (string-contains output "PUBLIC-NATIVE-COMPILER-OK") #t) #t)))
+    (scenario "installed Fold program admission owns data and retains DAG sharing"
+      (scope ((entry (path-expand "lib/gerbil-parser/event-fold-program-support.ssi" (gerbil-path))))
+        (equal (file-exists? entry) #t)
+        (scope ((output
+          (output-of `(begin
+            (import (only-in ,entry snapshot-fold-data event-fold-program?))
+            (let* ((text (string-copy "abc")) (node (list text))
+                   (owned (snapshot-fold-data (list node node))))
+              (unless (and (eq? (car owned) (cadr owned))
+                           (not (event-fold-program? #f)))
+                (error "Fold program data contract changed"))
+              (string-set! text 0 #\z)
+              (unless (equal? (caar owned) "abc")
+                (error "Fold program retained mutable caller data")))
+            (unless (with-catch (lambda (_) #t)
+                      (lambda () (snapshot-fold-data (lambda () #t)) #f))
+              (error "Fold program accepted executable data"))
+            (displayln "PUBLIC-FOLD-PROGRAM-OK")))))
+          (equal (and (string-contains output "PUBLIC-FOLD-PROGRAM-OK") #t) #t))))
+    (scenario "public text values do not initialize a compiler"
+      (scope ((output
         (output-of '(begin
                       (import (only-in :gerbil-parser/text-support string-before ascii-ci=?))
                       (unless (and (string=? (string-before "name=value" "=") "name")
@@ -86,5 +86,8 @@
                                      (string-prefix? "gerbil-parser/src/compiler/" (car row)))
                                    (list-modules))
                         (error "public text imported compiler"))
-                      (displayln "PUBLIC-TEXT-OK"))))
-      (check-equal? (and (string-contains output "PUBLIC-TEXT-OK") #t) #t))))
+                      (displayln "PUBLIC-TEXT-OK")))))
+        (equal (and (string-contains output "PUBLIC-TEXT-OK") #t) #t))))
+
+(def public-interface-test public-interface-tests)
+(export public-interface-test)

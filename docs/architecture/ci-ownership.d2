@@ -1,23 +1,46 @@
 direction: right
-packages: "Declared package pins\ngerbil.pkg -> Core -> inherited POO"
-install: "Native gerbil deps --install\nfail-fast /no retry fallback"
-compiler: "Package-owned compilation\n2 workers /2GiB parent +child compiler\nCore retains300s /Parser has no180s cap"
-index: "Native gxpkg final retag\ngxtags default Emacs format +native heap default\nnonempty output required /no registry edits"
-products: "Native lib +static +test-lib\nactual compiler +source +ABI association"
-abi: "Shared ABI build owner\nreuse compiler host initialization\nstd/make pkg-config-libs for OpenSSL"
-tests: "Core TestingScript -> Gerbil Harness\n3GiB /900s /actual Case +MODULE-OK records"
-transport: "Current-run/platform artifact\nnative tar /no custom admission"
-restore: "New-process native consumers\nno compile fallback\nCore independently checks currentness and approvals"
-controls: "Negative controls\nsource/output/approval refusal\ninstallation failure remains failure"
-old: "Historical green c3e3dc91\nrelocation-only GAMBOPT\nnot a2GiB index acceptance receipt"
-regression: "44c61d6e expanded compiler cap globally\nGC-live growth exceeded2GiB during tagging\napproved correction restores the original scope"
-packages -> install
-install -> compiler -> products
-install -> index
-products -> abi -> tests
-products -> transport -> restore -> tests
-controls -> tests
-old -> regression -> index
+vars: {
+  d2-config: {
+    theme-id: 200
+    pad: 32
+  }
+}
 
-standalone: "OPEN /exact macOS CI archive\nIndependent two-form source: standalone SKIP, module TAG\nNo replacement launcher /no SDK edit"
-index -> standalone
+sources: "Package declarations" {
+  shape: page
+}
+core: "Core source closure" {
+  style.fill: "#E8F0FE"
+}
+gerbil: "Gerbil compiler" {
+  style.fill: "#E8F0FE"
+}
+
+products: "Separate product owners" {
+  direction: down
+  library: "Production library"
+  ffi: "C and Rust ABI probes"
+  research: "Standalone qualification libraries"
+  support: "Signed Suite support"
+}
+
+transport: "Exact-run artifacts" {
+  shape: cylinder
+}
+consumers: "Independent consumers" {
+  direction: down
+  standalone: "Official gxi entrypoints"
+  suite: "Core TestingScript → Gerbil Harness"
+}
+
+sources -> core: "discover and bind inputs"
+core -> gerbil: "native build specification"
+gerbil -> products.library
+gerbil -> products.ffi
+gerbil -> products.research
+gerbil -> products.support
+products.library -> products.ffi: "ABI providers"
+products.ffi -> products.research: "owned probe modules"
+products -> transport
+transport -> consumers.standalone: "normal library products"
+transport -> consumers.suite: "source and publication checks"

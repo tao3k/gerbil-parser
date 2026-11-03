@@ -8,13 +8,11 @@
 (export test-support-source shared-test-build-spec main)
 
 ;; Init owns discovery, native import closure and source currentness. This is
-;; Native Suites and standalone CI command entries share one import closure.
+;; exactly the same native Suite roster as gerbil test t/... languages/... .
 (def (test-support-source)
   (let* ((tests (.get gerbil-parser.init.exports tests))
          (files (append (.get (.call tests .for-directory "t") spec)
-                        (.get (.call tests .for-directory "languages") spec)
-                        '("t/benchmarks/capture-prefix/controls.ss"
-                          "t/fixtures/structured-lexical.ss"))))
+                        (.get (.call tests .for-directory "languages") spec))))
     (.call tests .for-files
       files
       (list (this-source-file)

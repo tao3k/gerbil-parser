@@ -326,3 +326,16 @@ artifacts for30s. That second failure is retained independently. The adapter
 now uses the existing compiler-profile completed-import/evaluation reporting
 inside its native compile call. No new driver, heartbeat or importer is added;
 original import errors/results and the90s/30s controls remain authoritative.
+
+* Current PR source cohort and standalone roots
+PR13 retains Core a8030b1 and released POO v0.1.2. The older native-tool-entry
+research branch diverges before twenty subsequent source-cohort commits and must
+not replace them. Only its published compiler activation repair is reused.
+Linux selects the published tags-context lifetime repair; Darwin selects the
+published official tool-entry repair, retaining compiler2591dcd and its VM.
+The existing source catalog now includes the capture-prefix controls and the
+structured lexical fixture as explicit standalone runtime roots. These are
+loaded by qualification entrypoints outside Suite import discovery. Core retains
+closure discovery, admission and the native build specification. Host logical
+CPU capacity replaces fixed two-worker settings. All existing Suite, native TAGS
+nonempty, watchdog and heap checks remain mandatory. Fresh CI is required.

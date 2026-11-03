@@ -30,7 +30,6 @@ env:
   # Native qualified imports: compiled products before the package source parent.
   GERBIL_PATH: ${{ github.workspace }}/.gerbil
   GERBIL_LOADPATH: ${{ github.workspace }}/.gerbil/lib:${{ github.workspace }}/..
-  GERBIL_BUILD_CORES: 2
   GERBIL_RELEASE_ROOT: ${{ github.workspace }}/.ci/gerbil-release/${{ inputs.gerbil-label }}
   GERBIL_SDK_SHA256: ${{ inputs.release-sha256 }}
 jobs:
@@ -64,7 +63,7 @@ jobs:
           gerbil deps --install
           (cd dev && GERBIL_PATH="$GITHUB_WORKSPACE/.gerbil" gerbil deps --install)
       - name: Verify native dependency index output
-        # Core/POO export symbols; this is separate from the install exit status.
+        # Keep the editor-index control distinct from the native catalog below.
         run: test -s "$GERBIL_PATH/pkg/TAGS"
       - name: Save Gerbil package cache
         if: steps.package-cache.outputs.cache-hit != 'true'
@@ -84,9 +83,9 @@ jobs:
           export GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=2G,debug=q"
           # The official env command prepends the package bin directory to PATH.
           # Use it for the base writer as well as every extension writer.
-          # Keep two workers and the heap envelope; the native package writer
+          # Keep executing-host capacity and the heap envelope; the native package writer
           # has no arbitrary180s cutoff. Elapsed time remains diagnostic.
-          GERBIL_BUILD_CORES=2 GERBIL_BUILD_VERBOSE=1 gerbil env just qualify-library
+          GERBIL_BUILD_VERBOSE=1 gerbil env just qualify-library
           "${GERBIL_GCC:-gcc}" -std=c11 -Wall -Wextra -Werror \
             -fsyntax-only \
             -Iinclude t/ffi-header-smoke.c
@@ -509,7 +508,7 @@ jobs:
             -- gxi -e '(load "t/fixtures/module-loading/observations.ss")  (preload-module "gerbil-parser/t/fixtures/ffi/language-probe")' \
             -e '(import :gerbil-parser/t/fixtures/ffi/language-probe) (main)'
       - name: Verify independent C and Rust lifecycle
-        run: GERBIL_BUILD_CORES=2 GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" gerbil env gxi qualify.ss host
+        run: GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" gerbil env gxi qualify.ss host
       - name: Upload qualification logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -765,7 +764,7 @@ jobs:
         env:
           GERBIL_PARSER_RUST_CPU_PROOF: '1'
           GERBIL_PARSER_NATIVE_HOST_LIBRARY: ${{ github.workspace }}/.gerbil/ci/libparsernative.so
-        run: GERBIL_BUILD_CORES=2 GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" gerbil env gxi qualify.ss host
+        run: GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" gerbil env gxi qualify.ss host
       - name: Upload qualification logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

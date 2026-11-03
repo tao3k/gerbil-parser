@@ -1,5 +1,6 @@
 # Run one native suite with its heap fence established before Gerbil imports.
 gerbil_test_runtime_options := "-:max-heap=1G,debug=q"
+export GERBIL_BUILD_CORES := num_cpus()
 gerbil_test_launcher := if env('GERBIL_PATH', '') == '' { 'gerbil env gxi' } else { 'gxi' }
 
 # The same Gerbil helper owner used by CI supplies absolute test-module imports.

@@ -1,14 +1,15 @@
 ;;; Native test discovery is owned by init/Core; this Suite launches no runner.
-(import :std/test
+(import (rename-in (only-in :gerbil/tools/gxtest main) (main gxtest-main))
+        :std/test
         (only-in :clan/poo/object .get .call)
         (only-in "../../init.ss" gerbil-parser.init.exports))
+(extern namespace: gerbil/tools/gxtest collect-files)
 (export test-plan-test)
 (def test-plan-test
   (test-suite "Core-owned native test selection"
     (test-case "native directories retain actual Suite inputs"
       (let* ((tests (.get gerbil-parser.init.exports tests))
-             (files (append (.get (.call tests .for-directory "t") spec)
-                            (.get (.call tests .for-directory "languages") spec))))
+             (files (.get (.call tests .for-files (collect-files ["t/..." "languages/..."])) spec)))
         (check (> (length files) 0) => #t)
         (for-each (lambda (file)
                     (check (file-exists? file) => #t)

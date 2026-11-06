@@ -1,18 +1,21 @@
 #!/usr/bin/env gxi
 ;;; Standard currentness and scheduling for reusable Scheme test helpers.
-(import (only-in :yuanxu/module-system/building/script defbuild-script)
+(import (rename-in (only-in :gerbil/tools/gxtest main) (main gxtest-main))
+        (only-in :yuanxu/module-system/building/script defbuild-script)
         (only-in :std/source this-source-file)
+        (only-in :yuanxu/observability/testing-script TestingScript.)
+        (only-in :yuanxu/observability/testing-fixture call-with-yuanxu-fixture)
         (only-in "./src/build-support/compiler-profile.ss" initialize-compiler-build!))
-(import (only-in :clan/poo/object .get .call)
+(import (only-in :clan/poo/object .o :: .cc .get .call)
         (only-in "./init.ss" gerbil-parser.init.exports))
-(export test-support-source shared-test-build-spec main)
+(extern namespace: gerbil/tools/gxtest collect-files)
+(export test-support-source shared-test-build-spec run-native-tests main)
 
-;; Init owns discovery, native import closure and source currentness. This is
-;; exactly the same native Suite roster as gerbil test t/... languages/... .
+;; GxTest discovers the complete roster. Init binds those files to the
+;; native import closure and source currentness.
 (def (test-support-source)
   (let* ((tests (.get gerbil-parser.init.exports tests))
-         (files (append (.get (.call tests .for-directory "t") spec)
-                        (.get (.call tests .for-directory "languages") spec))))
+         (files (collect-files ["t/..." "languages/..."])))
     (.call tests .for-files
       files
       (list (this-source-file)
@@ -30,6 +33,25 @@
 ;; the same process-local setup used by the production build entry.
 (def (shared-test-build-spec)
   ((.get (test-support-source) std-make-spec)))
+(def (run-native-tests)
+  (def source (test-support-source))
+  (def build (.get source build))
+  (def admit! (.get build admit-artifacts))
+  (def prior (getenv "GERBIL_LOADPATH" ""))
+  (def script
+    (.o (:: @ [TestingScript.])
+      source: source
+      profile: (.cc (.get TestingScript. profile)
+                 heap-limit-bytes: 3221225472 max-duration-milliseconds: 900000)
+      environment: (.o GERBIL_LOADPATH:
+        (string-append (.get build output-directory)
+          (if (string-empty? prior) "" (string-append ":" prior))))
+      idle-timeout: #f
+      log: ".data/native-gerbil-test.log"))
+  (call-with-yuanxu-fixture
+    (.o .acquire: admit! .release: (lambda (_) (admit!)))
+    (lambda (_) (display (.get (.call script .run) output)))))
+
 (parameterize ((current-output-port (current-error-port)))
   (initialize-compiler-build!))
 (defbuild-script (shared-test-build-spec) optimize: #t)

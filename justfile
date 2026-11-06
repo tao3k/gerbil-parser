@@ -497,10 +497,9 @@ test-build-product-contract output load_path:
 # them before discovery so renamed source imports cannot replay old products.
 test-all: build-qualification build-test-support test-native
 
-# Consume Core's already-issued source/support association. Core launches the
-# original Gerbil Harness; this recipe creates neither a compiler nor a runner.
+# Run the original full roster against Yuanxu's issued support artifacts.
 test-native:
-    gerbil env gxi -:max-heap=2G,debug=q -e '(begin (import :clan/poo/object (only-in "./build-test-support.ss" test-support-source)) (def source (test-support-source)) (def native (.get source execution)) (def profile (.cc (.get native profile) heap-limit-bytes: 3221225472 max-duration-milliseconds: 900000)) (def result (.call (.cc native profile: profile idle-timeout: #f log: ".data/native-gerbil-test.log") .run)) (display (.get result output)))'
+    gerbil env gxi -:max-heap=2G,debug=q -e '(begin (import (only-in "./build-test-support.ss" run-native-tests)) (run-native-tests))'
 
 # All contracts execute from current source; every suite has a hard deadline.
 test-performance-before-compile: build-qualification

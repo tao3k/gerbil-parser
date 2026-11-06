@@ -11,7 +11,7 @@
                  call-with-build-input-path register-module-build-source!)
         (only-in :std/source this-source-file)
         (only-in :std/list/list delete-duplicates/hash)
-        (only-in "./build-ffi-tests.ss" ffi-build-spec)
+        (only-in "./t/fixtures/ffi/build.ss" ffi-build-spec)
         (rename-in (only-in "./src/ffi/build.ss" Build) (Build ffi-library-build))
         (only-in :yuanxu/observability/testing-script TestingScript.)
         (only-in :yuanxu/observability/testing-fixture call-with-yuanxu-fixture)
@@ -50,7 +50,7 @@
       (list (this-source-file)
             (path-expand "src/build-support/compiler-profile.ss"
                          (path-directory (this-source-file)))
-            (path-expand "build-ffi-tests.ss" (path-directory (this-source-file)))
+            (path-expand "t/fixtures/ffi/build.ss" (path-directory (this-source-file)))
             (path-expand "src/ffi/build.ss" (path-directory (this-source-file))))
       ;; The test projection recompiles reached libraries into its own output.
       ;; Retain the owning build declarations, including native FFI options.

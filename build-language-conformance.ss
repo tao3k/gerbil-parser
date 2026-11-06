@@ -10,7 +10,7 @@
         (only-in :std/source this-source-file)
         (only-in :yuanxu/module-system/building/source-package register-module-build-source!)
         (only-in :clan/poo/object .get)
-        (only-in "./build-ffi-tests.ss" ffi-build-spec)
+        (only-in "./t/fixtures/ffi/build.ss" ffi-build-spec)
         (only-in :yuanxu/module-system/building/source-closure package-library-spec)
         (only-in "./src/build-support/compiler-profile.ss"
                  compiler-build-spec initialize-compiler-build!))

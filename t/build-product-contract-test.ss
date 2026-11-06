@@ -6,7 +6,7 @@
         (only-in :std/misc/ports read-all-as-string)
         (only-in :std/test check test-case test-suite)
         (only-in :std/text/pregexp pregexp-match)
-        (only-in "../build-ffi-tests.ss" ffi-build-spec)
+        (only-in "./fixtures/ffi/build.ss" ffi-build-spec)
         (only-in :asp-gerbil-scheme/building-api
                  asp-gerbil-scheme-package-native-capabilities
                  asp-gerbil-scheme-portable-native-profile)

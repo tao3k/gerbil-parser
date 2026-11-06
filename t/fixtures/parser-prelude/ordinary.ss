@@ -3,7 +3,9 @@
 (unless (= (.get Value port) 5440) (error "Parser lost common POO bindings"))
 (when (ormap (lambda (row)
                (or (string-prefix? "gerbil-parser/src/" (car row))
-                   (string-prefix? "yuanxu/module-system/" (car row))))
+                   (and (string-prefix? "yuanxu/module-system/" (car row))
+                        ;; The common prelude imports only this declaration transformer.
+                        (not (equal? (car row) "yuanxu/module-system/selection/init-syntax~1")))))
              (list-modules))
   (error "Parser prelude eagerly loaded an engine"))
 (begin-syntax

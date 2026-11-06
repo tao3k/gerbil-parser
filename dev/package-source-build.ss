@@ -56,6 +56,7 @@
                   "build-language-conformance.ss"
                   "build-language-conformance-link.ss"
                   "build-ffi-tests.ss"
+                  "t/fixtures/ffi/build.ss"
                   "build-rust-ffi-tests.ss"
                   "build-shared-library.ss"
                   "build-gparse.ss"

@@ -10,6 +10,9 @@
         (only-in :yuanxu/module-system/building/source-package
                  call-with-build-input-path register-module-build-source!)
         (only-in :std/source this-source-file)
+        (only-in :std/list/list delete-duplicates/hash)
+        (only-in "./build-ffi-tests.ss" ffi-build-spec)
+        (rename-in (only-in "./src/ffi/build.ss" Build) (Build ffi-library-build))
         (only-in :yuanxu/observability/testing-script TestingScript.)
         (only-in :yuanxu/observability/testing-fixture call-with-yuanxu-fixture)
         (only-in "./src/build-support/compiler-profile.ss" initialize-compiler-build!))
@@ -18,6 +21,24 @@
 (extern namespace: gerbil/tools/gxtest collect-files)
 (export test-support-source shared-test-build-spec run-native-tests main)
 (register-module-build-source! (path-directory (this-source-file)) 'gerbil-parser)
+
+(def (test-support-targets files)
+  (def (qualify-ffi-target target)
+    (cons (car target) (cons (string-append "src/ffi/" (cadr target)) (cddr target))))
+  (def timing
+    `(gxc: "t/benchmarks/gql/runtime/compiled-timing"
+       ,@(cond-expand
+           (darwin '("-ld-options" "-Wl,-undefined,dynamic_lookup"))
+           (else '()))))
+  ;; Retained inputs are relative to this package. The production FFI
+  ;; declaration owns the options, including those for its compiler leaves.
+  (def (support-library? target)
+    (not (member (string-append (cadr target) ".ss") files)))
+  (delete-duplicates/hash
+    (append (filter support-library? (ffi-build-spec #t))
+            (map qualify-ffi-target (.get ffi-library-build roots))
+            (list timing))
+    key: cadr))
 
 ;; GxTest discovers the complete roster. Init binds those files to the
 ;; native import closure and source currentness.
@@ -28,13 +49,12 @@
       files
       (list (this-source-file)
             (path-expand "src/build-support/compiler-profile.ss"
-                         (path-directory (this-source-file))))
-      ;; Only native options remain declared here; Core emits this target only
-      ;; when the actual Suite import closure demands it.
-      (list `(gxc: "t/benchmarks/gql/runtime/compiled-timing"
-               ,@(cond-expand
-                   (darwin '("-ld-options" "-Wl,-undefined,dynamic_lookup"))
-                   (else '())))))))
+                         (path-directory (this-source-file)))
+            (path-expand "build-ffi-tests.ss" (path-directory (this-source-file)))
+            (path-expand "src/ffi/build.ss" (path-directory (this-source-file))))
+      ;; The test projection recompiles reached libraries into its own output.
+      ;; Retain the owning build declarations, including native FFI options.
+      (test-support-targets files))))
 
 ;; Preserve the exact Core-produced value so its native consumer retains
 ;; source/artifact admission and subset publication. Compiler host policy is

@@ -396,6 +396,12 @@ Raw failures, the complete successful output and process diagnostics remain in
 ignored cache storage. Exact-head remote CI is a separate required result.
 
 * Upstream C ABI ownership
+On Linux, the fixture's ELF dependencies name the installed ABI objects.
+The test child initializes those providers through Gerbil's loader before
+restoring the signed test overlay and invoking GxTest. This keeps C
+callbacks and Scheme registration on the same ABI instance. Yuanxu still
+admits the signed artifacts and supervises the complete test roster.
+
 The Rust ABI fixture consumes gerbil-scheme-rust PR18 at
 838af1ab4e6c0c8177fed176efba448c694012b5 through Cargo only. Its build dependency
 uses GerbilRuntime to invoke the canonical bridge build.ss and the fixture's

@@ -11,7 +11,7 @@
                  call-with-build-input-path register-module-build-source!)
         (only-in :std/source this-source-file)
         (only-in :std/list/list delete-duplicates/hash)
-        (only-in "./t/fixtures/ffi/build.ss" ffi-build-spec)
+        (only-in "./t/fixtures/ffi/build.ss" ffi-build-spec ffi-test-command)
         (rename-in (only-in "./src/ffi/build.ss" Build) (Build ffi-library-build))
         (only-in :yuanxu/observability/testing-script TestingScript.)
         (only-in :yuanxu/observability/testing-fixture call-with-yuanxu-fixture)
@@ -79,7 +79,9 @@
       log: ".data/native-gerbil-test.log"))
   (call-with-yuanxu-fixture
     (.o .acquire: admit! .release: (lambda (_) (admit!)))
-    (lambda (_) (display (.get (.call script .run) output)))))
+    (lambda (_)
+      (def command (ffi-test-command (.get script command) (.get script runtime-options)))
+      (display (.get (.call (.cc script command: command) .run) output)))))
 
 (parameterize ((current-output-port (current-error-port)))
   (initialize-compiler-build!))

@@ -2,7 +2,7 @@
 (import (only-in :std/source this-source-file)
         (only-in "../../../src/build-support/compiler-profile.ss" compiler-build-spec)
         (only-in "../../../src/build-support/native-links.ss" native-module-link-options))
-(export ffi-build-spec ffi-build-phases)
+(export ffi-build-spec ffi-build-phases ffi-test-command)
 (def fixture-root (path-normalize (path-expand "../../.." (path-directory (this-source-file)))))
 (def current-ffi-linking? (make-parameter #f))
 (def (compiled-spec module (objects '()))
@@ -70,3 +70,28 @@
 (def (ffi-build-spec (link? #f))
   (parameterize ((current-ffi-linking? link?))
     (compiler-build-spec (append (producer-spec) (entry-spec) (consumer-spec)))))
+
+(def (ffi-test-command command runtime-options)
+  (cond-expand
+   (linux
+    ;; ELF fixture consumers link the installed producers by absolute path.
+    ;; Initialize those same instances before the signed overlay can load
+    ;; another copy of their owner state. Restore normal lookup for GxTest.
+    (def arguments (list-tail command (+ 2 (length runtime-options))))
+    (append '("gxi") runtime-options
+      (list "-e"
+        (object->string
+          `(begin
+             (import (only-in :gerbil/runtime/loader load-path set-load-path! load-module)
+                     (only-in :gerbil/tools/gxtest main))
+             (let ((paths (load-path)))
+               (dynamic-wind
+                 (lambda () (set-load-path! (cons (path-expand "lib" (gerbil-path)) paths)))
+                 (lambda ()
+                   (for-each (lambda (module) (load-module module))
+                     '("gerbil-parser/src/ffi/language-abi"
+                       "gerbil-parser/src/ffi/rust-aot-abi"
+                       "gerbil-parser/t/fixtures/shared-scanner/records-abi")))
+                 (lambda () (set-load-path! paths))))
+             (main ,@arguments))))))
+   (else command)))

@@ -1,7 +1,14 @@
 #!/usr/bin/env gxi
 ;;; Standard currentness and scheduling for reusable Scheme test helpers.
+(import (for-syntax
+          (only-in :std/source this-source-file)
+          (only-in :yuanxu/module-system/building/source-package register-module-build-source!)))
+(begin-syntax
+  (register-module-build-source! (path-directory (this-source-file)) 'gerbil-parser))
 (import (rename-in (only-in :gerbil/tools/gxtest main) (main gxtest-main))
-        (only-in :yuanxu/module-system/building/script defbuild-script)
+        (only-in :std/build-script defbuild-script)
+        (only-in :yuanxu/module-system/building/source-package
+                 call-with-build-input-path register-module-build-source!)
         (only-in :std/source this-source-file)
         (only-in :yuanxu/observability/testing-script TestingScript.)
         (only-in :yuanxu/observability/testing-fixture call-with-yuanxu-fixture)
@@ -10,6 +17,7 @@
         (only-in "./init.ss" gerbil-parser.init.exports))
 (extern namespace: gerbil/tools/gxtest collect-files)
 (export test-support-source shared-test-build-spec run-native-tests main)
+(register-module-build-source! (path-directory (this-source-file)) 'gerbil-parser)
 
 ;; GxTest discovers the complete roster. Init binds those files to the
 ;; native import closure and source currentness.
@@ -54,4 +62,24 @@
 
 (parameterize ((current-output-port (current-error-port)))
   (initialize-compiler-build!))
-(defbuild-script (shared-test-build-spec) optimize: #t)
+;; Yuanxu automatically dispatches executable test targets. This support
+;; package contains library targets, so request issuance on the projection
+;; explicitly and let the standard build script compile into its output.
+(def (build-support-spec spec output arguments)
+  (defbuild-script spec optimize: #t libdir: output)
+  (apply main arguments))
+
+(def (main . arguments)
+  (def build (.get (test-support-source) build))
+  (def spec (.get build spec))
+  (def output (.get build output-directory))
+  (cond
+   ((or (null? arguments) (equal? (car arguments) "compile"))
+    (.call build .compile output
+      (lambda ()
+        (def destination ((.get build compile-output)))
+        (call-with-build-input-path destination
+          (lambda ()
+            (build-support-spec spec destination arguments))
+          make-source: (.get build source-root)))))
+   (else (build-support-spec spec output arguments))))

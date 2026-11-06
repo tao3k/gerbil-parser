@@ -152,10 +152,11 @@ Package source/.git remains excluded. No replacement tags tool, ignore-errors
 path, forged success or changed heap is used. This source-level observation does
 not establish a repaired Linux retag operation.
 
-The remaining build-shared-library.ss is an ABI product adapter: it calls public
-Gerbil compile-module/compile-exe for the C-hosted shared library with its runtime
-shim and platform linker options; std/make's executable target does not describe
-that ABI output. It has no timestamp cache, approval record or worker queue.
+The top-level command entries delegate product declarations to their modules.
+=src/cli/build.ss= owns the optional gparse executable, and
+=t/research/build.ss= owns the standalone conformance executable and its closure.
+=src/ffi/shared-library/build.ss= uses public Gerbil compile-module and compile-exe
+to produce the C-hosted shared library with its runtime shim and linker options.
 compiler-profile.ss retains host compiler options and process-output forwarding,
 not target discovery or a second scheduler. The shared setup/restore GitHub
 composites are step reuse only. failed-products.sh is diagnostics only.

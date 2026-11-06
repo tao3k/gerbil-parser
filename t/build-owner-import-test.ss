@@ -23,7 +23,7 @@
     (setup)
     ((owner '("build-gparse.ss" "build-qualification.ss" "build-rust-runtime-aot.ss"
               "build-test-driver.ss" "build-test-support.ss" "build-ffi-tests.ss"
-              "build-language-conformance.ss")))
+              "build-language-conformance.ss" "build-shared-library.ss")))
     (bindings)
     (equal (build-owner-main? owner) #t))
   (property "phased FFI construction retains one official metadata response"

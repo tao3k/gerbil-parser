@@ -28,7 +28,9 @@
             (package-source
              (call-with-input-file "gerbil.pkg" read-all-as-string))
             (command-source
-             (call-with-input-file "build-gparse.ss" read-all-as-string)))
+             (call-with-input-file "build-gparse.ss" read-all-as-string))
+            (command-owner
+             (call-with-input-file "src/cli/build.ss" read-all-as-string)))
         (equal (and (string-contains library-source
                                      "\"build-gparse.ss\"")
                     (string-contains library-source
@@ -74,12 +76,13 @@
                 #t)
         (equal (and (string-contains command-source
                                      "defbuild-script")
-                    (string-contains command-source
+                    (string-contains command-source "gparse-build-spec")
+                    (string-contains command-owner
                                      "\"src/cli\"")
-                    (string-contains command-source
+                    (string-contains command-owner
                                      "(exe: \"src/main\" bin: \"gparse\"")
-                    (string-contains command-source "(pkg-config-libs")
-                    (string-contains command-source "openssl")
+                    (string-contains command-owner "(pkg-config-libs")
+                    (string-contains command-owner "openssl")
                     #t)
                 #t)
         (equal (string-contains command-source
@@ -91,7 +94,7 @@
         (equal (and (member "t/fixtures/ffi/language-probe" names) #t) #t)
         (equal (member "t/fixtures/ffi/rust-language-probe" names) #f)
         (equal (and (string-contains
-                      (call-with-input-file "build-language-conformance.ss" read-all-as-string)
+                      (call-with-input-file "t/research/build.ss" read-all-as-string)
                       "\"t/fixtures/ffi/rust-language-probe.ss\"") #t) #f)))
     (scenario "ASP Building API projects the Rust generator executable closure"
       ;; This is the production POO projector with deterministic host slots.

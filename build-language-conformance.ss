@@ -1,58 +1,9 @@
 #!/usr/bin/env gxi
-;;; Standalone research products consume the actual native package import graph.
-(import (for-syntax
-          (only-in :std/source this-source-file)
-          (only-in :yuanxu/module-system/building/source-package register-module-build-source!)))
-(begin-syntax
-  (register-module-build-source! (path-directory (this-source-file)) 'gerbil-parser))
 (import (only-in :std/build-script defbuild-script)
-        (only-in :std/make pkg-config-libs)
         (only-in :std/source this-source-file)
-        (only-in :yuanxu/module-system/building/source-package register-module-build-source!)
-        (only-in :clan/poo/object .get)
-        (only-in "./t/fixtures/ffi/build.ss" ffi-build-spec)
-        (only-in :yuanxu/module-system/building/source-closure package-library-spec)
-        (only-in "./src/build-support/compiler-profile.ss"
-                 compiler-build-spec initialize-compiler-build!))
-(import (only-in "./init.ss" gerbil-parser.init.exports))
-(register-module-build-source! (path-directory (this-source-file)) 'gerbil-parser)
+        (only-in "./src/build-support/compiler-profile.ss" initialize-compiler-build!)
+        (only-in "./t/research/build.ss" conformance-build-spec))
 
-;; These are program inputs, not a manually maintained transitive helper list.
-(def research-entry-sources
-  '("t/benchmarks/versioned-languages/all-languages.ss" "t/research-main.ss"
-     ;; Actual standalone library input; Core discovers its static closure.
-     "t/fixtures/shared-scanner/records-engine-abi.ss"
-     ;; Official gxi qualification commands load these outside Core's signed
-     ;; Suite publication. They need normal library products, not test-lib.
-     "t/benchmarks/capture-prefix/controls.ss"
-     "t/fixtures/structured-lexical.ss"
-     "t/module-source-test.ss"
-     "t/fixtures/shared-scanner/bash.ss"
-     "t/fixtures/ffi/abi-probe.ss"
-     "t/fixtures/ffi/language-probe.ss"
-     "t/benchmarks/lr-request-stack/benchmark.ss"))
-(def research-executable-spec
-  `((exe: "t/research-main" bin: "gerbil-parser-conformance"
-          "-cc-options" ,(string-append "-I" (path-expand "include" (path-directory (this-source-file)))
-                                       " -I" (path-directory (this-source-file)))
-          "-ld-options" ,(pkg-config-libs "openssl"))))
-(def (research-build-spec)
-  ;; Consume the authoritative declarations; do not rebuild their ABI products
-  ;; with generic options or maintain a second list of owned identities.
-  (def owned
-    (append ((.get gerbil-parser.init.exports std-make-spec) '())
-            (ffi-build-spec) research-executable-spec))
-  (compiler-build-spec
-    (map (lambda (source)
-           `(gxc: ,source "-cc-options"
-                  ,(string-append "-I" (path-expand "include" (path-directory (this-source-file)))
-                                  " -I" (path-directory (this-source-file)))))
-      (package-library-spec (path-directory (this-source-file)) 'gerbil-parser
-                            research-entry-sources
-                            exclude: (map (lambda (target) (if (string? target) target (cadr target))) owned)))))
 (parameterize ((current-output-port (current-error-port)))
   (initialize-compiler-build!))
-(defbuild-script
-  (append (research-build-spec)
-    (compiler-build-spec research-executable-spec))
-  optimize: #t)
+(defbuild-script (conformance-build-spec) optimize: #t)

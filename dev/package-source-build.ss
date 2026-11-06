@@ -44,6 +44,7 @@
                   "src/compiler/build.ss" "src/ffi/build.ss" "src/grammar/build.ss" "src/graph/build.ss"
                   "src/language/build.ss"
                   "src/runtime/build.ss" "src/testing/build.ss"
+                  "src/cli/build.ss" "src/ffi/shared-library/build.ss"
                   "build-qualification.ss" "qualify.ss" "build-conformance.ss"
                   "test-processes.ss"
                   "scripts/tests/process-qualification-test.ss"

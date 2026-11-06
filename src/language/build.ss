@@ -4,6 +4,7 @@
 (def Build (.o kind: 'module/build roots: '()
                library-roots: '("src/declarations"
                      "language-support"
+                     "language-support/grammar"
                      "language-source-support"
                      "language-support/iso-bnf-language"
                      "language-support/antlr4-language"

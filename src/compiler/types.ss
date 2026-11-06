@@ -2,8 +2,7 @@
 (import (only-in :std/list/list delete-duplicates/hash)
         (only-in :clan/poo/object .cc .get .ref)
         (only-in :clan/poo/mop define-type Fun Object Bool Type. element?)
-        (only-in :clan/poo/type Record List Pair Symbol String Exactly Or)
-        (only-in :yuanxu/object-types/contracts YuanxuContract.))
+        (only-in :clan/poo/type Record List Pair Symbol String Exactly Or))
 (import (only-in ../grammar/declaration-types GrammarContract +grammar-ir-schema+ ParserList)
         (only-in ../grammar/algebra grammar-expression?)
         (only-in ../grammar/lexical-algebra lexical-expression?))
@@ -48,7 +47,5 @@
 (define-type CompilerScope
   (Record compile-grammar: [(Fun GrammarIR <- (Or CompilerGrammar GrammarIR))]))
 
-;; Core adds contextual admission/evidence; it does not redeclare the fields.
 (def CompilerScopeContract
-  (.cc YuanxuContract. identity: 'compiler/scope
-       proto: (.get CompilerScope proto) value-contract: CompilerScope))
+  (.cc CompilerScope identity: 'compiler/scope))

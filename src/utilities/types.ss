@@ -1,9 +1,8 @@
 ;;; Fixed services are concrete; polymorphic services require explicit Types.
-(import (only-in :clan/poo/object .cc .get)
+(import (only-in :clan/poo/object .cc)
         (only-in :clan/poo/mop define-type Fun Function Bool Type Type.)
         (only-in :clan/poo/type Record String List OrFalse TypeValuePair)
-        (only-in :clan/poo/number Integer)
-        (only-in :yuanxu/object-types/contracts YuanxuContract.))
+        (only-in :clan/poo/number Integer))
 (export ListOperationsScopeOf UtilitiesScope UtilitiesScopeContract Character)
 
 (define-type (Character @ Type.) .element?: char?)
@@ -24,5 +23,4 @@
           text-lines: [(Fun (List String) <- String)]))
 
 (def UtilitiesScopeContract
-  (.cc YuanxuContract. identity: 'utilities/scope
-       proto: (.get UtilitiesScope proto) value-contract: UtilitiesScope))
+  (.cc UtilitiesScope identity: 'utilities/scope))

@@ -13,5 +13,6 @@
                      "event-fold-build-support"
                      "event-fold-program-support"
                      "rust-runtime-support"
+                     "rust-syntax-support"
                      "line-structure-support"
                      "graph-projection-support")))

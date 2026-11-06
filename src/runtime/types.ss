@@ -1,8 +1,7 @@
 ;;; The native Record owns field types, inheritance, defaults and normalization.
-(import (only-in :clan/poo/object .cc .get)
+(import (only-in :clan/poo/object .cc)
         (only-in :clan/poo/mop define-type Fun Any Bool Type.)
-        (only-in :clan/poo/type Record String)
-        (only-in :yuanxu/object-types/contracts YuanxuContract.))
+        (only-in :clan/poo/type Record String))
 (import (only-in "./artifact.ss" parse-artifact-valid?))
 (export ParseArtifact RuntimeScope RuntimeScopeContract)
 
@@ -15,7 +14,5 @@
           parse-artifact-success?: [(Fun Bool <- ParseArtifact)]
           parse-artifact-roundtrip: [(Fun String <- ParseArtifact)]))
 
-;; Core adds contextual admission/evidence; it does not redeclare the fields.
 (def RuntimeScopeContract
-  (.cc YuanxuContract. identity: 'runtime/scope
-       proto: (.get RuntimeScope proto) value-contract: RuntimeScope))
+  (.cc RuntimeScope identity: 'runtime/scope))

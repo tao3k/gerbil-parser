@@ -6,7 +6,7 @@
         (only-in :yuanxu/observability/testing-script TestingScript.)
         (only-in :yuanxu/observability/testing-fixture call-with-yuanxu-fixture)
         (only-in "./src/build-support/compiler-profile.ss" initialize-compiler-build!))
-(import (only-in :clan/poo/object .o :: .cc .get .call)
+(import (only-in :clan/poo/object .o .cc .get .call)
         (only-in "./init.ss" gerbil-parser.init.exports))
 (extern namespace: gerbil/tools/gxtest collect-files)
 (export test-support-source shared-test-build-spec run-native-tests main)

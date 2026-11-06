@@ -62,13 +62,14 @@
 (def (shared-test-build-spec)
   ((.get (test-support-source) std-make-spec)))
 (def (run-native-tests)
-  (def source (test-support-source))
-  (def build (.get source build))
+  (def demand (test-support-source))
+  (def build (.get demand build))
   (def admit! (.get build admit-artifacts))
   (def prior (getenv "GERBIL_LOADPATH" ""))
+  (create-directory* ".data")
   (def script
     (.o (:: @ [TestingScript.])
-      source: source
+      source: demand
       profile: (.cc (.get TestingScript. profile)
                  heap-limit-bytes: 3221225472 max-duration-milliseconds: 900000)
       environment: (.o GERBIL_LOADPATH:

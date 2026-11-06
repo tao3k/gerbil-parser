@@ -4,6 +4,8 @@
         (only-in :std/misc/process run-process)
         (only-in :std/misc/ports read-all-as-string)
         (only-in :std/build-script defbuild-script)
+        (only-in :gerbil/expander core-read-module/sexp)
+        (only-in :yuanxu/module-system/building/source-package register-module-build-source!)
         (only-in :asp-gerbil-scheme/src/build-api/policy-runner
                  asp-gerbil-scheme-run-selected-policy))
 (export main)
@@ -24,15 +26,30 @@
           value)))
     ;; Core normalizes native source targets to extensionless identities. Keep
     ;; every compiler option in this independent source-discovery comparison.
-    (def (canonical targets)
+    (def (canonical targets (relative-names #f))
       (list-sort (lambda (a b) (string<? (cadr a) (cadr b)))
         (map (lambda (target)
                (def name (if (string? target) target (cadr target)))
+               (def normalized (if (string-suffix? ".ss" name) (path-strip-extension name) name))
                (cons (if (string? target) 'gxc: (car target))
-                 (cons (if (string-suffix? ".ss" name) (path-strip-extension name) name)
+                 (cons (if relative-names (hash-ref relative-names normalized normalized) normalized)
                        (if (string? target) '() (cddr target))))) targets)))
-    (let ((production (canonical (spec "build.ss")))
-          (discovered (canonical (spec "dev/package-source-build.ss"))))
+    (def discovered (canonical (spec "dev/package-source-build.ss")))
+    ;; Unified Make targets use native identities. Derive the comparison names
+    ;; from Gerbil's own reader, including the package-owned language.
+    (register-module-build-source! (current-directory) 'gerbil-parser)
+    (def names-by-identity (make-hash-table))
+    (for-each
+      (lambda (target)
+        (def name (cadr target))
+        (let-values (((_prelude identity _namespace _body)
+                      (core-read-module/sexp (path-expand (string-append name ".ss")))))
+          (def key (symbol->string identity))
+          (when (hash-key? names-by-identity key)
+            (error "duplicate native build identity" identity))
+          (hash-put! names-by-identity key name)))
+      discovered)
+    (let (production (canonical (spec "build.ss") names-by-identity))
       (unless (equal? production discovered)
         (error "selected Module projection differs from native source discovery"
           (filter (lambda (item) (not (member item discovered))) production)

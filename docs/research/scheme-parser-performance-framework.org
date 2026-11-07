@@ -119,6 +119,22 @@ Keep the grammar construction gate distinct from normalization and scanning.
 Retain failing receipts and compare source-backed artifacts before advancing
 the Parser revision to Orgize.
 
+* Construction tail attribution
+
+The complete Scheme test reports process CPU, wall time, GC and allocation
+counters in sample order for the existing Grammar construction workload.
+It emits these observations after the timing loop and retains the original
+wall-clock P95 decision. Allocation counters are process observations.
+They do not establish ownership of every allocation during the callback.
+
+On the published line-prefix revision, the Linux job measured 67.185 ms
+P95 and the Darwin job measured 175.691 ms. The Darwin median was
+129.917 ms and its maximum was 3791.265 ms. The median and the maximum
+require separate attribution. A local complete diagnostic had a 70.900 ms
+P95 callback with zero collections and a 710.070 ms maximum callback with
+644.908 ms spent in GC. Those local samples establish the distinction
+between the two effects. The failed remote job lacks equivalent counters.
+
 * Scope and navigation
 
 This index separates design, source correspondence and historical qualification.

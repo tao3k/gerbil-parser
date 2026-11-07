@@ -40,7 +40,26 @@
   (unless (observed-grammar-batch-valid? (make-observed-grammar-batch))
     (error "grammar construction warmup changed the workload result"))
   (##gc)
-  (benchmark-contract-run benchmark-path make-observed-grammar-batch))
+  ;; Retain process-wide counters in sample order. Emit them after the
+  ;; contract finishes so diagnostic I/O stays outside its timed callback.
+  (let* ((samples '())
+         (receipt
+          (benchmark-contract-run benchmark-path
+            (lambda ()
+              (let (stats (##exec-stats make-observed-grammar-batch))
+                (set! samples
+                  (cons (map (lambda (key) (assq key stats))
+                             '(user-time sys-time real-time gc-real-time
+                               gc-user-time gc-sys-time nb-gcs bytes-allocated))
+                        samples))
+                (cdr (assq 'result stats)))))))
+    (for-each
+      (lambda (sample)
+        (write (cons 'CONSTRUCTION-DIAGNOSTIC sample))
+        (newline))
+      (reverse samples))
+    (force-output)
+    receipt))
 
 (def (main)
   (let (receipt (run-grammar-construction-benchmark))

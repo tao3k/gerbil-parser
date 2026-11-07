@@ -18,7 +18,7 @@
 (import (only-in :clan/poo/object .o .cc .get .call)
         (only-in "./init.ss" gerbil-parser.init.exports))
 (extern namespace: gerbil/tools/gxtest collect-files)
-(export test-support-source shared-test-build-spec run-native-tests main)
+(export run-native-tests main)
 (register-module-build-source! (path-directory (this-source-file)) 'gerbil-parser)
 
 (def (test-support-targets files)
@@ -55,11 +55,6 @@
       ;; Retain the owning build declarations, including native FFI options.
       (test-support-targets files))))
 
-;; Preserve the exact Core-produced value so its native consumer retains
-;; source/artifact admission and subset publication. Compiler host policy is
-;; the same process-local setup used by the production build entry.
-(def (shared-test-build-spec)
-  ((.get (test-support-source) std-make-spec)))
 (def (run-native-tests)
   (def demand (test-support-source))
   (def build (.get demand build))

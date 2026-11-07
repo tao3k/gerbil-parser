@@ -173,3 +173,18 @@ research sources, but later fails to link =_Exit= on the installed older Darwin
 SDK. An earlier invocation lacked OpenSSL's pkg-config path and is also kept
 as a failure. Neither is counted as a complete conformance pass; the released
 Linux/macOS CI products still require their original gates.
+
+* Qualification process boundary
+
+The qualification module declares its executable and helper modules in
+[[file:../t/support/qualification/build.ss][its build specification]]. The top-level qualification entry applies the
+shared compiler policy to that specification. The process supervisor runs
+the installed =gerbil-parser-process-child= by absolute path and passes
+the target argument vector directly. The child establishes the POSIX
+session, publishes its owner witness, and replaces its image with the
+target so the supervisor observes the target's wait status.
+
+The child uses the Gerbil core prelude. Qualification still starts all
+six cold identity requests concurrently with the existing total and idle
+deadlines. Session ownership and the target's output remain the evidence
+for progress and cleanup.

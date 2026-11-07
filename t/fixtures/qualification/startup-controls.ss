@@ -7,18 +7,9 @@
   (let (directory (make-temporary-file-name "parser-startup-controls-"))
     (create-directory directory)
     (try
-      (def environment
-        (map (lambda (entry)
-               (string-append (car entry) "="
-                 (if (equal? (car entry) "GERBIL_LOADPATH")
-                   (string-append qualification-library-root ":" (cdr entry))
-                   (cdr entry))))
-             (if (getenv "GERBIL_LOADPATH" #f) (get-environment-variables)
-               (cons (cons "GERBIL_LOADPATH" "") (get-environment-variables)))))
-      (def (probe label arguments)
+      (def (probe label program arguments)
         (let* ((started (##current-time-point))
-               (child (open-process [path: "gxi" arguments: arguments
-                                     environment: environment stderr-redirection: #t]))
+               (child (open-process [path: program arguments: arguments stderr-redirection: #t]))
                (status #f))
           (close-output-port child)
           (try
@@ -34,11 +25,8 @@
                 (process-status child 1 #f))
               (close-port child)))))
       (def phase-gxi "(displayln \"STARTUP-PHASE gxi \" (##current-time-point)) (force-output)")
-      (def phase-module "(displayln \"STARTUP-PHASE module \" (##current-time-point)) (force-output)")
-      (probe "gxi-only" ["-e" phase-gxi "-e" "(exit 0)"])
-      (let (args (process-child-arguments (path-expand "session" directory)
-                                         (getenv "GERBIL_LOADPATH" "") [fixture "identity"]))
-        (probe "native-child"
-               (append ["-e" phase-gxi] [(car args) (cadr args)]
-                       ["-e" phase-module] (cddr args))))
+      (probe "gxi-only" "gxi" ["-e" phase-gxi "-e" "(exit 0)"])
+      (probe "native-child" qualification-process-child
+             (process-child-arguments (path-expand "session" directory)
+                                      (getenv "GERBIL_LOADPATH" "") [fixture "identity"]))
       (finally (delete-file-or-directory directory #t)))))

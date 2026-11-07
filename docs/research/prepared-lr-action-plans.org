@@ -1,0 +1,400 @@
+#+title: Prepared LR action plans and engine ownership
+
+This document records the initial indexed action-chain implementation and its
+qualification. [[file:lr-semantic-kernel-staging.org][Semantic kernel staging]] continues the same admission boundary:
+private prepared slots now contain executable steps or identity, while canonical
+operand chains remain grammar data. GLR and deterministic execution share the
+lowered operations; current stack tests use a manually constructed semantic
+oracle to preserve independent evidence.
+
+* Design question and implementation
+
+The grammar -> canonical IR -> prepared machine -> reduction -> artifact path
+must have one owner for semantic admission. This continues the
+[[file:engine-reduction-generation.org][shared reduction study]]: generated reductions already inspect canonical
+operands during compilation, while the shared deterministic executor previously
+decoded marked operands and checked the production action on every reduction.
+The new =lr-prepare= boundary checks the closed =pass=, =concat= and layout-end
+production algebra and ordered, two-element =field=/=alias= actions with symbolic
+names. The shared canonical predicate also admits generated Scheme and Rust
+publication. Invalid
+actions fail before a request starts, including productions not executed by
+that request. Canonical grammar identity, GLR, replay and generated reductions
+retain their existing owners.
+
+Each production receives one private source-order vector of action chains.
+Recognition consumes this vector backwards alongside the newest-first semantic
+stack; events consume it forwards alongside their source-order values. Neither
+backend decodes marked grammar operands during deterministic reduction. The
+vector holds existing action chains rather than callbacks or request values.
+Like the existing prepared tables, it assumes the admitted canonical grammar
+is not mutated after preparation. No public grammar model is duplicated.
+
+* Why is this preferable for the Scheme DSL?
+
+#+begin_src scheme
+;; Author-facing syntax remains grammatical and compositional.
+(source-file
+ (node SourceFile
+  (seq (field left (node Item word))
+       (field right (node Item word)))))
+
+;; Illustrative private prepared representation, in source order:
+#(((alias Item) (field left))
+  ((alias Item) (field right)))
+
+;; Recognition reads slot 1 for the newest semantic value, then slot 0.
+;; Events read slot 0, then slot 1, preserving sequential builder appends.
+(vector-ref action-plan index)
+#+end_src
+
+The benefit comes from the macro/canonical-IR/preparation boundary, rather than
+parentheses alone. The engine resolves and validates the action algebra once;
+authors declare nodes and fields without queue, traversal, storage or backend
+controls. Gerbil's official =std/vector/vector= uses a length-bounded vector
+mapping implementation. This change likewise stages fixed-size execution data;
+it does not add another collection algorithm or replace Gerbil's compiler.
+The private execution functions remain closed named procedures, avoiding new
+capturing callbacks for each request and keeping plan access outside the LR
+continuation's generated body.
+
+* Why is the claim scientifically testable?
+
+For width n, plan slot i is exactly the action chain of canonical operand i.
+Recognition starts at n-1, applies that operand's actions in declaration order
+and prepends its result. After k steps, the accumulated children are the
+source-order results for operands n-k through n-1. Induction gives the same
+result as the independent forward materialized GLR reducer. Events append in
+increasing index order, preserving the existing event builder's association.
+Width zero returns the respective backend's empty value.
+
+Executable admission covers widths 0, 1, 2, 8 and 32, nested field/alias chains,
+distinct operand fields, retained siblings, nullable edits, layout boundaries
+and fragment transfer. Malformed production and operand actions must fail
+at preparation. Complete canonical products are compared with independent GLR
+and generated reductions; allocation and CPU observations are separate claims.
+
+The semantic-stack benchmark now measures preparation independently from
+reduction-only requests and complete artifact publication. This makes moving
+cost across phases observable. An initial two-list action plan passed semantic
+controls but added 1824 bytes per width-32 preparation and gave no stable
+request CPU improvement. It was rejected in favor of a single indexed vector.
+Its native ABBA receipts remain unarchived local execution; all exited zero.
+
+An earlier plan-access expansion also failed the five-second idle compiler
+gate in 37.323 seconds. The closed-procedure revision compiled with the official
+SDK options in 50.150 seconds, exited zero and retained the same idle gate.
+These are qualification observations, not proof that generated source size
+alone caused the compiler failure. No timeout or compiler optimization level
+was relaxed.
+
+* Final vector qualification and cost boundary
+
+The final source control group passed 34 cases in 22.755 seconds, actual exit
+zero: unarchived local execution. It includes
+the incoming scanner dispatch controls at parent =f2eb2b8=. The first vector
+compile failed the idle gate during Gambit's macro-interface generation,
+despite that Scheme file being slightly smaller than the baseline. The retry
+with official =gxc -gsc-flag -verbose= completed the LR module, latest scanner,
+test and benchmark in 23.455 seconds, actual exit zero:
+unarchived local execution.
+The [[https://gambitscheme.org/4.9.2/manual/][Gambit manual]] documents =-verbose= as compiler activity tracing.
+It supplies real phase output; it does not establish a causal performance fix.
+
+Final native ABBA receipts are unarchived local execution. All four runs completed
+20 samples of 100 iterations for six preparation and 24 request routes,
+admitted their independent complete-product controls and exited zero.
+The baseline is the preceding =d69f015= LR implementation in the retained native
+overlay; both sides use the same expanded benchmark instrumentation. This
+isolates the LR change rather than calling an old full-language build current.
+
+| RHS width | Baseline prepare bytes/call | Vector prepare bytes/call | Difference |
+|-----------+-----------------------------+---------------------------+------------|
+|         1 |                     4290.08 |                   4242.08 |        -48 |
+|         8 |                     9106.08 |                   8834.08 |       -272 |
+|        32 |                    25618.08 |                  24578.08 |      -1040 |
+
+The table records recurring allocation levels; some admitted samples add
+2.56 bytes/call of measurement variation. The difference applies to decorated
+and undecorated families. All 24 request routes retain baseline allocation.
+The benchmark measures allocated bytes, not retained heap size.
+
+Preparation now performs additional semantic admission. Width-32 identity
+preparation CPU medians are 0.006475, 0.007150, 0.007235 and 0.006460 ms/call
+in ABBA order. Request CPU does not show a stable improvement: width-32 identity
+recognition publication measures 0.008380, 0.008430, 0.008220 and 0.008380 ms;
+decorated event publication measures 0.029335, 0.041980, 0.029675 and 0.029815 ms.
+The second run's event outlier is retained. This establishes a compact staged
+representation and earlier admission, not an end-to-end latency win. Runtime
+reuse remains necessary to amortize preparation; no numeric reuse threshold
+can be inferred from these observations.
+
+The final native integration passed twelve cases and twenty accepted/rejected
+ABI products across all ten language entries in 28.068 seconds, exit zero,
+=HARNESS-OK= and =OK=:
+unarchived local execution.
+It covers the candidate LR and latest =f2eb2b8= scanner interfaces, independent
+GLR, generated HCL/Arithmetic recognition and event reductions, and exact Rust
+fixture bytes. Local native qualification is distinct from clean exact-head CI.
+
+* Canonical action admission across product owners
+
+The subsequent source audit found a concrete mismatch: fused Scheme generation
+required symbolic field and alias names, while prepared LR checked only the
+two-element shape. Rust's raw-IR emitter had its own operand decoder and could
+emit string field names. A well-shaped list was therefore insufficient to make
+the same semantic declaration legal across execution products.
+
+=src/compiler/lr.ss= now owns =operand-actions-valid?=. Prepared LR, fused Scheme
+strategy admission and Rust table publication call this predicate. Rust also
+uses the canonical operand accessor instead of a duplicated decoder. Rust
+validates all production chains before constructing output; file publication
+already follows successful source construction. Unused productions cannot
+bypass either preparation or raw-IR publication admission.
+
+#+begin_src scheme
+;; Canonical semantic declarations, not an additional author interface.
+(operand-actions-valid? '((alias Item) (field left))) ; => #t
+(operand-actions-valid? '((field "left")))            ; => #f
+(operand-actions-valid? '((alias #f)))                ; => #f
+(operand-actions-valid? '((field left) . invalid))    ; => #f
+#+end_src
+
+** Question: why is this design preferable?
+
+Scheme's structural matching expresses the closed declaration algebra directly:
+each action has exactly one operation and one Symbol name. The invariant belongs
+to canonical IR, so a POO strategy override cannot change semantic name legality
+and backend selection cannot choose a different contract. Authors retain the
+existing node/field DSL. Validation occurs at preparation or publication rather
+than inside repeated reductions; no request callback or generic dispatch is added.
+This completes the staging boundary studied above without adding a new DSL.
+
+** Question: how is the claim scientifically tested?
+
+The falsifier is a malformed chain accepted by any product owner, a published
+file following rejection, or changed complete output for a valid declaration.
+The preceding native LR accepted four malformed names under each of two backend
+preferences: eight =BASELINE-ACCEPTED= receipts, exit zero in 10.026 seconds.
+The first temporary baseline probe failed because an interpreted script used an
+unqualified binding after an evaluated import; its failure is retained and is
+not semantic evidence. The corrected probe used qualified native bindings.
+
+The executable controls check proper and dotted chains, unknown actions,
+non-symbol payloads, both backend preferences and unused productions. Rust
+controls append an unused malformed production to real Arithmetic IR and require
+failure before a temporary output file exists. Existing wide/nullable/ordered
+reductions compare complete artifacts with independent GLR; HCL and Arithmetic
+generated backends and deterministic Rust/GQL output retain their own controls.
+This is contract closure, with no latency or allocation improvement claim.
+
+Qualification at parent =989e117= used the official SDK with the native candidate
+overlay ahead of previously qualified dependencies. The canonical LR owner,
+runtime and fused strategy compiled in 95.047 seconds; the Rust emitter compiled
+in 34.007 seconds. Both exited zero with final =OK= and the unchanged five-second
+real-output idle gate. Four source GxTest suites passed all 22 cases against these
+native owners in 27.542 seconds. The separate all-language ABI control passed in
+15.793 seconds: twenty accepted/rejected products across ten entries matched the
+checked-in Rust fixture bytes exactly. These local receipts do not establish
+clean-checkout platform CI or a measured speedup.
+
+Receipts: unarchived local execution. The initial baseline-script failure remains
+unarchived local execution.
+
+* Complete production admission before execution products
+
+The same audit at parent =93d179c= extended beyond semantic names. Prepared LR
+trusted production numbering and precedence shape before selecting an executor;
+layout detection accepted any pair beginning with =layout-end=. A retained
+native baseline demonstrably admitted an incorrect production ID, zero-width
+=pass=, empty or symbolic closing boundaries, and a string precedence rank.
+Five accepted malformed productions are recorded in the baseline receipt. This
+is an admission gap, not evidence of a valid grammar parsing incorrectly.
+
+=validate-production-semantics= in the canonical LR owner now establishes:
+
+- A proper production list, with each five-element production ID equal to its
+  ordered table offset and a symbolic nonterminal owner.
+- Proper operand lists containing canonical token/literal/layout terminals or
+  nonterminal references; marked operands have exactly one base and one admitted
+  ordered action chain.
+- =pass= has one operand, =concat= has any proper operand list, and =layout-end=
+  has no operands. Bare =layout-end= means column/EOF closure; a boundary-bearing
+  action has one or more nonempty strings.
+- Precedence is absent or a two-element =none/left/right/dynamic= declaration
+  with an integer rank, matching the existing grammar header contract.
+
+Standalone LR lowering, runtime preparation, fused Scheme admission and raw-IR
+Rust publication all consume this validator before indexing or publication.
+Compiler and runtime layout classification use the same canonical action
+tag predicate; boundary payload validation belongs to the canonical validator,
+so repeated layout reductions do not rescan declarations. The runtime's duplicate
+classifier is removed. Backend restrictions
+remain explicit: admitting a layout production does not make it executable by
+Rust or by the fused Scheme provider. Repeated reductions consume already
+admitted plans and do not add validation callbacks.
+
+#+begin_src scheme
+;; Engine-owned canonical products lowered from ordinary author declarations.
+(validate-production-semantics
+ '((0 root ((terminal token word)) pass #f)
+   (1 items () (layout-end "END") #f)))
+
+;; Each fails before indexing, backend selection or Rust file publication.
+(validate-production-semantics '((1 root () concat #f)))
+(validate-production-semantics '((0 root () pass #f)))
+(validate-production-semantics '((0 root () (layout-end END) #f)))
+#+end_src
+
+** Question: why is this design preferable?
+
+The structural algebra has one owner, so a language author or POO provider does
+not need to know which backend is stricter. Scheme matching states arity and
+scalar constraints directly; an ordered traversal establishes the table-offset
+invariant. This uses the grammar/lowering/preparation staging boundary studied
+above. It adds no author slot, versioned interface or compatibility branch.
+Existing direct IR fixtures are corrected to canonical terminal forms instead
+of retaining a shorthand that the producer never emits.
+
+** Question: how is the claim scientifically tested?
+
+The falsifiers are an accepted malformed production, changed valid output,
+validation bypass in an unused rule, or an output file modified after rejection.
+Controls enumerate incorrect/duplicate IDs, malformed wrappers and terminals,
+wrong reduction widths, dotted layout actions, invalid closing strings and
+malformed precedence. Valid controls include all three reduction forms, static
+and dynamic ranks, tokens, literals, layout markers and nonterminal operands.
+Source lowering has its own rejection controls. Rust appends dead malformed
+rules to real Arithmetic IR and must preserve an existing output file; the
+earlier absent-file control remains. Full GLR/generated artifact parity and
+ten-language ABI bytes provide independent valid-product checks.
+
+The structural check is linear in the production and operand declarations,
+including their action chains. This is additional construction/preparation work;
+no preparation timing or end-to-end speedup is inferred from staging it outside
+requests. It does not validate LR transition targets, conflict equivalence,
+reference resolution or lexer realizability; those have separate owners.
+The subsequent closed-reference section below extends this canonical owner
+with reference admission; the historical qualification remains unchanged.
+The subsequent [[file:lr-table-admission.org][shared table study]] implements target bounds, row uniqueness
+and closed action/guard shape admission through the same publication sequence.
+
+Final qualification used the official SDK and native overlay at parent
+=93d179c=. The canonical owner, layout runtime and LR runtime compiled in
+91.073 seconds; final LR, fused Scheme and Rust publication consumers compiled
+in 48.244 seconds. Both supervisor receipts report exit zero, no rejection
+reason, no missing required output and final =OK=. Six source GxTest suites
+then passed all 32 cases in 29.442 seconds against these native owners. This
+includes 23 malformed production families under both backend preferences,
+standalone rejection through five LR construction routes, existing complete
+GLR/generated products and twenty accepted/rejected ABI products across ten
+language entries matching the Rust fixture bytes exactly.
+
+Rejected attempts remain explicit: the initial build failed the unchanged
+five-second idle gate at GCC compilation of the LR compiler, exit 137 after
+121.143 seconds. A standalone retry completed in 35.727 seconds; final consumers
+were subsequently rebuilt against the final canonical owner. The first source
+test entry failed before executing cases because a newly added test form lacked
+one closing parenthesis, exit 1 after 10.948 seconds. The final test receipt
+follows that source correction; no assertion or timeout was weakened.
+
+Receipts are unarchived local execution. Failed
+attempts remain =parser-production-contract-build-supervision.log= and
+=parser-production-contract-test-supervision.log= in the same directory; the
+intermediate retry is =parser-production-contract-compiler-retry-supervision.log=.
+Local native controls do not qualify a clean-checkout exact-head CI run or
+establish any performance benefit.
+
+* Closed rule references across canonical IR consumers
+
+The complete production contract now resolves every nonterminal operand against
+the complete production-owner index, after admitting production and operand
+shapes. This includes marked operands and unused productions. It reuses
+=production-index-by-lhs= in the canonical owner, rather than introducing a
+language registry or a second reference policy in each backend. Forward
+references, self recursion, mutual recursion and declared unused rules retain
+their production order and identities. A missing owner raises
+=invalid canonical LR unresolved reference= with the production ID and original
+operand before nullable/FIRST construction or executable publication.
+
+This boundary applies to standalone LR compilation, recognition/event
+preparation, POO fused strategy admission and raw Rust source publication.
+The table gate continues to check vocabulary, physical targets and reachable
+acceptance. Source declarations may be composed before lowering; their final
+canonical product cannot defer a missing rule to a request.
+
+#+begin_src scheme
+;; A complete product: later is a forward reference; unused is declared.
+(def productions
+  '((0 root ((marked (nonterminal later) ((field value)))) pass #f)
+    (1 later ((terminal token word)) pass #f)
+    (2 unused ((nonterminal unused)) pass #f)))
+(eq? productions (validate-production-semantics productions)) ; => #t
+
+;; A symbolic operand alone does not make the product complete.
+(validate-production-semantics
+ '((0 root ((nonterminal missing)) pass #f))) ; raises before preparation
+
+;; Being unused does not excuse an unresolved owner.
+(validate-production-semantics
+ '((0 root ((terminal token word)) pass #f)
+   (1 unused ((marked (nonterminal missing) ((alias Item)))) pass #f)))
+#+end_src
+
+** Question: why is this design preferable?
+
+Scheme symbols retain identity across the S-expression IR and the existing
+=eq?= owner index. Structural matching extracts the base of marked operands,
+preserving the field/alias chain as diagnostic evidence. The shape pass admits
+the entire declaration set before reference resolution, so source order does
+not become a restriction on grammar composition. Authors write grammatical
+references in =grammar.ss=; they do not supply dependency lists, resolution
+callbacks or backend switches. POO strategy overrides are checked against the
+same canonical owner before generated forms are emitted. This uses the DSL,
+composition and preparation stages together, rather than relying on parentheses
+or macro syntax alone.
+
+** Question: how is the claim scientifically tested?
+
+The independent falsifiers are a missing used owner, a missing owner in a dead
+marked operand, changed admission under the event backend, or any output
+created/overwritten before rejection. Positive controls retain forward and
+recursive declarations and exact list identity. Five LR construction routes
+exercise rejection before analysis. The fused override control requires an
+empty output port; Rust controls require both an absent file and a preserved
+existing sentinel. Existing language ABI, generated reductions and complete
+artifact controls establish that valid products remain consumable.
+
+Knuth's [[https://harrymoreno.com/assets/greatPapersInCompSci/2.5_-_On_the_translation_of_languages_from_left_to_right-Donald_E._Knuth.pdf][1965 primary paper]], Section I, defines production operands over the
+grammar's intermediate and terminal alphabets. It does not require every
+intermediate to have a production. Requiring an owner here is an additional
+closed-product policy of this engine, not a theorem derived from that paper.
+Likewise, an existing owner does not establish a finite derivation, LR(k),
+lexical realizability or grammar/table equivalence. Finite entry admission
+remains the compiler's productive-analysis obligation; unused declared cycles
+remain valid composition data. The reference check is linear in declarations
+and operands with an indexed owner lookup; its preparation cost is additional
+work and has no admitted parser-speedup claim.
+
+** Qualification
+
+At parent =1cfb23a=, the native canonical owner accepted the missing-owner
+witness, exit zero in 1.066 seconds:
+unarchived local execution. This counterexample
+establishes the admission gap; it is not evidence of a production request crash.
+
+The final native build compiles the canonical owner and the stack, fused and
+Rust generation test modules with optimization and static products in 74.116
+seconds. Thirteen suites then pass 117 cases in 26.889 seconds, including all
+five construction routes, both semantic preferences, empty fused emission,
+absent/existing Rust output, resolved grammar/source-origin controls and
+ten-language ABI byte parity. The existing complete generated-reduction and
+artifact controls remain in that matrix. Both process receipts report exit
+zero, no rejection reason, no missing output and final =OK= under the unchanged
+five-second real-progress idle gate.
+
+Receipts are unarchived local execution. This is focused native
+qualification over reused dependencies, not a clean-checkout full-language
+rebuild or exact-head platform CI. At parent =1cfb23a=, Rust CI passed while
+Linux Scheme was running and macOS Scheme was queued. The new source slice
+requires its own exact-head CI. No request-performance benefit is claimed.

@@ -1,0 +1,620 @@
+#+title: Source scanning and materialization
+#+startup: overview
+
+Part of [[file:shared-scanner-staging-and-fusion.org][the shared scanner study]].
+Historical revisions, failed experiments and receipt limits retain their original scope.
+
+* SDK lexer reading and winner-only materialization
+
+The SDK binary resolved =:std/text/parser/ll1=,
+=:std/text/parser/ebnf/lexer= and =:std/source= through the expander's
+=import-module= / =module-context-path=. Source reading then used the matching
+installed tree. The lexer module is =ebnf/lexer=; the initially attempted
+=:std/text/parser/lexer= is not an installed module.
+
+#+begin_src scheme
+(import :gerbil/expander)
+(module-context-path (import-module ':std/text/parser/ebnf/lexer))
+#+end_src
+
+In =std/text/parser/ebnf/lexer.ss=, =lex1= retains a fallback for the last
+accepted extent and invokes the selected reduction only after selection. Its
+mutable input stream and declaration-order tie policy are not substitutes for
+our immutable checkpoints, rank and ambiguity contracts. The useful lesson is
+the lifetime of a result: materialize the public result after deciding which
+candidate owns it.
+
+The shared contextual scanner now carries a borrowed rule and an integer end
+through its candidate loop. =prefer-rule?= applies the same length/rank/form/action
+comparison and raises the same eager conflict. =scan-match= remains the private
+result type, but is constructed once after selection instead of once for every
+successful candidate.
+
+For a completed step with m successful candidates, m >= 1, the source-level
+constructor count becomes 1 instead of m. A no-match step still returns false;
+a conflict still raises immediately. This is a source construction bound, not a
+measurement of heap bytes: compiler scalar replacement may already remove some
+allocations, and executor calls and final token construction still occur.
+
+#+begin_src scheme
+;; Engine-private selection: no new grammar callback or author configuration.
+(let select ((rules candidates) (current #f) (end #f))
+  (if (null? rules)
+    (and current (make-scan-match current end))
+    (let* ((rule (car rules))
+           (candidate-end ((runtime-scan-rule-executor rule) source start state)))
+      (if (and candidate-end (prefer-rule? current end rule candidate-end))
+        (select (cdr rules) rule candidate-end)
+        (select (cdr rules) current end)))))
+#+end_src
+
+This answers the existing design questions with an implementation witness:
+authors retain the same declarations, while engine-owned lifetime becomes
+simpler. The scientific obligation is exact observable selection and diagnostics,
+followed by complete-call measurements; fewer source constructors alone do not
+establish a throughput improvement.
+
+Three new independent Cases cover length before rank in both declaration orders,
+Unicode byte endpoints, eager conflicts before a longer later match, and the
+identity of the first rule retained by an equivalent tie. Both direct IR and
+prepared plans execute these controls. The first conflict fixture was rejected
+by the duplicate-declaration contract before execution; distinct overlapping
+matchers corrected the fixture. That first run was a failure despite its SDK
+process returning zero; final =OK= and absence of Case/Harness failures were
+required before admitting the rerun.
+
+The corrected scanner/deferred/source/parser run passed 55 Cases. Source-backed
+recognition and Bash/HCL/HL7/FHIRPath passed 74 more Cases: 129 total, final =OK=
+and exit zero for both commands. Existing =matched-scale.ss= completed 16 axes,
+8 samples, 256 words, 16 literals and 16 requests per plan batch with
+=SCANNER-SCALE-OK=. Existing =matched-parser.ss= completed 16 requests and five
+measured samples with =CONTEXTUAL-PARSER-SCALE-OK=, exact prepared/unprepared
+artifacts, valid publication and source reconstruction including rejected inputs.
+These are source semantic and workload receipts. No old/new native ABBA was run;
+no speedup or allocation-byte reduction is admitted. The full-artifact workload
+was used as a semantic control, not a performance comparison with the old code.
+
+The source-span audit also confirmed that =prepare-recognition-source= snapshots
+a token and validates its UTF-8 extent, while =prepare-contextual-scanner= owns a
+request snapshot. The mutation control proves that simply deleting those copies
+is invalid. A shared span design must transfer admitted ownership and character
+bounds across both stages before replacing either snapshot; no borrowed mutable
+caller string was introduced by this change.
+
+* Native UTF-8 width queries instead of temporary encoding
+
+The SDK binary resolved =:std/string/utf8= to its installed interface. Its source
+owner is =std/string/utf8.ss=. The checked =string-utf8-length= procedure validates
+string/range arguments and delegates to Gambit's =##string->utf8-length=; it does
+not create an encoded byte vector merely to obtain its length.
+
+The [[https://gerbil.scheme.org/reference/std/text/utf8.html][website's UTF-8 reference]] still describes the API under =:std/text/utf8=.
+That module was not found in this installed SDK. The implementation imports the
+actual =:std/string/utf8= binding established by source inspection; no alias or
+legacy fallback was introduced.
+
+Five length-only conversions now use the SDK procedure: each token's extent in
+ParseArtifact validation, rejected-source fallback and complete extent in the
+shell executor, and both terminated/final line extents in the Scheme event
+strategy. Source bytes used for SHA-256 and actual encoding remain materialized
+where consumed. The change neither bypasses validation nor borrows mutable
+caller text. It adds no language policy, metadata slot or author option.
+
+#+begin_src scheme
+(import :std/string/utf8)
+(let (text (list->string (map integer->char '(97 955 20013 128512))))
+  ;; Four scalars, ten bytes. Query width without constructing encoded bytes.
+  (string-utf8-length text)) ; => 10
+#+end_src
+
+The existing design questions apply directly. This is better because the engine
+expresses the operation it needs, byte extent, through the checked native library
+instead of maintaining a custom Unicode loop or an unnecessary encoded product.
+It is scientifically testable because byte coverage is observable independently
+of the chosen implementation: a token's advertised width must match fixed
+Unicode boundary expectations, source reconstruction and the unchanged digest.
+
+New artifact controls cover U+0000/U+007F, U+0080/U+07FF, U+0800/U+D7FF,
+U+E000/U+FFFF, U+10000/U+10FFFF with independently specified widths 1/2/3/4.
+Every fixture first admits and roundtrips, then changes both token end and
+advertised extent to a false but self-consistent width and must reject. A line
+control combines all boundaries with CRLF, CR and a final unterminated line;
+expected byte ends are 28, 30 and 31. Surrogate integers were refused by this
+SDK's =integer->char= during the initial probe and are not valid fixture scalars.
+
+A local component observation compared the former encode-and-length expression
+with the native procedure in encoded/native/native/encoded order, 1,000 calls
+per observation, identical loops, fixed source and explicit pre-run collection.
+ASCII contained 1,024 characters; mixed input repeated the four scalars in the
+Scheme block 128 times, totaling 512 characters and 1,280 UTF-8 bytes. Each run
+checked its summed result against the fixed expected width.
+
+| Component | Encoded counter delta | Native counter delta | Observed collections |
+|-----------+-----------------------+----------------------+----------------------|
+| ASCII | 2,209,104 bytes in both observations | 129,104 bytes in both observations | 0 for every observation |
+| Mixed | 2,721,104 bytes in both observations | 129,104 bytes in both observations | 0 for every observation |
+
+These are process-statistics counter differences with no collection, not peak
+memory or complete-parser allocation. CPU observations were 1.806/1.847 ms
+versus 1.091/1.100 ms for ASCII, and 2.128/3.204 ms versus 0.951/1.628 ms for
+mixed input. This small component study does not admit a stable end-to-end speed
+ratio. It uses the existing SDK in =gxi=, not two separately qualified native
+parser products.
+
+The first mixed command-line probe failed its expected-width check: the intended
+U+1F600 literal arrived in the evaluated string as U+F600. Integer-based scalar
+construction corrected the workload and the full rerun ended with
+=SDK-UTF8-COMPONENT-OK= and exit zero. This observes the command-line evaluation
+path; it does not establish a reader, FFI or parser cause. The failed mixed run
+is excluded from the admitted observations.
+
+The combined source run passed 144 distinct Cases across scanner, deferred
+scanner, source/parser, artifact, recognition spans, event strategy and
+Bash/HCL/HL7/FHIRPath. Admission required final =HARNESS-OK=, =OK=, no Case or
+Harness errors and exit zero. The source controls include structured Rust event
+strategy generation; they do not replace native Rust execution or exact-head CI.
+
+After integrating revision =750b8cd= (test and research changes), the added
+projection control Suite passed 13 Cases with final =HARNESS-OK= and =OK= and no
+Case or Harness errors. The matched complete-parser workload ended with
+=CONTEXTUAL-PARSER-SCALE-OK= and exit zero: prepared and unprepared products
+remained equal, validated and round-tripped, including rejection. This is a
+semantic integration receipt, not an old/new UTF-8 performance comparison.
+
+The installed SDK compiler also optimized and expanded all three changed
+production modules with =invoke-gsc: #f=, =optimize: #t= and =generate-ssxi: #t=.
+Each module ended with =SDK-OPTIMIZE-OK= and the process exited zero. This
+confirms compiler expansion and helper binding; it does not qualify native C
+compilation, linking or execution.
+
+* Deferred marker comparison: filter before materialization
+
+The installed SDK binary resolves =:std/string/misc= through
+=module-context-path= and =import-module= to its installed =misc.ssi=. The matching
+=src/std/string/misc.ss= implements =string== with a length filter, an identity
+fast path and =%string-compare= over explicit string intervals. This is a useful
+source-level mechanism to study, rather than a reason to assume every call to
+the interval API improves this parser.
+
+Both =marker-line-end= and =profile-marker-end= previously constructed a
+substring for every body line before checking marker equality. Comparing
+character counts first rejects impossible candidates without materializing a
+comparison string. This is valid after line-ending removal and optional tab
+stripping: equality requires the remaining source interval and marker to have
+identical character counts. Equal counts still require content comparison.
+
+#+begin_src scheme
+;; Shared private engine operation; no language-facing DSL addition.
+(def (marker-slice=? source start end marker)
+  (and (= (- end start) (string-length marker))
+       (string=? (substring source start end) marker)))
+#+end_src
+
+*Why is this preferable?* Length-incompatible body lines avoid their temporary
+string copy; equal-length candidates retain Gambit's existing string comparison.
+The optimization lives in the shared executor and serves both line-ending
+policies without introducing a language callback or new public contract.
+
+*Why is it scientifically justified?* The length condition is necessary for
+string equality, not a heuristic about particular languages. The public scanner
+controls include equal-prefix, equal-suffix and repeated-marker body lines,
+Unicode markers, stripped tabs, a final marker without a line ending, and both
+LF and CR profile separators. Existing controls cover CRLF, empty quoted
+markers, checkpoints, source ownership and incomplete bodies.
+
+The initially proposed direct SDK =string== interval replacement passed semantic
+controls, but the component observations did not justify adopting it. For 1,000
+comparisons of ="EOF"=, the copying control observed 0.194/0.196 ms CPU versus
+0.609/0.589 ms for the interval API. Long equal Unicode content also favored the
+existing comparison. The component fixture normalizes =string=='s truthy result;
+Scheme truth is not restricted to =#t=. No API or optimizer defect is inferred
+from this result.
+
+The admitted copying/guarded ABBA component control uses identical source and
+marker values, nonzero source offsets and five fixtures. For a 1,024-character
+Unicode body versus ="EOF"=, copying observed 0.688/0.341 ms CPU and a 4,529,232
+allocation-counter delta; guarded comparison observed 0.215/0.210 ms and
+385,232. All observations had zero collections. Equal-length candidates retain
+the same allocation delta and add the length check: short equal markers
+observed 0.262/0.274 ms versus 0.194/0.196 ms for copying. This tradeoff is
+retained; there is no universal latency improvement claim. The first probe used
+incorrect process-statistics slots and its counter results are excluded. The
+admitted probe uses cumulative GC-count slot 6 and allocated-byte slot 7.
+
+The reproducible Scheme component fixture is
+=t/benchmarks/contextual-scanner/marker-comparison.ss=. It performs 1,000 calls
+per observation, checks every observation's expected match count, collects
+before each observation and emits =SDK-MARKER-COMPONENT-OK= only after every
+fixture passes. The interval alternative has two exploratory observations;
+only copying/guarded are ordered ABBA. These are SDK component observations in
+=gxi=, not peak live memory or an old/new native parser qualification.
+
+The final executor passed 89 source Cases across contextual scanning, deferred
+scanning and Bash/HCL parser integration. Admission required final =HARNESS-OK=
+and =OK= with no Case or Harness errors. The existing deferred-scale workload
+passed three 256-delimiter observations with complete token order, lossless
+source coverage and empty final delimiter obligations. The SDK compiler also
+optimized and expanded =contextual-scanner.ss= with =invoke-gsc: #f= and ended
+with =SDK-MARKER-OPTIMIZE-OK=. Expansion and source receipts do not replace
+native compilation, execution or exact-head CI.
+
+* Incremental checkpoint publication: native bounded list operations
+
+The deferred-marker study concerns individual recognition decisions. The next
+pipeline stage publishes an incrementally scanned prefix and certified suffix.
+Previously, that stage converted every old checkpoint into a list and discarded
+the prefix with =list-tail=. It also joined both reversed token and checkpoint
+prefixes using =append= after =reverse=, allocating an intermediate prefix list.
+
+The installed SDK provides a direct solution. =src/gerbil/builtin.ssxi.ss=
+declares one-, two- and three-argument =vector->list= forms; the latter two accept
+fixnum interval bounds. Binary evaluation confirmed =(vector->list #(0 1 2) 1 3)=
+yields =(1 2)=. The native =append-reverse= binding is exposed through
+=gerbil/core/runtime.ss= and used by the official C3 implementation in
+=gerbil/runtime/c3.ss=. These existing primitives avoid a custom traversal API.
+
+#+begin_src scheme
+;; Preserve fresh rebinding while materializing only the certified suffix.
+(map rebind-checkpoint (vector->list old-states (+ index 1)))
+;; Copy a reversed private prefix once; retain the freshly created suffix.
+(append-reverse tokens reused)
+(list->vector (append-reverse states rebound))
+#+end_src
+
+*Why is this preferable?* The executor visits the old checkpoint interval it
+actually needs. It removes the discarded checkpoint-prefix list and the two
+intermediate reversed-prefix lists. Token strings are still copied, suffix
+checkpoints still bind the new worker/source, and published values cannot mutate
+session history. Language grammar, parser metadata and DSL admission stay out of
+this internal representation change.
+
+*Why is it scientifically justified?* For a proper reversed prefix, native
+=append-reverse= yields the same ordered elements as =append= after =reverse=,
+without mutating that prefix. The suffix starts after the converged checkpoint;
+the scanned prefix already owns that checkpoint. Omitting that boundary would
+lose a state; including it twice would break the one-state-per-token boundary
+index. Tests compare complete token traces against fresh scans and replay the
+result as history after prefix, middle, tail, EOF and empty-source edits. They
+also mutate published tokens and require both old and new histories to remain
+unchanged.
+
+An initial SDK =subvector-for-each= plus =with-list-builder= candidate passed
+semantic controls, but its callback path increased component costs for long
+suffixes. With 4,097 checkpoints and 100 publications, a one-checkpoint prefix
+observed about 63.6/65.5 ms CPU and a 133,147,256 allocation-counter delta,
+versus 26.9/28.5 ms and 86,027,408 for the original copying control. This
+candidate was rejected. The final implementation uses native interval
+=vector->list= and native =append-reverse=, with no added library imports.
+
+The admitted copying/native-bounded ABBA observations are:
+
+| Prefix / suffix checkpoints | Copying CPU ms | Native-bounded CPU ms | Copying allocation delta | Native-bounded allocation delta |
+|-----------------------------+----------------+-----------------------+--------------------------+---------------------------------|
+| 1 / 4096                    | 28.482, 26.896 | 27.486, 28.134        | 86027408                 | 86017808                        |
+| 2049 / 2048                 | 19.886, 20.028 | 8.627, 8.589          | 72493496                 | 55744432                        |
+| 4096 / 1                    | 2.969, 2.735   | 1.517, 1.419          | 62314032                 | 22992432                        |
+| 4097 / 0                    | 2.685, 2.688   | 1.458, 1.438          | 62307632                 | 22976432                        |
+
+These are SDK component observations in =gxi=, not separately compiled native
+parser products. The first fixture has little benefit; long retained prefixes
+avoid more discarded work. Counters use cumulative slots 6 (collections) and 7
+(allocated bytes); collections occurred in some observations. They are not peak
+live memory or a complete-parser latency ratio. The reproducible fixture is
+=t/benchmarks/source-edits/checkpoint-publication.ss=; the callback alternative
+is retained as an exploratory comparison, not production code.
+
+The final source executor passed 55 Cases across source scanning, deferred
+scanning and Bash parser integration with final =HARNESS-OK= and =OK=, no Case or
+Harness errors and exit zero. SDK optimized expansion of =source-scanner.ss=
+ended with =SDK-SESSION-OPTIMIZE-OK= using =invoke-gsc: #f=. This confirms expansion,
+not native linking or execution.
+
+The complete Scheme workload =t/benchmarks/source-edits/session-parser.ss=
+checks prefix, middle and tail edits plus grammar and lexical rejection against
+independent fresh parsing. Every complete artifact must be equal, valid and
+round-trip to the input. Its fresh/session ABBA run ended with
+=SOURCE-SESSION-PARSER-OK= and exit zero. Existing session reuse is part of this
+comparison, so its CPU observations do not isolate this publication change.
+An old/new native parser qualification remains a separate performance gate.
+
+After rebasing onto =650283d=, the combined source controls passed 131 Cases
+including the new result-projection and EventFold suites, with final =OK= and
+no Case or Harness errors. The complete session workload again ended with
+=SOURCE-SESSION-PARSER-OK= and exit zero. These post-rebase receipts cover the
+new composition with the projection and request-isolated EventFold changes;
+they do not replace exact-head native CI.
+
+** LR fragment and GLR fork joins use the same native mechanism
+
+The source-session publication study also exposed four equivalent joins in the
+shared LR executor. Fragment reuse joined ordered token/mode segments to reversed
+accumulators with =append= after =reverse=. Both streamed and captured directed
+GLR forks reconstructed an ordered prefix plus freshly scanned suffix using
+=foldl cons=. The installed SDK binary resolved =:gerbil/runtime/c3= to its
+installed interface, and the corresponding C3 source uses =append-reverse= for
+this same persistent reversed-prefix operation. =builtin.ssxi.ss= declares the
+operation's list arguments, list return and allocation effect.
+
+#+begin_src scheme
+;; Ordered fragment into a reversed accumulated token/mode chain.
+(append-reverse segment tokens-reversed)
+(append-reverse segment-modes modes-reversed)
+;; Reversed scanned prefix into an ordered complete fork input.
+(append-reverse tokens-reversed suffix)
+#+end_src
+
+*Why is this preferable?* Fragment joins allocate the reversed segment once
+instead of constructing and copying it. Fork joins use the native operation
+instead of a general fold invoking =cons=. The existing checkpoint and observer
+calls still own admission, capture and GLR fallback; this only replaces private
+list assembly. No public DSL, source-byte rule or language-specific shortcut is
+introduced.
+
+*Why is it scientifically justified?* For proper input lists, both
+=(append (reverse head) tail)= and =(foldl cons tail head)= equal
+=(append-reverse head tail)=. The non-destructive operation preserves the input
+head and shares the exact retained tail. The existing publication component
+fixture now checks those properties at empty-prefix, empty-tail, singleton,
+256-element and 1,024-element dimensions, with each control/native pair in ABBA
+order and 1,000 joins per observation.
+
+At 1,024 prefix elements and 16 suffix elements, fragment copying observed
+14.223/13.811 ms CPU and a 98,465,440 allocation-counter delta, versus
+1.365/1.356 ms and 49,313,232 for native joining. Copying collected once in each
+observation; native joining did not. The fold control observed 5.332/5.328 ms
+and 49,457,232 versus 1.382/1.327 ms and 49,313,232 for native joining, all with
+zero collections. These are interpreted SDK component observations, including
+the observed collection differences, not a stable native-parser speed ratio.
+The fixture ended with =PARSER-JOINS-OK= and =CHECKPOINT-PUBLICATION-OK=.
+
+The production executor passed 54 Cases across runtime, recovery/incremental,
+incremental-suffix benchmark controls and GQL parsing, with final =HARNESS-OK=
+and =OK=, no Case/Harness errors and exit zero. SDK optimized expansion ended
+with =SDK-PARSER-JOINS-OPTIMIZE-OK= using =invoke-gsc: #f=; this does not qualify
+native C linking or execution.
+
+The existing =topology-hcl-capture 64= complete workload passed six first/middle/
+last insertion/deletion controls and inverse edits, with five timing samples per
+path. The first insertion admitted 64 reused recognition fragments, so fragment
+joining was exercised rather than inferred from a semantic no-reuse path.
+Fresh artifact median CPU was 1.226 ms versus 8.524 ms for the cached capture
+path in that observation. This negative overall comparison remains visible:
+those paths include existing capture, certification and incremental bookkeeping
+costs and do not isolate the four join replacements. The component result does
+not isolate the overall session costs. The follow-up
+[[file:source-edit-cost-contract.org::*Matched LR session responsibilities][matched LR session study]]
+adds checkpoint-only and fresh captured-session controls: artifact-only fresh
+parsing and cached capture have different executor and publication obligations.
+
+* Dependency order for further implementation
+
+1. *Shared source spans.* Own one admitted source and its character/byte boundary
+   mapping. Internal captures carry owner/start/end; decomposition reuses that
+   owner. Materialize public strings at the artifact boundary. Preserve rejection
+   of caller mutation, cross-source spans, non-scalar Unicode and stale checkpoints.
+2. *Demand-driven scanning.* Reuse immutable step/checkpoint semantics to provide
+   lookahead without whole-source token/remaining/emitted list duplication.
+   Rejected sources must still obtain a complete covering fallback artifact;
+   edit restoration and heredoc obligations remain intact.
+3. *Projection and event fusion.* Compile the closed projection plan into event
+   emission. Keep recognition nodes where consumers require them. Field order,
+   identities, trivia, diagnostics, offsets and complete artifacts remain equal.
+4. *Static AOT specialization.* Generate Scheme and Rust execution from the same
+   admitted plan. Prepared closures are not yet grammar-specific generated
+   character branches. Checkpoint equivalence, IR identity and the common ABI
+   constrain both backends.
+
+Each step first establishes ownership and semantic controls, then uses the
+existing benchmark owners for matched complete-product ABBA measurements under
+the same GCC SDK. Hold input, output validation, natural GC, destruction, timing
+boundaries and worker count constant. Record complete CPU, allocation per input
+byte and GC. Include ordinary text, Unicode, nesting, overlapping delimiters,
+dynamic markers, rejection and edit restoration across Bash, HCL, HL7, FHIRPath
+and contextual LR. Component timings cannot replace complete-product timing.
+
+* Prior implementation receipts and retained negative results
+
+The implementation started at =bc9a56a= and aligned to =021f97a=; intervening
+commits did not change the scanner/region/shell/artifact/source-strategy product
+paths. Native scanner preparation took 18.966 s and exited zero.
+
+Contextual scanner 13, deferred scanner 13, Bash 29, HCL 30 and HL7 5 Cases
+completed: 90 total, 9.711 s, exit zero. Guard controls compared ASCII/Unicode
+prefix exclusions and exceptions, actual tokens and UTF-8 offsets for direct IR
+and prepared plans. Complete short/heredoc/compound/large artifacts matched the
+native baseline. Preliminary 12 batches of 10 complete parses remained about
+37–40 ms/parse. Without symmetric frozen products, complete ABBA and current
+allocation data, no speedup is admitted.
+
+An initial child printed assertions but did not exit; its five-second idle gate
+failed. The existing completed-child entry subsequently provided real completion
+without changing deadlines. A cold-start attempt also failed; real dependency
+initialization diagnostics enabled a later completed run. Both first failures
+remain failures.
+
+After qualification owners moved to =t/support/qualification=, old products did
+not prove that the new entry could load. An initial extra contract run failed at
+module loading. Preparing its declared POSIX child module resolved that boundary.
+On =021f97a=, nine modules then completed: the preceding 90 Cases plus contextual
+parser 15, source scanner 11, source contract 2 and ParseArtifact 8, totaling 126.
+The controller reported =TEST-SUITE-OK modules=9=, =OK=, exit zero and no missing
+receipt in 14.178 s, under 120 s total and five seconds of real-output inactivity.
+
+* Source-reading receipt at a725a69
+
+At =a725a69=, the standard source command below completed the existing 13
+contextual scanner Cases, =HARNESS-OK= and =OK=, exit zero. This verifies the
+implemented scanner controls; it does not qualify proposed spans/fusion, record
+a new performance comparison or assert exact-head CI closure.
+
+#+begin_src scheme
+;; Ordinary source Suite; no qualification executable is a prerequisite.
+;; GERBIL_LOADPATH="$PWD/.." gerbil test -v 5 t/contextual-scanner-test.ss
+#+end_src
+
+* Implemented: exact-size source reconstruction in shared artifact validation
+
+The shared ParseArtifact validator previously called =display= into a general
+string port for every validated token. Its new reconstruction algorithm retains
+references to admitted lexemes in reverse event order, then uses the standard
+=string-concatenate-reverse= algorithm: sum actual character lengths, allocate
+one result string, and copy each fragment into its final position.
+
+Reconstruction takes O(characters + tokens) work and O(tokens) fragment-list
+storage, alongside the owned output string. Allocation follows actual lexeme
+lengths; an untrusted =sourceByteLength= does not determine reserved capacity.
+Token coverage, UTF-8 byte lengths, node/field balance, terminal IDs, root count,
+status, diagnostics, and source digest checks continue to run. The output remains
+a fresh owned string. This algorithm applies to every shared ParseArtifact
+consumer and requires no language declarations or ABI changes.
+
+The original validator was frozen under a private test namespace. Both baseline
+and candidate artifact modules were compiled symmetrically with the fixed SDK,
+GCC16 -O1, gxc optimization, and identical compiler diagnostic flags. A separately
+compiled native Scheme control exercised both implementations in one process.
+File IO, module loading, preparation, equality preflight, and sample output were
+outside timing. One initial GC preceded sampling; natural GC remained timed.
+
+Four full public products, for short, heredoc, compound, and large Bash inputs,
+were accepted and reconstructed identically by both validators. Corrupt source
+lengths, source digests, and truncated event streams retained the same admission
+results. The complete engine controls also proved full artifact equality with
+the public parser before measurement.
+
+Each block ran one untimed warmup and 11 measured single requests in old/new/new/old
+order. Allocation deltas were admitted only without GC. These component and
+complete-engine medians must not be added together.
+
+| Control | CPU P50 ms/request | No-GC allocation P50 bytes | Admitted allocation samples |
+|---------+--------------------+---------------------------+-----------------------------|
+| validation-old-a | 2.744 | 14434568 | 10 |
+| validation-new-a | 1.315 | 5372840 | 11 |
+| validation-new-b | 1.451 | 5372840 | 10 |
+| validation-old-b | 2.697 | 14434184 | 10 |
+| complete-old-a | 29.347 | 48974320 | 7 |
+| complete-new-a | 30.258 | 39912208 | 8 |
+| complete-new-b | 28.419 | 39912208 | 8 |
+| complete-old-b | 30.519 | 48973552 | 7 |
+
+Validation allocation falls approximately 62.78%; the complete-engine control
+falls approximately 18.50%, or about 9.06 MB per request on this corpus.
+Complete CPU pair A regresses 3.10%, while pair B improves 6.88%. Consequently,
+this establishes an allocation improvement, not a stable complete-parse speedup.
+It does not close the measured Tree-sitter gap.
+
+The complete controls include prepared engine parsing, complete artifact
+construction, the selected validator, grammar identity comparison, and source
+identity comparison. Both execute the same producer and publication obligations.
+They are independently compiled diagnostic controls, not timing samples from
+the public parser entry itself. No public-entry latency claim follows.
+
+Native ABBA qualification completed in 11.064 s with exit status 0 and
+=ARTIFACT-COPY-CONTROL-OK=. Seven test modules completed 85 cases in 29.349 s,
+including ParseArtifact, recognition spans, source contracts, Bash, HCL, HL7,
+and FHIRPath. The controller reported =TEST-SUITE-OK modules=7=, =OK=, exit 0,
+and no missing receipts. The added contract case covers returned-string
+ownership, empty source, and rejection of a false 4 GiB advertised byte length.
+
+The first symmetric compiler run failed its five-second idle guard while GCC
+was quiet. The rerun enabled actual GCC optimization-decision reports on both
+sides, retaining the optimization level and deadlines. It completed in 23.823 s
+with exit status 0. The native control compiled in 26.886 s with exit status 0.
+The first compiler failure remains excluded. Compiler diagnostics are outside
+runtime timing and do not establish that the original silent compile had stalled.
+
+The comparison modules and native control are temporary experiment owners,
+excluded from the implementation commit. Production changes are confined to
+shared reconstruction; permanent semantic controls remain in the existing
+ParseArtifact suite.
+
+* Integration with artifact reconstruction
+
+The winner-only change was rebased onto =e386be0=, which independently changed
+validated artifact reconstruction. The rebased product controls passed 83 Cases:
+source recognition, Bash/HCL/HL7/FHIRPath and ParseArtifact, including the new
+Unicode reconstruction control. Final =HARNESS-OK=, =OK= and process exit zero
+were required. The complete existing parser workload was repeated and finished
+with =CONTEXTUAL-PARSER-SCALE-OK=. This extends the semantic receipt to the
+combined changes; it is still not an old/new native timing comparison or CI
+closure. The 55 scanner/deferred/source/parser Cases were then repeated on the
+rebased implementation and completed with final =OK= and exit zero. Together
+with the 83 product Cases, 138 distinct Cases passed on the combined code.
+
+* Rejected experiment: prepared closures for every projection operation
+
+The general projection interpreter was replaced experimentally with prepared
+operation closures. Static field and terminal checks stayed in preparation;
+request captures, source offsets and supplied child nodes remained dynamically
+admitted. A private request frame held the reverse child list and immutable
+sequence. The two existing single-operation fast paths stayed intact.
+
+This does not implement flap's generated, direct-call staged parser. Section 2.8
+and section 5.4 describe specialization that removes intermediate higher-order
+calls. Binding an operation to another closure retains an indirect call per
+operation and adds request-frame storage. The distinction matters for this DSL:
+prepared vocabulary is not evidence of specialized runtime code.
+
+Both engines were compiled with the same fixed GCC SDK, optimization flags and
+native consumers. Four complete artifacts matched each other and the public
+parser before timing. Single-request ABBA blocks included natural GC, one untimed
+warmup per block and 11 measurements; only no-GC allocation deltas were admitted.
+
+| Control | CPU P50 ms/request | No-GC allocation P50 bytes | Allocation samples |
+|---------+--------------------+---------------------------+--------------------|
+| original-a | 32.932 | 39912208 | 8 |
+| closures-a | 47.442 | 39821648 | 8 |
+| closures-b | 46.698 | 39821008 | 8 |
+| original-b | 46.043 | 39912528 | 8 |
+
+The allocation reduction is approximately 0.23%. Neither paired comparison
+supports a complete-engine speed improvement. The original engine also slows
+substantially between blocks; concurrent host work prevents attributing the
+entire CPU difference to the transformation. This candidate was removed rather
+than promoted. Native qualification completed in 34.306 s, with exit 0 and
+=PROJECTION-STAGE-CONTROL-OK=.
+
+The permanent mixed-projection contract test covers optional spans, required
+nodes, repeated and empty parts, Unicode source origins, empty projections,
+foreign kinds, malformed parts and parent containment. Six modules completed
+87 cases in 19.301 s with exit 0 and all completion receipts. That receipt is
+for the closure experiment, before rebasing the latest scanner revision.
+
+The next experiment fuses dynamic child admission with child construction in
+the existing general executor. It retains opcode dispatch and does not claim
+full lexer/parser fusion. Compile-time admission proves parent, field and
+terminal membership; runtime admission must still prove supplied child kinds
+and byte containment. Only those redundant checks and traversals can be removed.
+
+* Rejected experiment: fused child admission in general projections
+
+A second candidate retained the general opcode executor, eliminated its final
+=result-plan-node= traversal and fused supplied-node kind/span admission with
+child construction. Static parent, field and terminal checks stayed in plan
+compilation. It introduced no request frame or per-operation prepared closure.
+This was a shared-engine transformation; language declarations were untouched.
+
+The sole PR's scanner match-materialization revision =8e98e83= was rebased first.
+Both controls then used that same scanner, the same fixed GCC SDK and flags,
+complete publication validation and the original projection baseline. Four
+complete products again matched both implementations and the public parser.
+
+| Control | CPU P50 ms/request | No-GC allocation P50 bytes | Allocation samples |
+|---------+--------------------+---------------------------+--------------------|
+| original-a | 28.021 | 39461328 | 8 |
+| fused-a | 28.806 | 39236048 | 8 |
+| fused-b | 31.696 | 39235408 | 7 |
+| original-b | 28.133 | 39461648 | 8 |
+
+The allocation reduction is approximately 0.57%. CPU pairs regress approximately
+2.80% and 12.67%; this does not support a full-engine optimization. Qualification
+completed in 11.417 s with exit 0 and =PROJECTION-STAGE-CONTROL-OK=. The production
+candidate was removed. Small traversal changes are insufficient evidence of a
+solution to the measured Tree-sitter gap.
+
+Compilation initially failed the five-second idle guard, including a run of the
+unchanged scanner. Compiler diagnostics were buffered and repeatedly ended in
+truncated declaration lines. Disabling buffering on the temporary compiler
+control's diagnostic ports exposed actual work without synthetic progress.
+The same GCC flags and deadlines then completed both modules in 21.766 s with
+exit 0. These compiler failures do not establish parser runtime regressions.
+

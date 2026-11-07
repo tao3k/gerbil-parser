@@ -1,0 +1,54 @@
+#+title: Separate Rust AOT and Scheme VM engine baselines
+
+* Scope
+
+This is the shared arithmetic grammar, NOT Org Fold, bridge throughput,
+Tokio queueing, Python delivery or SMP parallelism. Both backends parse the
+same changing sources and materialize a lossless text roundtrip. Each batch
+retains its inputs; preparation and one warmup request precede timing.
+Twenty batches each at 1000, 10000 and 100000 requests are required.
+
+The Rust target is Cargo's optimized bench profile executing generated Rust
+tables. The Scheme target is an optimized Gerbil executable executing Scheme
+on the VM; AOT compilation does not reclassify it as Rust. Serial concurrency
+one is a measurement control, NOT a runtime thread/actor/VM configuration.
+No SMP test or feature is blanket skipped.
+
+Per-request time covers parsing and roundtrip materialization; batch wall
+also covers timers, recording, validation and result release/collection.
+Roundtrips must equal the input for every request. Corpus SHA256, grammar
+digest, batch index, input bytes and boundary must agree across backends.
+Never compare unmatched grammar or corpus receipts.
+
+P95/P99 are nearest-rank per-request microseconds. Summary values are medians
+of twenty batch percentiles, not pooled request percentiles. Rust uses Instant
+(monotonic); Scheme uses its existing integer-nanosecond realtime SDK clock,
+rejecting backwards observations. Zero-resolution samples remain explicit.
+Clock differences preclude a sub-resolution latency claim.
+
+Peak process RSS includes runtime/image, input/corpus and sampling storage.
+It is collected per load/process by platform time (Darwin bytes, Linux KiB
+converted to bytes), not inferred from allocation/GC counters or presented as
+per-batch incremental memory. Rust additionally reports reserved input String
+and vector bytes; unavailable Scheme capacity is not zero. No new memory or
+tail-latency threshold is invented. These are baseline measurements, not a
+relative regression acceptance or evidence of the historical Org target.
+
+* Native owners
+
+Use the declared package environment and build the parser library first:
+
+#+begin_src sh
+gerbil deps --install
+gerbil build
+gerbil env just build-scheme-backend-baseline OUTPUT
+just build-rust-backend-baseline OUTPUT
+#+end_src
+
+The latter retains Cargo's compiler-artifact metadata; use its executable
+field, not a cargo process under the memory/time wrapper. Run each built
+executable separately through =just run-backend-baseline BINARY LOAD RECEIPT=.
+No compiler or duplicate matrix may run during sampling. Retain failures and
+resource sidecars. Name receipts =rust-aot-LOAD.ss= and =scheme-vm-LOAD.ss=,
+then use =just report-backend-baseline OUTPUT= to verify all sixty pairs.
+Do not label a completed baseline as an optimization or a hard-gate pass.

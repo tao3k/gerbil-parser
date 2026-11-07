@@ -1,0 +1,167 @@
+#+title: RFC 0014 — Persistent LR event programs
+#+startup: overview
+
+* Structural target and transfer from research
+
+The rejected sequence fusion experiment in RFC 0013 retained recognition
+nodes and changed their children container. It did not remove the intermediate
+semantic representation between LR reductions and canonical publication.
+This experiment replaces that representation at the deterministic LR action
+boundary: field and alias actions produce persistent event instructions.
+
+[[https://homepages.inf.ed.ac.uk/wadler/topics/deforestation.html][Wadler's deforestation]] motivates eliminating an intermediate tree between
+producer and consumer. This implementation supplies a dedicated semantic
+backend; it does not implement the paper's general compiler transformation.
+[[https://lezer.codemirror.net/docs/ref/][Lezer's tree representation]] motivates compact instruction storage and
+retaining reusable pieces by identity. Lezer TreeBuffer uses 16-bit quadruples;
+this backend uses private Scheme records and full UTF-8 byte positions. No
+16-bit packing or performance result from Lezer is transferred. The existing
+LR runtime, entry/exit states, lookahead and lexical mode proofs remain the
+reuse authority. An event program alone is not a reuse certificate.
+
+* Producer, storage, consumer
+
+=src/runtime/event-reduce.ss= implements the original pass/concat operand
+actions using field frames, node instructions, concatenation branches and
+position views. Tokens themselves are token instructions. A node value is
+also its instruction, eliminating an extra opcode packet. Frame bodies are
+shared; concatenation does not copy either operand. Fragment instructions
+preserve a trivia boundary before an enclosing field closes.
+
+The backend freezes the field label when lowering an action. Recognition
+children expose a field setter, so no identity cache indexed by those mutable
+children is introduced. Legacy recognition values can be converted, but the
+native event path directly produces programs. Legacy conversion is recursive
+and is not claimed to be stack safe for arbitrary external trees.
+
+=event-program-walk= uses an explicit continuation stack. Its traversal is
+O(instructions), preserves source order, and composes position views without
+allocating translated token objects. Cancellation to zero retains moved
+provenance. Program bodies are private; public constructors and visitors do
+not expose mutable instruction storage.
+
+=event-program-events= in the existing artifact owner consumes the program
+directly into the final canonical event list. No flat intermediate event tape
+is constructed. IDs are allocated at publication, root bounds are clamped,
+and trivia is interleaved at the same semantic boundaries. Existing artifact
+schema, hashing and source ownership apply unchanged. Unmoved token operands
+must match the current token by identity; moved operands must match kind,
+lexeme and translated byte bounds. The final publication remains linear in
+output events and tokens. It cannot remove the complete-artifact lower bound.
+
+* Runtime authority and fallback
+
+=current-lr-event-program-enabled?= defaults to false. The prepared-runtime
+factory selects a separate runtime identity, sharing original LR tables,
+action indexes and lexical modes. Checkpoints and fragments retain that
+identity. Captured sessions bind the complete ParserMachine to that selected
+runtime, including the token parser closure. This keeps the machine,
+checkpoint and recognition fragment on the same exact runtime identity;
+fragment admission retains its existing eq? ownership checks. Semantic
+reductions do not read the switch per action.
+
+Only deterministic pass/concat runtimes are admitted. Layout, dynamic
+production semantics and selective GLR forks retain their existing semantic
+backend. A generic event reducer supports eligible runtimes. HCL additionally
+installs a digest-checked generated =direct-event-step=, generated from the
+same original step definition with field/alias actions lowered to programs.
+
+The original production projector calls the original materialized reducer.
+It independently replays grammar reductions and current token binding; it
+does not project the retained event program. Complete fresh artifacts and
+inverse edits supply additional independent conformance checks.
+
+* Falsifiable experiment and qualification
+
+The existing full request benchmark covers flat HCL 400/800 declarations,
+nested HCL 8/16 groups, first/middle/last insertion and deletion, and edit
+histories. Both variant orders use 20 CPU samples per row. Physical assertions
+require both an event root and the generated HCL event executor. Every edit
+compares the complete artifact against fresh parsing and original-production
+projection outside timed samples. Retained program identity is separately
+checked by the native event-program suite.
+
+Measurements require all 112 normal-exit rows and preserved log hashes.
+Five seconds without real child output and 180 seconds per test/benchmark
+batch remain failure conditions. A partial build or loaded module is not a
+semantic test receipt. Implementation alone does not qualify performance or
+justify enabling the backend by default.
+
+* Current evidence boundary
+
+At source =e1cb12d=, focused native qualification selected three modules and
+47 cases, all with normal exits and explicit completion. Native generated
+section completion separately recorded 276 generated source sections and
+manifest SHA256 =861003d6a37ebbc535a08363dadd7ead22f7c65f97f20e761c2fddd02275c471=.
+The first focused run failed while loading a stale/missing native section;
+that failed receipt remains preserved and is not counted as a pass.
+
+The subsequent correction binds the selected machine at captured-session
+creation and adds a positive transfer/count equality test plus backend
+persistence after changing the dynamic switch. ASP Scheme is upgraded from
+=v0.1.2.1= to =v0.1.2.2=, whose annotated tag resolves to
+=f5b7c009d2cab61144a8af18008a0bfba3056584=.
+Updated native qualification and matched performance must be recorded below
+before drawing a performance conclusion from the corrected implementation.
+
+* Next structural experiment if the corrected comparison remains negative
+
+The current lowering still produces recognition-child sequences, then
+=children-code= visits those sequences to create event branches and field
+frames. This removes late recognition-node replay, but keeps two sequence
+representations and an extra producer traversal. No benefit follows merely
+from calling the resulting representation an event program.
+
+A subsequent producer/consumer fusion experiment should share the semantic
+sequence and event instruction DAG: token/program leaves, frozen field
+labels, append branches with cached semantic bounds, and composed position
+views. Alias reduction can retain the existing sequence as its body; field
+reduction must preserve empty/singleton/named-singleton trivia boundaries.
+The original-production projector remains independent, and existing
+unrelated-runtime, lexical boundary, GLR and layout rejection proofs remain
+unchanged. This is a proposed implementation seam, not an implemented
+capability or measured speedup.
+
+That experiment must compare the same complete requests with equal transfer,
+scanner and certificate counters. Its first gate is positive physical sharing
+and complete artifact equality across Unicode, inverse and sequential edits;
+its performance gate is the entire 112-row, two-order matrix. Microbenchmarks
+of append or visitor dispatch alone do not establish request improvement.
+
+* Corrected complete-request comparison
+
+All 28 workloads were slower in both orders. Geometric mean request cost
+increases were 24.3% / 23.2% for flat topology edits, 21.8% / 27.0% for nested
+topology edits, 19.0% / 17.8% for flat histories and 21.0% / 21.9% for nested
+histories. These are same-head experimental-backend comparisons, not
+before/after production-default performance claims. The event backend remains
+disabled by default; performance admission is rejected.
+
+The ownership correction restores certified transfers but does not make the
+current event representation cheaper. The producer fusion experiment above
+is the next concrete structural seam; it remains proposed until implemented
+and measured. Generated HCL source consistency passed at this same source.
+
+* Whole native audit on the upgraded dependency
+
+The corrected package contract was separately rerun on its new commit: both
+cases passed with normal exit and explicit MODULE/HARNESS/final completion.
+Runtime, language and dependency source is unchanged since the whole audit.
+The whole audit and this focused correction are distinct receipts; the
+remaining observed gate failure is grammar-object construction time.
+
+* Subsequent producer/storage/consumer experiment
+
+RFC [[file:0015-unified-lr-semantic-event-sequences.org][0015]] records the shared LR/event sequence, bounded blocks, specialized
+consumer and persistent AVL joins. Its independent 112-row result is mixed,
+so it does not supersede the canonical default admission decision above.
+
+
+* Scheme/ASP verification owner
+
+Execute correctness assertions through the shared native Scheme harness.
+Performance admission uses =t/core-observability-test.ss=,
+=t/gql-runtime-benchmark-test.ss= and =t/incremental-suffix-benchmark-test.ss=,
+with their existing ASP =benchmark.ss= contracts. The repository's =Justfile=
+selects diagnostic microbenchmarks when a specific algorithm phase needs study.
+Workloads, samples and thresholds remain owned by those Scheme sources.

@@ -1,0 +1,222 @@
+(import :gerbil-parser/language-test-support)
+;;; -*- Gerbil -*-
+;;; The generic contextual scanner supplies an existing LR ParserMachine.
+
+(import (only-in :std/test check test-case test-suite)
+        (only-in :gerbil-parser/languages/hcl/grammar
+                 hcl-parser)
+        (only-in :gerbil-parser/src/runtime/machine
+                 parser-machine-grammar-digest parser-machine-contextual-ir parser-machine-ir)
+        (only-in :gerbil-parser/t/benchmarks/contextual-scanner/parser-fixture
+                 contextual-product)
+        (only-in :gerbil-parser/src/runtime/parser
+                 parse-source/contextual prepare-contextual-parser
+                 parse-source/contextual/prepared)
+        (only-in :gerbil-parser/src/runtime/identity sha256-text)
+        (only-in :gerbil-parser/src/runtime/contextual-ir contextual-parser-ir-valid? contextual-ir-ref)
+        (only-in :gerbil-parser/src/runtime/artifact
+                 parse-artifact-success? parse-artifact-events
+                 parse-artifact-status parse-artifact-ref
+                 parse-artifact-valid? parse-artifact-roundtrip
+                 token-event? token-event-token-kind token-event-lexeme))
+
+
+(deflanguage-parser-tests contextual-parser-test "contextual scanner LR integration"
+  (engine)
+    (scenario "ordinary LR machine owns the common admitted instruction product"
+      (scope ((ir (parser-machine-contextual-ir hcl-parser)))
+        (equal (contextual-parser-ir-valid? ir)  #t)
+        (equal (contextual-ir-ref (contextual-ir-ref ir 'recognition) 'program)
+                (parser-machine-ir hcl-parser))
+        (act (set-cdr! (assq 'root-kind ir) 'Foreign))
+        (equal (contextual-parser-ir-valid? (parser-machine-contextual-ir hcl-parser))  #t)))
+    (scenario "raw and prepared parsers own product and published artifact identities"
+      (sequential ((machine hcl-parser)
+             (literal (string-copy "1"))
+             (product (contextual-product machine (parser-machine-grammar-digest machine)
+                                          '(line) '((line () ())) literal))
+             (sources '("x = 1\n" "名字 = 1\n" "x = " "x = @你好\n"))
+             (references '()))
+        ;; Each cold request owns an actual artifact check. Accumulating four
+        ;; unchecked requests hid the preparation phase from the owner budget.
+        (each (source) (sources)
+          (scope ((reference (parse-source/contextual machine product source)))
+            (equal (parse-artifact-valid? reference) #t)
+            (equal (parse-artifact-roundtrip reference) source)
+            (act (set! references (cons reference references)))))
+        (sequential ((plan (prepare-contextual-parser machine product))
+                     (expected (reverse references)))
+          (act (string-set! literal 0 #\2))
+          (act (set-cdr! (car (cdr (assq 'state-positions (cdr (assq 'context product))))) 'foreign))
+          (act (string-set! (cdr (assq 'digest product)) 0 #\x))
+          (scope ((artifact (parse-source/contextual/prepared plan (car sources))))
+            (act (string-set! (parse-artifact-ref artifact 'grammarDigest) 0 #\x)))
+          (each (source reference) (sources expected)
+             (scope ((artifact (parse-source/contextual/prepared plan source)))
+               (equal artifact  reference)
+               (equal (parse-artifact-valid? artifact)  #t)
+               (equal (parse-artifact-roundtrip artifact)  source)))
+          (equal (with-catch (lambda (condition) (error-message condition))
+                   (lambda () (parse-source/contextual machine product "x = 1\n") #f))
+                  "contextual parser product does not match parser machine"))))
+    (property "prepared parser rejects mismatched products and raw plan inputs"
+      (bindings)
+      (equal (with-catch (lambda (condition) (error-message condition))
+               (lambda () (prepare-contextual-parser hcl-parser
+                              (contextual-product hcl-parser "other")) #f))
+              "contextual parser product does not match parser machine")
+      (equal (with-catch (lambda (condition) (error-message condition))
+               (lambda () (parse-source/contextual/prepared '() "") #f))
+              "contextual parser requires prepared plan and source"))
+    (scenario "self-consistent non-symbol positions fail both runtime admissions"
+(locals ((resign (lambda ( datum)
+        (let (body (filter (lambda (row) (not (eq? (car row) 'digest))) datum))
+          (append body (list (cons 'digest (sha256-text
+                           (call-with-output-string (lambda (port) (write body port)))))))))))
+
+      (sequential ((machine hcl-parser)
+             (product (contextual-product machine (parser-machine-grammar-digest machine)))
+             (position (string-copy "line"))
+             (scanner (resign
+                       (map (lambda (row) (if (eq? (car row) 'positions)
+                                            (cons 'positions (list position)) row))
+                            (cdr (assq 'scanner product)))))
+             (altered (resign
+                       (map (lambda (row)
+                              (case (car row)
+                                ((scanner) (cons 'scanner scanner))
+                                ((context)
+                                 (cons 'context
+                                   (list (cons 'state-positions
+                                     (map (lambda (entry) (cons (car entry) position))
+                                          (cdr (assq 'state-positions (cdr row))))))))
+                                (else row))) product))))
+        (each (admit) ((list (lambda () (prepare-contextual-parser machine altered))
+               (lambda () (parse-source/contextual machine altered "x = 1\n"))))
+           (equal (with-catch (lambda (condition) (error-message condition))
+                    (lambda () (admit) #f))
+                   "invalid contextual LR position table")))))
+    (property "HCL grammar accepts tokens from the generic scanner"
+      (bindings (source "x = 1\n") (machine hcl-parser) (product
+              (contextual-product machine
+                                  (parser-machine-grammar-digest machine))) (artifact
+              (parse-source/contextual machine product source)) (tokens (filter token-event? (parse-artifact-events artifact))))
+      (equal (parse-artifact-success? artifact)  #t)
+      (equal (parse-artifact-ref artifact 'grammarDigest)
+                (cdr (assq 'digest product)))
+      (equal (map token-event-token-kind tokens)
+                '(identifier horizontal-whitespace punctuation
+                     horizontal-whitespace number newline))
+      (equal (apply string-append
+                      (map token-event-lexeme tokens))
+                source))
+    (property "LR rejection remains a rejected ParseArtifact"
+      (bindings (machine hcl-parser) (artifact
+              (parse-source/contextual
+               machine
+               (contextual-product
+                machine (parser-machine-grammar-digest machine))
+               "x = ")))
+      (equal (parse-artifact-status artifact)  'rejected)
+      (equal (parse-artifact-valid? artifact)  #t)
+      (equal (parse-artifact-roundtrip artifact)  "x = "))
+    (scenario "rejected lookahead and unscanned suffix retain UTF8 coverage"
+      (sequential ((machine hcl-parser)
+             (product (contextual-product
+                       machine (parser-machine-grammar-digest machine))))
+        (each (source) ('("x x = 1\n" "x = @你好\n"))
+           (scope ((artifact (parse-source/contextual machine product source)))
+             (equal (parse-artifact-status artifact)  'rejected)
+             (equal (parse-artifact-valid? artifact)  #t)
+             (equal (parse-artifact-roundtrip artifact)  source)))))
+    (property "different grammar identity is rejected before scanning"
+      (bindings)
+      (equal
+       (with-catch
+        (lambda (condition) (error-message condition))
+        (lambda ()
+          (parse-source/contextual
+           hcl-parser
+           (contextual-product hcl-parser "other") "x = 1\n")
+          #f))
+        "contextual parser product does not match parser machine"))
+    (property "scanner change alters the published grammar identity"
+      (bindings (machine hcl-parser) (base (parser-machine-grammar-digest machine)) (first (contextual-product machine base)) (second (contextual-product
+                      machine base '(line) '((line () ())) "2")))
+      (equal (equal? (cdr (assq 'digest first))
+                       (cdr (assq 'digest second)))  #f))
+    (property "token requirements select a specific LR position"
+      (bindings (machine hcl-parser) (product
+              (contextual-product
+               machine (parser-machine-grammar-digest machine)
+               '(line name) '((line () ()) (name ((token identifier)) ())))) (positions (cdr (assq 'state-positions (cdr (assq 'context product))))))
+      (equal (cdr (assq 0 positions))  'name)
+      (equal (any (lambda (row) (eq? (cdr row) 'line)) positions)  #t)
+      (equal (parse-artifact-success?
+                (parse-source/contextual machine product "x = 1\n"))
+                #t))
+    (property "literal requirements select grammar-owned LR positions"
+      (bindings (machine hcl-parser) (product
+              (contextual-product
+               machine (parser-machine-grammar-digest machine)
+               '(line assignment)
+               '((line () ()) (assignment ((literal "=")) ())))) (positions (cdr (assq 'state-positions (cdr (assq 'context product))))))
+      (equal (any (lambda (row) (eq? (cdr row) 'assignment)) positions)  #t)
+      (equal (parse-artifact-success?
+                (parse-source/contextual machine product "x = 1\n"))
+                #t))
+    (property "EOF requirements select an empty-input parser position"
+      (bindings (machine hcl-parser) (product
+              (contextual-product
+               machine (parser-machine-grammar-digest machine)
+               '(line finish) '((line () ()) (finish ((eof)) ())))) (positions (cdr (assq 'state-positions (cdr (assq 'context product))))))
+      (equal (any (lambda (row) (eq? (cdr row) 'finish)) positions)  #t)
+      (equal (parse-artifact-success?
+                (parse-source/contextual machine product ""))  #t))
+    (property "duplicate LR state positions fail runtime preparation"
+      (bindings (machine hcl-parser) (product (contextual-product
+                       machine (parser-machine-grammar-digest machine))) (rows (cdr (assq 'state-positions (cdr (assq 'context product))))) (body
+              (map (lambda (row)
+                     (if (eq? (car row) 'context)
+                       (cons 'context (list (cons 'state-positions
+                             (cons (car rows) (cons (car rows) (cddr rows))))))
+                       row))
+                   (filter (lambda (row) (not (eq? (car row) 'digest))) product))) (altered
+              (append body
+                      (list (cons 'digest
+                                  (sha256-text
+                                   (call-with-output-string
+                                    (lambda (port) (write body port)))))))))
+      (equal
+         (with-catch
+          (lambda (condition) (error-message condition))
+          (lambda () (parse-source/contextual machine altered "x = 1\n") #f))
+          "invalid contextual LR position table")
+      (equal
+         (with-catch
+          (lambda (condition) (error-message condition))
+          (lambda () (prepare-contextual-parser machine altered) #f))
+          "invalid contextual LR position table"))
+    (property "unknown lookaheads fail declaration admission"
+      (bindings (machine hcl-parser))
+      (equal
+         (with-catch
+          (lambda (condition) (error-message condition))
+          (lambda ()
+            (contextual-product
+             machine (parser-machine-grammar-digest machine)
+             '(line unknown)
+             '((line () ()) (unknown ((literal "@@")) ())))
+            #f))
+          "invalid contextual LR position declaration"))
+    (property "incomparable LR position declarations are rejected"
+      (bindings (machine hcl-parser) (base (parser-machine-grammar-digest machine)))
+      (equal
+         (with-catch
+          (lambda (condition) (error-message condition))
+          (lambda ()
+            (contextual-product
+             machine base '(line other)
+             '((line () ()) (other () ())))
+            #f))
+          "unresolved contextual LR position")))

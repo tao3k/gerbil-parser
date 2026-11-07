@@ -1,0 +1,605 @@
+#+title: Invocation-owned refinement workspaces (2026-10-09)
+
+[[file:../dsl-effective-grammar-admission.org][Model and evidence index]]
+
+* Invocation-owned refinement workspaces (2026-10-09)
+
+** Resource transfer from the partition refinement design
+
+The [[https://arxiv.org/pdf/cs/0612120][generalized Paige-Tarjan study]] separates correctness of stable refinement
+from algorithmic scheduling improvements. This implementation retains the
+previous affected-group schedule, exact signatures, first-seen numbering and
+termination. It changes resource ownership within the shared Scheme algorithm,
+not splitter selection or its asymptotic time bound.
+
+Each invocation allocates two ID vectors and two affected-group vectors, alongside
+the existing sizes and first-child workspace. Every next ID slot is assigned
+before publication; the next affected frontier is cleared before propagation.
+Only after all signature reads and successor visits complete are current/next
+roles exchanged. Original initial IDs are never overwritten. A signature
+callback borrows current IDs during its call; it must not retain that internal
+view. The final returned vector survives other invocations, and no buffer is
+global or retained by the language descriptor.
+
+For =r= completed rounds, the previous algorithm allocates =2r + 2= indexed
+vectors, including initial dirty flags and size/first-child storage. This version
+allocates six, independent of =r=. One-round calls therefore allocate two extra
+vectors, two-round calls the same number, and longer calls fewer. Table/signature
+allocation, vector reset work and maximum live bytes remain separate costs.
+This is a deterministic workspace allocation count, not a total allocation-byte
+or latency claim. Language author declarations and ABI contracts are unchanged.
+
+** Semantic and lifetime controls
+
+The existing canonical source owner still performs exhaustive graph comparison
+with the independent synchronous oracle. Additional assertions require two-round
+refinement to return the expected IDs, then a separate invocation to produce a
+different partition without modifying either the first returned vector or the
+initial vector. Source ownership stays at 57 Cases across the existing two
+Suites. They emit =TEST-SUITE-OK= and =OK=, controller exit 0 in 23.024 seconds
+under unchanged 120-second total/5-second idle limits.
+
+** Complete construction controls
+
+The baseline is frozen from =87c37bf52bc28f4c6da93b42c082463d680286f9= across all
+eight indexed LR modules. GCC, native options, 3 GiB heap, tracing and total/idle
+limits are matched. Every workload checks exact full LRSpec equality outside
+measurement; retained-result pairs additionally compare both timed results.
+Each protocol runs 22 alternating pairs for mixed 8/24/48-region FOLLOW and
+actual TLA+ default LALR, and eight actual TLA+ FOLLOW pairs, four per order.
+Even-sample medians average the two middle values. Construction includes setup,
+GC and publication, but excludes imports, explicit preceding GC and comparisons.
+
+| Lifecycle | Complete workload | Baseline median CPU ms | Workspace median CPU ms |
+|-----------+-------------------+------------------------+-------------------------|
+| Retain first timed artifact | Mixed FOLLOW 8 | 1.536 | 1.523 |
+| Retain first timed artifact | Mixed FOLLOW 24 | 4.157 | 4.157 |
+| Retain first timed artifact | Mixed FOLLOW 48 | 10.080 | 10.126 |
+| Retain first timed artifact | TLA+ default LALR | 14.495 | 14.304 |
+| Retain first timed artifact | TLA+ FOLLOW | 1871.222 | 1766.677 |
+| Discard timed artifacts | Mixed FOLLOW 8 | 1.566 | 1.609 |
+| Discard timed artifacts | Mixed FOLLOW 24 | 4.311 | 4.296 |
+| Discard timed artifacts | Mixed FOLLOW 48 | 10.346 | 10.187 |
+| Discard timed artifacts | TLA+ default LALR | 14.736 | 14.663 |
+| Discard timed artifacts | TLA+ FOLLOW | 1852.845 | 1885.259 |
+
+Retained actual FOLLOW medians decrease 5.59%, but all four candidate-second
+pairs regress and collections increase in several pairs. Discarded-result
+medians increase 1.75%, with four individual regressions. Both protocols emit
+=BUFFER-NATIVE-AB-OK= and exit 0 (64.007 and 56.988 seconds) under unchanged
+90-second total/5-second idle limits. These results establish no stable latency
+win or elimination of retained-output GC sensitivity. Default LALR is outside
+the changed FOLLOW path. The admitted implementation bounds multi-round
+workspace allocation; neither these controls nor the previous historical batches
+support a cumulative runtime/FFI/Rust throughput claim.
+
+** Repository verification owners
+
+Git documentation names repository-owned inputs, commands and results. Host
+checkout paths and ephemeral raw-log locations belong to local execution
+receipts, and are not references readers can reproduce from Git.
+
+- [[file:../../../src/compiler/funcs.ss][Shared indexed refinement algorithms]]
+- [[file:../../../t/canonical-lr1-reference-test.ss][Exhaustive semantic and lifetime controls]]
+- [[file:../../../t/benchmarks/lr1-partition/construction.ss][Complete TLA+ construction benchmark]]
+- [[file:../../../build-conformance.ss][Compiled conformance preparation owner]]
+- [[file:../../../scripts/preparation-cache.ss][Content admission and actual copy progress]]
+- [[file:../../../test-processes.ss][Compiled semantic and research process owner]]
+
+From the repository root with its configured Gerbil environment and compiled
+interfaces prepared, use the existing owners:
+
+#+begin_src sh
+mkdir -p .gerbil
+gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+  --log .gerbil/lr-controls.log --require TEST-SUITE-OK --require '^OK$' -- \
+  gxi t/fixtures/tla-sany-differential/test-suite.ss \
+  t/resolved-grammar-test.ss t/canonical-lr1-reference-test.ss
+GERBIL_PARSER_LR_TRACE=1 gerbil env gxi \
+  t/benchmarks/lr1-partition/construction.ss 8 follow-partition-lr1
+gerbil env gxi build-conformance.ss
+gerbil env gxi test-processes.ss research .gerbil/research-results
+#+end_src
+
+The construction owner retains its reference artifact to check every sample.
+It is an executable single-version consumer, not a substitute for the two
+historical frozen-baseline protocols above.
+
+** Final compiled consumer receipt
+
+Complete preparation exits 0 in 131.752 seconds under unchanged 240-second
+total/5-second idle limits, including the completed 1964-product storage receipt.
+The compiled semantic owner passes 372 Cases across 23 groups. It and the five
+independent research entries all exit 0, with =DSL-RESEARCH-CLOSURE-OK= and =OK=.
+These compiled consumer counts remain separate from the 57-Case source owner.
+Preparation time is required qualification, excluded from paired construction
+CPU measurements. No native parser runtime or Rust/FFI acceleration is claimed.
+
+* Group cardinality and propagation frontier experiment (2026-10-09)
+
+** Paper transfer and candidate proof
+
+[[https://arxiv.org/pdf/cs/0612120][Ranzato and Tapparo]] separates stable refinement correctness from scheduling
+improvements. The existing engine still sizes every current group in a separate
+node pass, and scans all nodes when propagating split-source dependencies.
+Two candidates were implemented and tested with identical synchronous rounds,
+exact signatures, first-seen IDs and termination:
+
+- Compute next-group cardinalities during ID publication and carry them into
+  the following round. Initial membership is counted only once.
+- Record each affected nonsingleton member in an invocation-owned source vector.
+  Only those groups can split, so propagation scans that recorded prefix and
+  visits successors only for members whose old group actually split.
+
+Candidate one retains separate size/dirty arrays and needs eight indexed
+vectors rather than six. Candidate two stores affected status in the sign of
+each cardinality: negative affected, positive clean, magnitude exact group size.
+All next sizes are counted positively before propagation; marking an already
+negative size is idempotent. This returns the workspace to six indexed vectors
+and eliminates the separate boolean frontier reset. Zero denotes an unused
+slot, never a populated group. Both preserve input and output lifetime contracts.
+
+For =r= rounds on =n= nodes, the separate membership-sizing pass would drop
+from =r*n= node reads to =n= initial reads. Publication still performs =r*n=
+node assignments and additionally counts next-group membership, including the
+last unused next size map. Propagation would inspect the affected nonsingleton
+prefix rather than =n= nodes per continuing round. These are traversal bounds,
+not total operation or complexity improvements; synchronous publication remains
+linear in every round. Neither candidate implements full Paige-Tarjan scheduling
+or establishes its logarithmic bound.
+
+** Exact artifacts and negative complete costs
+
+The native baseline is frozen from
+=2b86afaed9bf2cf9375aa966c27bedf64696f743= across all eight indexed LR modules.
+Each candidate passes the two existing source Suites, 57 Cases, including the
+exhaustive synchronous graph oracle, duplicate labels/edges, empty domain,
+multiple rounds, preserved input, independent result lifetimes and two new
+initially permuted dense-ID controls. Source checks alone do not admit either
+candidate's complete cost.
+
+Native GCC options, tracing, 3 GiB heap and 90-second total/5-second idle limits
+are unchanged. Each protocol validates 25 full LRSpec artifacts across five
+grammar families and five construction modes, then 22 alternating pairs each
+for three mixed FOLLOW sizes and actual TLA+ default LALR, plus eight actual
+TLA+ FOLLOW pairs. Both timed results remain live for pair comparison; there
+are four pairs per invocation order, and even medians average the middle two
+samples. Imports, explicit preceding GC and equality checks are excluded;
+setup, construction, in-call GC and publication are included.
+
+| Candidate | TLA+ FOLLOW baseline CPU median ms | Candidate median ms | Supervisor |
+|-----------+------------------------------------+---------------------+------------|
+| Separate size/dirty arrays | 1764.333 | 1861.461 | exit 0, 63.748 s |
+| Cardinality sign marks affected groups | 1694.290 | 1775.030 | exit 0, 55.423 s |
+
+Complete medians regress 5.50% and 4.77%. Every candidate-second actual FOLLOW
+pair regresses in both batches; GC counts and CPU increase in several pairs.
+The first candidate's pairs 2/4/6 increase collections from 10 to 16. The second
+candidate still increases them from 9 to 11 in pair 2, 11 to 15 in pair 4 and
+8 to 12 in pair 6. This preserves the invocation-order and retained-output
+sensitivity rather than claiming its root cause is solved by workspace fusion.
+Reducing an internal scan or vector count did not earn complete-cost admission.
+Further discarded-result timing is unnecessary once this retained-result
+consumer fails to establish an acceptable tradeoff.
+
+Both candidates are removed, including the cardinality encoding and new source
+workspace. The existing six-vector engine remains unchanged. No field, ABI,
+language loader slot, schema version, heap limit or compatibility API changes.
+The two new permuted-ID controls remain in the existing canonical source Case;
+they strengthen a valid baseline contract independently of the rejected algorithm.
+
+** Next structural obligation
+
+A stronger scheduler must preserve group identity while processing affected
+members, then canonicalize IDs in one final first-seen pass. It must compute the
+same coarsest stable partition regardless of worklist order, include self and
+epsilon dependencies, and handle predecessor sets containing both retained and
+new split identities. It must avoid moving the current full-domain publication
+cost into per-split member reconstruction. The existing synchronous algorithm
+and independent source oracle remain its references. Complete retained-result
+cost, resource ownership and exact LRSpec output remain required controls.
+No new production speed or complexity claim is delivered from this experiment.
+
+** Restoration and retained test receipt
+
+Production compiler source is restored byte-for-byte from the current head and
+the affected native interfaces rebuilt with the same GCC SDK; controller exit 0
+in 9.291 seconds. The resolved/canonical source owners, including both new
+permuted-ID controls, pass 57 Cases (37 + 20), =TEST-SUITE-OK= and =OK=;
+controller exit 0 in 23.545 seconds under unchanged 120-second total/5-second
+idle limits. Only the existing canonical test Case and this Org record change.
+
+The unchanged compiled consumer is reused: 372 semantic Cases across 23 groups
+pass, and its five independent research entries also exit 0. The controller
+emits =DSL-RESEARCH-CLOSURE-OK= and =OK=. This is a rerun of the unchanged compiled
+production source; no new full preparation receipt or candidate production
+optimization is claimed. Repository test/preparation owners are linked in the
+preceding verification section; host-specific temporary files are not Git
+references.
+
+* Persistent group identity experiment (2026-10-09)
+
+** Paper transfer and implementation
+
+[[https://arxiv.org/pdf/cs/0612120][Ranzato and Tapparo, Introduction, pp. 1-2]] distinguishes correctness of
+stable refinement from the scheduling changes that earn its logarithmic bound.
+The next candidate implements the preceding structural obligation: retain group
+identities and intrusive membership chains across synchronous rounds, process
+only queued nonsingleton groups, and canonicalize once at final publication.
+
+All signatures read the same immutable round IDs. Planned target IDs are
+recorded first; member links and IDs are committed only after every signature
+read completes. The first child retains the parent identity and other children
+receive fresh dense internal IDs. Only successors of members of actually split
+source groups are queued, with group-level deduplication. Singleton targets are
+excluded. Final publication assigns first-seen IDs without mutating the input.
+Signature equality must be invariant under bijective renaming; dependency
+visitors must include every shift/epsilon edge, including self edges.
+
+The candidate uses ten invocation-owned vectors rather than six. Group
+cardinalities and membership are initialized once. Per-round sizing and global
+publication scans disappear; visited member reconstruction replaces them.
+Internal IDs and chains need not follow node order, so final publication is a
+separate semantic obligation. The final ID map reuses the member-head workspace.
+This is still synchronous signature refinement, not smaller-half splitter
+scheduling, and establishes no =O(m log n)= bound.
+
+** Semantic and complete-cost controls
+
+All eight LR modules of the native baseline are frozen from
+=891364cc476b45bf588b4266d828033c83b1c1e7=. Both sides use the same GCC SDK,
+optimization, tracing and 3 GiB heap. The 90-second total and 5-second idle
+limits remain unchanged. The existing source owners pass 57 Cases; 25 full
+LRSpec comparisons across five grammar families and five construction modes
+are exact. Timing includes setup, construction, in-call GC and publication;
+imports, explicit preceding collection and artifact equality are excluded.
+
+Each protocol has 22 alternating pairs for each mixed FOLLOW size (8/24/48)
+and actual TLA+ LALR, plus eight actual TLA+ FOLLOW pairs. Even medians average
+the two middle samples. The retained protocol holds the first timed result
+while constructing the second and checks both timed LRSpecs; the released
+protocol checks full artifact equality before timing and discards timed results.
+
+| Protocol | Workload | Baseline CPU median ms | Candidate CPU median ms |
+|----------+----------+------------------------+-------------------------|
+| Retained | Mixed FOLLOW 8 | 1.5285 | 1.5220 |
+| Retained | Mixed FOLLOW 24 | 4.1270 | 4.1210 |
+| Retained | Mixed FOLLOW 48 | 9.9790 | 10.0290 |
+| Retained | TLA+ LALR | 14.2050 | 14.1805 |
+| Retained | TLA+ FOLLOW | 1712.2985 | 1734.3080 |
+| Released | Mixed FOLLOW 8 | 1.5345 | 1.5530 |
+| Released | Mixed FOLLOW 24 | 4.1960 | 4.1300 |
+| Released | Mixed FOLLOW 48 | 10.0340 | 9.9455 |
+| Released | TLA+ LALR | 14.3535 | 14.3350 |
+| Released | TLA+ FOLLOW | 1813.1530 | 1786.0880 |
+
+Controllers exit 0 in 61.229 and 55.125 seconds, respectively, with complete
+artifact checks and =STABLE-NATIVE-AB-OK=. Retained TLA+ FOLLOW regresses 1.29%;
+released improves 1.49%. Every retained candidate-second pair regresses
+(4.19% to 29.87%), while every candidate-first pair improves
+(4.01% to 20.18%). Collections in retained pairs 0/2/4 rise from 9/9/12 to
+14/14/16; pair 6 has six collections on both sides and still regresses 4.19%.
+CPU less in-call GC medians are 1252.8425 -> 1266.9620 ms retained and
+1238.4110 -> 1231.1790 ms released. These are diagnostic decompositions,
+not independent speed gates or proof of a complete GC root cause.
+
+The conflicting protocols and order sensitivity do not establish a complete
+construction benefit. The candidate is removed; membership chains, appended
+internal group IDs and additional workspaces do not enter production. No
+runtime/FFI speed or asymptotic complexity gain is claimed.
+
+** Permanent semantic coverage
+
+The existing canonical refinement Case gains 512 six-node controls: 64 labelled
+cyclic graphs, four initial partitions and both forward/reversed node orders.
+They include duplicate edges, conditional self edges and cross-group edges.
+The reverse control remaps all edge endpoints and initial IDs, rather than
+merely permuting group names. Each checks exact first-seen IDs/group count
+against the independent exhaustive synchronous oracle, preserved input and
+signature-call count bounded by exhaustive work. These controls apply to the
+existing engine independently of the rejected membership-chain implementation.
+The Case and Suite counts stay unchanged.
+
+** Restoration and closure
+
+Production compiler source is restored byte-for-byte from the baseline head;
+its three affected native interfaces rebuild with GCC in 8.951 seconds, exit 0.
+The candidate passes the expanded 20-Case canonical Suite in 15.726 seconds.
+The restored resolved/canonical owners pass 57 Cases (37 + 20), including all
+512 new controls, in 20.867 seconds with =TEST-SUITE-OK= and =OK=, exit 0.
+All total/idle budgets remain unchanged.
+
+The unchanged compiled production consumer is reused: its 372 semantic Cases
+across 23 groups and all five independent research entries exit 0. The controller
+emits =DSL-RESEARCH-CLOSURE-OK= and =OK=. The new canonical source controls are
+excluded from that compiled consumer and are qualified separately above.
+No new full preparation or production performance receipt is implied.
+Only [[file:../../../t/canonical-lr1-reference-test.ss][the canonical source test owner]] and this Org record are delivered.
+
+The remaining structural obligation is to establish where full construction
+CPU/allocation is spent before selecting the next refinement representation.
+Removing repeated whole-domain scans alone did not earn admission here.
+Group identity, signature representation and member/worklist scheduling must
+be measured together, with canonical artifact identity and result lifetimes
+preserved. Released and retained costs remain separate evidence; neither
+protocol can substitute for the other.
+
+* Stable FOLLOW edge publication and indexed FIRST reuse (2026-10-09)
+
+** Ownership and semantic obligations
+
+The backward refinement owner already computes successor signatures. The old
+[[file:../../../src/compiler/lr-follow-automaton.ss][FOLLOW construction owner]] then recomputes every lookahead vertex's edge
+before determinization, checking that each member agrees. The implemented
+handoff publishes the final shift/epsilon vectors from backward refinement and
+passes them directly to determinization. These are the same two vectors that
+determinization previously allocated, with no new public language slot or ABI.
+
+A no-split final round preserves block order and IDs. Its active nonsingleton
+keys were computed against that round's final index and can be reused. Inactive
+and singleton keys may contain earlier round IDs: they are never reused. One
+representative is evaluated against the final index for each such stable block.
+The stable-partition invariant guarantees that all block members have equal
+successor signatures. Reordered production controls and independent canonical
+construction qualify this invariant instead of a duplicate production traversal.
+
+The first native experiment implements only this handoff. On actual TLA+,
+=stable-edge-reuse= reports zero reused keys out of 8888 backward blocks: the
+last round has no active nonsingleton block. Eliminating the final per-member
+pass alone is insufficient to infer meaningful complete cost reduction.
+The retained TLA+ FOLLOW median changes 1712.9290 -> 1705.1450 ms (0.45% lower),
+with the same invocation-order sensitivity as preceding experiments; its
+controller exits 0 in 58.587 seconds. No independent speed claim is admitted
+for that variant.
+
+The next implementation decomposes each vertex's epsilon targets:
+
+#+begin_example
+fixed(core, index) = union over children and FIRST(tail) terminals
+                    of singleton(index[child, terminal])
+epsilon(core, follow, index) = fixed(core, index)
+                              union nullable follow targets
+#+end_example
+
+Set union distributes over the FIRST/follow union and is idempotent, including
+when follow is already in FIRST(tail). The fixed portion is translated once per
+queried core into block IDs, using one lazy vector local to the current round.
+=#f= means uncomputed; an empty set (=0=) is a valid cached result. A new round
+gets a fresh vector because splitting can renumber targets. Final publication
+uses the same last-round vector; it cannot carry stale targets across rounds or
+invocations. Fixed FIRST expansion changes from repeated work per vertex to
+once per queried core per round; dynamic nullable follow targets remain exact.
+No smaller-half scheduling or logarithmic complexity bound is asserted.
+
+** Qualification protocol
+
+The native baseline's eight LR modules are frozen from =891364c= and verified
+byte-identical to the production LR modules at the current =fa0f283= head.
+GCC optimization, 3 GiB heap, tracing, 90-second total and 5-second idle limits
+are unchanged. Complete artifact comparisons cover five grammar families and
+five modes. Each cost protocol alternates 22 pairs for mixed FOLLOW sizes
+8/24/48 and actual TLA+ LALR, and eight actual TLA+ FOLLOW pairs. Setup,
+construction, in-call GC and final publication are included; import, explicit
+preceding GC and equality checks are excluded. Retained and released result
+lifetimes remain separate controls; even medians average the two middle samples.
+
+The canonical source owner gains a production-reordering Case across cyclic,
+acyclic and nullable-tail families, two sizes and both forward/reversed
+production orders. Each compares accepted/rejected parse products with the
+independent canonical LR(1) route for valid and invalid token sequences.
+Nullable-tail controls exercise fixed FIRST plus dynamic follow targets after
+block renumbering. Source totals become 58 Cases (37 resolved + 21 canonical).
+
+** Complete-cost results with indexed FIRST reuse
+
+| Protocol | Workload | Baseline CPU median ms | Candidate CPU median ms |
+|----------+----------+------------------------+-------------------------|
+| Retained | Mixed FOLLOW 8 | 1.5495 | 1.5375 |
+| Retained | Mixed FOLLOW 24 | 4.1955 | 4.1920 |
+| Retained | Mixed FOLLOW 48 | 10.1790 | 10.1830 |
+| Retained | TLA+ LALR | 14.5245 | 14.4460 |
+| Retained | TLA+ FOLLOW | 1910.1755 | 1406.1465 |
+| Released | Mixed FOLLOW 8 | 1.5245 | 1.4775 |
+| Released | Mixed FOLLOW 24 | 4.1410 | 4.1275 |
+| Released | Mixed FOLLOW 48 | 9.8985 | 9.9585 |
+| Released | TLA+ LALR | 14.1845 | 14.1905 |
+| Released | TLA+ FOLLOW | 1762.0145 | 1636.7625 |
+
+Both protocols pass all 25 family/mode LRSpec comparisons and the additional
+complete workload artifact checks, including actual TLA+ FOLLOW. Controllers exit 0 with =EDGE-NATIVE-AB-OK= in 56.020 seconds
+retained and 52.101 seconds released. Actual TLA+ FOLLOW complete CPU medians
+improve 26.39% and 7.11%, respectively. Every retained pair improves (6.67% to
+35.74%). Seven released pairs improve; pair 5 regresses 3.69%, with collections
+increasing from 11 to 13 and in-call GC CPU from 479.2500 to 592.9950 ms.
+This negative pair is retained rather than presenting a uniform speedup.
+
+CPU less in-call GC medians change 1236.7045 -> 1100.9600 ms retained and
+1245.4975 -> 1094.6945 ms released. Those decompositions support reduced
+non-GC construction work, without attributing all complete cost change to one
+mechanism. Retained GC counts change from 6 to 5 in baseline-first pairs and
+17 to 7 in candidate-first pairs. The invocation-order effect remains visible;
+this experiment does not prove a general GC/root-retention solution.
+
+Mixed FOLLOW 48 increases 0.04% retained and 0.61% released; the smaller
+synthetic medians are near unchanged or lower. Default TLA+ LALR bypasses this
+FOLLOW change, so its small timing differences are controls rather than an LALR
+optimization claim. Admission is limited to this Scheme FOLLOW construction
+change and the measured actual TLA+ workload. Runtime parsing, Rust/FFI,
+all-grammar acceleration and asymptotic improvements are not established.
+
+** Final preparation and source receipts
+
+The final FOLLOW/compiler native interfaces compile with GCC, exit 0 in
+9.238 seconds. Final resolved/canonical source qualification, including all
+nullable-tail and production-reordering controls, passes 58 Cases (37 + 21)
+in 18.343 seconds, =TEST-SUITE-OK= and =OK=, controller exit 0. Independent
+full LRSpec checks and paired complete costs are recorded above.
+
+Full conformance preparation finishes in 106.636 seconds, exit 0, with
+=PREPARATION-STORED-RECEIPT= (2013 files) under unchanged 240-second total and
+5-second idle limits. Preparation duration is a build receipt, excluded from
+construction CPU measurements. Scheme owns the qualification and GCC remains
+the compiler. No compatibility mode, heap/deadline increase or language schema
+change is introduced.
+
+The freshly prepared compiled consumer passes 372 semantic Cases across
+23 groups. Its five independent research entries also exit 0; all six child
+statuses are zero and the controller finishes with =DSL-RESEARCH-CLOSURE-OK=
+and =OK=, exit 0. The 58 source Cases remain a separate owner and receipt.
+The production change is confined to the FOLLOW compiler; public LRSpec,
+language loaders, Runtime and Rust/C ABI are unchanged.
+
+* Covered-root elimination in memoized epsilon closure (2026-10-09)
+
+** Paper transfer and shared algorithm candidate
+
+[[https://aclanthology.org/J00-1005.pdf][Van Noord, Treatment of Epsilon Moves in Subset Construction (2000),
+Section 3.2, pp. 66-68]] compares per-state and per-subset closure strategies.
+Per-state memoization still pays to union the cached results for each seed;
+whole-subset memoization avoids repeated complete queries. The engine already
+has both a graph-sized singleton cache and a bounded seed-to-state cache.
+This experiment studies redundancy inside a remaining seed-query miss.
+
+The following additional elimination is our derivation from reflexive
+transitive closure, rather than a scheduling theorem stated by that paper:
+if =u= is already in a computed closed set =C=, then =closure({u})= is a subset
+of =C=. Select one pending seed, union its cached closure into the result, and
+subtract that closure from all pending seeds before selecting the next one.
+The selected seed is removed by reflexivity, so the loop terminates. Each
+omitted seed's entire closure is already covered by transitivity. Therefore
+the result equals the union of all singleton seed closures in the old engine.
+
+The candidate moves the language-specific epsilon memo helper into the shared
+indexed-set engine as =compiler-index-set-reachable/memo=. Graph edges are
+immutable; the caller owns a graph-sized cache and must never reuse it with a
+different graph. Cache entries remain exact singleton closures and only roots
+actually queried are populated. Empty seeds return zero. No SCC graph, extra
+closure table, unbounded subset retention, public language slot or compatibility
+path is added. The existing large-quotient admission cutoff remains unchanged.
+
+The canonical reachability Case adds cold and warm memo controls for all 512
+directed three-node graphs and all eight seed sets, using its independent list
+graph oracle. Populated cache entries are also checked against independent
+singleton results. A 1024-node chain/cycle control covers high-bit seeds and
+checks that already covered chain roots need no cache entries. Source counts
+remain 58 Cases (37 + 21); these controls are added inside the existing Case.
+
+** Artifact and build ownership
+
+The frozen baseline contains all eight LR modules from
+=d6e6b8a98445c9e7920c029d65f11fe3172556f8=. Each side uses the same GCC SDK,
+optimization level and heap. The diagnostic configuration is stated below. Two initial baseline builds fail the
+unchanged five-second idle guard while GCC compiles the generated C unit;
+GSC has already emitted C and GCC emits no intermediate stdout. Those failed
+builds are not qualification receipts. A prematurely started source run also
+fails because the new helper interface was not yet compiled, and is excluded.
+
+GCC's =-fopt-info-optimized= diagnostic emits actual completed optimization
+remarks without changing the optimization level. The completed remaining build
+exits 0 in 18.418 seconds; the other six frozen baseline modules are rebuilt
+with the same diagnostic option, exit 0 in 15.737 seconds. Budgets remain
+240 seconds total and five seconds idle. No compiler switch or synthetic
+heartbeat is used. An initial native A/B import run also fails the idle guard;
+explicit per-module import completion receipts localize and qualify real module
+initialization before timing. All imports remain excluded from measurements.
+
+** First implementation and negative complete cost
+
+The first implementation selects the root by isolating the least significant
+bit with =pending & -pending= and applying =integer-length=. It passes the
+58 source Cases in 23.408 seconds, with =TEST-SUITE-OK= and =OK=, exit 0.
+The retained native protocol validates 25 family/mode LRSpecs and the five
+complete workload artifacts, then alternates 22 pairs for mixed FOLLOW sizes
+8/24/48 and actual TLA+ LALR, plus eight actual TLA+ FOLLOW pairs. Construction,
+in-call GC and publication are timed; import, explicit GC and equality are not.
+
+Actual TLA+ FOLLOW CPU medians regress 1515.7385 -> 1855.9905 ms (22.45%).
+CPU less in-call GC medians increase 1107.7570 -> 1324.9600 ms. Seven of eight
+pairs regress. The controller exits 0 in 57.356 seconds with
+=DELTA-NATIVE-AB-OK=; exact artifact equality does not admit the cost.
+The dense chain eliminates all covered roots after one query, but that control
+cannot establish an actual parser workload improvement.
+
+The second implementation replaces wide integer root-isolation intermediates
+with the existing =first-set-bit= primitive and constructs a singleton only
+on a cache miss. It preserves the same pending-set algorithm and tests.
+Difference operations and lazy cache population can still offset skipped
+queries; the arithmetic rewrite alone is not an admission result.
+
+** Primitive selection remains negative; exact algorithm extraction
+
+The second candidate passes the 58 source Cases in 26.310 seconds, exit 0,
+and the same exact native LRSpec controls. Retained TLA+ FOLLOW CPU medians
+regress 1442.2830 -> 1697.3595 ms (17.69%). CPU less in-call GC medians
+increase 1114.8445 -> 1182.6900 ms. Seven of eight pairs regress, despite
+removing root-isolation intermediates; the controller exits 0 in 54.214 seconds
+with =DELTA-NATIVE-AB-OK=. Both difference-loop candidates are removed.
+Released-result timing cannot establish admission once the retained consumer
+has already demonstrated this regression, so it is not repeated for them.
+
+The final production change is instead an exact extraction of the existing
+per-seed closure union into the shared indexed-set engine. The function body
+matches the previous private =epsilon-closure/memo= body after renaming.
+The FOLLOW owner imports it directly; the old private name is removed, with no
+wrapper or compatibility path. Field-based/sparse seed enumeration, cache
+population, graph admission threshold and cache capacity remain the existing
+algorithms. This supplies one generic engine capability for compiler callers,
+not a claimed performance improvement or a new POO object exposed to language
+authors. The cache's immutable graph and invocation ownership contract is
+stated beside its implementation.
+
+Cold/warm graph controls and exact populated-entry checks remain applicable to
+this extracted algorithm. The experimental assertion that covered roots stay
+uncached is removed with the rejected scheduling strategy; it is not a semantic
+contract. The permanent 1024-node controls retain overlapping, high-bit seed
+results, exact root-zero cache content and independent chain/cycle cache owners.
+
+** Shared extraction qualification boundaries
+
+The extracted body is checked byte-for-byte against the previous private body
+with only its function name replaced (=MEMO-EXTRACTION-BODY-EXACT=). Its three
+native interfaces compile, exit 0 in 10.651 seconds. One source run prints all
+58 Case successes and =OK= but fails at process completion with idle timeout
+in 47.855 seconds; that is not a passing receipt. A final complete source run
+passes 58 Cases in 20.509 seconds with =TEST-SUITE-OK=, =OK= and controller exit 0.
+Neither timeout nor idle budgets change.
+
+The attempted complete retained A/B run for the extraction fails its 90-second
+total deadline (91.057 seconds including termination), without the final marker.
+Six reported TLA+ FOLLOW pairs are an incomplete batch and are not admitted as
+a performance result. Concurrent external GCC processes are observed, but that
+observation does not prove a complete cause for the timeout or exit-phase stall.
+These historical failures remain distinct from later passing semantic receipts.
+No new speed gain, stable latency or general timeout fix is claimed for extraction.
+
+The final native semantic-only protocol passes all 25 family/mode full LRSpec
+comparisons and all five complete workload comparisons (including actual TLA+
+LALR/FOLLOW), =MEMO-NATIVE-EXACT-OK=, controller exit 0 in 24.881 seconds.
+It deliberately performs no paired timing: this is artifact equality evidence,
+not a replacement or relaxed budget for the failed performance protocol.
+
+Full preparation emits =PREPARATION-STORED-RECEIPT= for 2062 products, but its
+controller subsequently exits with idle timeout in 242.276 seconds. A stored
+receipt alone does not pass process qualification. The next preparation run
+rechecks the same source/toolchain identity and all stored/current product
+content hashes, admits =CONFORMANCE-CACHE-HIT= and exits 0 in 11.857 seconds
+under the original 240-second total/five-second idle limits. This is valid
+content admission of the freshly generated artifacts; the preceding failed
+process remains recorded, and no successful full-build duration is claimed.
+
+The first compiled semantic process fails the five-second idle guard before
+any Case output, so its research controller exits 70 and the remaining entries
+are not qualified in that attempt. A =DYLD_PRINT_LIBRARIES= diagnostic run then
+passes all six entries. An attempted process sample finds that the semantic
+process has already completed; no stack-based root cause is established.
+The final run removes that diagnostic environment and again passes all six
+entries, each exit 0: 372 semantic Cases across 23 groups and five independent
+research owners. The controller finishes with =DSL-RESEARCH-CLOSURE-OK= and
+=OK=, exit 0. This is ordinary compiled-consumer closure under unchanged budgets,
+not proof that all startup/exit timeout causes have been fixed.
+
+Delivered changes are the direct shared primitive extraction, its FOLLOW
+consumer, cold/warm exhaustive graph controls and this Org research record.
+Both covered-root difference schedulers are rejected. The preceding indexed
+FIRST/stable-edge optimization remains intact; no additional construction speed,
+Runtime speed, Rust/C ABI change or language-author configuration is delivered.

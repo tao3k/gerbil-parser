@@ -1,0 +1,191 @@
+#+title: Scheme component history: selected declarations, override and removal
+#+date: 2026-10-06
+
+* Question and boundary
+
+The [[file:scheme-component-provenance.org][component provenance study]] verified persisted origins through existing Bound IR
+inputs for unique merge/append contributions. This follow-up asks how an effective
+rule's provenance changes under explicit override or removal.
+
+This is local research on baseline =783381f33fa1b309ac4cc4b0012696f24c852d93=.
+It adds an executable Scheme control and a design contract for discussion.
+It does not implement a new normalizer, automatic history resolver or public
+provenance schema. The existing POO normalization and compiler owners determine
+all final grammar values used by the experiment.
+
+* Actual override and removal experiment
+
+[[file:../../t/fixtures/language-pack-research/composition-history.ss][composition-history.ss]] starts from the list grammar, then contributes:
+
+- An override of =arguments= by =single-argument-extension=, whose new rule is
+  =(field argument (reference name))=. This deliberately changes recognition
+  organization to a single required argument expression.
+- A removal of =call-arguments/tail= by =retired-tail=.
+
+The driver invokes normalization, parser compilation and Bound IR binding.
+It does not execute source parsing or claim parity with the earlier multi-item
+language. Its successful invocation was:
+
+#+begin_src sh
+GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" GERBIL_PARSER_LR_TRACE=1 \
+  gtimeout 10 gxi t/fixtures/language-pack-research/composition-history.ss
+#+end_src
+
+The historical driver exited 0 and reported =COMPOSITION-HISTORY-OK: 19 checks passed=.
+The first attempt exited 70 because a new fixture form was missing a closing
+parenthesis; that driver syntax was repaired before any result was admitted.
+
+| Case | Checked outcome |
+|------+-----------------|
+| Override =arguments= only | Exact final row equals the replacement; the independent tail rule remains |
+| Override receipt | Prior append and later override owners remain in operation order |
+| Apply the old append-only source mapper | It selects the old owner, demonstrating its stated scope limitation |
+| Supply an explicit selected-row source | Bound IR carries the override owner and the supplied history |
+| Remove the tail while keeping its reference | Normalization removes it; Parser IR and Bound IR both reject the dangling reference |
+| Override the reference-bearing row, then remove the tail | Final row is the replacement, deleted helper has no binding, parser and binding admission succeed |
+| Override or remove an absent target | Existing typed messages reject the operation |
+
+The parser's dangling-target diagnostic includes =arguments= and
+=call-arguments/tail=. The Bound IR diagnostic identifies the deleted rule through
+its structured binding ID. The removal check demonstrates admission behavior;
+it is not an input recovery test.
+
+The explicit history in the selected source is a manually supplied research
+record with append step 1 and override step 3. Its successful persistence proves
+that the existing source record can carry this data. It does not prove that the
+compiler collected or validated that history automatically.
+
+* Design consequence: effective source and history are different
+
+There should be two related views:
+
+1. Effective declaration provenance explains the row that is actually bound and
+   compiled, including its current contribution origin.
+2. Contribution history explains which operations introduced, replaced or removed
+   that identity, including earlier contributions that are no longer effective.
+
+The current Bound IR source lookup uses the first matching name in the selected
+namespace map. An append-only list of every historical source is therefore not
+an effective provenance projection. After override, it can select the original
+contributor while the grammar contains the replacement. After removal, a history
+record may legitimately remain, but it must not masquerade as an active binding.
+
+The experiment preserves this negative control instead of silently fixing the
+old unique-append fixture. A production source collector must state the
+projection contract before extending to general composition.
+
+* Composition operation matrix
+
+| Operation | Existing grammar meaning | Provenance requirement to design |
+|-----------+--------------------------+----------------------------------|
+| Merge new key | Admit its row | Record the contributing source |
+| Merge equal existing row | Coalesce the row | Retain contributing origins without pretending a semantic override happened |
+| Merge different existing row | Reject conflict | Explain both contributions |
+| Append | Admit a new key; reject an existing key | Preserve owner and diagnose the colliding identity |
+| Override | Replace an existing row | Select replacement provenance and retain earlier history |
+| Remove | Delete an existing key | Exclude active provenance; retain the removal history if needed |
+
+Equal-row merge behavior is source-inspected in
+[[file:../../src/utilities/lists.ss][merge-keyed-row]]; this follow-up does not add a new equal-merge runtime control.
+Consequently, an automatic "last contributor wins" source collector would not
+accurately describe every operation. Equal merges may have several contributors
+for one effective row. A primary diagnostic location can be selected separately
+from the complete contributor set.
+
+Override does not imply ownership of every helper from the original component.
+Helper lifetime follows explicit final references and composition operations.
+The successful override-plus-remove case provides a concrete control for that
+boundary; no automatic helper garbage collection is proposed here.
+
+* History identity and association with final IR
+
+Existing composition steps carry index, operation, role and contributed keys per
+section. They do not contain the original row bodies or exact source ranges.
+The receipt alone cannot reconstruct an overridden rule's old definition.
+
+A history design can reference a step by composition identity and index, then
+identify its section and key. It also needs admitted contribution content or a
+reference to that content, plus author/template origin information. The final
+projection must agree with the normalizer's actual final row set. History
+processing should observe that result, not implement another grammar merger.
+
+The current =compositionDigest= hashes the step descriptors; row content belongs
+to the separately recorded grammar-body identity. Neither hash alone is a complete
+version of every author's historical contribution. Their scopes need explicit
+association when the composed IR enters artifact admission.
+
+A proposed contract should require:
+
+- Every effective rule's selected provenance corresponds to its final declaration.
+- Removed rules have no active Bound IR binding or reference target.
+- Every surviving reference resolves in both canonical parser and binding admission.
+- Equal-row contributors are distinguishable from override events.
+- History references have a defined content/source owner, not just a role spelling.
+
+These are design requirements, not a new implemented validator.
+
+* Exact source origins remain a separate experiment
+
+The research source records use truthful provider paths and descriptive labels;
+they do not assert exact source spans. A macro-owned declaration can preserve its
+syntax object and capture its source. A Scheme factory constructing role data
+needs an explicit origin input if its invocation site should be explained later.
+
+A future component declaration should retain both the author's instantiation
+location and the template's definition location. Generated helper rules should
+point back to that relationship. Merely giving reified rows the adapter's source
+location would explain the mechanical expansion site rather than the author's
+component choice. This design follows from the phase boundary; no source-range
+propagation implementation has been added in this follow-up.
+
+* Connection to research and working recommendation
+
+Our reading of
+[[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][Culpepper/Felleisen]] supports explaining errors in the author's vocabulary and
+separating dependency-sensitive checks from initial declaration recognition.
+Our reading of
+[[https://www2.ccs.neu.edu/racket/pubs/icfp24-bgh.pdf][Ballantyne/Gamburg/Hemann]] supports explicit extension positions and a common
+compilation core. Neither supplies our composition history contract.
+
+Working recommendation: derive effective origins from the admitted final IR and
+retain contribution history alongside it, while keeping the existing POO merger
+as the grammar authority. Define this association before publishing a general
+component import/override surface. The next research should use actual syntax
+locations for one component declaration to test the author-to-generated-rule
+explanation end to end.
+
+* Scheme design rationale: two required questions
+
+These are the canonical rule values used by the experiment. The operation
+comments describe the existing composition operations; they introduce no new
+surface syntax.
+
+#+begin_src scheme
+;; Entry rule contributed by append:
+'(arguments
+  (sequence (field argument (reference name))
+            (reference call-arguments/tail)))
+;; Replacement rule contributed by override:
+'(arguments (field argument (reference name)))
+;; Remove call-arguments/tail only after its references are gone for admission.
+
+;; Question 1: Why is this DSL design better?
+;; Checked POO operations distinguish adding, replacing and deleting contributions.
+;; Effective provenance identifies the selected replacement; history explains earlier steps.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Final rules, effective origins and history have explicit consistency obligations.
+;; Evidence: 19 checks retain the append-only mapper's override mismatch as a negative control.
+;; Falsifier: admitted dangling references or effective origins naming a replaced contribution.
+;; Limit: history is supplied manually; no automatic collector or old-parser parity claim.
+#+end_src
+
+The negative control limits the recommendation: a general collector must follow
+each operation's semantics, rather than extrapolating an append-only mapper.
+
+The expanded 2026-10-06 driver passes 31 checks and exits 0 under
+=gtimeout -k 2 10=. Its 12 additional rule/catalog/source controls and their
+limits are owned by [[file:scheme-dsl-semantic-contracts.org][the semantic contract module]]. The historical receipt
+above does not qualify those newer controls by implication.
+
+The later 37-check receipt includes six existing catalog-projection controls;
+see [[file:scheme-dsl-semantic-contracts.org][the semantic contract module]] for inputs, failures and limits.

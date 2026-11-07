@@ -1,0 +1,15 @@
+#+title: Effective grammar admission and source origins
+#+date: 2026-10-09
+
+Part of [[file:dsl-engine-contracts.org][the integrated DSL and engine study]].
+Existing dated receipts retain their original revision and scope.
+
+* Scope and navigation
+
+This index separates design, source correspondence and historical qualification.
+Each linked topic retains its original premises, failures and evidence limits.
+Host and compiler behavior remain external premises; no host build is required.
+
+- [[file:dsl-effective-grammar-admission/current-status-at-de8bef5.org][Current status at de8bef5]]
+- [[file:dsl-effective-grammar-admission/static-labeled-successor-facts-in-follow-subset-construction.org][Static labeled-successor facts in FOLLOW subset construction]]
+- [[file:dsl-effective-grammar-admission/invocation-owned-refinement-workspaces.org][Invocation-owned refinement workspaces (2026-10-09)]]

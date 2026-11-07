@@ -1,0 +1,276 @@
+#+title: Historical generated strategies receipts
+
+This module preserves prior design and qualification records. Its status notes
+are historical; the active execution plan is [[file:../0001-versioned-language-pack-closure.org][the convergence plan]].
+
+* TLA+ canonical tests and engine TLC execution — 2026-10-05
+
+Core, layout, SANY candidate and SANY closure now use four
+=deflanguage-parser-tests= suites in =languages/tla-plus/parser-test.ss=.
+The 57 rows retain all previous source literals and obligations; three raw
+scope test files were removed and the aggregate pack suite exports all four.
+Model receipt, fixture selection, metadata, native binary status and actual
+Rust producer rejection execution are constrained engine-owned operations.
+
+Production TLC qualification moved from the language directory into
+=src/language/tlc.ss=. The admitted descriptor supplies syntax parsing.
+The legacy qualification module forwards the canonical parser API; independent
+controls require identical function and receipt identities. The closed tool
+fixture quotes stdout as data, including quotes and command substitution, and
+removes its temporary directory after qualification.
+
+| Final native gate | Qualified result | Process time |
+|---+---+---|
+| TLA+ canonical entry | Layout 8, core 17, candidate 22, closure 10; 57 cases | 7.96 s |
+| Public DSL controls | 50 malformed declarations rejected; seven runtime controls | 12.60 s |
+| Product engine controls | Legacy API identity, inert stdout, exact receipt hashes and cleanup | 10.98 s |
+| HCL compatibility | All 29 declaration rows | 10.79 s |
+
+The three final control runs were concurrent. All gates have explicit =OK=,
+=HARNESS-RETURN status=0= and exit 0 under unchanged 90/5 limits; native
+compiler phases use SDK/GCC and 90/30 limits. These process times include module
+loading and are qualification evidence, not runtime performance improvements.
+
+The initial migrated nonzero-tool row failed because shell exit 7 is stored as
+raw Gerbil wait status 1792. The replacement =(nonzero exit-status)= expresses
+the original obligation without changing runtime receipts. A consumer compiler
+import also failed before the new TLC native product existed; compiling that
+product and importing it in a fresh compiler process resolved the dependency.
+Neither failure was admitted, and the native compiler/profile stayed unchanged.
+
+Synthetic TLC output checks receipt admission, final versus intermediate state
+counts and syntax rejection before tool resolution. Actual model checking and
+standalone Rust support for the SANY proof policy are not established by these
+fixtures; unsupported policy still fails through the actual Rust producer.
+
+** Current remaining order after this migration
+
+1. HCL generated product ownership: engine strategy generation and execution
+   must absorb =generate-direct.ss=, =direct-step.ss= and =direct-recursive.ss=
+   through general admission rules.
+2. TLA+ scanner/proof policy, grammar metadata and corpus organization: converge
+   remaining language files onto the three public interfaces while preserving
+   scope semantics and the explicit portable-policy boundary.
+3. Bash procedural scanner, word and source recognition: replace remaining
+   callbacks with engine-owned declarative state and operations.
+
+This supersedes the earlier core/SANY test migration queue. It closes those
+test suites and TLC execution ownership, not every language runtime directory.
+
+* Generic POO fused reductions and Loader build slots — 2026-10-05
+
+The HCL fused reduction producer is now the reusable engine
+=FusedReductionStrategy.= prototype, exposed by =language-build-support.ss=.
+It derives actions from a descriptor's exact Parser IR and admits the complete
+production/action algebra before emission. POO inheritance supplies effective
+binding names and metadata; stale digest, invalid names and foreign descriptor
+bindings fail admission. No generator branch selects a builtin language.
+
+HCL and Arithmetic both declare =fused-reductions= in their public Loader
+=build-strategies= slot. The Loader contract checks unique declared names and
+exact descriptor identity. Empty strategies remain the default for other
+languages; the existing Loader schema version is unchanged. All build work is
+outside source parser dispatch.
+
+The HCL generated step moved to =src/compiler/hcl-reductions.ss=, and the old
+benchmark generator was deleted. CI uses =scripts/generate-reductions.ss= with
+the grammar's module identifier. A second generated native fixture is produced
+from Arithmetic's actual IR through the same engine. Existing event tests and
+incremental benchmark imports follow the new engine product path.
+
+Seven independent native controls cover deterministic interleaved generation,
+POO names/metadata inheritance, stale and malformed overrides before any output,
+Loader duplicate/foreign binding rejection, both languages' full artifact parity
+in recognition and event program backends, and malformed-source rejection.
+They compare against the indexed runtime without replacing installed routes.
+
+The initial generator compiler run rejected an unimported list utility; the
+name check now compares the three slots directly. Two initial test runs caught
+binding-group/closing-parenthesis errors and remain failures. Initial plain
+script launchers hit the unchanged five-second idle gate after imports; those
+receipts were not admitted. The producer was exercised through the existing
+native child harness with explicit main-return/exit propagation, using module
+identifiers rather than repeated source imports. No timeout was widened and no
+compiler/profile was replaced.
+
+This closes fused reduction generation and HCL step ownership. The remaining
+HCL recursive generator and its fast lexical/source corridor must become a
+separately admitted reusable strategy; moving those HCL assumptions into a
+nominally generic module would not establish reuse. TLA+ scanner/proof policy
+and Bash source/word state remain the following runtime convergence work.
+
+| Final GCC native gate | Result | Process time |
+|---+---+---|
+| Generic POO strategy | Seven controls; two grammars and both semantic backends, including protected dependency names | 5.38 s |
+| HCL compatibility | All 29 declaration rows | 5.26 s |
+| Existing Loader contract | POO inheritance, source/grammar descriptor kinds and extension admission | 4.19 s |
+| Public test syntax | 50 malformed expansion forms and seven runtime controls | 5.02 s |
+| Existing event program/incremental controls | Complete existing suite | 6.89 s |
+| Arithmetic public parser | Complete existing declarative suite | 4.91 s |
+| Common producer, HCL | Exact deterministic generated source, explicit return and exit 0 | 3.72 s |
+| Common producer, Arithmetic | Same CLI, exact deterministic generated source, explicit return and exit 0 | 5.80 s |
+
+The native suites require =OK=, =HARNESS-RETURN status=0= and exit 0 with
+90/5 limits. GCC compiler phases remain 90/30. Final suites were run in
+independent concurrent batches. Generated HCL forms were also compared directly
+with the previous artifact: all executable forms are identical except the
+language-independent unknown-production error wording. There is no new runtime
+speedup claim from this ownership and reuse change.
+
+The migrated HCL generated module's SDK/GCC native phase completed in 9.30 s
+while independent modules compiled concurrently; this is a compiler receipt,
+not a runtime comparison.
+
+* Common POO build protocol across provider kinds — 2026-10-05
+
+The previous registry admitted only =FusedReductionStrategyContract= and called
+its emitter directly. That restriction is replaced by =BuildStrategyContract=
+and =emit-build-strategy=. Identity/digest/metadata/target checks now live in the
+common prototype; concrete providers refine admission. The Loader has no
+concrete backend import and no language/kind dispatch branch.
+
+Both HCL and Arithmetic now declare fused Scheme reductions and canonical
+Rust output through the same =build-strategies= slot. Rust output is
+produced by the existing producer; its source and portable-policy gates remain
+unchanged. Public recipe values remain ordinary POO inheritance/override values,
+and the Loader schema remains v2.
+
+Eight controls cover two languages and two real provider kinds, exact canonical
+Rust output, renamed downstream declarations and inherited metadata, registered
+writer dispatch despite a recipe method override, provider/target/digest forgery
+rejection, additional constrained engine recipe/format registration without
+changing common dispatch, foreign-descriptor rejection and Scheme/Rust policy
+admission differences. The extension control also checks eight actual parser
+calls cause zero extra provider admission or emission invocations.
+
+The first consumer compiler attempted to load the provider's generated macro
+SCM before its native phase product existed. The next consumer used a cached
+facade export set; after moving the convenience method out of the Loader, that
+old interface referred to a removed internal export. The specific generated
+facade interface/optimizer files were saved and rebuilt, then consumed in a
+fresh compiler process. These failed phases remain failures; SDK/GCC and bounded
+native gates were retained. No package uninstall, compiler switch or timeout
+extension was used.
+
+This establishes a common constrained POO capability protocol and two real
+implementations. It does not close HCL recursive/source strategies, TLA+ policy
+portability, Bash word/source scanning or the three-file language layout.
+
+| Final GCC native gate | Result | Process time |
+|---+---+---|
+| Common build protocol | Eight controls; two languages, two real providers, constrained engine extension and eight parses without build admission/emission | 4.67 s |
+| Fused reduction compatibility | Seven controls; both languages, deterministic generated forms and both semantic backends | 4.59 s |
+| Existing Loader admission | Complete existing contract/extension suite | 7.56 s |
+
+All three final runs returned =OK=, =HARNESS-RETURN status=0= and exit 0
+under the unchanged 90/5 gates. The first extension fixture hit the five-second
+idle gate: its local =provider= value collided with the POO =provider= slot,
+causing self-reference while constructing the prototype. Renaming the fixture
+binding to =engine-provider= removed that collision. The next run reached the
+last case but rejected its symbol policy identity before strategy admission;
+the descriptor API requires a string. Correcting that fixture input produced
+the complete passing run. Both failed receipts remain failures, not passes.
+
+These are capability, semantic parity and dispatch-isolation receipts. They do
+not claim a runtime speedup or a new standalone Rust execution qualification;
+the Rust producer is unchanged and its exact source is compared for both
+languages. The new protocol control is discovered by the existing native test
+suite's =t= source traversal.
+
+* Direct build API refactor, without compatibility adapters — 2026-10-05
+
+The common protocol is the single public build route. Removed
+=declare-language-fused-reductions= from the facade and migrated both actual
+language Loaders to =declare-language-build-strategy= with an admitted concrete
+strategy value. The fused provider's form builder and raw writer are private
+implementation functions; their public exports and =.module= slot were removed.
+The generation CLI and semantic controls now use =emit-build-strategy=. There
+is no legacy alias, compatibility mode or alternate dispatch retained.
+
+POO inheritance of supported recipe slots and provider-specific admission remain
+part of the new protocol. Semantic controls compare validated artifacts and
+canonical generated output; they are correctness checks for the refactor, not
+an obligation to preserve the deleted API. All current guide examples use the
+new declarations. Earlier dated sections record historical implementation.
+
+| GCC native gate, concurrent batch | Result | Process time |
+|---+---+---|
+| Common protocol | Eight controls, including both real providers and build isolation during actual parses | 15.80 s |
+| Fused semantic controls | Seven controls, both languages and both semantic backends | 13.27 s |
+| HCL production CLI | Exact deterministic generated source; explicit return and exit 0 | 12.32 s |
+| Arithmetic production CLI | Same generic producer, exact deterministic source; explicit return and exit 0 | 12.65 s |
+
+The batch includes process startup/import work and is not a runtime performance
+comparison. The unchanged test gates are 90/5; compiler gates remain 90/30.
+Both suites returned =OK= and =HARNESS-RETURN status=0=, and both producers
+returned =PRODUCER-RETURN status=0=; every process exited 0.
+
+A consumer compilation first rejected the old HCL generated interface because
+it still imported the deleted declaration. The two affected languages' generated
+interfaces and optimizer caches were saved then rebuilt from migrated source;
+no source adapter was restored. The failed compilation remains a failure.
+
+This closes the build declaration/output API migration. Scanner and runtime
+ownership migration is still open: Bash has source/word execution adapters,
+HL7 has external header-derived delimiter callbacks, HCL has recursive source
+execution, TLA+ has lexical/proof policies, and GQL retains query-specific APIs.
+These need declarative constrained engine capabilities and actual consumers,
+not compatibility wrappers or language-specific code relocated without reuse.
+
+* HL7 scanner removal through shared closed header rules — 2026-10-05
+
+Removed =languages/hl7/scanner.ss= and all six language-owned external callback
+references. HL7's concise grammar now declares shared =header-delimiter= and
+=header-data= operations. The lexical algebra validates their prefix/count/index
+or stop data; execution now belongs to =src/runtime/lexical-source.ss= and the
+Rust lexical engine. The count is bounded to 1..32 and headers require distinct non-alphabetic,
+non-numeric delimiter characters. The engine compares/borrows source characters
+without constructing delimiter lists or hash tables. At this scanner-removal
+baseline, header validation still occurred per lexical-rule invocation. The
+request-owned preparation described below supersedes that execution path; no
+measured speedup percentage is claimed.
+
+The second actual POO Loader is a test language with prefix ="記"=, two dynamic
+separators and =";"= stops. It parses accepted/rejected sources with the same
+engine operations. This is an independent language declaration used as a reuse
+control, not a second production language pack. POO metadata extension preserves
+its descriptor-bound identity. No old HL7 entry alias or external fallback is
+retained, and Loader/IR schema identifiers are unchanged.
+
+The common Rust build strategy emits both complete specs from canonical Scheme
+IR. Rust executes the real HL7 ADT A08 corpus, a custom-delimiter message,
+and the independent record sources; malformed header recipes reject at spec
+admission. The two generated source files are executable compiler witnesses,
+not benchmark/result snapshots. CI compiles the Scheme declaration, regenerates
+both Rust files with required per-product markers, formats them and compares
+exactly. The existing Rust workspace gate runs the new native controls.
+
+| Local bounded gate | Result | Process time |
+|---+---+---|
+| Shared Scheme header rules | Three controls: endpoints, closed admission, two actual POO Loaders and lossless rejection | 3.97 s |
+| HL7 public declarative suite | Five controls including real fixture/projection and alternate delimiters | 6.38 s |
+| Existing text profiles | Four controls including HL7 identifiers/terminators and malformed profiles | 6.40 s |
+| Rust header controls | Four filtered tests including three new controls; actual two-language AOT parsing, malformed delimiter/data admission and UTF-8 boundaries | 1.58 s |
+| Direct generation CLI | Both actual product markers, exit 0, exact formatted source comparison for both products | 6.48 s |
+
+Scheme suites require =OK=, =HARNESS-RETURN status=0= and exit 0, with unchanged
+90/5 gates. SDK/GCC compiler and Rust compilation use 90/30. Independent Scheme
+suites and native compiler products were run concurrently. These process times
+include startup/import/build work and are not runtime A/B measurements.
+
+The first metadata extension control replaced bound metadata with an unbound
+object and correctly failed the Loader contract. It now extends the existing
+metadata value, preserving language/version/contract/digest identity. The first
+generation invocation returned 0 but lacked an exported =main= and produced
+neither file; that receipt was rejected after checking product existence.
+The corrected exported entry requires both product markers, and a separate
+actual CLI invocation verifies exact files. The initial Cargo invocation also
+failed before execution because Rust tools were absent from PATH; the existing
+project native environment resolved the installed paired Cargo/rustc tools.
+No failure was turned into a pass by relaxing a gate or restoring an adapter.
+
+HL7 scanner ownership is closed; its projection module remains outside the
+three-interface target. Next runtime migrations remain Bash word/source state,
+HCL recursive source strategies and TLA+ scanner/proof policy. Each must become
+a constrained declarative engine capability with actual reuse controls.
+

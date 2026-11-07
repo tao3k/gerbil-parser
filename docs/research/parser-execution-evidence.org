@@ -1,0 +1,243 @@
+#+title: Parser execution evidence and receipt admission
+#+startup: overview
+
+Part of [[file:shared-ranked-scanner-execution.org][the integrated execution study]].
+Historical revisions, failed experiments and receipt limits retain their original scope.
+
+* Executed interleaved backend qualification
+
+** Protocol and admission fixed before observation
+
+The earlier recognition-then-event diagnostic did not qualify performance. The
+same benchmark now prepares both variants once and alternates timed batches
+within each workload. Even-numbered groups execute recognition/event/event/
+recognition (ABBA); odd groups execute event/recognition/recognition/event (BAAB).
+Each variant has two equally sized batches in every group. Both variants warm
+up before one initial GC per workload. Switching variants does not force GC;
+naturally occurring collections stay in request CPU and wall observations.
+
+The existing Scheme sampler exposes =measure-parser-batch= for this scheduling.
+It returns the original CPU, wall, GC, allocation-admission and product controls
+without introducing a new statistics implementation. Ordinary component callers
+retain their previous warmup and initial-GC behavior. Batch counts must be exact
+positive integers divisible by calls per thunk; no truncated invocation count
+can be reported as a complete batch. Changed semantic products reject the
+observation. The extended profile suite passes ten cases, including these
+measurement obligations.
+
+For every paired group, the CPU ratio is summed event CPU divided by summed
+recognition CPU. The P10/P50/P90 statistics describe these twenty paired ratios;
+they are not a confidence interval, individual request percentiles, or a ratio
+of independently selected CPU medians. Before execution, the practical admission
+margin was fixed at five percent:
+
+- P90 below 0.95: =observed-benefit=.
+- P10 above 1.05: =observed-regression=.
+- Otherwise: =not-admitted=.
+
+GQL is the negative control because both preferences retain recognition. Its
+paired median must remain within 0.95--1.05 and its empirical band must contain
+one at both scales and measured boundaries. Failure blocks whole-engine benefit
+admission. Passing this center check alone does not establish narrow dispersion.
+The global benefit marker additionally requires both non-GQL complete-request
+routes to meet the benefit criterion; it is a conservative universal-benefit
+check, not a proposal to change the default backend.
+
+** Actual native receipt
+
+The caller runs at source baseline =a36c4d1= with the paired benchmark changes.
+It explicitly admits the fresh =lr-parser~0.o6= and restored
+=lexical-lexer~0.o6=. The shared sampler and benchmark caller are compiled with
+the fixed =2591dcd= SDK and GCC. Heap cap remains 3 GiB, total bound 120 seconds,
+and idle bound five seconds. Benchmark compilation first rejected an incomplete
+form and then a malformed binding; both failures are retained as build failures.
+The corrected benchmark compiles successfully in 27.137 seconds.
+
+The source profile suite passes ten cases, then all twelve paired workloads
+complete: three languages, two sizes, prepared LR and complete public source.
+Twenty groups contain four batches of twenty calls each: 19,200 timed calls in
+total, excluding warmup, source-route witnesses and semantic reference admission.
+Both prepared variants publish the independent materialized GLR reference;
+public variants and untimed route witnesses publish the same source-bound
+canonical artifact. Products are checked after every batch. The complete child
+exits zero in 53.291 seconds with =TEST-SUITE-OK=,
+=LR-REQUEST-BACKENDS-OK=, =LR-BACKEND-PERFORMANCE-ADMISSION= and
+=BACKEND-CONTROL-OK=.
+
+| Family, units | Boundary | CPU ratio P10 | P50 | P90 | Observation |
+|---------------+----------+---------------+-----+-----+-------------|
+| GQL 64 | prepared LR | 0.761 | 0.995 | 1.115 | not admitted |
+| GQL 64 | full source | 0.197 | 0.999 | 1.100 | not admitted |
+| FHIRPath 64 | prepared LR | 1.275 | 1.336 | 1.358 | observed regression |
+| FHIRPath 64 | full source | 0.327 | 1.208 | 1.647 | not admitted |
+| Arithmetic 64 | prepared LR | 1.383 | 1.416 | 1.443 | observed regression |
+| Arithmetic 64 | full source | 0.635 | 0.989 | 1.020 | not admitted |
+| GQL 512 | prepared LR | 0.557 | 1.016 | 2.000 | not admitted |
+| GQL 512 | full source | 0.592 | 1.447 | 2.121 | negative control fails |
+| FHIRPath 512 | prepared LR | 0.814 | 1.404 | 2.353 | not admitted |
+| FHIRPath 512 | full source | 0.638 | 1.106 | 1.982 | not admitted |
+| Arithmetic 512 | prepared LR | 0.547 | 1.421 | 3.307 | not admitted |
+| Arithmetic 512 | full source | 0.455 | 0.530 | 2.281 | not admitted |
+
+** What the test establishes
+
+The small prepared event routes have repeatable regression observations under
+the declared empirical criterion. FHIRPath's admitted allocation ratio is 0.959
+in 19 of 20 groups; Arithmetic's is 0.790 in all twenty, with no timed GC in
+that prepared Arithmetic workload. Lower allocation therefore does not imply
+lower CPU even in an interval without collection. Those component regressions
+are observations from this caller, not a portable causal percentage.
+
+Large complete-source workloads fail allocation comparison: none of the twenty
+groups has four no-GC intervals. GQL, FHIRPath and Arithmetic encounter 25, 32
+and 21 collections respectively across their eighty timed full-source batches.
+These are whole-VM collections during the sole caller, not an allocation delta
+that can be attributed across collections. Every batch retains its raw counters
+and collection snapshot in Scheme output.
+
+The identical-executor GQL full-source control fails its median margin at 512
+units. The superficially favorable Arithmetic full-source median, 0.530, also
+has a band spanning 0.455--2.281 and is not a speedup. Collection placement in
+short interleaved batches is a concrete confounder; repeated identical source
+allocation and unchanged generated execution identify it as a measurement
+boundary that needs resolution before a complete-request CPU claim. The receipt
+alone does not prove it is the only source of variation.
+
+The executable gate reports =gql-fallback-stable #f= and
+=complete-request-benefit-admitted #f=. It passes semantic qualification and
+rejects performance admission. Default execution remains recognition. These
+results justify studying event representation and GC-sensitive request sampling;
+they do not justify enabling event execution, filtering out costly GC samples,
+increasing timeout budgets, or declaring a whole-engine speedup.
+* Qualification output completion
+
+A real Rust compiler trace exposed a separate test-cost defect. The child had
+completed its test, but the qualification parent continued processing a roughly
+200 MB output receipt for several minutes. Inspection found a redundant final
+UTF-8 conversion, line-list construction and per-line regexp check after the
+monitor had already stopped. Incoming error prefixes were already checked by
+the streaming reader. That final pass duplicated its work outside the active
+watchdog and retained additional whole-log representations.
+
+The process owner now reuses the reader's prefix state. Bare =ERROR= at EOF is
+the remaining delimiter-free case; =ERROR!= and =*** ERROR= are already rejected
+while streaming. Identifier prefixes such as =ERROR_COUNT= remain ordinary
+output. The required-receipt path decodes captured bytes only when a caller
+actually declares receipts. Byte capture, log storage, status propagation,
+owned-session cancellation and configured deadlines retain their original
+contracts. The new tests explicitly provide a byte sink while invoking this
+raw-output protocol inside a Suite that otherwise captures text.
+
+** Executable receipts
+
+=qualification-output-test.ss= exercises ordinary prefixes, three error forms,
+bare error across the 65,536-byte read boundary and complete eight MiB output.
+All four cases pass. The large child returns exactly 8,388,608 captured bytes,
+status zero and no reason in 0.668 seconds, including result construction. The
+whole Suite qualifies in 12.108 seconds with exit zero and final =OK=. Bootstrap
+and completed harness import are actual phase markers; no heartbeat or deadline
+extension is used.
+
+The current Rust library's 145 tests pass and its qualification parent exits
+normally in 8.017 seconds while handling a 200,000,405-byte diagnostic console
+receipt. This is a functional and bounded-output receipt, not a matched parser
+CPU comparison. LLVM pass diagnostics retain the compiler and optimization
+settings; they are confined to local troubleshooting.
+
+The existing native ownership controls also pass with GCC 16, including six
+concurrent cold initializations, caller-mailbox preservation, UTF-8 argv,
+nonzero/signal exits, silent/continuous/closed-output timeouts, escaped-session
+cancellation, unrelated-process survival, Unicode backpressure and immediate
+error cancellation. A first run rejects =closed-output=; a narrow reproducer
+returns the required =idle-timeout= in 1.245 seconds, and the complete recheck
+passes without changing any budget. Control failures now report the expected
+and actual reason, status, elapsed time and phase. This preserves the initial
+negative result and improves future attribution.
+
+The standalone C fixture initially fails to link because the shell resolves
+=ld= outside the SDK environment. The fixed SDK environment resolves the system
+linker and GCC 16 builds the same fixture successfully. The compiler is not
+replaced. The restored shared-engine semantic gate passes all 44 cases in
+19.376 seconds. The allocation verifier recheck admits the previous 916 exact
+intervals in 17.894 seconds, preserving its complete-request savings and CPU
+rejection boundary.
+
+** Rust policy delivery
+
+PR head =ad8c6a3= fails =RUST-AGENT-PROJECT-003= because its precedence-capacity
+unit test is inline in =engine/parser.rs=. The test is moved unchanged to
+=tests/unit/precedence_capacity.rs= and mounted with =#[path]=.
+The upstream =8bfc1fa= independently provides the same migration; rebase keeps
+that owner and drops the duplicate local commit. The existing ASP policy
+executable uses the current workspace manifest as its input; its policy source
+matches this checkout. That source-policy gate passes in 1.568 seconds. The
+145-test receipt above includes the moved assertion. Remote CI for the next
+published head remains a separate gate.
+
+* Compiled ranked-scanner request controls
+
+The earlier rejected result-publication lowering left a specific evidence gap:
+a compiled caller checking the entire observable scanner result. The new
+=benchmark-ranked-literal-requests= entry retains the original component entry
+and adds twelve workloads: depths 1, 4, 16 and 64, each accepting all prefixes,
+admitting only the shortest prefix, or missing the first edge. Preparation is
+untimed. Each stage uses twenty samples of 5,000 complete scanner calls; the
+sampler checks the final batch result's name, endpoint, precedence and declaration
+index. These are scanner calls, not whole-parser latency measurements.
+
+The experiment stores the selected prepared terminal and endpoint, allocating
+the four-element result only at traversal exit. The trie, rank selection and
+mode masks are unchanged. The same compiled caller runs reference, candidate,
+candidate, reference in fresh qualified children. Each child executes 1,200,000
+scanner calls; the four children complete in 4.969, 6.620, 4.248 and 5.666 seconds,
+respectively, with =RANKED-LITERAL-REQUESTS-OK= and exit zero. All commands retain
+GCC, the 3 GiB heap, the 120-second total limit and five-second silence limit.
+An initial incomplete Scheme form fails reader admission before measurement;
+its corrected build completes in 9.148 seconds.
+
+| Accepting depth | Reference bytes/call | Candidate bytes/call | Saved bytes/call | Ratio of summed child CPU medians |
+|-----------------+----------------------+----------------------+------------------+----------------------------------|
+| 1 | 336.0672 | 336.0672 | 0 | 1.0032 |
+| 4 | 912.0672 | 336.0672 | 576 | 0.8583 |
+| 16 | 3216.0672 | 336.0672 | 2880 | 0.7675 |
+| 64 | 12432.0672 | 336.0672 | 12096 | 0.6326 |
+
+The shared receipt verifier admits 936 collection-free allocation intervals.
+The exact integer batch-counter savings agree with 192 bytes per eliminated
+result spine on this native build. Shortest-only and miss controls retain exact
+allocation. Depths 16 and 64 have both candidate CPU medians below 95 percent
+of both reference medians. However, unchanged controls drift: the depth-4 miss
+ratio is 1.1831 and depth-16 miss ratio is 1.2059. The global CPU control gate
+therefore rejects every CPU benefit claim. These small batches do not resolve
+portable CPU non-regression, and no complete-parser benefit is established.
+The production scanner source and complete native/static artifact snapshot
+are restored. This experiment is not shipped as a runtime optimization.
+
+** Shared evidence admission and qualification
+
+=t/benchmarks/parser-stage-cost/receipt.ss= owns complete sampler receipt
+admission for both ranked scanner and complete casefold requests. Callers supply
+the completion marker and expected stage, batch and sample counts. The reader
+rejects repeated sample identities, duplicate summaries, missing completion or
+observations, inconsistent raw allocation counters, nonuniform admitted
+allocation and stale CPU summaries. Each comparison retains its own workload
+policy and conservative CPU control gate; no language-specific reader is copied.
+
+Four permanent source test cases cover valid receipts and forged or incomplete
+observations. They run with the seven existing LR/scanner suites: 48 cases,
+eight =MODULE-OK= receipts, =TEST-SUITE-OK modules=8=, final =OK= and exit zero
+in 24.126 seconds. The first invocation produces no bootstrap progress and is
+rejected in 6.071 seconds by the unchanged silence gate. A subsequent invocation
+records the actual bootstrap and harness-loaded boundaries; no periodic progress
+output or deadline extension is used. The native shared reader and both
+comparison consumers compile in 13.513 seconds; the final counter validation
+rebuild completes in 11.277 seconds.
+
+The ranked-scanner comparison confirms allocation while reporting
+=controls-stable? #f=. The complete casefold comparison is rechecked with the
+same reader against its existing four native receipts. This recheck preserves
+the earlier complete-request allocation evidence, and is not a new runtime
+measurement or CPU claim. Raw local receipts are identified by the stems
+=parser-ranked-reference-a=, =parser-ranked-candidate-a=,
+=parser-ranked-candidate-b=, =parser-ranked-reference-b=,
+=parser-ranked-shared-evidence= and =parser-casefold-shared-receipt-recheck=.

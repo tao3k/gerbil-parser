@@ -1,0 +1,175 @@
+#+title: DSL semantics and parser engine contracts
+#+date: 2026-10-09
+#+startup: overview
+
+* Scope and revision
+
+Current source audit baseline: =a90f23646e4bf43d9d1562d07f45cd3b2fb2674f=,
+PR #13, with the productivity entry-admission implementation described below.
+Implementation means a mechanism exists in this source revision. Qualification
+means the stated command completed with propagated status and its final marker.
+Historical receipts retain their own revisions. Neither inspected test code nor
+a paper theorem establishes a new execution receipt or a general parser bound.
+
+The author boundary remains =grammar.ss=, =parser.ss= and =parser-test.ss=.
+Syntax expresses language intent; checked POO composition selects effective
+values and source origins; engine admission checks the requested target before
+lowering and publication. Metadata belongs to the parser entry. Ordinary slot
+values need no author-written thunk; engine mechanics remain engine-owned.
+
+* One paper-to-code argument
+
+| Primary reading | Transfer to this engine | Evidence and limitation |
+|-----------------+-------------------------+-------------------------|
+| [[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][Fortifying Macros]], sections 3--4 and 7.2 | Distinguish declaration shape, resolved obligations and contextual diagnostics | Gerbil macros are the substrate; this does not implement Racket syntax classes |
+| [[https://www.cl.cam.ac.uk/~nk480/parsing.pdf][A Typed, Algebraic Approach to Parsing]], sections 3, 5.2 and 6 | Derive static facts before target specialization; retain CFG meaning | Its predictive grammar restrictions and linear parsing theorem do not cover every LR/Source target here |
+| [[file:scheme-dsl-research-basis.org::*Abstract interpretation: what can declarations teach the compiler?][Abstract interpretation study]] | Separate fixed-point meaning, convergence and efficient evaluation | Nullable/FIRST/productivity have completed dependency analyses; LR entry admission consumes productivity |
+| [[file:dsl-effective-grammar-admission.org::*Preserve expression occurrences through transformations][Practical LR study]] and [[file:lr-conflict-source-origins.org][rejected conflict origins]] | Retain expression occurrences when lowering helpers and investigate measured conflicts | Selected repetition and rejected LR action origins exist; admitted fork and runtime origin catalogs remain open |
+| [[file:dsl-lr-transfer.org][Incremental parsing study]] | Admit reuse by source/context and parser boundary obligations | Scheme scanner sessions and LR fragment controls exist; they do not establish general Rust Source subtree reuse |
+
+The integrated argument is: author declarations select one effective grammar;
+analysis establishes facts about that grammar; each target checks its own
+obligations; generated execution and artifact publication preserve the selected
+meaning. A legal LR grammar need not satisfy a predictive target's proof. Target
+failure must report the unsupported obligation rather than change CFG choice
+into prioritized choice or silently substitute another backend.
+
+* Current implementation map
+
+| Responsibility | Current mechanism and owner | Remaining boundary |
+|----------------+-----------------------------+--------------------|
+| Author syntax and POO composition | =defgrammar-syntax=, =deflanguage= and =src/compiler/normalize.ss= | Keep future admission and resource mechanics out of language author slots |
+| Resolved repetition and finite LR entry admission | =src/compiler/lr.ss= and =t/resolved-grammar-test.ss= | General predictive choice-equivalence proof; productivity is not lexer realizability |
+| Nullable/productivity analysis | Same owner; one completion graph with separate domain counters and coalesced fact deltas | FIRST uses its own prefix dependency worklist; no general whole-parser complexity claim |
+| Selected origin diagnostics | =expressionOrigin= and finite =nullableReferencePath= | Generated helper/conflict origin serialization and unavailable reader coordinates |
+| Source/Command scheduling | =command_program.rs= and =command_source/execution.rs= | Complete byte/allocation/work accounting beyond the live-frame budget |
+| Canonical Source publication | =command_source/publication.rs= and Scheme-native fixtures | Rust GPA1 encoding, diagnostic transport and deep live C handle parity |
+| Incremental admission | Scheme scanner sessions and LR fragment transfer | General cross-edit Rust Source subtree ownership and mapped publication |
+| Test preparation/execution | One compiled semantic dispatch; remaining Suite owners use persistent Scheme Workers | Preserve genuine source and ABI controls; avoid duplicating their Cases |
+
+Detailed contracts are owned by these documents:
+
+1. [[file:dsl-recognition-contracts.org][Recognition semantics and target obligations]]
+2. [[file:dsl-effective-grammar-admission.org][Effective grammar admission and source origins]]
+3. [[file:dsl-source-execution.org][Source execution and artifact ownership]]
+4. [[file:dsl-scanner-reuse.org][Scanner contexts and suffix convergence]]
+5. [[file:dsl-lr-transfer.org][LR fragment transfer and shared terminal yields]]
+6. [[file:dsl-test-preparation.org][Shared test runtime and preparation ownership]]
+
+* Qualification of the nullable algorithm slice
+
+=de8bef5= replaces whole-production nullable rescans with occurrence dependencies.
+For P productions and R rhs occurrences, expected constant-time table operations
+give O(P + R) graph construction and propagation. Each nullable name publishes
+once and each registered occurrence is discharged once. The public ordered list,
+lookup membership and selected-origin repetition diagnostics retain their contract.
+
+Local qualification completed 355 compiled semantic Cases across 23 groups and
+17 source-mode canonical LR reference Cases. The resolved grammar Suite includes
+512 cyclic grammar combinations against an independent repeated-scan oracle,
+marked operands, terminal blockers, duplicate occurrences, first-lhs ordering and
+a 4096-name reverse chain. Complete TLA+ LRSpec equals the pre-change snapshot.
+
+Ten real TLA+ complete construction samples had CPU medians 15.068 ms before and
+14.868 ms after, with no in-call GC. This difference is insufficient to claim
+end-to-end acceleration. It does not measure Rust execution, FFI or incremental
+parse latency. Latest delivered-head CI is a separate gate; inspect the PR check
+for that exact SHA before treating a local receipt as remote closure.
+
+* FIRST dependency follow-up
+
+[[file:dsl-effective-grammar-admission.org::*FIRST propagation: contract and implementation][The FIRST implementation contract]] records the completed nullable-prefix graph,
+dense private indices, coalesced deltas, canonical output order, independent
+oracles and matched native A/B. This gives the existing LR consumer dependency-
+driven analysis without changing target admission. Long reverse-chain behavior
+improves structurally; the measured real full-construction difference does not
+establish a stable end-to-end gain. The initial slower candidate remains recorded.
+After rebasing onto =344826a=, local qualification passed 44 source-mode
+resolved/canonical LR Cases, 361 compiled semantic Cases in 23 groups and all
+five independent research entries. Exact delivered-head CI remains separate.
+
+* Productivity entry admission
+
+[[file:dsl-effective-grammar-admission.org::*Productivity: finite derivation and LR entry admission][The productivity contract]] records the finite-word meaning, occurrence worklist,
+selected-rule blocker graph and deliberate LR target policy. An unproductive
+selected entry now fails before state construction, across all existing routes
+and conflict policies. Epsilon exits and productive LR recursion remain valid;
+dead alternatives and unrelated dead rules do not reject a productive entry.
+Public LRSpec output for admitted grammars remains unchanged.
+
+Local qualification completed 52 source Cases, 369 compiled semantic Cases
+in 23 groups, all five independent research entries and an exact complete
+TLA+ LRSpec comparison. The 15.0955 ms complete construction median after adding
+the check is not evidence of acceleration. Exact delivered-head Ubuntu/Rust CI remains a separate receipt.
+
+* Shared completion analysis
+
+[[file:dsl-productive-entry.org::*Joint completion solver: one graph, two meanings][The joint solver contract]] records how nullable/productivity share one indexed
+occurrence graph while preserving their distinct equations. LR construction now
+calls =compute-completion= once. Existing standalone observations project its
+completed result. Nullable implication permits two-bit publication; productivity
+alone cannot imply nullable. FIRST still consumes the complete nullable table.
+Local qualification passed 53 source Cases and 370 compiled semantic Cases in
+23 groups plus the five independent research entries. Same-tier native A/B kept
+complete LRSpec equality; real TLA+ completion facts measured 0.145 → 0.079 ms.
+The full-construction difference (14.715 → 14.525 ms) is too small for a stable
+end-to-end gain claim. Exact-head CI is separate.
+
+* Compositional LR suffix analysis
+
+[[file:dsl-effective-grammar-admission.org::*Unified suffix facts across LR consumers][The shared suffix contract]] now covers FIRST/nullable for all valid dotted
+positions. LALR/canonical closures and FOLLOW metadata read core+1; backward
+compatibility partitions read core, including the empty suffix. All consumers
+use =make-core-suffix-catalog=; the old lookahead-specific directory is removed.
+Independent forward-scan, complete partition and full LRSpec controls cover the
+position change. Padding allocation, repeated catalog construction across calls
+and large-mask width remain explicit costs. Matched native FOLLOW analysis
+improved; full LALR did not show a gain. Full TLA+ FOLLOW determinization and the
+Ubuntu semantic signal remain separate unresolved qualification work.
+
+* Next implementation sequence
+
+| Order | Concrete code/design work | Consumer and required control |
+|-------+---------------------------+-------------------------------|
+| 1 | Extend completed finite-derivation facts only for a defined target consumer | LR entry policy is implemented; lexer realizability and derivation certificates need separate contracts before making stronger claims |
+| 2 | Extend FIRST/nullable evidence to any proposed target specialization | Keep the implemented completed facts and canonical order; compare full target artifacts and cost before changing admission or emission |
+| 3 | Specify target-local CFG choice admission | Keep the reviewed HCL emitter restriction until equivalence is proved; matched token segmentation, common-prefix/nested-node controls, exact output or explicit rejection |
+| 4 | Extend Source resource and ABI qualification | Deep success/failure cleanup, independent next request, owned callbacks and diagnostic transport; account for bytes/work separately from frame count |
+| 5 | Join mapped scanner and parser subtree reuse at a defined target boundary | Fresh-parse artifact equality on Unicode, quotes, heredocs, delimiter and context edits; preserve new source identity and release ownership |
+
+Each item must define the existing engine owner, semantic consumer, negative
+control and measurement boundary before adding a new abstraction. POO remains
+the public extension mechanism where values are extensible; private algorithm
+state uses named functions and compact records. No new loader schema or public
+compatibility mode follows from this research sequence.
+
+* Compiled declaration-test host contract
+
+Declarative syntax/source checks must not turn input AST depth into native call
+stack growth. Their engine-owned inspection uses explicit frames with lexical
+port authority; language authors add neither traversal nor output exceptions.
+Deep rejection, legal fixture capture and shadowed-port controls exercise the
+same compiled semantic entry used by CI.
+
+Large expanded test objects retain the immutable SDK's optimizer and tail-call
+contract. Their builder selects Gambit's per-procedure C hosts, preventing one
+expanded Suite from becoming a giant C optimization unit. Production objects
+retain SDK defaults. Effective object options participate in
+cache reuse, with success-only Scheme identity records. Full preparation still
+proves the source/SDK closure. See the [[file:dsl-effective-grammar-admission.org][admission study]] for Ubuntu stack evidence,
+rejected alternatives and delivered-head qualification limits.
+
+* Completed FOLLOW graph facts and state-local accumulation
+
+After quotient refinement, static block labels and shift-source membership are
+indexed once by the engine. DFA target rows are local to one construction,
+reused across states and cleared only at touched labels. Full closed state
+identity and reduce/lookahead publication remain unchanged; first-seen labeled
+transition order determines the same state numbering. Language loaders contribute
+grammar values through their existing POO contract.
+
+Performance admission compares the entire target LRSpec and includes indexing,
+analyses and publication. Actual completed-state/item output is available through
+the existing LR trace switch for long constructions. See the [[file:dsl-effective-grammar-admission.org][admission study]]
+for the real TLA+ phase counts, exact-output A/B, cost limits and independent
+compiled/source controls.

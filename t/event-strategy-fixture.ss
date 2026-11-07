@@ -1,13 +1,13 @@
 ;;; -*- Gerbil -*-
-;;; One Scheme algorithm is executed in tests and compiled for Rowan.
+;;; One Scheme algorithm is executed in tests and compiled for Rust.
 
-(import (only-in :gerbil-parser/language-support deflanguage-grammar)
+(import (only-in :gerbil-parser/src/compiler/language-expander compile-language)
         (only-in :gerbil-parser/src/compiler/event-strategy-aot
                  define-line-event-parser event-node event-token
                  line-starts-with?))
 (export event-lines-language-grammar parse-event-lines parse_event_lines)
 
-(deflanguage-grammar event-lines
+(compile-language event-lines
   (identity "event-lines" "v1" "event-lines.v1")
   (syntax-kinds
    (Document node (line))

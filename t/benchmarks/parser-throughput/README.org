@@ -1,0 +1,145 @@
+#+title: Engine-owned parser throughput qualification
+
+* Hard performance gate
+
+These are project acceptance targets, not a universal parser standard.
+
+| Changing requests per batch | Maximum batch wall | Minimum throughput |
+|----------------------------+--------------------+--------------------|
+|                       1000 |            0.010 s | 100000 requests/s  |
+|                      10000 |            0.100 s | 100000 requests/s  |
+|                     100000 |            1.000 s | 100000 requests/s  |
+
+0.5 seconds per 100000 requests and 300000 requests/s are stretch targets;
+neither is reported as achieved without measured evidence. P50/P95/P99/max
+are per-request nearest-rank latencies in microseconds. The human selected
+reporting tail latency without an additional P95/P99 hard threshold.
+
+* Test owner and boundaries
+
+=protocol.ss= owns changing inputs, warmup, full semantic comparisons, CPU/GC
+observations, percentiles and failure propagation. Native adapters supply the
+compiled parser, an independent oracle and an immutable source identity.
+Compilation, input generation and oracle construction precede timing.
+Request latency covers only the compiled parser call. Batch wall also includes
+timestamp/sample recording and complete semantic comparisons; its throughput
+is conservative, not an isolated Scheme Fold or FFI service measurement.
+
+The precise clock is the installed SDK's =:std/os/time= integer seconds and
+nanoseconds, not subtraction of floating-point epoch seconds. It is an OS
+realtime clock, NOT a monotonic-clock claim; backwards intervals fail. Clock
+reads and their allocation/instrumentation costs are not subtracted. This
+protocol currently requires the SDK's POSIX time API; no Windows qualification
+is claimed.
+
+The included =engine-line-fold-not-org= fixture is a small generated engine
+grammar with Unicode and CR/LF input. It does NOT qualify complete Org syntax,
+Rust/Tokio concurrency, Python response delivery or SMP processor activation.
+The real Org adapter must use this same protocol with the actual compiled Org
+product and source identity; an engine-fixture pass cannot replace that gate.
+
+Process CPU and batch wall are separate. Raw allocation-counter deltas and GC
+counts are retained. Allocated bytes are admitted only for nonnegative deltas
+without GC. This does not measure resident memory, Rust reserved capacity or
+exclusive parser allocation. Inputs and oracle results remain retained during
+timing; memory claims must include this benchmark storage. There is no claimed
+memory hard gate or Scheme parallelism based on these counters.
+
+* Native Just entry points
+
+#+begin_src sh
+just build-parser-throughput OUTPUT LOAD_PATH
+just test-parser-throughput-protocol OUTPUT LOAD_PATH
+just benchmark-parser-throughput OUTPUT/parser-throughput preflight
+just benchmark-parser-throughput OUTPUT/parser-throughput full
+just report-parser-throughput OUTPUT/parser-throughput.full.log
+#+end_src
+
+A one-batch 1000-request preflight rejects grossly inadequate candidates before
+an expensive matrix. Full acceptance requires twenty batches at EACH of 1000,
+10000 and 100000 requests (sixty batches total), after preflight. Any semantic
+or performance failure stops the candidate with a nonzero exit. A truncated
+run is never accepted as a successful matrix. Preserve the complete stdout
+including failures; compare identical adapter, corpus, compiled inputs, SDK,
+host conditions and metric boundaries before promoting an optimization.
+
+Input indices change between acceptance batches, not merely within a batch;
+the source producer must incorporate its index. Clock-zero intervals are
+reported as =sub-resolution-request-samples=, not zero-cost parsing. A P50 of
+zero is unresolved at the clock's effective precision, not a latency win.
+For sub-microsecond attribution, a separately qualified finer clock is needed;
+batch wall/throughput gates remain distinct from that instrumentation limit.
+
+* Local protocol qualification, not Org acceptance
+
+The changing-input native line fixture completed all sixty acceptance batches
+after preflight. Medians of twenty per-batch measurements:
+
+| Requests | Batch wall (s) | Throughput (requests/s) | Request P95/P99 (us) |
+|----------+----------------+-------------------------+----------------------|
+|     1000 |       0.001096 |                  913058 |                  1/1 |
+|    10000 |       0.009857 |                 1014559 |                  1/1 |
+|   100000 |       0.136987 |                  729997 |                  1/1 |
+
+The tail values are quantized at this SDK clock's observable precision;
+1168786 of the 2000000 large-load request intervals were unresolved. They are
+NOT zero-cost calls or proof of sub-microsecond P95. The large-load median GC
+count was two, so its raw allocation delta is NOT an admitted allocation total.
+Resident memory and Rust capacity remain unmeasured by this engine fixture.
+Receipt: =.controls/parser-throughput-changing.full.log=. This result only
+qualifies the protocol and this tiny grammar; it does not establish an Org
+speedup, an optimization against the frozen baseline, SMP or end-to-end
+FFI/Python performance.
+
+* Actual Org preflight: rejected, not accepted
+
+The downstream thin adapter binds the real compiled Org product digest
+=sha256:c39aca6c8ce0b5c55c16911267238905ffd5e224c419640aba43ee7bd43e12a3=
+and uses three actual Org fixtures with changing request suffixes. An independent
+interpreted Fold constructs expected complete events before timing.
+
+The 1000-request preflight completed semantic comparisons but failed the hard
+performance gate: batch wall =0.216867 s=, throughput =4611.121 requests/s=,
+per-request P50/P95/P99/max =121/242/447/6782 us=. Process CPU was =0.215603 s=
+and ten collections occurred. Raw allocation-counter delta =392847656= is
+NOT an admitted allocated-byte total. No twenty-batch acceptance is claimed;
+the native runner exited nonzero immediately, preserving the failure receipt.
+
+This boundary is =org-scheme-fold-not-ffi-or-python=. It excludes FFI entry,
+event transport, graph projection, Tokio queues and Python response delivery.
+Batch CPU includes instrumentation and comparisons; it is not exclusive Fold
+CPU. Receipt: downstream =target/org-throughput-gated/preflight-real.log=.
+The real Org performance gate remains open, and its baseline is unchanged.
+
+* Upstream actual-Fold attribution and rejected reuse experiment
+
+=real.ss= consumes the actual generated engine product and data-only grammar
+program published by the thin grammar owner. It uses the same changing fixtures
+and protocol without importing an Orgize API, FFI, Tokio or Python runtime.
+=profile.ss= requires a diagnostic product; its binder refuses performance
+admission. Twenty-four complete controls emitted 1767 events and entered shared
+procedures 84538 times, including 4518 frame-start whitespace scans.
+Instrumentation costs and nested timings are not ordinary latency shares.
+
+Matched observer-free 1000-request preflights (one batch each, NOT acceptance):
+
+| Product | Batch wall (s) | Requests/s | Request P95/P99 (us) | Process maximum RSS (bytes) | GC |
+|---------+----------------+------------+---------------------+-----------------------------+----|
+| Control |       0.197398 |   5065.907 |             227/397 |                   191987712 |  7 |
+| Reuse   |       0.195332 |   5119.489 |             219/280 |                   192413696 |  8 |
+
+The first candidate preflight was 0.201576 s. These singleton differences do
+not establish a stable benefit, and both products fail the 0.010 s gate. The
+source-fact cache/private frame cell and successor collapse were conservatively
+reverted; diagnostic tooling and negative receipts remain. Raw allocation under
+GC is not admitted as allocated bytes. RSS includes retained input/oracle
+storage, not exclusive Fold memory or Rust reserved capacity. Whole process
+times of 49.47/48.67 s include expensive interpreted oracle preparation before
+batch timing and must not be reported as request service latency.
+
+Use =just run-real-fold-throughput= for admission and
+=just run-real-fold-resources= for process RSS under the same preflight. The
+resource wrapper propagates failure rather than turning rejection into a pass.
+Receipts: =.fold-value-control/real-resources.log= and
+=.fold-value-reuse/real-resources.log=. Rejected compiled artifacts differ from
+the reverted editable source and must not be loaded as current controls.

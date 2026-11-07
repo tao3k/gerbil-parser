@@ -1,0 +1,133 @@
+#+title: LR lookahead classification: request evidence and rejected cache
+
+* One request-cost obligation
+
+The [[file:lr-request-cost-boundaries.org][request-cost study]] identifies prepared LR execution as a major phase
+of complete GQL requests. A lookahead survives several reductions. The candidate
+classified it once per input tail, rather than selecting its literal independently
+in every state. It changed neither recognition semantics nor the language DSL.
+The [[file:unary-reduction-corridors.org][corridor experiments]] retain their separate negative results.
+
+The staging rationale remains the Scheme LR specialization and static-analysis
+papers discussed in [[file:dsl-effective-grammar-admission.org][effective grammar admission]]. They motivate separating
+grammar facts from invocation facts. They do not prove this implementation faster.
+Complete requests rejected it, despite passed semantic controls.
+
+* Candidate ownership and invariant
+
+The immutable prepared vocabulary interned private copies of literal strings in
+sparse length buckets. Rows mapped those identities to the original entries,
+retaining duplicate order and fork identity. Small rows used association lists;
+wider rows used identity tables. Each deterministic invocation owned a fresh
+selector closure keyed by its remaining token list. Exact literal, folded
+literal and token-kind precedence were preserved. Folding reused the grammar
+trie lazily; Unicode retained whole-string uppercase semantics; EOF stayed a
+row fact. GLR, layout and arbitrary installed reduction callbacks retained the
+original selector, because an arbitrary callback can mutate a pending token.
+
+The rejected implementation and its controls are reproducible from
+[[https://github.com/tao3k/gerbil-parser/tree/604ff1cb62b03586918a1eddcfc67ff719b1034e][the measured revision]]. The production cache and its preparation factory
+were subsequently removed. There is one production selection path.
+
+#+begin_src scheme
+;; Rejected candidate: grammar facts shared, classification state per request.
+(def fresh-selector (prepare-lr-lookahead-selector rows index casefold?))
+(def select-left (fresh-selector))
+(def select-right (fresh-selector))
+(eq? (select-left state tokens) (original-select state tokens))
+(eq? (select-right other-state other-tokens)
+     (original-select other-state other-tokens))
+#+end_src
+
+** Question: why does this exploit Scheme beyond S-expression notation?
+
+Inspectable terminal data supports static projection; private records identify
+representation ownership; lexical closures express invocation ownership without
+an author configuration or a global cache. POO continues to own extensible
+declarations, while fixed selection algorithms remain named procedures.
+Those useful language mechanisms do not guarantee efficient machine behavior.
+Here their additional request closure and projection costs failed admission.
+
+** Question: how is the design scientifically justified?
+
+Entry identity, exact/folded/kind precedence, duplicate order, EOF, Unicode,
+interleaved invocations and callback mutation are falsifiable semantic obligations.
+CPU is a separate hypothesis. Counting repeated selections does not measure their
+cost: rows without literals already have a cheap negative path. Extra global
+classification and identity lookup can cost more than the original row lookup.
+The retained diagnostic therefore counts literal-bearing row observations
+separately from all non-EOF observations. It makes no additive CPU attribution.
+
+* Exact-head native evidence and rejection
+
+All three jobs of [[https://github.com/tao3k/gerbil-parser/actions/runs/38110861774][the measured exact-head acceptance run]] passed: Rust AOT,
+Linux Scheme and macOS Scheme. Complete semantic tests, language and ABI
+conformance, generated products and the extended complete request matrix passed.
+Passing CI establishes those gates; it does not establish a request speedup.
+
+The request matrix uses twenty alternating paired groups, validates full
+source-bound artifacts and requires every leg to resolve one millisecond of
+process CPU. Timing contains no observer and includes natural GC. Arithmetic
+uses the identical generated executor as a negative control. Values below are
+candidate/reference CPU ratios at P10, P50 and P90.
+
+| Host | Request | P10 | P50 | P90 |
+|------+---------+-----+-----+-----|
+| Linux | GQL 1 | 0.592 | 0.961 | 1.574 |
+| Linux | FHIRPath 1 | 0.539 | 1.002 | 1.850 |
+| Linux | Arithmetic 1, identical | 0.204 | 0.998 | 1.020 |
+| Linux | GQL 64 | 0.701 | 1.393 | 1.401 |
+| Linux | FHIRPath 64 | 0.753 | 1.012 | 1.372 |
+| Linux | Arithmetic 64, identical | 0.557 | 1.000 | 1.797 |
+| macOS | GQL 1 | 0.504 | 0.967 | 1.856 |
+| macOS | FHIRPath 1 | 0.432 | 0.978 | 2.248 |
+| macOS | Arithmetic 1, identical | 0.979 | 0.999 | 6.954 |
+| macOS | GQL 64 | 0.606 | 1.624 | 1.646 |
+| macOS | FHIRPath 64 | 0.481 | 1.018 | 1.591 |
+| macOS | Arithmetic 64, identical | 0.454 | 0.999 | 2.213 |
+
+GQL 64 regresses at the median on both hosts; FHIRPath has no stable benefit.
+Identical-executor controls exhibit wide batch tails, so these quantiles are not
+confidence bounds or production request percentiles. No precise causal slowdown
+percentage is admitted. The result is nevertheless insufficient to retain the
+candidate. Production closure allocation and vocabulary projection are removed.
+
+Untimed work observations are identical across hosts:
+
+| Request | Non-EOF selections | Distinct input tails | EOF selections |
+|---------+--------------------+----------------------+----------------|
+| GQL 1 | 6 | 2 | 50 |
+| FHIRPath 1 | 1 | 1 | 41 |
+| GQL 64 | 1013 | 128 | 51 |
+| FHIRPath 64 | 1071 | 127 | 42 |
+
+Repeated selection counts establish an opportunity, not its CPU share. Small
+requests are dominated in count by EOF reductions, which cannot benefit from
+lexeme classification. Future request work must measure literal-bearing rows,
+reduction kernels and source execution separately, retaining complete products
+and identical-executor controls. It must not reintroduce this rejected cache
+based on counts alone.
+
+* Retained implementation and reproduction
+
+- [[file:../../t/benchmarks/lr-request-stack/lookahead.ss][Request action diagnostics]] retain executor witnesses, independent original
+  selector comparison, literal-bearing row counts and complete CPU controls.
+  After withdrawal the comparison is production versus original-reference
+  selection; it is a control, not the historical cache experiment.
+- [[file:../../t/lr-stack-reduction-test.ss][Callback mutation control]] requires rejection after an installed reduction
+  procedure changes a pending literal. This protects the extension contract.
+- [[file:dense-lr-item-space.org::*Small-grammar attribution controls][Small compiler controls]] separate preparation and resolved complete batches;
+  the earlier small-grammar regression did not reproduce.
+
+The existing optional benchmark entry remains:
+
+#+begin_src scheme
+(benchmark-lr-request-stack 20 20)
+#+end_src
+
+The measured revision is required to reproduce the rejected cache. Current HEAD
+contains only the production baseline and retained controls. The existing build
+catalog orders fixtures before consumers. No workflow or deadline was added.
+Historical local source and standalone native controls are weaker evidence than
+the completed exact-head run; interrupted and idle-failed local builds remain
+excluded from native request admission.

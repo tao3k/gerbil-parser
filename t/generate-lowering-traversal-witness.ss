@@ -1,0 +1,11 @@
+;;; Publish typed reader data through the shared source-data renderer.
+(import (only-in :gerbil-parser/t/fixtures/lr1-construction write-lowering-traversal-data)
+        (only-in :std/misc/ports read-all-as-string))
+(export main)
+(def (main mode output)
+  (unless (member mode '("module" "check")) (error "expected module|check output"))
+  (let (rendered (call-with-output-string write-lowering-traversal-data))
+    (if (equal? mode "module")
+      (call-with-output-file output (lambda (port) (write-string rendered port)))
+      (unless (equal? rendered (call-with-input-file output read-all-as-string))
+        (error "recursive lowering proof input is stale" output)))))

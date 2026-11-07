@@ -1,0 +1,85 @@
+name: Gerbil compiler setup
+description: Install the configured Gerbil compiler archive and platform dependencies
+inputs:
+  release-os:
+    required: true
+    description: release-os
+  release-arch:
+    required: true
+    description: release-arch
+  release-tag:
+    required: true
+    description: release-tag
+  release-sha256:
+    required: true
+    description: release-sha256
+runs:
+  using: composite
+  steps:
+    - name: Install Linux system dependencies
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          ca-certificates \
+          curl \
+          git \
+          jq \
+          libsqlite3-dev \
+          libssl-dev \
+          openjdk-17-jre-headless \
+          openssl \
+          pkg-config \
+          sqlite3 \
+          zlib1g-dev
+      shell: bash
+    - name: Install macOS system dependencies
+      if: runner.os == 'macOS'
+      env:
+        HOMEBREW_NO_AUTO_UPDATE: 1
+        HOMEBREW_NO_INSTALL_CLEANUP: 1
+      run: |
+        brew install coreutils gcc jq openssl@3 pkg-config sqlite zlib
+        coreutils_bin="$(brew --prefix coreutils)/libexec/gnubin"
+        test -x "$coreutils_bin/timeout"
+        echo "$coreutils_bin" >> "$GITHUB_PATH"
+        openssl_prefix="$(brew --prefix openssl@3)"
+        macos_major="$(sw_vers -productVersion | cut -d. -f1)"
+        echo "PKG_CONFIG_PATH=$openssl_prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" >> "$GITHUB_ENV"
+        echo "MACOSX_DEPLOYMENT_TARGET=$macos_major.0" >> "$GITHUB_ENV"
+      shell: bash
+    - name: Install native task tool
+      uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad
+      # The action chooses between CARGO_HOME/bin and .install-action/bin.
+      # Scope a fresh Cargo home to this installer so every job uses the latter,
+      # regardless of whether its runner image ships Homebrew or user Rustup.
+      env:
+        CARGO_HOME: ${{ runner.temp }}/parser-ci-tools
+      with:
+        tool: just
+    - name: Cache Gerbil compiler archive
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        path: ${{ runner.temp }}/gerbil-compiler.tar.gz
+        key: parser-compiler-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.release-sha256 }}
+    - name: Extract and activate Gerbil compiler
+      run: |
+        test -f "$RUNNER_TEMP/gerbil-compiler.tar.gz" || curl --fail --location --retry 3 --output "$RUNNER_TEMP/gerbil-compiler.tar.gz" \
+          "https://github.com/tao3k/gerbil-bazel/releases/download/${{ inputs.release-tag }}/${{ inputs.release-tag }}.tar.gz"
+        echo '${{ inputs.release-sha256 }}  '"$RUNNER_TEMP/gerbil-compiler.tar.gz" | shasum -a 256 --check
+        mkdir -p "$GERBIL_RELEASE_ROOT"
+        tar -xzf "$RUNNER_TEMP/gerbil-compiler.tar.gz" -C "$GERBIL_RELEASE_ROOT" --strip-components=1
+        source "$GERBIL_RELEASE_ROOT/activate"
+        # Gambit's public configure dump owns the actual native compiler binding.
+        eval "$("$GERBIL_HOME/bin/gambuild-C")"
+        command -v "$C_COMPILER" >/dev/null
+        {
+          echo "GERBIL_BUILD_CORES=$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu)"
+          echo "GERBIL_PREFIX=$GERBIL_PREFIX"
+          echo "GERBIL_HOME=$GERBIL_HOME"
+          echo "GAMBOPT=$GAMBOPT"
+          echo "GERBIL_GCC=$C_COMPILER"
+        } >> "$GITHUB_ENV"
+        echo "$GERBIL_RELEASE_ROOT/bin" >> "$GITHUB_PATH"
+      shell: bash

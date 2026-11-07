@@ -1,45 +1,55 @@
 ;;; -*- Gerbil -*-
 ;;; Canonical GrammarExpr v1 constructors and structural analysis.
 
+(import (only-in :gerbil/runtime/syntax __AST-list?))
+
 (export grammar-expression
         grammar-expression?
+        grammar-expression-header?
         grammar-expression-kind
         grammar-expression-nullable?
         grammar-expression-fields
         grammar-expression-references
         grammar-expression-terminals)
 
-;; grammar-expression?
+;; Shared constructor arity and scalar metadata checks. Children are checked by
+;; grammar-expression? or by the source-aware compiler traversal, not here.
 ;; : (-> Datum Boolean)
-(def (grammar-expression? value)
-  (and (list? value)
+(def (grammar-expression-header? value)
+  (and (__AST-list? value)
        (pair? value)
        (case (car value)
-         ((empty)
-          (null? (cdr value)))
-         ((literal)
+         ((empty) (null? (cdr value)))
+         ((layout-end)
+          (every (lambda (boundary)
+                   (and (string? boundary) (positive? (string-length boundary))))
+                 (cdr value)))
+         ((literal layout-start layout-next)
           (and (= (length value) 2)
                (string? (cadr value))
                (positive? (string-length (cadr value)))))
          ((token reference)
-          (and (= (length value) 2)
-               (symbol? (cadr value))))
-         ((sequence choice)
-          (and (pair? (cdr value))
-               (grammar-expressions? (cdr value))))
-         ((optional repeat repeat1)
-          (and (= (length value) 2)
-               (grammar-expression? (cadr value))))
+          (and (= (length value) 2) (symbol? (cadr value))))
+         ((sequence choice) (pair? (cdr value)))
+         ((optional repeat repeat1) (= (length value) 2))
          ((field alias)
-          (and (= (length value) 3)
-               (symbol? (cadr value))
-               (grammar-expression? (caddr value))))
+          (and (= (length value) 3) (symbol? (cadr value))))
          ((precedence)
           (and (= (length value) 4)
                (memq (cadr value) '(none left right dynamic))
-               (integer? (caddr value))
-               (grammar-expression? (cadddr value))))
+               (integer? (caddr value))))
          (else #f))))
+
+;; grammar-expression?
+;; : (-> Datum Boolean)
+(def (grammar-expression? value)
+  (and (grammar-expression-header? value)
+       (case (car value)
+         ((sequence choice) (grammar-expressions? (cdr value)))
+         ((optional repeat repeat1) (grammar-expression? (cadr value)))
+         ((field alias) (grammar-expression? (caddr value)))
+         ((precedence) (grammar-expression? (cadddr value)))
+         (else #t))))
 
 ;; grammar-expressions?
 ;; : (-> List Boolean)
@@ -67,6 +77,16 @@
   (unless (and (string? value) (positive? (string-length value)))
     (error "grammar literal must be a non-empty string" value))
   (list 'literal value))
+
+(def (grammar-layout-marker role value)
+  (unless (and (memq role '(layout-start layout-next))
+               (string? value) (positive? (string-length value)))
+    (error "layout marker must be a non-empty literal" role value))
+  (list role value))
+
+(def (grammar-layout-end (boundaries '()))
+  (let (expression (cons 'layout-end boundaries))
+    (require-expression expression 'layout-end)))
 
 ;; grammar-token
 ;; : (-> Symbol List)
@@ -156,12 +176,19 @@
 ;;       ```
 ;;     %
 (defrules grammar-expression
-  (empty literal token reference seq choice optional repeat repeat1
+  (empty literal layout-start layout-next layout-end
+   token reference seq choice optional repeat repeat1
    field alias prec none left right dynamic)
   ((_ (empty))
    (grammar-empty))
   ((_ (literal value))
    (grammar-literal value))
+  ((_ (layout-start value))
+   (grammar-layout-marker 'layout-start value))
+  ((_ (layout-next value))
+   (grammar-layout-marker 'layout-next value))
+  ((_ (layout-end boundary ...))
+   (grammar-layout-end (list boundary ...)))
   ((_ (token name))
    (grammar-token 'name))
   ((_ (reference name))
@@ -209,7 +236,7 @@
 (def (grammar-expression-nullable? expression)
   (require-expression expression 'nullable)
   (case (car expression)
-    ((empty optional repeat) #t)
+    ((empty layout-end optional repeat) #t)
     ((sequence)
      (let loop ((rest (cdr expression)))
        (or (null? rest)

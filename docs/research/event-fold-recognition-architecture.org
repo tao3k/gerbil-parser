@@ -1,0 +1,276 @@
+#+title: EventFold recognition architecture audit
+
+* Scope and decision
+
+Audit the recognizer, not only the event representation. Ordered lossless
+events are an output contract; they are not an algorithm for selecting rules.
+Retain that contract provisionally. The current recognizer is not qualified
+as a high-performance architecture: syntactic AOT lowering and code interning
+do not establish shared evaluation, bounded scan visits or active-state dispatch.
+
+* Research obligations and concrete implementation boundaries
+
+| Research principle | Current implementation | Missing admission |
+|--------------------+------------------------+-------------------|
+| Typed algebraic parsing: deterministic choice and progress | Closed typed state/helper IR; recursive helpers rejected | No grammar-wide nullable/first/overlap proof for contextual Org rules |
+| Staging: remove static dispatch rather than interpret grammar | Generated Scheme expressions and transitions | Thousands of private calls still represent expression structure; code sharing is not value sharing |
+| flap: fuse recognition stages and eliminate ephemeral tokens | Direct event tape avoids nested result lists | Output tape is not flap's discarded lexer token stream; do not delete required output events |
+| Shared immutable observations | Expression interning; adjacent probe fusion | Frame-level scan facts and control/effect barriers need explicit admission |
+| Ordered semantic actions | Request slots, ordered statements and request-owned tape | Any dispatch/fusion must retain writes, queries, exceptions and emission order |
+| Input progress and bounded work | Byte loops progress; future queries have separate indexes | No whole-program scan-visit bound; helper acyclicity alone does not prevent repeated traversals |
+
+Primary sources: A Typed, Algebraic Approach to Parsing (PLDI 2019),
+https://www.cl.cam.ac.uk/~jdy22/papers/a-typed-algebraic-approach-to-parsing.pdf;
+flap: A Deterministic Parser with Fused Lexing (PLDI 2023),
+https://arxiv.org/html/2304.05276. Their deterministic/LL(1) assumptions and
+published timing ratios are not established for this Org recognizer.
+
+* Concrete findings
+
+The actual generated horizontal-prefix procedure expression-3471 scans from
+start to the first non-horizontal byte. Offset procedure 3473 calls it; 3476
+calls 3473. The diagnostic product reports 4518 calls to 3471 over 24 complete
+Org controls. This is direct evidence of dynamic repeated work, not exclusive
+CPU attribution or an average claimed for each document.
+
+The condition lowering also normalized nested and/or results to Boolean values
+when only branch truth was required. Branch contexts can retain native Scheme
+short circuiting; published Boolean slots must still normalize to #t/#f.
+
+Helper-local state vectors, repeated source probes, source encoding, event
+storage growth and final publication are separate allocation boundaries.
+Removing one cannot establish removal of the others. The 71.459 ms historical
+batch is not fully explained by GC; wall minus CPU does not name the cause.
+
+The reset/increment summary experiment conservatively removes unconditional
+current-byte counter transitions from the exceptional alphabet. Lean proves
+the affine/reset summary fold; Quint keeps lifecycle/publication responsibility.
+Actual AOT controls pass but CPU remains near the control's 43-44 ms in the
+serial reverse round. The implementation is withdrawn: static trigger removal
+does not identify the executed dominant path. A changing-input native call
+census is needed before claiming additional shared-scan/state work is material.
+
+Live paired realtime/monotonic probes reproduce non-GC request stalls with
+involuntary OS descheduling. They separate complete-tape comparison and probes
+from the parser interval. This is not retrospective classification of older
+batches, an exclusive CPU profile, or permission to change kernel/scheduler
+configuration. Both CPU work and off-CPU wall inflation remain relevant.
+
+The changing-input native census observes roughly 95000 calls to multiple
+residual state-selection nodes for 1000 documents, while encoding/publication
+each runs 1000 times. Call frequency is not exclusive CPU attribution. Whole
+residual byte partitioning expands code/RSS and is withdrawn; separating idle
+state from trigger-byte admission also fails to produce a stable major gain.
+Both pass source-bound models and actual tapes but fail the 10 ms gate. Their
+negative outcomes are retained, not compensated by selecting a fastest lane.
+Next admission must establish dependency support per independent consumer and
+executed coverage rather than repeatedly test one all-zero machine guard. No
+counter is declared irrelevant from its name and no invalidation cache is added.
+
+* Execution restructuring
+
+Preparation must separate immutable source/frame observations from stateful
+transitions. Lexical frame facts have no request lookup table or invalidation
+cache. Only total, state-independent observations may be moved before a branch;
+state-dependent ranges, future queries and unknown operations remain ordered.
+Every source-bound change receives new facts. Helpers own independent frames.
+
+State execution must use admitted necessary-byte/active-state facts, not a
+hard-coded list of Org markers. Unknown effects reject specialization. Run
+coalescing is restricted to overwrite-only transitions with a retained trigger
+residual. The current run planner is existing infrastructure, not proof that
+every plain-text path is coalesced. Measure executed coverage before expanding
+admission; do not add a mutable guard cache already rejected by matched tests.
+
+* Non-overlapping verification responsibilities
+
+The current experiment stages conservative necessary-prefix tries per
+immutable line frame, across ordered consumers. A frame-local Boolean guards
+each admitted original condition, retaining each transition only once.
+A negative classification bypasses impossible conditions, including their
+total state reads. Positive classification retains the original condition
+and suffix tests; it does not infer a successful rule.
+Queries, errors and unknown effects preceding a prefix prevent admission.
+The anchors are the original line start and the admitted total horizontal
+prefix scan. The latter is bound once and reused by the original consumers;
+offsets derived from mutable state are not classified. Both anchor tries feed
+one conservative Boolean: an unrelated positive trigger cannot admit a rule,
+and an absent trigger cannot suppress an earlier query. Nested source frames
+discard both facts. This covers expanded byte predicates as well as literal
+prefix operations without introducing a line-index cache.
+Source-bound changes, loops and helper handoffs remain separate owners.
+The residual preserves else transitions, writes and event order. This adds
+neither a request cache nor a new runtime. Native code growth, RSS and matched
+timing must qualify it; fewer source predicates alone cannot admit the change.
+
+Lean: denotational refinement of scan reuse, branch truth/observable order,
+overwrite-only runs and trigger residuals; arithmetic source-progress and
+operation-count bounds. Preconditions must be explicit. Abstract theorems do
+not prove the concrete Scheme compiler or physical milliseconds.
+
+Quint: finite histories of frame activation, stale-fact rejection, ownership
+and publication. Keep these separate from Lean's algebra. Bounded seeded runs
+are not exhaustive proofs of all runtime histories.
+
+Actual AOT: generated-unit identity, complete tapes for independently prepared
+changing inputs, configuration overrides, frame boundaries, Unicode and error
+controls. Interpreter/compiler agreement on one strategy is not independent
+evidence that the strategy implements all Org syntax.
+
+Performance: unchanged 1000 changing-request <=10 ms and >=100000 requests/s
+preflight first. Only then run 1000/10000/100000 requests for twenty batches
+each, reporting per-request P95/P99 in microseconds, batch wall in milliseconds,
+throughput in requests/s and whole-process peak RSS in bytes. Matched controls
+must be sequential and host contention recorded. Slower candidates are removed;
+original executables and all negative receipts are preserved.
+
+* Concrete restructuring candidates and evidence boundaries
+
+The frame-fact/condition candidate passed five frame controls, four condition
+controls and 24 complete actual Org AOT controls. Its immutable scanner fact
+is lexical, not a request memo table. A strict control/candidate/candidate/control
+preflight reports 83.344/47.997/47.991/50.837 ms. The first control contains
+a 13.505 ms request spike; do not infer a large causal speedup from that sample.
+Candidate P95 is 67/65 us, P99 114/108 us, throughput approximately 20835/20837
+requests/s, RSS 28803072/28819456 bytes. All four fail the unchanged gate.
+GC remains five and GC-spanning counter deltas are not admitted allocated bytes.
+
+An opt-in lexical-state owner layout replaces helper private vectors with
+local scalar variables. Mutating statements cannot escape into by-value
+interned procedures; read-only expressions can receive current scalar values.
+Independent helper frames and explicit overrides retain their owners. Root
+state crosses the per-line callback and finish phase and retains an explicit
+shared vector. This
+is a generated execution-region representation change, not a language DSL,
+new runtime or ABI. It requires complete AOT and matched timing before admission.
+Lean's frame_representation_refinement makes transition commutation an explicit
+premise; it does not prove concrete Scheme lowering. Quint keeps the separate
+activation/ownership/publication histories. Compilation size and time are costs,
+not permission to inline the whole grammar or widen qualification timeouts.
+
+The all-frame lexical experiment is rejected: 41.072/104.958 ms against
+46.292/44.342 ms controls; P95 57/154 us, P99 65/1168 us, RSS
+28147712/28196864 bytes and six GCs versus five. The second request maximum is
+8.471 ms and wall minus CPU is 47.950 ms. No causal attribution is inferred
+from these counters. A lower median or RSS cannot admit the unstable candidate.
+The source lowering of cross-callback root state was removed. Its immutable
+generated product and both negative receipts are retained, not selected as a
+qualified baseline. The helper-only candidate is also rejected: 145.675/44.563 ms
+against 44.977/48.229 ms controls; P95 299/62 us, P99 2130/103 us, RSS
+27426816/27361280 bytes and seven GCs versus five. The slow lane has 76.494 ms
+wall-minus-CPU; its cause remains unproven. Both lexical owner lowerings and
+their compiler flag were removed. Fewer calls and lower RSS cannot admit them.
+The active source retains vectors plus frame-fact/conditional-truth lowering.
+
+* Rejected one-step state settling candidate
+
+An overwrite-only admission was too restrictive for first-byte capture and
+escape-reset transitions. The candidate computes constant post-state facts
+at compile time, retaining the first ordinary-byte transition in order. Only
+facts common to both branches are usable. The residual must preserve those
+facts and contain only total overwrites whose reads do not intersect residual
+writes. Prefix bounds and entry guards must remain unwritten by the entire
+entry transition. Events, queries, exceptions, helpers and source-frame changes
+reject this admission. The scanner leaves the first trigger for the original
+transition and never transfers the event owner or caches a request value.
+
+For the unchanged actual Org IR, static eligible loops increase from 33 to 47
+out of 285. This is preparation coverage, not executed coverage or a speed claim.
+Lean's settled_run_refinement owns the conditional stable-region algebra;
+Quint's peeled phase owns same-epoch entry-before-commit lifecycle ordering.
+Neither substitutes for concrete admission tests or complete AOT tapes.
+The <=10 ms preflight remains mandatory before the twenty-batch matrix.
+
+V1 failed matched physical qualification: 48.930/47.077 ms versus
+46.374/47.903 ms controls. V2 preserves already admitted kernels and avoids
+duplicate entry/residual execution on singleton runs. It passes the new-head
+Lean, Quint, native ASCENT and 24 actual AOT controls, but also lacks a stable
+throughput benefit: a calm ABBA gives control 44.537/46.412 ms and candidate
+45.936/45.341 ms. Candidate P95 is 62/62 us, P99 86/85 us, throughput
+21769.418/22055.094 requests/s and RSS 28803072 bytes. All lanes have five
+GCs and fail the unchanged gate. An earlier control has 137.279 ms wall and
+64.381 ms CPU, with a 27.865 ms request spike; that disturbed sample cannot
+establish a candidate speedup. All raw receipts remain available.
+
+Both production candidates, their extra admission tests, compiler projection
+and model additions were removed. The prototype and source snapshot remain
+as rejected evidence, not active runtime infrastructure. Increased static
+eligibility does not establish executed hot-path coverage; unchanged GC and
+RSS also do not prove the allocation origin. Next architecture work must
+measure and fuse repeated recognition across consumers, rather than infer
+whole-engine benefit from a local transition's reduced operation count.
+
+The private checkout fast-forwards to PR #13 head b5e1895 without discarding
+owned edits. The new request-owned LR changes do not modify Fold compiler,
+tape or source-line inputs; the Fold artifact scope is distinct from complete
+qualification of that LR executor or downstream FFI/Tokio/Orgize.
+
+* Dominating recognition facts across consumers
+
+The active prototype binds repeated start-anchored delimiter, word and key
+observations once in the first dominating consumer's lexical region. Later
+consumers reuse scalar offsets, while state writes and direct tape actions
+retain their original order. It adds no request cache or intermediate token
+list. Conditional first observations, state-dependent bounds, queries/errors,
+loops, opaque instructions, helper handoffs and source-frame changes block
+this transformation. Existing unconditional trim/content scan experiments
+remain rejected and are not re-enabled.
+
+The actual generated Org product contains nine lexical consumer facts and
+7423 static private call sites versus 7443 in the frame-fact control. These
+are structural observations, not dynamic coverage, allocation or speed proof.
+The initial cross-helper proposal found zero eligible scans in all 27 actual
+helper descriptors and was removed. Sharing code cannot be substituted for
+sharing an executed source observation. Lean models ordered pure consumers;
+Quint models same-extent borrowing and invalidation histories. Actual full
+tape comparison and matched wall/throughput gates still decide admission.
+
+The source-bound Lean/Quint/Scheme-to-actual-AOT join passes. Two matched ABBA
+preflights give candidate wall44.855-45.843 ms/1000 changing requests, request
+P9562-64 us/P9971-86 us, throughput21813.581-22294.059 requests/s and whole
+process peak RSS27.390625-27.4375 MiB. All runs have five GCs and fail the
+unchanged10 ms preflight. Controls include a disturbed52.707 ms lane and a
+45.827 ms lane nearly tying the candidate. No large/stable speedup or allocation
+improvement is admitted, no baseline is promoted, and no full matrix starts.
+This is only a dominating delimiter-fact candidate; ordinary-text dispatch
+and whole-engine consumer fusion remain open architecture obligations.
+
+* Independent AOT closure and anchored recognition
+
+The installed official compiler's =compile-obj= retries while an =.o.lock=
+exists. The earlier failed overlapping links left part-11's lock unowned;
+subsequent serial attempts waited there, not in a proven kernel deadlock.
+After a process inventory and exact-path open-file check, the lock was moved
+to retained evidence. Both independent single-body executables linked
+successfully, sequentially, without SDK or kernel changes. Test entrypoints
+now reject existing object locks without removing another build's evidence.
+
+The horizontal-anchor extension shares one admitted immutable indentation
+observation with both classification and original consumers. State-dependent
+offsets, queries, helpers and frame changes remain opaque. Static generated
+private call sites are 7420 versus 7423 in the single-anchor predecessor;
+static counts are not dynamic work or performance evidence.
+
+Both versions pass 24 complete actual Org AOT tapes. Observer-free, sequential
+ABBA preflights use the same pinned SDK, 1000 changing requests, 2856770 input
+bytes, immutable corpus and complete independent expected OEV1 tapes:
+
+| Control / candidate | Wall ms | Request P95 us | Request P99 us | Requests/s | Peak RSS bytes |
+|---------------------+---------+----------------+----------------+------------+----------------|
+| Delimiter control 1 |  47.230 |             63 |            100 |  21172.983 |       28770304 |
+| Anchored candidate 1|  44.626 |             63 |             96 |  22408.461 |       28917760 |
+| Anchored candidate 2|  45.312 |             63 |            124 |  22069.209 |       28901376 |
+| Delimiter control 2 |  46.060 |             63 |             96 |  21710.812 |       28770304 |
+| Single-body control 1| 51.264 |             68 |            280 |  19506.866 |       28835840 |
+| Anchored candidate 3|  44.320 |             63 |            117 |  22563.177 |       28917760 |
+| Anchored candidate 4|  44.919 |             64 |             97 |  22262.294 |       28917760 |
+| Single-body control 2| 49.605 |             66 |            186 |  20159.258 |       28966912 |
+
+All lanes complete independent semantic comparison, have five GCs and exit70
+at the unchanged 10 ms gate. Earlier single-body lanes range43.006-45.728 ms,
+so the slower later controls do not establish a large stable speedup. Candidate
+memory is higher than the delimiter controls. Raw allocation counter deltas
+across GC are not admitted allocated bytes. These are engine Fold measurements,
+not FFI/Tokio, Python or public Org::parse acceptance. The remaining ordinary
+byte-loop work is not eliminated by this frame-prefix prototype. No production
+baseline is promoted and no twenty-batch workload matrix runs.

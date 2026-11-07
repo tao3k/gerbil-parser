@@ -1,4 +1,9 @@
 .gerbil/
+.gerbil.publication.lock
 .data/
 manifest.ss
 target/
+formal/.lake/
+formal/quint/node_modules/
+formal/evidence/__pycache__/
+formal/evidence/.venv/

@@ -1,0 +1,327 @@
+#+title: Casefold vocabulary and complete request qualification
+#+startup: overview
+
+Part of [[file:shared-ranked-scanner-execution.org][the integrated execution study]].
+Historical revisions, failed experiments and receipt limits retain their original scope.
+
+* Shared literal vocabulary and casefold lookup qualification
+
+A row-without-literals guard alone changes none of the measured allocation
+values in the initial twelve-route child. The next candidate reuses the shared
+literal trie representation for case-insensitive LR lookup. One prepared
+vocabulary is shared by all action rows; the original row index still admits
+only the current state's entry and preserves first duplicate semantics.
+ASCII prefixes are converted while traversing the trie, avoiding a new whole
+uppercase string. Non-ASCII input delegates to the original whole-string
+Unicode conversion. The exact literal lookup retains priority over normalized
+lookup and token-kind fallback. There is no language hint or loader option.
+
+The trie builder also owns bounded and ranked literal preparation. Existing
+ranked matching, precedence, declaration order and mode admission stay in their
+original execution loops. Independent action-index tests compare the new
+casefold operation with the original whole-string conversion across empty keys,
+prefixes, list/table boundaries, duplicate entries, row-specific misses and
+Unicode mappings. The following native qualification bounds the performance claims.
+
+
+Native construction initially fails the five-second idle fence twice, at
+54.246 and 60.068 seconds. The runtime object completes when selected real GCC
+pass products are observed, but the later macro-phase compilation fails that
+fence at 73.113 seconds. Gerbil's compiler driver deliberately drops ordinary
+GSC C options for the macro phase (=gsc-cc-options= with =phi?=), so runtime
+instrumentation does not cover that phase. Compiling the same generated macro
+source with the SDK GSC and selected GCC diagnostic products completes in
+14.996 seconds. Compiler and optimization flags remain unchanged apart from
+diagnostic output. An all-pass diagnostic attempt writes about 679 MB and fails
+the total fence at 127.608 seconds; it is not a successful build receipt.
+
+
+** Positive allocation evidence and bounded CPU scope
+
+At source graph =11b2cf1=, seven modules pass 35 semantic cases with the new
+native objects in 30.247 seconds. Four native matrix children complete in
+57.506, 72.633, 89.158 and 68.538 seconds with exit zero and final workload
+markers. Candidate/reference/reference/candidate order executes 19,200 timed
+calls. Each child verifies the LR and action-index object identities. Both
+module prefixes change together; the lexical and shared scanner products stay
+fixed. The candidate uses =o15=/=o3= and the baseline uses =o6=/=o2=.
+
+A Scheme checker validates all 844 admitted raw no-GC allocation intervals,
+repeated variant values and unchanged-language controls. The exact batch
+counter deltas establish the following saving per request:
+
+| GQL units | Boundary | Reference bytes | Candidate bytes | Saved bytes | Reduction |
+|-----------+----------+-----------------+-----------------+-------------+-----------|
+|        64 | Prepared |        230928.8 |        227984.8 |        2944 |     1.27% |
+|        64 | Source   |        542916.0 |        539972.0 |        2944 |     0.54% |
+|       512 | Prepared |       1894000.8 |       1869552.8 |       24448 |     1.29% |
+|       512 | Source   |       4330076.0 |       4305628.0 |       24448 |     0.56% |
+
+All FHIRPath and Arithmetic allocation values are unchanged at both sizes and
+boundaries. CPU is not admitted as a complete-parser benefit: the mean of child
+medians includes a 16.03% increase for small GQL source execution, while the
+unchanged large prepared Arithmetic control improves 17.93%. These descriptive
+values expose drift; neither is a causal optimization result.
+
+The native =benchmark-lr-casefold= component uses all 2,834 actual GQL action
+rows. It checks original entry identity against whole-string conversion before
+measurement. Each row is queried with a non-keyword identifier, using suffixes
+of 32 or 256 characters (complete identifiers of 43 or 267 characters). Twenty
+ABBA/BAAB groups per width execute 9,068,800 timed lookups in total. Initial GC
+occurs once per width; natural collections remain in CPU measurements.
+The completed child takes 25.289 seconds, with exit zero and =LR-CASEFOLD-OK=.
+
+| Identifier characters | CPU ratio P10 | CPU ratio P50 | CPU ratio P90 | Lookup benefit |
+|-----------------------+---------------+---------------+---------------+----------------|
+|                    43 |        0.1185 |        0.2213 |        0.2723 | Admitted       |
+|                   267 |        0.0377 |        0.0405 |        0.0524 | Admitted       |
+
+The empirical P90 ratio is below the existing 0.95 margin for both component
+workloads. This establishes early-miss lookup benefit on this native SDK and
+actual row vocabulary. It does not describe the live state frequency of a full
+request, keyword hits, Unicode-heavy input, portable throughput or the Bash
+comparison with tree-sitter. The complete-request allocation saving and the
+component CPU benefit are separate positive results.
+
+
+** Latest PR graph requalification
+
+The optimization is rebased onto =9374421=, including canonical production,
+LR table and layout-capability admission. The component imports the shared
+=parser-stage-cost= sampler directly; no compatibility alias or duplicate
+sampler is introduced. Its native rebuild completes in 23.190 seconds.
+Canonical authority and consumer rebuilds complete before execution; the final
+LR runtime rebuild completes in 25.108 seconds with GCC and the original
+qualification fences. Seven source modules now pass 44 cases in 16.802 seconds,
+including the new producer admission tests and the casefold/scanner controls.
+
+A second native paired component child completes in 23.553 seconds with exit
+zero and =LR-CASEFOLD-OK=. The lookup-benefit decision repeats on the latest graph:
+
+| Identifier characters | CPU ratio P10 | CPU ratio P50 | CPU ratio P90 | Lookup benefit |
+|-----------------------+---------------+---------------+---------------+----------------|
+|                    43 |        0.1210 |        0.2436 |        0.2952 | Admitted       |
+|                   267 |        0.0365 |        0.0421 |        0.0513 | Admitted       |
+
+The complete-request allocation table remains explicitly attributed to
+=11b2cf1=. Later artifact-publication changes have their own cost owner and are
+not covered by those historical absolute allocation values. Latest-graph
+semantic and component qualification does not silently relabel that matrix.
+
+
+* Complete casefold request evidence
+
+The request benchmark now exports =benchmark-lr-casefold-requests=. It uses
+actual =RETURN= requests at 64 and 256 identifiers, with ASCII padding of 32 or
+256 characters. Each identifier has the form =identifier_<padding>_<ordinal>=;
+its complete length is 45--47 or 269--271 characters. Short GQL identifiers and
+an independently generated Arithmetic entry are controls. Every batch validates
+complete products; untimed independent GLR, canonical artifacts and actual
+source-route witnesses remain the admission authority.
+
+** Matched production graph and exact counters
+
+The production graph is =f75aa18= with the new benchmark caller. The reference
+withdraws only the LR/action-index casefold changes using those two modules'
+=9374421= source. Shared scanner preparation, canonical/layout admission,
+artifact publication and the new sampler remain fixed. Candidate native LR/index
+objects are =o17=/=o3=; the rebuilt reference objects are =o18=/=o4=. The caller
+verifies these identities before timing. Source and static products are restored
+from checked backups after reference construction; no alternate engine remains
+in the repository.
+
+Candidate/reference/reference/candidate children each execute twelve stages,
+twenty samples and twenty calls: 19,200 timed calls in total. They complete in
+51.673, 54.037, 38.715 and 59.651 seconds, with exit zero and final markers.
+The 3 GiB heap, GCC SDK, 120-second total fence and five-second idle fence stay
+fixed. Warmup and initial GC follow the shared sampler; natural GC stays in CPU
+observations. The benchmark caller compiles in 22.194 seconds. Reference index
+and LR compilation take 9.153 and 38.688 seconds respectively.
+
+=casefold-evidence.ss= checks every raw sample count and reconstructs CPU P50
+through the shared percentile owner. It admits allocation only in complete
+no-GC intervals, compares exact integer batch counters across repeated children,
+and requires source/prepared saving equality. All 916 admitted intervals pass:
+
+| Padding | Identifiers | Prepared reduction | Source reduction | Saved bytes per request |
+|---------+-------------+--------------------+------------------+-------------------------|
+|      32 |          64 |              9.87% |            4.24% |                   24960 |
+|      32 |         256 |              9.80% |            4.30% |                  101184 |
+|     256 |          64 |             38.29% |           16.95% |                  141440 |
+|     256 |         256 |             37.62% |           16.86% |                  561728 |
+
+Short GQL requests save 2,944 bytes at both boundaries. Arithmetic allocation
+is unchanged at both boundaries. These are complete-request allocation results,
+not extrapolation from the earlier lookup component. The equality of source and
+prepared byte deltas isolates the same eliminated normalized strings across
+both routes.
+
+** CPU rejection and verifier negative controls
+
+CPU benefit admission requires both unchanged Arithmetic controls to have child
+median ratios within 0.95--1.05 and an observed ratio range containing one.
+A stage must also have its slower candidate child median below 0.95 times the
+faster reference child median. All timed CPU samples, including GC, participate.
+This is a conservative repeated-run gate, not a statistical confidence interval.
+
+The unchanged prepared Arithmetic ratio is 0.9057; its unchanged source ratio
+is 1.1933. The control gate therefore fails. No complete-parser CPU benefit is
+admitted. Descriptive ratios of child medians for the larger identifier padding
+are 0.6851/0.6823 at prepared boundaries and 0.8485/0.8749 at source boundaries.
+Short prepared GQL has ratio 1.0687. None of these ratios is promoted to causal
+CPU evidence while the controls drift. The smaller-padding, larger source
+request also has ratio 0.9856, preserving a useful near-zero result.
+
+The first verifier attempt rejects a fractional allocation summary: converting
+raw counters to exact integers produces an exact rational quotient, while the
+sampler publishes a flonum. Summary parity now explicitly compares the sampler's
+flonum representation; exact integers still own all saving calculations. No
+tolerance or admission threshold is relaxed. The corrected verifier completes
+in 15.208 seconds with =CASEFOLD-REQUEST-EVIDENCE-OK=.
+
+Three controlled corrupted receipts are rejected: an allocation counter changed
+by eight bytes, a CPU summary changed by one millisecond, and a missing completed
+workload marker. The negative-control child completes in 7.132 seconds with exit
+zero and =CASEFOLD-EVIDENCE-NEGATIVE-CONTROL-OK=. No forged positive receipt is
+stored in the repository. Validation and replay remain Scheme-owned.
+
+** Delivery boundary
+
+The =f75aa18= Ubuntu Scheme/language-pack job and Rust AOT job pass. Its macOS job
+is cancelled after the PR advances. These checks qualify that head only. The
+later Rust target-capacity admission at =8a60fb8= is retained during rebase; it
+does not alter the Scheme execution or sampling owners measured here. New-head
+CI is a separate delivery gate from these local cost observations.
+
+* State-initial admission experiment: withdrawn
+
+A proposed dispatch refinement added a 26-bit uppercase ASCII initial mask to
+prepared LR action rows. It rejected an ASCII letter before walking the shared
+literal trie when that state's vocabulary could not admit that initial. Empty
+strings, punctuation and non-ASCII initials retained the existing path; a later
+Unicode character still used whole-string conversion when traversal reached it.
+The implementation followed the SDK's =fxarithmetic-shift=/=fxand= idiom, also
+used by its vector utilities. No language-specific rule was introduced.
+
+The 44-case, seven-module semantic gate passed in 16.829 seconds. The independent
+whole-string oracle now includes =ZÉ=, =+É=, =zé=, =xé= and =+é= to exercise row
+admission before a later Unicode character, as well as punctuation and existing
+cross-state, duplicate and entry-identity controls.
+
+** Complete-request decision
+
+The same twelve complete-request stages ran candidate/reference/reference/
+candidate, twenty samples of twenty calls each: 19,200 timed calls. Both variants
+used the =9184d01= Scheme graph; only the action-index object changed (=o4= mask,
+=o3= original). LR =o17=, lexical =o6= and the native benchmark caller remained
+fixed. Children completed in 19.216, 17.019, 16.916 and 17.628 seconds. Compiler,
+heap and qualification fences stayed unchanged. The concurrently published
+=ad8c6a3= change affects Rust execution and documentation, not this Scheme graph.
+
+The shared Scheme verifier now exposes
+=compare-casefold-request-cpu-receipts= for dispatch-only experiments. It uses
+the same raw-sample reconstruction and CPU gate, while requiring every repeated
+complete-request allocation counter to remain exactly unchanged. The verifier
+admitted 920 no-GC intervals and completed in 12.143 seconds. Arithmetic control
+ratios were 0.9712 prepared and 1.0460 source, satisfying the existing control
+gate. No stage satisfied the repeated CPU benefit gate.
+
+| Request | Units | Prepared median ratio | Source median ratio |
+|---------+-------+-----------------------+---------------------|
+| Padding 32 | 64 | 1.1469 | 1.0672 |
+| Padding 32 | 256 | 0.9829 | 1.0430 |
+| Padding 256 | 64 | 1.0576 | 1.1062 |
+| Padding 256 | 256 | 0.9439 | 1.0760 |
+| Short GQL control | 64 | 1.0248 | 1.0640 |
+
+Ratios divide the sum of two candidate child CPU medians by the sum of two
+reference medians. They are descriptive, not confidence intervals. The smaller
+prepared request is slower in both candidate children than both references;
+the apparent 0.9439 result does not repeat across children. This experiment does
+not justify publication. The production mask and its native/static products
+are removed. The original shared trie remains, with its previously established
+complete-request allocation savings. The additional Unicode oracle cases and
+allocation-preserving CPU verifier remain as reusable qualification tools.
+
+
+* Guarded CPU controls and lookup workload coverage
+
+The current =benchmark-lr-casefold= replaces the earlier count-only component
+with complete vectors of original action entries. Before measurement it checks
+entry identity for every state. The reference now skips rows without literals
+before calling =string-upcase=, matching the production guard. Historical early
+miss ratios above therefore do not qualify this stronger reference.
+
+The existing Scheme batch sampler measures process user plus system CPU from
+Gambit process-statistics slots 0 and 1. ASP's nearest-rank percentile helper is
+reused. The ASP micro-kernel source uses =cpu-time= and a minimum batch duration;
+its baseline-subtracted operation budget is not substituted for this paired
+parser comparison. Natural GC remains part of measured CPU. Wall time and
+allocation observations are retained but cannot satisfy the CPU gate.
+
+Each workload has twenty ABBA/BAAB groups, bracketed by two twenty-group
+identical-reference controls. Both control P10/P90 ranges must stay within
+0.90..1.10; production P90 must be below 0.95. Every batch must resolve at least
+one millisecond of CPU. These decisions are reported separately from successful
+completion and semantic equality. A false admission is not a correctness failure.
+
+The native twenty-iteration matrix completes in 68.574 seconds, exit zero,
+with =LR-CASEFOLD-CPU-CONTROLS-OK=. It executes 68,016,000 timed state lookups,
+including controls, across 2,834 actual GQL rows.
+
+| Workload | Production/reference CPU P50 | CPU P90 | Stable controls | CPU benefit admitted |
+|----------+------------------------------+---------+-----------------+----------------------|
+| Early miss, 43 characters | 0.2116 | 0.2742 | No | No |
+| Early miss, 267 characters | 0.0414 | 0.0501 | No | No |
+| Keyword hit, match | 2.1993 | 2.7419 | No | No |
+| Late miss, matching | 1.5871 | 1.9155 | No | No |
+| Unicode fallback, eclair with accented initial | 1.0594 | 1.4663 | No | No |
+
+These observations expose a workload boundary missing from the old long-miss
+component. Uniform traversal of every state is a diagnostic distribution, not
+the state frequencies of complete requests. Short hit and late-miss ratios
+must not be hidden by long identifier results or described as portable causal
+regression percentages while the identical-operation controls drift.
+
+A focused repeat selects =early-miss-43= with 200 iterations using the same
+entry oracle, guard, order, native objects and admission thresholds. It completes
+in 87.556 seconds, exit zero, with the same completion marker. Its 136,032,000
+timed lookups produce CPU P50 0.1902 and P90 0.2076. Before-control P10/P90 is
+0.8781/1.0963; after-control is 0.8039/1.1555. Increasing the batch does not make
+these controls pass, so the repeat also refuses CPU admission. The 120-second
+total and five-second real-progress watchdog are unchanged.
+
+Receipt stems are =parser-cpu-controls-a= and
+=parser-cpu-controls-short-large=. Raw paired batches retain CPU, wall and GC
+observations; no frozen engine or JSON result snapshot is checked in. The
+historical matrix preceded the final single-entry-point consolidation and the
+one-millisecond admission check; the larger repeat uses the consolidated body.
+Final source compilation and focused semantic qualification are recorded below.
+
+The next engine decision must address the crossover between bounded keyword
+lookup and early rejection of long identifiers. A dispatch change needs matched
+complete-request CPU qualification as well as hit, late-miss and Unicode
+controls. This benchmark change ships no new runtime optimization and does not
+claim that the Bash/tree-sitter throughput gap has closed.
+
+** Final source and rebased capability qualification
+
+The change is rebased onto =36c9f84=, the prepared grammar layout-capability
+fix. GCC recompiles =layout.ss=, =lr-parser.ss=, =parser.ss= and the final
+benchmark in 40.719 seconds, exit zero. This is build duration, not a runtime
+CPU result. Focused source tests pass twelve LR index cases and nine layout
+boundary cases in 13.905 seconds, with =TEST-SUITE-OK=, final =OK= and qualified
+exit zero.
+
+The final keyword-only benchmark completes in 42.172 seconds, exit zero, after
+6,801,600 timed lookups. The complete entry oracle passes; every timed batch
+resolves the one-millisecond CPU floor. Production/reference CPU P50 is 1.8592
+and P90 is 2.4120. Before-control P10/P90 is 0.5971/1.4207 and after-control is
+0.4931/1.4899. Both control and benefit admission are false. This checks the
+final executable admission path without promoting successful completion to a
+performance pass. Its receipt stem is =parser-cpu-controls-final-keyword=.
+
+Across the three children, 210,849,600 timed state lookups complete. These are
+component observations, not that many full parser requests. No compiler,
+timeout, heap budget, runtime implementation or expected semantic value is
+changed to obtain a pass.

@@ -1,0 +1,45 @@
+;;; Canonical production and declaration admission; included by lr.ss.
+(def (validate-production-semantics productions declarations)
+  (unless (and (list? declarations) (every symbol? declarations))
+    (error "invalid canonical LR declaration directory" declarations))
+  (unless (list? productions)
+    (error "invalid canonical LR production list" productions))
+  (let loop ((rest productions) (index 0))
+    (unless (null? rest)
+      (let (production (car rest))
+        (unless
+            (match production
+              ([id (? symbol?) rhs action precedence]
+               (and (fixnum? id) (fx= id index) (list? rhs)
+                    (or (not precedence)
+                        (match precedence
+                          ([(or 'none 'left 'right 'dynamic) (? integer?)] #t)
+                          (_ #f)))
+                    (cond
+                     ((eq? action 'pass) (and (pair? rhs) (null? (cdr rhs))))
+                     ((eq? action 'concat) #t)
+                     ((canonical-layout-end-action? action) (null? rhs))
+                     (else #f))))
+              (_ #f))
+          (error "invalid canonical LR production" index production))
+        (for-each validate-canonical-operand (production-rhs production)))
+      (loop (cdr rest) (fx+ index 1))))
+  ;; Declarations are independent of lhs rows: an empty choice declares a
+  ;; nonterminal with no productions. Merely referencing a name never declares it.
+  (let (owners (make-table test: eq?))
+    (for-each (lambda (name) (table-set! owners name #t)) declarations)
+    (for-each
+     (lambda (production)
+       (unless (table-ref owners (production-lhs production) #f)
+         (error "invalid canonical LR undeclared lhs" (production-lhs production)))
+       (for-each
+        (lambda (operand)
+          (match (base-symbol operand)
+            (['nonterminal name]
+             (unless (table-ref owners name #f)
+               (error "invalid canonical LR unresolved reference"
+                      (production-id production) operand)))
+            (_ (void))))
+        (production-rhs production)))
+     productions))
+  productions)

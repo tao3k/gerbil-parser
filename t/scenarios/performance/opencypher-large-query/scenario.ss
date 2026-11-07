@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Full-size openCypher repetition workload for LR complexity regression.
 
-(import :gerbil-parser/languages/cypher/opencypher-2024-1/parser
+(import :gerbil-parser/languages/cypher/parser
         :gerbil-parser/src/runtime/artifact)
 (export opencypher-large-query-scenario
         opencypher-large-query-scenario-pass?)
@@ -16,7 +16,7 @@
   (let (entry (assq key row)) (and entry (cdr entry))))
 
 (def (opencypher-large-query-scenario)
-  (let (artifact (parse-opencypher-2024-1 +source+))
+  (let (artifact (parse-opencypher +source+))
     (list
      (cons 'schema "gerbil-parser.opencypher-large-query.v1")
      (cons 'clauseCount +clause-count+)

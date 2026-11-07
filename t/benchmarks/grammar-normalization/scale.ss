@@ -1,0 +1,23 @@
+;;; Measure one grammar size per invocation, with its declarations prepared.
+(import (only-in :gerbil-parser/src/declarations make-grammar-role make-grammar)
+        (only-in :gerbil-parser/src/compiler/normalize compile-grammar grammar-ir-ref)
+        (only-in "../parser-stage-cost/benchmark.ss" measure-parser-component))
+(export main)
+
+(def (main size-text)
+  (def size (string->number size-text))
+  (unless (and (exact-integer? size) (positive? size))
+    (error "grammar normalization requires a positive rule count" size-text))
+  (def rules
+    (map (lambda (i) (list (string->symbol (number->string i)) '(empty)))
+         (iota size)))
+  (def role (make-grammar-role 'scale '() '() '() rules '() '() '() '() '()))
+  (def grammar (make-grammar 'scale '() (list role)))
+  (def (normalize) (compile-grammar grammar))
+  (def expected (normalize))
+  (unless (equal? (grammar-ir-ref expected 'rules) rules)
+    (error "normalization changed rule order or content"))
+  (write (list 'GRAMMAR-NORMALIZATION size (grammar-ir-ref expected 'compositionDigest)))
+  (newline) (force-output)
+  (measure-parser-component 'grammar-normalization 20 1 normalize expected)
+  (displayln "GRAMMAR-NORMALIZATION-BENCHMARK-OK") (force-output))

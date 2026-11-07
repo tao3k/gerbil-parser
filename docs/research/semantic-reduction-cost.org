@@ -1,0 +1,506 @@
+#+title: Actual LR reductions and AST construction cost
+
+* Constructor shape and endpoint projection
+
+The next implementation targets the shared recognition constructor boundary.
+Selected-derivation reexecution validates every production result before
+reporting action shapes. These are work counts, not CPU percentages:
+
+| Request | Scale | Fields | Aliases | Materializations | Singleton bounded actions | Widest input |
+|---------+-------+--------+---------+------------------+---------------------------+--------------|
+| GQL RETURN | 64 | 0 | 464 | 2 | 462 | 127 |
+| GQL RETURN | 512 | 0 | 3600 | 2 | 3598 | 1023 |
+| FHIRPath addition | 64 | 456 | 330 | 1 | 329 | 127 |
+| FHIRPath addition | 512 | 3592 | 2570 | 1 | 2569 | 1023 |
+| Arithmetic addition | 512 | 2046 | 1024 | 511 | 513 | 3 |
+| FHIRPath property/invocation | 1 | 55 | 49 | 3 | 46 | 7 |
+
+The GQL and FHIRPath list requests materialize only one or two wide sequences.
+Thousands of bounded singleton actions instead repeat input-shape selection
+and recognition-value classification. This makes singleton construction the
+first common-path target. GQL's zero field count applies to these requests and
+does not describe other grammars or an omitted measurement.
+
+=recognition-value-bounds= returns both endpoints after one checked variant
+selection. Tokens, nodes, fragments, event values and relocation views retain
+the existing admission and displacement behavior. In =reduce.ss=, hygienic
+constructor rules select empty, singleton or general input once. Empty aliases
+use the current invocation offset; singleton constructors call the combined
+endpoint reader. General sequences read their boundaries before action
+normalization, avoiding the subsequent list-tail scan. Raw sequence boundary
+walks still have a cost; this is not a constant-time-bound claim for every tree.
+Fields retain their capped-cardinality policy and supplied fragment constructor.
+The borrowed and action-normalized constructor families share this one rule.
+The prepared backend/action factory catalog remains the existing Core CLOS
+multiple-dispatch owner, selected outside request execution.
+
+** Question: why does this exploit Scheme's syntax and rule facilities?
+
+The constructor prefix, child policy and bounded projection are fixed in
+hygienic syntax. Multiple values express the two endpoints without a new list
+or result record. The installed Gerbil compiler's =with-primitive-bind+args=
+and the standard =with-list-builder= supply the organization pattern: bind an
+ordered operation once and expose its result to the enclosing construction.
+Language grammar and parser declarations acquire no additional switches.
+
+#+begin_src scheme
+(define-recognition-alias recognition-action-alias recognition-sequence-for-action)
+
+;; One checked classification for a bounded singleton.
+(let-values (((start end) (recognition-value-bounds value)))
+  (make-recognition-node kind start end children))
+#+end_src
+
+** Question: how is the benefit scientifically tested?
+
+=t/benchmarks/lr-request-stack/constructors.ss= preserves the construction
+algorithm from =4f50dd3= as a qualification reference. Each side receives its
+own cloned runtime, with the original selector and shared immutable grammar
+tables. Private record bindings are resolved before timing. Both sides run
+the current scanner, LR driver and complete artifact publisher. Complete
+source admission, artifact equality and executor witnesses precede timing.
+Arithmetic's cloned prepared executor is explicitly a representation control;
+its public generated drive has separate full-matrix observations.
+
+The historical measurements below use twenty groups with sixteen alternating
+legs, natural GC and the 1ms CPU precision gate. The first normalization-order-only probe exceeded its
+90-second combined budget after completing the small controls; its partial
+result is retained as a rejection, not a matrix receipt. Small-batch ratios
+also had large GC-dependent dispersion. Subsequent complete cases keep the
+90-second process budget and use 16,384 GQL or 32,768 FHIRPath small requests,
+and the =calls= argument is 256 at scale 64 and 64 at scale 512. Each group
+executes four times =calls= per variant. The later shared sampling correction
+in =1e5a099= retains that request budget in eight full-length legs rather than
+sixteen half-length legs; the current comparison owner uses this shared plan.
+No collection interval is removed from the CPU result.
+
+On Gerbil =2591dcd= / Gambit =dcd677c= with both engine and reference compiled
+with =-O=, the frozen original-module comparisons give these local ratios:
+
+| Request | Scale | CPU ratio P10 | P50 | P90 |
+|---------+-------+---------------+-----+-----|
+| GQL RETURN | 1 | 0.863 | 0.921 | 0.981 |
+| GQL RETURN | 64 | 0.865 | 0.899 | 0.987 |
+| GQL RETURN | 512 | 0.874 | 0.917 | 0.945 |
+| FHIRPath addition | 1 | 0.870 | 0.891 | 0.914 |
+| FHIRPath addition | 64 | 0.815 | 0.911 | 1.029 |
+| FHIRPath addition | 512 | 0.845 | 0.910 | 0.964 |
+
+These are candidate/reference complete-request ratios, with roughly 8--11%
+lower CPU medians in this local configuration. Percentile ratios are empirical
+observations, not confidence intervals or an attribution of all request CPU.
+The committed comparison owner independently passes actual MATCH/WHERE GQL
+and FHIRPath property/invocation requests: median ratios 0.960 and 0.975, with
+P90 ratios 1.326 and 1.122. Their dispersion prevents a stable benefit claim
+for those two structured workloads at the measured batch sizes.
+
+The structured GQL request requires a GLR path whose deterministic derivation
+trace is unavailable. The existing six deterministic corpora retain strict
+trace admission. This additional request reports the unavailable scope
+explicitly and still requires complete source, GLR-product and executor
+equality. It contributes full-request/publication observations without a fake
+semantic replay or zero action count. The complete matrix now passes with
+50 component summaries, eight source workloads and six paired controls inside
+the unchanged 90-second budget. Benchmark support uses the existing CI flags.
+Source-owned construction, source-span and sequence suites pass with exit zero.
+Fresh exact-head platform CI remains a separate qualification boundary.
+
+** Closed private recognition variants
+
+The repeated field/alias work above uses private recognition records. Their
+subclass protocol was open even though the engine owns their construction and
+exports no class descriptor. The installed Gerbil optimizer supplies a concrete
+alternative: =compiler/optimize-call.ss= selects =struct-direct-instance?= and
+checked =struct-direct-ref= for final classes. Official =std/io/counter.ss=
+uses final private records. This is a representation contract, not a new
+dispatch facility or an unchecked calling convention.
+
+The four variants in =src/runtime/recognition.ss= are now final: nodes,
+fragments, children and relocation views. Their layout, constructors, child
+mutation and source-offset behavior are unchanged. Public parser POO objects
+remain extensible. Generated optimized reducers confirm checked
+=##direct-structure-ref= instead of inherited =##structure-ref=; constructor
+allocation remains. No module-wide unsafe declaration is introduced.
+
+*** Question: why does this exploit Gerbil's abstraction facilities?
+
+The engine states its closed representation once and lets Gerbil specialize
+all compiled consumers. Language grammars need no type switch or helper DSL.
+Existing constructor rules and preparation-time Core CLOS selection keep their
+owners. This applies the partial-evaluation principle from the research
+synthesis to an invariant the engine can actually guarantee:
+
+#+begin_src scheme
+(defstruct recognition-child (field value) transparent: #t final: #t)
+
+;; Checked access; the compiler selects the direct final-class instruction.
+(recognition-child-value child)
+#+end_src
+
+*** Question: how is the benefit scientifically tested?
+
+The independent reference is the six-module recognition/funcs/reduce/plan/LR/
+artifact graph at =d8f91c5=, compiled with =-O= under distinct module names.
+Each graph owns its recognition classes and publisher; combining old records
+with the candidate publisher would invalidate the comparison. The existing
+=compare-lr-staged-case= accepts that independent publisher. Its matrix entry
+=compare-lr-staged-actions= now forwards the same publisher consistently.
+Neither production runtime bindings nor class descriptors are replaced.
+
+Both sides use the same canonical grammar, public-source tokens and complete
+source-admitted artifact oracle. Every timed invocation executes fresh
+prepared LR recognition and artifact publication. Twenty groups use the shared
+eight alternating full-quanta legs, natural GC and the 1ms CPU precision gate.
+Scanning and preparation are excluded from these ratios. These observations
+do not establish end-to-end latency or allocate CPU shares by subtracting
+component medians. On Gerbil =2591dcd= / Gambit =dcd677c=:
+
+| Request | Scale | Calls | CPU ratio P10 | P50 | P90 |
+|---------+-------+-------+---------------+-----+-----|
+| FHIRPath addition | 64 | 256 | 0.817 | 0.882 | 0.985 |
+| FHIRPath addition | 512 | 32 | 0.793 | 0.853 | 0.995 |
+| GQL RETURN, initial | 512 | 32 | 0.624 | 0.901 | 1.223 |
+| GQL RETURN, larger batch | 512 | 64 | 0.824 | 0.899 | 1.003 |
+| Arithmetic addition | 64 | 256 | 0.860 | 0.896 | 0.979 |
+| Arithmetic single value, initial | 1 | 4096 | 0.331 | 1.640 | 1.714 |
+| Arithmetic single value, longer batch | 1 | 65536 | 0.846 | 0.922 | 1.037 |
+
+All seven cases pass complete-product equality and exit zero inside their
+unchanged 90-second process budgets. The CPU medians improve by about 10--15%
+in this prepared-request scope. GQL's dispersed initial result is retained;
+the larger-batch observation does not support a stable tail-latency gain.
+Arithmetic is a small grammar control and shows no median regression here.
+
+The single-value request tests the shortest reduction path separately. Its
+initial paired median regresses despite identical per-batch allocation
+(20,382,032 bytes per 4,096 calls) and lower candidate component CPU medians
+(6.938ms versus 8.001ms). Retained natural collections take about 26ms,
+dominating the 7--8ms collection-free batches; their placement changes which
+variant pays that interval. This is an observed sampling imbalance, not a
+reason to remove collection time or blame Gambit. At 65,536 calls per leg,
+with the same twenty groups and 90-second limit, the paired median is 0.922
+and P90 is 1.037. This resolves the observed median reversal while still
+preventing a stable tiny-request tail improvement claim. Both observations
+remain evidence; the longer batch does not retroactively turn the first into
+a passing speed proof.
+
+The existing comparison entry keeps this diagnosis reproducible without a
+new runner or mandatory CI workload. Supply the independent =d8f91c5=
+module graph's preparation, execution and publication procedures:
+
+#+begin_src scheme
+(compare-lr-staged-case 'arithmetic-addition 1
+  baseline-prepare baseline-parse 20 65536 baseline-publish)
+#+end_src
+
+Two earlier candidates were withdrawn: synchronous state/value stack popping
+gave FHIRPath-64 P10/P50/P90 ratios 0.897/0.969/1.101; a prepared
+zero/unary/multiple reduction descriptor gave 0.934/1.007/1.127. Both passed
+product checks but failed to establish useful CPU improvement. Neither is
+production code.
+
+The source-recognition Suite rejects subclass construction for all four private
+variants and wrong-kind slot access, while checking child mutation and relocated
+bounds. It passes with the LR reduction and artifact publication Suites.
+The old open reference admits subclass construction, providing a positive
+control for the new rejection test. The existing full request matrix passes
+50 component summaries, eight source workloads and six paired controls with
+exit zero inside 90 seconds. Those controls retain their observed dispersion;
+they are not measurements of this representation change. Platform CI remains
+a separate gate;
+no workflow, threshold or mandatory build entry is added by this change.
+
+** Publication traversal follow-up
+
+The recognition publisher classified every child list with =list?= before
+=for-each= consumed it. The existing engine sequence consumer already uses
+=pair?=/=null?= for this private proper-list-or-record protocol. Publication
+now follows the same outer classification; =for-each= still rejects improper
+tails. This removes a repeated linear preflight, while complete publication
+remains linear in the number of children and events.
+
+The existing prepared-request comparison accepts an independent original
+publisher in addition to original LR preparation/execution. Passing the same
+current LR procedures on both sides isolates the publication change; every
+timed result must equal the source-admitted public artifact:
+
+#+begin_src scheme
+;; baseline-publish is the independently compiled publisher from 58a069d.
+(compare-lr-staged-case 'fhirpath-addition 512
+  lr-prepare lr-parse/prepared 20 64 baseline-publish)
+#+end_src
+
+With both publishers compiled at =-O= on the SDK above, the 20-group fresh
+prepared-recognition-plus-artifact comparison gave P10/P50/P90 CPU ratios
+0.934811/0.982823/1.047521 and exit zero. Scanning and preparation are outside
+this timed scope. This small, dispersed result does not establish a stable
+CPU benefit or explain the dominant request cost. Natural GC and every sample
+remain included. The source-owned publication Suite additionally checks empty,
+singleton and 1,024-child field-bearing artifacts, exact event counts and
+source admission, and rejects improper tails. It passes together with the
+reduction and source-recognition Suites.
+
+For an optional reproducible comparison, first build the production library
+through its existing owner, then use the same production optimization setting:
+
+#+begin_src sh
+gerbil env gxc -O t/benchmarks/lr-request-stack/constructors.ss
+gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
+  --log .cache/constructor-case.log --require LR-CONSTRUCTOR-CASE-OK \
+  -- gxi -e '(import :gerbil-parser/t/benchmarks/lr-request-stack/constructors)' \
+  -e '(benchmark-lr-constructor-case (quote gql-return) 64) (exit 0)'
+#+end_src
+
+The owner also accepts =fhirpath-addition= and =arithmetic-addition= at scales
+1, 64 and 512, and the two structured request names at scale 1. This optional
+comparison adds no CI job, production option or mandatory executable.
+
+* One investigation boundary
+
+This study follows [[file:request-lookahead-classification.org][the rejected lookahead cache]] and the
+[[file:lr-request-cost-boundaries.org][request cost study]]. Action-query counts and selected-derivation counts do
+not identify CPU ownership. The next experiment isolates the existing semantic
+kernel using operands captured from real deterministic requests. It does not
+replace the scanner, LR driver, semantic implementation or published artifact.
+
+The existing =lr-request-stack= benchmark owns three language controls: GQL
+RETURN lists, FHIRPath additions and generated Arithmetic additions. At each
+source scale it measures prepared LR execution and complete source parsing.
+The new =semantic-replay= and =semantic-replay-control= components use the same
+request, production IDs and recognition root. No language author configuration
+or CI job is added.
+
+Artifact publication is also measured with the prepared complete root and the
+original source/tokens. This retains its own source encoding, event traversal
+and source identity work. Prepared execution, semantic replay, publication and
+the public source request remain separate observations.
+
+The untimed source witness selects prepared checkpoints for GQL and FHIRPath,
+but a generated drive for Arithmetic. Arithmetic's manual prepared-LR and
+semantic replay rows are representation controls; they do not attribute the
+generated source driver's CPU to the prepared semantic kernel.
+
+* Implementation and responsibility
+
+=t/benchmarks/lr-request-stack/derivation.ss= captures the deterministic
+recognition derivation outside timing. Each private =semantic-invocation= names
+its prepared production plan, immutable operand stack, actual lookahead offset
+and expected result. Token leaves become the engine's ordinary recognition
+children; production children retain the values captured during execution.
+The capture validates every invocation against its original result.
+
+The replay invokes =src/runtime/reduction-plan.ss=, including its real staged
+field/alias closures and =src/runtime/reduce.ss= AST constructors. There is no
+copied reduction implementation. The traversal control reads the captured
+results through the same ordered vector traversal. Both return the complete
+root, and the benchmark also compares that root with the prepared parse whose
+complete artifact already matches the public parser's source-admitted product.
+
+=src/runtime/funcs.ss= now owns =recognition-sequence-root-child=: acceptance
+requires exactly one unfielded child. Deterministic LR, GLR completion and replay
+use that boundary. Returning the child keeps absence separate from its payload;
+the refactor preserves the previous acceptance guards and payload behavior.
+It does not change production plans, AST constructors or backend preference.
+
+The corpus retains operands. Replaying each reduction independently does not
+rebuild the producer-to-consumer dependency chain of a fresh request. Its CPU
+and allocation results therefore describe component work on retained inputs.
+They must not be subtracted from request medians or presented as an exact AST
+percentage of request time. The control is traversal/result-access work, not
+an AST-free parser. Installed noncanonical reduction procedures, GLR fallback
+and event-program backends require separate admission; this experiment rejects
+missing deterministic derivations and mismatching production results.
+
+* Gerbil implementation study
+
+The installed =1cfb032= sources provide two concrete organization patterns:
+
+- =src/std/list/list-builder.ss= defines =with-list-builder= through hygienic
+  =defrules=. One lexical builder owns its private list head and tail; the
+  caller supplies the traversal rather than copying builder mechanics.
+- =src/gerbil/compiler/compile.ss= defines =with-primitive-bind+args= through
+  =defrules=. Syntax binds one ordered traversal and exposes its final
+  bindings to the surrounding compiler operation.
+- =src/std/hash/misc.ss= uses =absent-value= in =hash-ref/default= so a present
+  false value does not mean absence. The root-child result follows the same
+  separation of presence from payload.
+
+The replay uses the standard list builder during untimed capture and a small
+=defrule= for its two ordered traversals. The macro stages the fixed operation
+into each traversal. Named records express ownership; dense vectors express
+numeric addressing. This follows =scheme-coding-style.org= without introducing
+a generic dispatch or callback selection inside each measured reduction.
+
+* Two design questions
+
+** Why does this use Scheme's syntax and rule facilities well?
+
+One engine reduction implementation remains authoritative. Hygienic syntax
+shares the traversal between the control and actual execution while keeping
+their operations explicit. Grammar declarations remain pure syntax; parser
+metadata and language tests retain their existing interfaces. This is the
+implemented shape, not a new grammar DSL:
+
+#+begin_src scheme
+(define-semantic-replay replay-lr-semantics execute-semantic-invocation)
+(define-semantic-replay replay-lr-semantic-control semantic-invocation-expected)
+
+;; Preparation validates every captured invocation before timing.
+(let (replay (prepare-lr-semantic-replay runtime spec significant-tokens))
+  (equal? (replay-lr-semantics replay)
+          (replay-lr-semantic-control replay)))
+#+end_src
+
+** Why is the proposed attribution scientifically testable?
+
+The experiment can fail at capture, per-production equality, complete-root
+equality, source admission or native dependency admission. Nullable aliases,
+ordered field/alias composition and different request offsets are exercised
+by =t/lr-stack-reduction-test.ss=. Repeated replay checks that the captured
+operands remain usable. Shared sampling retains raw CPU and GC observations;
+allocation intervals crossing GC remain inadmissible.
+
+* Qualification and reproducibility
+
+Use the existing production =build.ss= owner, native benchmark-support build
+and optional =benchmark-lr-request-stack= entry. The ordinary CI support step
+already compiles =derivation.ss= before =benchmark.ss=; the remaining source
+test owner runs the reduction suite. The workflow declaration is unchanged.
+
+Initial local imports exposed a stale scanner symbol. A rebuilt scanner fixed
+that request control, but later compiler controls exposed stale LR producer
+objects. An incremental production build exited zero yet native admission
+still reported missing =validate-production-semantics= and
+=layout-end-action?= symbols, followed by exit 139. Those runs are rejected;
+successful compilation alone does not qualify a mixed native graph.
+
+The clean-output production build subsequently exited zero. Its current
+compiler, machine, scanner and LR runtime were rebuilt together. The reduction
+suite first caught a replay-only error: an invocation returns a semantic child
+sequence, whereas acceptance returns the root payload. Per-invocation equality
+had passed; the complete-root control rejected the mismatched boundary. After
+correction, the suite passed, including decorated operands, nullable origins,
+three request offsets and repeated replay.
+
+An initial whole matrix hit its unchanged 90-second deadline during the
+512-unit replay: 1,000 calls per batch were excessive at that scale. The partial
+run is not a complete matrix receipt. The subsequent probe completed all six
+workloads and 24 components with complete product controls. Its traversal
+controls were below one microsecond per corpus at 64 units, while production
+semantic replay was over 50 microseconds for each language. This directs further
+investigation toward semantic construction rather than diagnostic traversal.
+It does not establish an additive request percentage or an engine speedup.
+
+The local receipt below uses at least 100 semantic replays and publications per batch,
+and 10,000 traversal controls. The observed minimum 64-unit semantic replay median exceeds 50 microseconds,
+so even its smallest semantic batch is above one millisecond. The larger
+traversal batch independently exceeds the timer resolution. Batch sizes are
+published with each component; independent medians must not be subtracted.
+
+The full existing entry subsequently passed with =LR-REQUEST-STACK-OK= and exit
+zero inside its 90-second budget: 42 component summaries and six paired request
+controls. The smallest new semantic/control/publication CPU batch was 2.478ms.
+The previous small Arithmetic paired control rejected 900 calls because one
+leg was below 1ms. Small-request repetition is now 4,096 calls; the threshold
+and timeout are unchanged. No CI declaration was changed by this investigation.
+
+** Final native component receipt
+
+The core execution and shared-root source are from =71554da=. The later
+small-request and publication sampling corrections change batch sizes only.
+The concurrent =0e02190= FFI integration does not change this core source closure;
+local core measurements do not qualify that integration. Remote exact-head
+CI owns combined repository qualification.
+
+Measurement SDK: Gerbil =2591dcd= on Gambit =dcd677c=, using the existing pinned
+toolchain. The =1cfb032= source study above is an implementation reference, not
+the measurement SDK. Each component has 20 samples. CPU includes naturally
+occurring GC. Values below are CPU P50 milliseconds per corpus:
+
+| Workload | Units | Prepared LR | Semantic replay | Traversal control | Publication | Full source |
+|----------+-------+-------------+-----------------+-------------------+-------------+-------------|
+| GQL RETURN | 64 | 0.19090 | 0.10352 | 0.000628 | 0.04425 | 0.27810 |
+| FHIRPath addition | 64 | 0.19435 | 0.12413 | 0.000661 | 0.04065 | 0.31910 |
+| Arithmetic addition | 64 | 0.08710 | 0.05231 | 0.000253 | 0.02531 | 0.14470 |
+| GQL RETURN | 512 | 1.43355 | 1.04256 | 0.004475 | 0.57790 | 3.34060 |
+| FHIRPath addition | 512 | 1.51640 | 1.26184 | 0.004784 | 0.60643 | 4.02110 |
+| Arithmetic addition | 512 | 0.81045 | 0.51949 | 0.001710 | 0.45123 | 1.24630 |
+
+At 64 units, each semantic replay admitted 19/20 allocation intervals, with
+110,995.36, 133,955.36 and 77,251.36 observed bytes per corpus respectively.
+At 512 units, semantic replay admitted 7/20, 5/20 and 12/20 intervals. FHIRPath's
+512-unit publication admitted no allocation intervals; its allocation result
+is absent, not zero. Changing batch size also changes GC exposure, so the
+earlier probe medians are not a before/after performance comparison.
+
+GQL's 64-unit derivation executes 935 reductions: 661 unary, including 197
+identity unary, and 464 decorated operands. FHIRPath has 985 reductions and
+657 decorated operands. These counts and the replay measurements justify
+prioritizing field/alias construction and semantic sequence materialization.
+They do not prove that one particular constructor, allocation site or rule
+dominates fresh requests. The previously rejected unary corridors, identity
+reuse and universal deferred sequences remain rejected.
+
+** Reproduction
+
+After the existing native production and CI benchmark-support preparation,
+the exported entry is sufficient; it does not require a new executable:
+
+#+begin_src scheme
+(import :gerbil-parser/t/benchmarks/lr-request-stack/benchmark)
+(benchmark-lr-request-stack 20 20)
+#+end_src
+
+Repository documentation records the configuration, results and evidence
+boundary. Raw local logs and output-directory paths are not tracked.
+
+Further performance conclusions require a coherent current native graph and
+the complete request controls. No engine speedup follows from adding replay
+diagnostics or reducing the number of observed allocations.
+
+** Cross-host budget rejection and scale-aware repetition
+
+The macOS matrix at =6d7f5c5= passed the Scheme semantic suite, then exceeded
+the unchanged 90-second request-matrix budget with exit 137 and no completion
+marker. The six component corpora completed; the first small GQL paired
+control was still running. This is a rejected matrix, not an AST mismatch or
+a successful cross-host receipt. Large GQL and FHIRPath component corpora took
+about 22 and 26 seconds with 100 semantic/publication calls per batch.
+
+The first correction retained 100 calls for 64-unit semantic/publication corpora,
+20 for 512 units and 10,000 for traversal controls. The earlier 512-unit local
+per-corpus medians put these 20-call batches above 9ms, providing resolution
+without small-corpus repetition at every scale. Twenty samples and all complete
+product controls remain. Small GQL and FHIRPath paired requests use 900 calls;
+the faster generated Arithmetic control alone retains 4,096 calls to resolve
+its original one-millisecond minimum. The paired precision gate and total
+deadline are unchanged. Batch changes alter GC exposure, so results must not
+be compared as an engine before/after speedup.
+
+The coherent local native matrix with these batch sizes completed inside the
+same 90-second budget with exit zero and =LR-REQUEST-STACK-OK=: 42 component
+summaries and all six paired request controls. Across the 360 new
+semantic/control/publication samples, the smallest CPU batch was 2.429ms.
+This admits the local sampling correction; exact-head remote CI still owns
+cross-host qualification.
+
+The =8cd2da5= macOS matrix also rejected the 90-second deadline. All six
+component corpora and four paired controls completed; the fifth paired
+control was still running. The remaining dominant sampling cost was the 512-unit
+traversal control: CPU P50 per 10,000-call batch was 765.708ms for GQL,
+862.501ms for FHIRPath and 270.777ms for Arithmetic. The local support had
+been compiled with =gxc -O=; CI's existing support owner uses =gxc= without
+that option. These are different support compilation configurations, not an
+engine regression. The revised 1,250-call large traversal control reduces
+that sampling work by eight while the earlier optimized local medians still
+predict more than 2ms for its smallest batch. Qualification rebuilds both
+support modules with CI's flags before repeating the complete matrix.
+No CI declaration or precision threshold changes.
+
+After that rebuild, the revised native matrix passed all 42 component
+summaries and six paired controls inside 90 seconds, with exit zero and
+=LR-REQUEST-STACK-OK=. The smallest CPU batch among the 360 new component
+samples was 2.449ms. GQL's 64-unit traversal-control CPU P50 was 86.002ms per
+10,000-call batch, consistent with the slower CI support configuration rather
+than the earlier optimized support receipt. Remote exact-head qualification
+remains a separate gate.

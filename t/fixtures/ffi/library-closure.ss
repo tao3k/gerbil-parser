@@ -1,0 +1,12 @@
+;;; Native library object qualification root; no parser dispatcher or test corpus.
+(import (prefix-in :gerbil-parser/languages/arithmetic/parser arithmetic-)
+        (prefix-in :gerbil-parser/languages/bash/parser bash-)
+        (prefix-in :gerbil-parser/languages/cypher/parser cypher-)
+        (prefix-in :gerbil-parser/languages/fhirpath/parser fhirpath-)
+        (prefix-in :gerbil-parser/languages/gql/parser gql-)
+        (prefix-in :gerbil-parser/languages/hcl/parser hcl-)
+        (prefix-in :gerbil-parser/languages/hl7/parser hl7-)
+        (prefix-in :gerbil-parser/languages/tla-plus/parser tla-)
+        :gerbil-parser/src/ffi/language-artifact-codec)
+(export main)
+(def (main) (void))

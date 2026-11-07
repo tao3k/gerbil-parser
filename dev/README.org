@@ -1,0 +1,15 @@
+* Parser development ownership
+Production =build.ss= uses the SDK and the source-bound publication owner.
+=build-modules.ss= contains the reusable production modules. The three FFI
+products retain their existing compiler and Darwin linker options.
+
+ASP is pinned in =dev/gerbil.pkg=. =package-source-build.ss= retains the original
+native catalog declaration solely for development qualification; production
+never calls it. =build.ss= in this directory compares the complete native
+specifications before applying the existing selected-source policy. The optional
+Rust generator declaration is =rust-runtime-aot.ss= and is not installed as a
+production Parser module.
+
+Run =just prepare-dev= and =just check-policy= for this development lane. The
+existing conformance, source-owner and process watchdog gates remain unchanged.
+A matching catalog is not a full native or clean-checkout acceptance receipt.

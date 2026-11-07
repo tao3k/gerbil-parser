@@ -1,0 +1,37 @@
+(import :gerbil-parser/language-test-support)
+(import :std/test ../src/compiler/event-fold-analysis)
+
+(deflanguage-parser-tests event-fold-analysis-test "Fold dependence and effect plan"
+  (engine)
+    (property "pure scan dominance is lexical and short-circuit safe"
+      (bindings (scan '(line-skip-horizontal start)))
+      (equal (fold-shared-scans `(and (offset-less? ,scan end)
+                                      (offset-less? ,scan (line-trim-end))))  (list scan))
+      (equal (fold-shared-scans `(and (state ready) (offset-less? ,scan ,scan)))  '())
+      (equal (fold-shared-scans `(or (bool #t) (offset-less? ,scan ,scan)))  '())
+      (equal (fold-shared-scans `(and (offset-less? ,scan end)
+                                      (future-heading-title? "*" " " 1 "END")
+                                      (offset-less? ,scan end)))  '())
+      (equal (fold-rewrite-scans `(offset-less? ,scan end) (list (cons scan 'memo)))
+                '(offset-less? (line-index memo) end)))
+    (property "prefix guards cannot skip effects errors or unknown instructions"
+      (bindings)
+      (equal (fold-prefix-guard '(and (state ready) (line-starts-with-ascii-ci "Ab")))
+              (vector 'start '(65 97)))
+      (equal (fold-prefix-guard '(line-byte-equal? (line-index cursor) 97))
+              (vector '(line-index cursor) '(97)))
+      (equal (fold-prefix-guard '(or (state ready) (line-starts-with "ab")))  #f)
+      (equal (fold-prefix-guard '(line-starts-with ""))  #f)
+      (equal (fold-prefix-guard '(and (future-heading-title? "*" " " 1 "END")
+                                     (line-starts-with "ab")))  #f)
+      (equal (fold-prefix-guard '(and (line-byte-equal? (state-offset at) 97)
+                                     (line-starts-with "ab")))  #f)
+      (equal (fold-prefix-guard '(and (unknown-query) (line-starts-with "ab")))  #f))
+    (scenario "state effects frame changes and emissions remain distinct"
+      (scope ((facts (fold-statement-analysis
+                   '((set-uint at (offset (state-offset previous)))
+                     (with-source-bounds start end ((token Line start end)))
+                     (call-source-helper nested start end)))))
+        (equal (vector-ref facts 0)  '(previous))
+        (equal (vector-ref facts 1)  '(at))
+        (each (effect) ('(bounds range-error events helper)) (equal (not (not (memq effect (vector-ref facts 2))))  #t)))))

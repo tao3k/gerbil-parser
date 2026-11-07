@@ -1,0 +1,179 @@
+#+title: Compact recognition children and constructor continuations
+
+* One implementation and qualification unit
+
+This study follows [[file:lr-owned-stack.org][request-owned LR execution]] and
+[[file:lr-unary-chain.org][the rejected unary-chain study]]. It concerns the engine's logical child
+representation, construction and publication. Language grammars, parser schemas,
+canonical field/alias declarations and the flat artifact protocol retain their
+existing responsibilities. The implementation remains experimental until the
+original complete-request CPU admission passes.
+
+* Evidence before choosing the representation
+
+At the pushed =b5e1895= reference, a fresh complete GQL request performs 279
+non-EOF action selections over 37 distinct lookaheads. Every observed selection
+has a literal-capable row. The grammar has 2,834 states, 1,477 goto columns and
+21,630 goto edges. Dense column spans would require 1,326,241 slots. These work
+counts establish possible redundancy and storage cost, not CPU attribution.
+
+The complete-source continuation sample described in the unary-chain study
+places the driver, streaming source and event publisher ahead of alias and
+sequence materialization frames. Inclusive samples overlap. The long RETURN
+request executes 464 alias actions, 462 with singleton bounds, but only one
+wide materialization. Repeated flattening is therefore insufficient as the
+primary explanation for its cost.
+
+** Rejected request classification
+
+A request-local vocabulary classifier retains exact and casefold keys once per
+lookahead, returning each state's original action entry. Its exploratory
+complete-request preflight does not establish the required benefit. Benchmark
+compilation overlaps part of that first preflight, so it is not an uncontended
+admission series. Its source, complete native closure and raw output remain in
+ignored =.data/parser-lookahead-vocabulary-study/=. The classifier is removed
+from production; no cache or dense action matrix is retained.
+
+** Constructor transport and direct row selection
+
+The frozen reference's Gambit C contains =___BEGIN_ALLOC_VALUES(2UL)=,
+value-count checks and endpoint extraction in constructor paths. The first
+constructor-continuation candidate removes all 18 emitted allocation sites
+from that reducer translation unit. This is a site count, not 18 allocations
+per request. The representative GQL preflight allocates 6,336 fewer bytes per
+request, while complete CPU still misses the required margin.
+
+Combining that candidate with direct row selection removes per-state selector
+and token-lookup closures. Four independent native blocks retain the original
+40 samples of 1,000 requests for every stage. Admission rejects the identical
+SDK control's repeat-band separation. Descriptive conservative target ratios
+also fail to establish a five-percent benefit: representative GQL prepared/full
+ratios are 1.05530/1.00405; long RETURN ratios are 1.00818/1.08956. These are
+negative observations, not admitted stage results. Direct row selection is
+removed. The raw series and native ASCENT rejection remain in ignored
+=.data/parser-row-construction-study/=.
+
+An earlier first reference launch reaches the original 120-second total budget
+before producing request samples. Its timeout is retained separately from the
+subsequent completed series. The cause of the startup variation is not proven.
+
+* Representation hypothesis and private contract
+
+A logical child is =(optional field, recognition value)=. Absence of field
+metadata requires neither a new value nor a record containing =#f= and that
+same value. The compact representation stores an unfielded token/node/fragment/
+position view/event value directly. Explicit metadata uses one final
+=labelled-recognition-child= record. Field names are never inferred from token
+or node kinds.
+
+The logical predicate and checked projections accept this finite representation
+family. The first-class constructor and the staged constructor rule share one
+algorithm. Internal users migrate directly; an old unfielded record protocol is
+not maintained. Only a metadata record has a mutable field slot. A caller that
+needs a field constructs a labelled child rather than mutating a bare value.
+Node/fragment storage, ordered child sequences, token identity and the external
+flat artifact format remain separate obligations.
+
+#+begin_src scheme
+;; An absent metadata slot expands to its existing value.
+(construct-recognition-child #f token)
+
+;; A declared field owns the only extra metadata record.
+(construct-recognition-child 'value token)
+
+;; One checked variant elimination supplies both projections to the consumer.
+(with-recognition-child child (field value)
+  (emit-value! value field delta translated? #f))
+
+;; Constructor continuation binds scalar endpoints before constructing a node.
+(with-recognition-value-bounds value (start end)
+  (make-recognition-node kind start end children))
+#+end_src
+
+Normal token/node/fragment/event bounds reach the consumer without a temporary
+multiple-value object. Position views retain the original recursive arithmetic
+association; their uncommon path may still use the external values protocol.
+The ordinary first-class =recognition-value-bounds= operation is preserved.
+
+** Question: why does this exploit Scheme and Gerbil's strengths?
+
+The =#f= pattern is visible to =defrules= before execution. The compiler sees an
+existing value instead of a constructor call. =defrule= inserts the actual
+consumer at the finite variant boundary, sharing a checked algorithm between
+first-class projections, semantic constructors and publication. This removes
+intermediate representation and call boundaries without adding author-facing
+configuration. Existing POO multiple dispatch still chooses the semantic
+backend/action factories at preparation; it does not redispatch per child.
+
+Gerbil =2591dcd= =std/io/bio/input.ss= uses =defrules __bio-read= to place
+operation bodies inside a finite input protocol. Its compiler's
+=optimize-top.ss= retains an expression when no wrapper is required. Those are
+source organization and staging patterns, not inherited speed claims.
+[[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][Sperber and Thiemann, The Essence of LR Parsing]] specializes grammar-static work
+away from dynamic execution. Here the static absent-field declaration removes
+metadata construction; this study does not reproduce their parser generator.
+
+** Question: why is this design scientifically justified?
+
+=ChildStorage= in the Lean model distinguishes a bare tree from a named tree.
+=compact_child_roundtrip= proves that decoding an encoded logical child retains
+its exact optional label and tree. The endpoint-continuation theorem retains
+empty, singleton and ordered wider-input boundaries. These are logical claims
+under the model's finite tree/natural-coordinate assumptions, not proofs of
+Gambit allocation, signed relocation arithmetic, FFI behavior or CPU benefit.
+
+Native Scheme tests separately check payload identity, single evaluation,
+checked invalid input, metadata mutation and event-lowering snapshots, scalar
+bounds and relocation. Independent GLR publication checks the complete product.
+Actual request counters and matched native measurements are separate evidence.
+
+* Qualification boundary
+
+The existing evidence command includes ten Scheme modules, extending its prior
+scope with source-recognition and event-program ownership tests. Representative
+request diagnostics execute outside every timed interval in that same process.
+Python runs through the locked =uv= project and transports source/product hashes;
+Scheme recomputes statistical admission and native ASCENT joins the receipts.
+No CI lane, custom build scheduler, timeout increase or instrumentation callback
+is added to the timed executor.
+
+All four target stages remain mandatory: representative GQL and long RETURN,
+each with prepared LR and complete source requests. The conservative candidate
+repeat bound must be below 0.95. FHIRPath/arithmetic controls, P95 limits and the
+identical SDK encoder's ratio and repeat-band overlap remain unchanged. Failing
+or censored trajectories are retained; lower allocation cannot substitute for
+complete CPU admission.
+
+Qualification results belong below only after their source and actually loaded
+native modules are bound. Native module binding follows Gerbil's loader: select
+the last contiguous =.oN= before the first missing version. Repository notes use
+relative receipt owners, never machine-specific absolute logs.
+
+* Rejected compact-child qualification
+
+The source-bound =parser-compact-dispatch-study= retained seven production
+owners and both complete native closures. Ten Scheme modules passed 108 Cases.
+Four independent 40-by-1000 measurements completed after retaining the first
+reference startup timeout without request samples. The unchanged admission
+rejected the SDK repeat-band control; native ASCENT recorded the missing
+=record-cpu-improvement= and denied execution authorization.
+
+The following conservative CPU ratios are descriptive, not admitted benefits:
+
+| Request | Prepared LR | Complete source |
+|---------+-------------+-----------------|
+| Representative GQL | 1.31077 | 1.26984 |
+| Long RETURN | 1.01503 | 0.98638 |
+| FHIRPath 64 | 1.00089 | 1.17551 |
+| Arithmetic 1 | 0.98865 | 1.03060 |
+
+The candidate fails the original target margins independently of the rejected
+control, and FHIRPath's complete call exceeds the non-regression bound. The
+production representation and candidate-only tests were restored. Frozen
+candidate source, native images, failed trajectories and ASCENT receipts remain
+in the ignored study. Lower allocation is not sufficient evidence to replace
+the production representation.
+
+Module-level native sampling then redirected investigation toward LR dispatch,
+checked token calls and publication. See
+[[file:lr-request-dispatch-cost.org][request dispatch and official inline contracts]].

@@ -1,0 +1,201 @@
+#+title: Scheme component provenance: existing binding ownership and composition admission
+#+date: 2026-10-06
+
+* Question and scope
+
+How should an author declaration, generated helper rules and POO composition
+remain explainable after macro expansion and artifact generation? This study
+extends [[file:scheme-list-role-composition.org][the multi-rule component experiment]]. It uses the current committed
+baseline =783381f33fa1b309ac4cc4b0012696f24c852d93= plus local research fixtures.
+The initial study left compiler code unchanged. The local implementation now
+connects occurrence selection, canonical publication and a checked composed entry;
+its current contracts and qualification are described below.
+
+The objective is a coherent declaration-to-artifact contract. It is not to add
+another grammar representation or a second parser implementation.
+
+* Existing mechanisms found in source
+
+| Existing owner | Capability | Design implication |
+|----------------+------------+--------------------|
+| [[file:../../src/compiler/language-artifact.ss][Language artifact elaboration]] | Verbose declarations accept =source-ownership= and =lineage= | Reuse these inputs for component origins |
+| [[file:../../src/compiler/bound-ir.ss][Bound IR]] | Structured binding IDs, source records, declaration IDs, lineage, checked references and separate digests | Preserve grammar identity while adding declaration explanations |
+| [[file:../../src/compiler/normalize.ss][POO normalization]] | Composition steps, role/section identities, composition digest and a grammar-body receipt | Retain the existing composition witness |
+| [[file:../../src/compiler/parser-ir.ss][Parser compilation]] | Copies =compositionDigest= from canonical Grammar IR into Parser IR | The core already supports carrying this identity |
+| [[file:../../src/runtime/language-artifact.ss][Artifact loading]] | Content-addressed materialization and checked loading | Test persisted origins through existing admission tools |
+
+The earlier broad suggestion to design a new origin mapping needs refinement:
+these existing inputs already support much of the work. A production design
+still needs precise origin generation and composition association, but it should
+start from the current compiler contracts.
+
+Bound binding IDs are structured data: package, grammar, namespace and name.
+The list fixture's =owner/tail= symbol spelling is only its deterministic helper
+naming experiment; it is not a replacement binding namespace or a settled public
+private-rule naming policy.
+
+* Executable identity and artifact probes
+
+[[file:../../t/fixtures/language-pack-research/list-origins.ss][list-origins.ss]] constructs a fixture-specific rule source map from the existing
+composition receipt. Every rule in this unique merge/append example receives a
+role owner and a truthful provider path. Component-produced rules are marked
+=generated? #t=; base role rules are marked =#f=.
+
+The =location= is a descriptive role/rule label. It is not a verified line/column
+range. =componentOwner= is a research source-record field carried by existing
+Bound IR; it is not a newly standardized public provenance schema.
+
+[[file:../../t/fixtures/language-pack-research/provenance-study.ss][provenance-study.ss]] compares current compiler products with and without that
+source map, materializes a Bound IR artifact and loads it through the existing
+artifact loader. Its bounded native invocation exited 0 and reported
+=PROVENANCE-STUDY-OK: 17 checks passed= (historical driver):
+
+#+begin_src sh
+PARSER_RESEARCH_ARTIFACT_ROOT="$(mktemp -d)" \
+  GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" GERBIL_PARSER_LR_TRACE=1 \
+  gtimeout 10 gxi t/fixtures/language-pack-research/provenance-study.ss
+#+end_src
+
+| Controlled change | Observed result in the fixture |
+|-------------------+--------------------------------|
+| Add source/owner metadata | Binding IDs, reference digest and grammar digest unchanged |
+| Add source/owner metadata | Declaration IDs and Bound IR identity digest change |
+| Materialize and reload enriched Bound IR | Complete value retained, including owner and generated flag |
+| Remove only =compositionDigest= from Grammar IR | Parser's composition field becomes =#f= |
+| Remove only =compositionDigest= from Grammar IR | LR specs are equal; all other Parser IR fields are equal |
+| Remove only =compositionDigest= from Grammar IR | Bound identity digest unchanged, but its grammar digest changes |
+
+These checks distinguish recognition declarations, declaration provenance and
+composition metadata. They do not prove invariance for arbitrary compiler
+extensions or source transformations.
+
+Source inspection adds a digest distinction: normalization's receipt
+=grammarIrDigest= hashes the grammar body before =compositionDigest= is inserted;
+Bound IR's =grammarDigest= hashes the canonical grammar value it receives.
+These fields must not be treated as interchangeable hash names when connecting
+receipts to artifacts. This distinction is source-inspected, rather than a new
+receipt-hash assertion in the probe.
+
+* Actual declaration-to-Bound-IR integration
+
+The local [[file:../../t/fixtures/language-pack-research/list-stage.ss][list-stage.ss]] adapter now calls compile-grammar/context, projects its
+selected sources and enters expand-admitted-language-declaration-syntax directly.
+It no longer rebuilds a deflanguage-grammar declaration. Shared binding,
+compilation, publication and machine emission receive the exact normalized IR.
+
+[[file:../../t/fixtures/language-pack-research/provenance-language.ss][provenance-language.ss]] checks the actual generated Bound IR, complete canonical
+Grammar IR and Parser IR compositionDigest, then compares call/array events to
+the independent inline control. The earlier section-reification witness expected
+a missing compositionDigest; the current witness requires it to equal the accepted
+receipt. The separate flattening control in provenance-study.ss still demonstrates
+that removing this metadata changes the parser composition field.
+
+The generated helper retains its selected component owner, provider path,
+generated flag and declared lineage. Lineage remains a declared fixture chain,
+not a recorded trace of every macro call. The ordinary and single-argument policy
+variants use separate language identities and existing checked Loader entries in
+[[file:../../t/fixtures/language-pack-research/list-parser.ss][list-parser.ss]]. Independent authored semantics remain in
+[[file:../../t/fixtures/language-pack-research/list-parser-test.ss][list-parser-test.ss]], with complete-event and roundtrip controls in list-runtime.ss.
+
+* Source-map construction constraints
+
+The existing binding lookup chooses the first source-map section for a namespace.
+If an explicit =rule= section only covers some names, a missing name falls back
+to the module origin; it does not search a later auto-generated =rule= section.
+The fixture therefore supplies all rule entries for this namespace. A production
+collector must define merging before passing its final map to Bound IR.
+
+Receipt role names alone cannot identify the selected reader occurrence. The
+engine now captures source associations during accepted row operations, rather
+than reconstructing them from receipt names. Its effective-source policy covers
+equal merges, append, override, remove and reappend; repeated names retain
+distinct step indices. The old append-only source map remains an explicit stale
+negative control. See [[file:scheme-dsl-engine-admission.org::*Effective origins follow composition before binding][the selection contract]] for history and coordinate limits.
+
+An author changes grammar semantics by changing declarations. Ordinary formatting
+can change source locations and diagnostic identity without changing the grammar
+meaning. This distinction matters for the earlier indentation discussion: source
+metadata belongs in the explanatory binding product, while the target language's
+recognition and layout policy remain explicit grammar decisions.
+
+* Three composition-admission directions
+
+| Direction | Strength | Remaining contract |
+|-----------+----------+--------------------|
+| Admit composed canonical IR through the existing language compiler owner | Retains its current composition field; avoids section reconstruction loss | Validate origin map, policy settings and receipt association together |
+| Put composition association only beside Bound IR | Keeps explanatory data separate | Must define consistency with current Parser IR composition field and artifact admission |
+| Persist an additional composition witness linked to the admitted products | Can retain detailed contribution history | Needs exact hash scopes, serialization and admission checks; do not invent it merely to duplicate the existing receipt |
+
+Working preference: extend the existing language compilation boundary to accept
+an already composed canonical declaration plus the established receipt and
+binding inputs. Bind, compile and materialize through the same existing owners.
+The current list-stage implementation uses this direct route. The separate
+located-source reification study remains a historical control.
+
+Canonical compilation and effective-source selection are locally implemented.
+There is no new public author composition clause or additional artifact schema. Unknown policies or arbitrary
+unverified metadata must not become a bypass of existing grammar admission.
+
+* Relation to the papers and next discussion
+
+Our interpretation of
+[[https://www2.ccs.neu.edu/racket/pubs/icfp24-bgh.pdf][Ballantyne/Gamburg/Hemann]] is to keep an extensible author vocabulary and a
+shared compilation core, with explicit boundaries that retain DSL invariants.
+Our interpretation of
+[[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][Culpepper/Felleisen]] is to explain mistakes in the author's vocabulary and
+resolve declaration dependencies with the appropriate context. Neither paper
+specifies our artifact hashes or component-origin schema.
+
+The concrete Scheme/POO design now has evidence for contextual single-rule
+macros, phase-qualified multi-rule construction, checked POO composition and
+persisted declaration origins. The next discussion should settle the admission
+contract for composed IR and provenance history before choosing a public author
+surface. That will let syntax become simpler without making generated rules or
+composition decisions opaque.
+
+* Follow-up: override and removal
+
+The [[file:scheme-composition-history.org][composition history study]] adds nineteen native checks for selected owners,
+retained operations, dangling-reference rejection and closed override/removal.
+The earlier controls preserve the append-only mapper's negative control. The
+expanded engine study now passes 63 operation/source checks and the composed
+package passes its checked-entry controls; see [[file:scheme-dsl-engine-admission.org::*Package closure criteria at this boundary][current receipts]]. Exact reader
+spans for arbitrary extensions and a production public composition clause remain
+separate design obligations.
+
+* Scheme design rationale: two required questions
+
+This Scheme datum illustrates the research source-record shape. It is
+metadata, not a new declaration API; its descriptive location is not a reader
+line/column span.
+
+#+begin_src scheme
+'((path . "t/fixtures/language-pack-research/list-roles.ss")
+  (location . (role call-arguments rule call-arguments/tail))
+  (generated? . #t)
+  (componentOwner . call-arguments))
+
+;; Question 1: Why is this DSL design better?
+;; Authors declare a component while generated helpers retain an explainable owner.
+;; Concise syntax retains provenance, so diagnostics and tools need not guess origins.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Separate binding identity from provenance: source changes preserve bindingId/referenceDigest.
+;; Evidence: 17 identity/artifact checks and 14 actual-language integration checks.
+;; Falsifier: a source-only change alters reference identity or loaded Bound IR loses sources.
+;; Limit: no public schema; reader-origin construction passes, actual-language loading times out.
+#+end_src
+
+Source integrity and accurate source attribution are separate obligations.
+Persisting a supplied record does not prove that its origin was automatically
+collected or that its history is correct.
+
+* Follow-up: reader origins
+
+The [[file:scheme-source-origin-contract.org][reader source-origin study]] now checks actual author and definition token
+coordinates through existing Bound IR construction. Artifact-backed language
+loading remains a separate failed bounded receipt.
+
+The expanded 2026-10-06 driver requires a fresh =PARSER_RESEARCH_ARTIFACT_ROOT=.
+Its 31-check exit-0 receipt and bounded interpretation are recorded in the
+[[file:scheme-dsl-engine-admission.org][engine admission module]], under verified declaration-context and parser-cache
+reuse. The earlier 17-check result remains historical evidence.

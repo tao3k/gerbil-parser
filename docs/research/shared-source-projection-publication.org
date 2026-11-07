@@ -1,0 +1,668 @@
+#+title: Source projection and publication
+#+startup: overview
+
+Part of [[file:shared-scanner-staging-and-fusion.org][the shared scanner study]].
+Historical revisions, failed experiments and receipt limits retain their original scope.
+
+The [[file:artifact-publication-cost-boundaries.org][artifact publication cost contract]] implements the event/encoding/identity
+attribution obligation below, with independent source controls and a native
+cross-language receipt. It does not admit a new fused executor or default.
+
+* Next shared-engine design: direct execution and publication ownership
+
+The evidence motivates a different experiment, not another generic closure
+wrapper. flap's staging removes higher-order dispatch through generated direct
+code; its fusion removes internal representations. Neither experiment above
+performed these transformations. No speed ratio from the paper transfers here.
+
+The implementation milestones are:
+
+1. Lower closed projection IR into generated Scheme constructors with fixed
+   capture indexes and direct token/node operations. The engine owns generation;
+   the public POO profile remains the declarative authority. Prove catalog,
+   capture-order and admission parity before admitting any specialization.
+2. Measure projection execution separately from recognition, token lexeme
+   materialization and artifact publication, while retaining a complete-product
+   control. Inspect generated Scheme/C to verify that opcode dispatch and
+   per-operation indirect calls actually disappear.
+3. Establish ownership for recognition nodes that exist only until publication.
+   Prototype an engine-owned event sink that emits the required canonical
+   artifact once, retaining byte coverage, child order, identities, diagnostics
+   and rejection semantics. Keep request state private; do not add language
+   callbacks or a second public artifact protocol.
+4. Admit direct emission only after full public products and Scheme/C/Rust
+   consumers preserve their contracts. Analyze unsupported recursion/context
+   forms explicitly; deterministic lexer/parser fusion requires properties that
+   have not been proved for every supported grammar.
+
+These are design obligations, not implemented AOT or direct-publication claims.
+The current engine still uses the original projection executor. Permanent tests
+strengthen its admission contract; temporary comparison modules are excluded
+from the commit. Future measurements must include the complete publication path
+and cannot promote a component allocation saving into an end-to-end speedup.
+
+The final retained tree, after both candidates were removed and scanner revision
+=8e98e83= was incorporated, completed seven modules in 11.544 s with
+=TEST-SUITE-OK modules=7=, =OK=, exit 0 and no missing receipts. This includes
+result projections, source recognition, contextual scanning, Bash, HCL, HL7 and
+FHIRPath. The final receipt validates the retained code and added contract test;
+it does not establish a new runtime speed improvement.
+
+* Implemented compiler milestone: direct Scheme projection generation
+
+=src/compiler/result-projection.ss= now lowers an admitted ResultPlan to a
+standalone Scheme module exporting =bind-generated-result-projections=. Each
+projection has a whole-projection executor with fixed capture indexes and direct
+operations. Its executable body does not read operation vectors, switch on
+opcodes, or call a prepared closure per operation. Variable-length captured
+parts still need traversal. Existing single-required-token and single-parts
+fast paths retain their constructor and validation behavior.
+
+=result-plan-bind-projections= checks the complete expected recipe, canonical
+projection order, unique IDs and executable entries before returning a separate
+executable plan. It preserves the original owner and catalogs. Generated
+executors are compiler-owned artifacts, not new callback slots in language
+profiles. POO inheritance and override remain declarative: a changed recipe
+requires regeneration, and stale generated code is rejected before execution.
+No language declaration, metadata version, C ABI or Rust protocol changes.
+
+The generated general executors deliberately retain =result-plan-node= dynamic
+admission and the existing immutable token sequence representation. This compiler
+milestone removes opcode interpretation; it does not fuse scanner/parser stages
+or eliminate temporary recognition trees and final publication traversals.
+
+Permanent tests execute the actual generated source for mixed captures and empty
+projections, compare complete node/token products, reject invalid spans, missing
+required nodes, foreign kinds and escaping child nodes, and reject stale POO
+recipes and malformed binding tables. A regenerated inherited profile can bind
+its changed field names. Binding returns a different plan and retains the same
+recipe.
+
+A temporary native module was generated from the admitted Bash stress-sample
+profile. Both comparison parsers use the same shared scanner and shell parser;
+only the selected result plan differs. All four corpus artifacts matched each
+other and the public parser before measurement. Both sides include artifact
+validation, grammar identity and source identity checks. File IO, preparation,
+loading and output are outside timing. Natural GC remains included; ABBA blocks
+have one warmup and 11 single-request measurements each.
+
+| Control | CPU P50 ms/request | No-GC allocation P50 bytes | Allocation samples |
+|---------+--------------------+---------------------------+--------------------|
+| original-a | 26.666 | 39461648 | 8 |
+| direct-a | 28.744 | 39461648 | 8 |
+| direct-b | 26.792 | 39461648 | 8 |
+| original-b | 26.979 | 39461008 | 8 |
+
+Pair A regresses approximately 7.79%; pair B improves approximately 0.69%.
+Allocation is effectively unchanged. Native qualification completed in 9.006 s
+with exit 0 and =DIRECT-PROJECTION-CONTROL-OK=. These controls establish native
+execution and semantic parity, not a stable complete-engine speed improvement.
+The default parser continues to use the original result plan; this AOT compiler
+capability is not automatically selected by language loaders.
+
+The initial generator/binder native compilation completed in 17.272 s. The final
+generator compiled in 7.901 s; generation from its compiled artifact completed
+in 10.695 s; the generated executor module and native control compiled in
+13.593 s. All successful compiler receipts use the same fixed GCC SDK and the
+existing 120-second total and five-second idle limits, with real diagnostics
+unbuffered. Temporary stress-sample modules are excluded from the commit.
+
+The next admission gate is publication ownership: identify which recognition
+nodes and token copies exist only to feed canonical event construction, then
+measure an engine-owned direct emitter against complete artifact obligations.
+The unchanged allocation here is evidence against claiming that opcode removal
+alone addresses the current complete-engine allocation cost.
+
+The ABBA table above was collected on base =750b8cd=, before the concurrent
+UTF-8 extent and delimiter comparison revisions. Final integration rebased
+those changes through =92fcb1d=. Their affected production modules were rebuilt
+with the same GCC configuration. Complete native product parity was rechecked
+on the final combined implementation in 9.038 s with exit 0 and all receipts;
+that integration rerun is not used to claim an additional speed improvement.
+
+The retained implementation then completed 134 cases across ten modules in
+11.161 s, with =TEST-SUITE-OK modules=10=, =OK=, exit 0 and no missing receipts.
+Coverage includes result generation/binding, recognition, immediate and deferred
+scanning, artifacts, event strategy, and four language suites. The final POO
+regeneration assertion had also passed its focused suite in 7.587 s. No temporary
+comparison source is retained in the production or test catalog.
+
+* Implemented: fuse source publication admission with input identity
+
+The shared SourceLanguage publisher previously validated the artifact by
+reconstructing a string from token lexemes and hashing it, then independently
+hashed the actual input to check its identity. The publisher already owns that
+input. This duplicates whole-source work and constructs a string used only
+between two validation steps.
+
+=parse-artifact-valid-for-source?= now binds artifact admission to the supplied
+input. The existing event walk still checks schema, digest shape, canonical
+IDs, byte coverage, UTF-8 token widths, node/field balance, root count, status and
+diagnostics. For each admitted token it compares its characters directly with
+the next input range, without a substring or encoding. Complete character
+coverage is required, then the actual input is hashed once and compared with the
+artifact identity. SourceLanguage uses this entry and retains grammar identity
+admission. All language declarations and artifact/FFI schemas remain unchanged.
+
+For lexemes L1 through Ln and input S, the walk proves each Li equals the next
+character interval in S and that their combined character count is length(S).
+This establishes concat(L1,...,Ln) = S without materializing that concatenation.
+Contiguous byte coverage and each lexeme's UTF-8 width remain separately checked.
+A forged digest that matches S but disagrees with lexeme content still fails.
+Standalone artifact admission and owned roundtrip reconstruction retain their
+existing behavior; callers with an actual input use the stronger source-bound
+entry. Both paths share the same structural validator.
+
+Both algorithms are O(events + characters). The improvement removes an internal
+representation and a repeated input hash; it does not establish a new asymptotic
+bound or complete lexer/parser fusion. Recognition trees and canonical event
+allocation remain in the current producer.
+
+The original artifact validator was frozen under a temporary native namespace.
+Both sides used the same fixed GCC SDK and optimization/diagnostic flags. The
+baseline publication obligation includes artifact validation, grammar identity
+and a second hash of the input. The candidate includes grammar identity and
+source-bound artifact validation. Full controls share the same prepared scanner
+and parser and require complete artifact equality with the public entry for
+short, heredoc, compound and large inputs before timing.
+
+ABBA blocks have one untimed warmup and 11 measured single requests. Natural GC
+is included in CPU measurements; only no-GC allocation deltas are admitted.
+Preparation, loading, IO and sample output are outside timing. Component and
+complete-engine numbers must not be added together.
+
+| Control | CPU P50 ms/request | No-GC allocation P50 bytes | Allocation samples |
+|---------+--------------------+---------------------------+--------------------|
+| validation-old-a | 1.462 | 5054208 | 11 |
+| validation-new-a | 1.275 | 4406152 | 11 |
+| validation-new-b | 1.171 | 4406152 | 10 |
+| validation-old-b | 1.454 | 5054208 | 11 |
+| complete-old-a | 29.410 | 39054824 | 8 |
+| complete-new-a | 28.697 | 38406768 | 8 |
+| complete-new-b | 34.412 | 38406448 | 8 |
+| complete-old-b | 37.761 | 39054824 | 8 |
+
+Publication admission allocation decreases approximately 12.82%. The complete
+engine allocates approximately 648 KB less per request, about 1.66% on this
+corpus. Complete CPU pairs are approximately 2.42% and 8.87% lower, but the
+baseline changes substantially between blocks. These timings do not establish
+a stable public-entry speedup or close the Tree-sitter gap. Allocation reduction
+and complete-product parity are the admitted outcomes.
+
+Native qualification completed in 11.108 s with exit 0 and
+=SOURCE-BOUND-CONTROL-OK=. Symmetric production compilation completed in
+47.756 s and the native control compiled in 13.501 s, both with exit 0. The
+existing total/idle guards and fixed GCC configuration were retained.
+
+Permanent controls cover empty input, accepted and rejected artifacts, wrong
+or truncated inputs, non-string input, forged digests and identical-byte-width
+Unicode substitutions. The existing UTF-8 width boundary controls also admit
+through the source-bound entry. False advertised byte lengths cannot trigger
+reconstruction capacity reservation. Eleven modules completed 137 cases in
+10.382 s with exit 0 and all receipts before the next concurrent PR integration.
+The first focused-suite invocation used an incorrect file path and failed;
+only the corrected successful receipts are admitted.
+
+The ABBA table was collected on base =8fe4a0e=. Subsequent EventFold, checkpoint
+and LR reverse-list changes are integrated separately; their costs are not
+attributed to source-bound admission. Temporary comparison sources are excluded
+from the implementation commit. Future representation experiments should retain
+this input-bound publication obligation in both complete-engine controls.
+
+After rebasing the concurrent engine revisions through =ded00a4=, their changed
+production dependency chain compiled in 24.357 s. Complete native product parity
+and the matched publication obligations passed again in 12.871 s with exit 0
+and all receipts. These integration samples are not used to attribute additional
+runtime improvements to this change.
+
+The first expanded integration run crashed while importing the existing native
+=event-fold-future= interface (exit 139), before suite execution; it is excluded.
+Rebuilding that module, its direct compiler helper and the remaining EventFold
+IR consumer with the fixed SDK completed in 16.003 s. The isolated EventFold
+suite then passed 61 cases in 9.113 s. The exact failing instruction has not been
+identified; the loading failure did not recur after that rebuild.
+
+The full retained implementation subsequently passed 210 cases across thirteen
+modules in 16.288 s, with =TEST-SUITE-OK modules=13=, =OK=, exit 0 and no missing
+receipts. This includes source contracts, immediate/deferred scanners,
+checkpoints, EventFold, result AOT binding, artifacts and four language suites.
+The following =5a1074e= integration changes only documentation and a benchmark;
+the production code and suites behind this receipt are unchanged.
+
+* Complete request attribution and the next representation boundary
+
+The previous complete native controls still allocated about 38 MB per large
+request. A shared diagnostic now accepts any public parser procedure and input:
+=t/benchmarks/parser-stage-cost/benchmark.ss#measure-parser-stages=. It has no
+language imports, scanner replacement, process launcher or alternative parser.
+The caller owns workload selection. Each measured request must equal the full
+unobserved reference artifact and pass source-bound admission. IO, reference
+construction, equality, admission and sample output are outside the request.
+The summary includes source and grammar identities, event count, CPU median,
+allocation median and the number of admitted allocation observations.
+
+An audit found an observability gap: session parsing already reported source
+preparation, scanning and artifact validation, whereas ordinary SourceLanguage
+and receipt entries did not. Shared shell and line providers now report the
+preparation and scanning boundaries; public source and receipt entries report
+validation. Existing disabled-path macro lowering evaluates the expression
+without constructing an observation thunk. These additions measure existing
+work; they do not implement a runtime speedup. LR and generated direct engines
+are different providers and do not acquire source-provider stage names merely
+because they support a language such as HL7 or HCL.
+
+Natural GC remains inside the measured CPU interval. Allocation deltas are
+admitted only with zero collections and a nonnegative counter delta. Observer
+callbacks and statistics calls have a cost, and outer measurements include
+that cost. Nested observations are inclusive. Medians from different stages
+and different admitted subsets must not be added or subtracted to infer an
+unobserved stage. These are localization diagnostics, not an uninstrumented
+latency comparison with Tree-sitter.
+
+A scanner exception recovered by the parser can legitimately publish a complete
+rejected artifact. The scanner observation must retain =completed=false=;
+requiring every stage to complete would misclassify correct rejection. The
+benchmark admits a rejected request through full product equality and actual
+input admission. Permanent controls cover the public shell entry, its multiple
+return-value receipt entry, a POO line provider, Unicode, empty input, lexical
+failure and prefix rejection. Dynamic observer scope is restored afterward.
+
+** Paper interpretation and bounded lowering obligations
+
+[[https://arxiv.org/html/2304.05276][flap sections 2.5, 2.7 and 2.8]] distinguish three mechanisms:
+deterministic single-token branch selection, lexer/parser fusion eliminating an
+internal token representation, and staging away statically known dispatch.
+Its generated parser still permits allocation introduced by semantic actions.
+Our required lossless artifact is such an observable semantic product. Removing
+an internal token stream does not authorize removing lexemes, field events,
+trivia coverage, diagnostics or public identities.
+
+A generic lowering must be derived from admitted engine IR. It must establish:
+
+1. Branch selection and lexical priority preserve the original recognition
+   language, including maximal-munch behavior and negative lookahead. A FIRST
+   set alone is insufficient to prove scanner/parser fusion.
+2. Skipped characters remain publishable lossless trivia. A recognizer that
+   discards them does not satisfy the complete artifact contract.
+3. Deferred delimiters, source modes and speculative branches establish explicit
+   commit boundaries. A speculative event cannot escape into canonical output.
+4. Source intervals retain byte/character agreement and input ownership through
+   Unicode and relocation. A borrowed interval cannot silently outlive its
+   request or become a mutable shared input view.
+5. ResultPlan field order, token spelling and failure diagnostics remain equal
+   to the current public product. The existing event-program and raw-event-tape
+   publication mechanisms are the targets; a new language callback protocol is
+   unnecessary.
+
+The current shell execution chain still creates scanner tokens, recognition
+values and projected word token sequences, then flattens those sequences at
+component boundaries, copies them into the parser's emitted stream and finally
+publishes canonical events. Some of this storage is transient, but canonical
+output is required. Word source preparation already uses an ASCII fast path and
+lazily prepares region caches; those mechanisms must not be proposed again as
+new work. The earlier generated projection experiment removed interpreter
+operation dispatch without establishing a complete-entry allocation or speed
+win. That negative result argues for changing producer/consumer representation
+and ownership, rather than another wrapper around projection execution.
+
+The next experiment should account for scanner and recognition construction
+separately, then lower an admitted deterministic producer/consumer boundary to
+existing publication instructions. Request-local source intervals and a single
+committed semantic stream are candidate representations, not implemented
+capabilities. They require whole-product controls for quoting, substitutions,
+here-documents, malformed input, Unicode and another applicable grammar before
+any default-path promotion. An implementation should be retained only if it
+reduces complete native allocation without a stable runtime regression.
+
+** Native diagnostic receipt on the integrated engine
+
+The final diagnostic used the fixed GCC SDK on base =8b8e7e0= plus the public
+source observation changes. It ran separately from this turn's test/build jobs.
+The large fixture has 28,040 characters and 52,852 canonical events; its source
+identity is =sha256:11a684b4a83d51ab0f5565ffad083c209ec07a0af5cdc7756c158022ac042221=.
+Its grammar identity is
+=sha256:880ba035ae26195eaeae0ce3e5fbef582e2195c46aed31703a7592395f248ce8=.
+The earlier source-bound control table has a different base and is not combined
+with this stage table to claim a subsequent speedup.
+
+| Stage | CPU P50 ms | No-GC allocation P50 bytes | Allocation samples / CPU samples |
+|-------+------------+---------------------------+---------------------------------|
+| source-prepare | 0.010 | 114432 | 11 / 11 |
+| source-scan | 8.626 | 7364432 | 10 / 11 |
+| command-recognition | 15.111 | 19334192 | 11 / 11 |
+| artifact-publication | 1.999 | 7173480 | 9 / 11 |
+| artifact-validation | 1.352 | 4407464 | 11 / 11 |
+| observed-complete-request | 27.354 | 38421712 | 8 / 11 |
+
+Recognition has the largest observed allocation and CPU interval. Scanning is
+also material. Source preparation is small for this admitted workload. This
+supports prioritizing the scanner/recognition producer-consumer boundary over
+another preparation cache or event-validator micro-optimization. It does not
+prove that all recognition allocation is avoidable, identify the individual
+constructors responsible, or establish a portable latency ratio. The next
+lowering still requires constructor attribution and an uninstrumented matched
+complete-entry experiment.
+
+Short input and lexical rejection also passed complete-product equality and
+source-bound admission. The final native diagnostic completed in 12.526 s with
+exit 0 and =STAGE-COMPLETE-PARITY-OK=. Five focused modules passed 51 cases in
+12.509 s, with =TEST-SUITE-OK modules=5=, =OK= and exit 0. The final diagnostic
+module compiled in 22.556 s; shared source modules compiled in 12.896 s. Total
+120-second and idle 5-second guards were unchanged.
+
+Earlier exploratory runs exposed missing imports, bracket errors, the incorrect
+all-stages-completed rejection requirement and a test that assigned source
+stage names to an LR language. A subsequent POO fixture needed explicit self
+inheritance to pass SourceStrategy admission. Those failed runs are excluded.
+One successful intermediate diagnostic overlapped test execution; its CPU
+numbers are also excluded from this table. No failed test receipt or concurrent
+CPU sample is promoted to the final evidence.
+
+The diagnostic can be called from another Scheme benchmark after native module
+preparation, for example:
+
+#+begin_src scheme
+(import (only-in :gerbil-parser/t/benchmarks/parser-stage-cost/benchmark
+                 measure-parser-stages)
+        (only-in :gerbil-parser/languages/bash/parser parse-bash))
+(measure-parser-stages parse-bash "echo hello\n" 11)
+#+end_src
+
+The procedure argument selects the existing public parser. For an engine with
+no cost-stage observations, the complete request row is still reported; absent
+stages are not fabricated or inferred from its language name.
+
+* Owned publication spines in shared Word/result execution (2026-10-10)
+
+** Producer and consumer ownership
+
+After direct materialization bypassed the earlier branch-frame experiment,
+the remaining Word producer still built a reversed parts spine and copied it
+with =reverse= before projection consumed it. General result projection
+execution similarly allocated a private reversed recognition-child spine,
+then copied it into publication order. The Scheme projection generator emitted
+the same redundant reversal. Neither spine is a caller-owned capture list:
+=parts= is assembled by this =parse-parts= invocation, and =children= contains
+only cons cells created by this projection's emitter. Nested result nodes,
+capture spines, immutable token branches and source text are separate values.
+
+The retained implementation uses =reverse!= on those private spines exactly
+at publication. An n-cell temporary list no longer requires another n-cell
+copy. Traversal remains linear; this is an allocation and ownership change,
+not a new parsing-complexity bound. Public nodes, token values, ordered fields,
+source validation and the declared POO projection recipes are preserved. The
+single-operation executors are unchanged, since they already construct their
+final lists directly. No language grammar, schema version, ABI or language
+namespace changes are required.
+
+This follows shipped Gerbil SDK revision =2591dcd= examples:
+=gerbil/runtime/c3.ss=, =c4-compute-class-slots=, reverses its private =r-slots=
+at publication, and =gerbil/runtime/util.ss=, =string-split=, uses the same
+operation for its private accumulator. The SDK's =std/list/list-builder.ss=
+is another owned-list construction mechanism; its dummy head and mutable tail
+are unnecessary for an existing private reverse accumulator.
+
+[[https://arxiv.org/html/2304.05276][flap]], Sections 2.2 and 2.8, separates materialized intermediary costs from
+allocation introduced by semantic actions. Here the lossless public token and
+node products remain observable and cannot be removed using a token-free
+recognizer's benchmark as justification. The eliminated cells are redundant
+publication spines, not public token or node values. This implementation is
+not flap fusion and makes no claim to its measured speedups or proof.
+
+** Qualification and native ABBA control
+
+All three modified modules compiled with the fixed GCC/Gerbil SDK in 29.183
+seconds. The 3 GiB heap, 120-second total and five-second idle guards remained
+unchanged. Eight source suites passed 131 cases in 22.691 seconds, with
+=TEST-SUITE-OK modules=8=, =OK= and exit 0. The new mixed-projection test builds
+from the same 1,024-item capture twice through both interpreted and generated
+executors, checking ordered fields, shared node identity and preservation of
+the original capture spine. Existing cases cover optional and required
+captures, Unicode bounds, invalid fields, missing nodes, source ownership,
+nested words and incremental publication. Generated forms are evaluated by
+these source tests; this receipt is not qualification of a separately linked
+native generated executor.
+
+The native complete-request control reused the preceding private Scheme
+controller and full serialized proofs. Each fresh process reported and,
+after the first reference observation, asserted the loaded module basename.
+Reference objects were =shell-word~0.o2= and =result-profile~0.o4=;
+candidate objects were =shell-word~0.o3= and =result-profile~0.o5=. Swaps
+removed all numbered objects for these two owned modules before copying the
+selected snapshot, respecting the SDK loader's contiguous-version selection.
+All other parser/client artifacts stayed fixed. The candidate was restored
+before final tests. No controller or frozen proof is added to the repository.
+
+The large complete request includes public =parse-bash= plus an additional
+source-bound artifact validator. Product equality against the pre-existing
+reference was checked outside timing for four fixtures and empty, malformed
+and Unicode sources. Every block admitted 23 allocation samples of 31;
+GC-crossing allocation intervals were excluded. No forced GC or simultaneous
+local builds were used during timed blocks.
+
+| Block | Complete CPU median ms | Admitted allocation median bytes |
+|-------+------------------------+----------------------------------|
+| Reference A | 30.341 | 39607464 |
+| Candidate A | 25.613 | 39233704 |
+| Candidate B | 32.500 | 39233064 |
+| Reference B | 28.771 | 39607464 |
+
+Allocation decreased by 373,760 to 374,400 bytes, approximately 0.94 to 0.95
+percent. The 640-byte candidate spread is retained rather than rounded into
+an exact invariant. CPU moves in opposite directions across candidate blocks,
+so these measurements establish no CPU speedup. The unchanged sequence-only
+control allocation medians were 1,593,120 bytes unmoved, 2,880,224 bytes for a
+root view and 2,876,128 bytes for leaf views on all four runs. Their CPU drift
+is also retained as evidence against a portable timing claim.
+
+** Remaining fusion boundary
+
+This removes one avoidable list copy but leaves the parts list consumed by
+projection, the recognition-child list returned by projection, owned lexemes
+and lossless nodes/tokens. Eliminating a parts list requires fusing its producer
+with the projection's declared field emitter. A future lowering must preserve
+validation of node kinds and parent bounds, ordering across optional token,
+one-node and many-node operations, and externally supplied capture ownership.
+It must also qualify interpreted and generated executors with the same full
+products. Moving grammar complexity into a language-specific shortcut or
+changing the public capture contract merely to bypass validation would not
+address this shared producer/consumer boundary.
+
+
+* Direct parts projection and bounded DSL expansion (2026-10-10)
+
+** Shared producer boundary
+
+The default unary =many= projection can consume the final child spine directly.
+=result-projection-parts-field= derives its field from the admitted operation;
+there is no author-facing mode or new grammar declaration. The Word engine's
+existing scan loop uses that field to construct =recognition-child= values in
+its private accumulator. =result-projection-build-parts= validates the proper
+list, exact field and node type, then delegates catalog and parent-span checks
+to =result-plan-node=. It publishes that same spine, removing the intermediate
+node list, subsequent =map= and temporary capture pair/vector on this path.
+Nested mixed projections and assignments retain their existing capture layout.
+
+The private projection record marks only engine-owned unary executors as
+eligible. =result-plan-bind-projections= clears that eligibility on a cloned
+plan: a supplied procedure is authoritative even if its declared recipe equals
+the default recipe. For bound executors, the scanner emits ordinary nodes and
+the new build boundary supplies the original capture frame. This preserves
+POO override behavior; it does not introduce a legacy schema or language mode.
+Generated bindings are tested through this authoritative frame path. This
+experiment does not claim a streaming native generated executor or Rust AOT
+allocation improvement. Public recipe digests and serialized ABI products
+remain unchanged.
+
+[[https://arxiv.org/html/2304.05276][flap]], Section 2.8, explicitly generates code that removes statically known
+information and avoids introducing higher-order operations in the parser core.
+That motivates specializing the declared field in the producer rather than
+assuming a generic callback is free. The retained code removes one semantic
+intermediary; it is not DGNF lexer/parser fusion and does not inherit flap's
+proof or measured speedups. SDK =2591dcd='s owned-list builders and private
+reverse accumulators remain the source model for publication ownership.
+
+** Rejected callback experiment
+
+The first candidate invoked a projection emitter for every produced part. It
+passed complete product equality but added closure and mutable accumulator
+state. On the same complete-request control its allocation median was
+39,427,464 bytes and CPU median 34.844 ms, versus reference A's 39,233,704
+bytes and 32.202 ms. All 23 admitted allocation intervals out of 31 agreed
+with the increase. This callback candidate was removed, including its proposed
+producer API. The replacement constructs children in the existing scan loop;
+there is no per-part callback in that path.
+
+** Actual compiler timeout and DSL correction
+
+The first build was terminated by the unchanged five-second idle guard after
+60.161 seconds. A diagnostic retry wrapped actual compiler pass entry and
+completion, without changing ASTs or adding periodic output. It terminated
+after 24.176 seconds in =apply-optimize-annotated= immediately after
+=Optimizing syntax-case expansion=. Type collection, mutable type collection
+and refinement completed in 0.059, 0.054 and 0.074 seconds respectively.
+The failure was before GCC and was not resolved by switching compilers or
+increasing either timeout.
+
+SDK =gerbil/compiler/optimize.ss= separates those passes;
+=gerbil/compiler/optimize-ann.ss= sends =@syntax-case= annotations to its
+specializing optimizer. =defresult-profile= repeated complete combination
+patterns for eight legal clause sequences. The retained macro parses each
+clause once and checks its tag sequence against those same eight combinations.
+Duplicate clauses, reordered clauses, unknown clauses and malformed node
+clauses are still rejected. Scanner expressions keep their original syntax
+binding; quoted node, token and projection slots retain their existing shape.
+
+After factoring that syntax, annotation optimization completed in 0.015
+seconds. The direct-construction revision completed the same pass in 0.008
+seconds, and its two-module build completed in 49.225 seconds. Both modules
+were compiled in one GXI invocation. The fixed GCC/Gerbil SDK, optimization
+options, 3 GiB heap and 120-second total/five-second idle guards were unchanged.
+Pass instrumentation was private diagnostic tooling, not a new repository
+runner. These receipts establish guarded completion; they are not a portable
+whole-build timing comparison under host contention.
+
+** Complete-request controls and contracts
+
+Reference A, direct candidate A, direct candidate B and reference B used
+fresh processes, unchanged clients and the same existing private controller.
+Loaded object identities were asserted: reference =shell-word~0.o3= and
+=result-profile~0.o5=; direct =shell-word~0.o5= and =result-profile~0.o7=.
+All numbered artifacts for those modules were removed before variant swaps,
+and direct artifacts were restored before final tests. Each complete block
+admitted 23 allocation intervals out of 31. GC-crossing intervals were
+excluded; no forced GC or simultaneous local builds occurred during timing.
+
+| Block | Complete CPU median ms | Admitted allocation median bytes |
+|-------+------------------------+----------------------------------|
+| Reference A | 32.202 | 39233704 |
+| Direct A | 28.583 | 39103304 |
+| Direct B | 24.530 | 39103304 |
+| Reference B | 23.199 | 39233064 |
+
+The reduction is 129,760 to 130,400 bytes, approximately 0.33 percent. CPU
+drift again prevents a stable speedup claim. Full product equality and an
+additional source-bound validator admitted four fixtures plus empty, malformed
+and Unicode inputs. The sequence-only controls retained their reference
+allocation values, so the improvement is confined to producer/projection
+construction rather than a change in sequence materialization.
+
+Eight source suites passed 135 cases in 12.888 seconds with
+=TEST-SUITE-OK modules=8=, =OK= and exit 0. New cases cover all eight legal
+DSL combinations and rejected shapes, empty and 1,024-item parts, comparison
+with the original capture API through default and generated bindings, exact
+published-spine identity, wrong fields, foreign/escaping nodes, non-unary
+recipes and custom executor authority. The initial new fixture omitted the
+empty =tokens= clause required between =nodes= and =projections=. The macro
+correctly rejected it; the fixture was fixed rather than widening the DSL.
+That failed 8.693-second preparation is excluded from successful receipts.
+
+The complete-request benefit is modest because mixed nested captures and
+observable lossless products still dominate allocation. Extending direct
+construction to those captures requires an admitted producer plan that
+preserves operation ordering and all field/span checks. This result closes
+the unary boundary and compiler expansion issue, not the remaining gap to a
+different parser or the full semantic-intermediary cost.
+
+* Literal-run invariant staging and bounded source admission
+
+The current Scheme design documents already describe checked public boundaries,
+known private calls, and compile-time ownership. Reading the pinned Gerbil SDK
+revision =2591dcd=, =src/gerbil/runtime/util.ss= (=string-index= and
+=__string-index/char=), provides a concrete example: validate the source range
+once, retain invariant input and endpoint, and advance only the cursor. This
+change transfers that structure without copying unchecked primitives or type
+assertions. The emitted Scheme for the previous parts scanner called the full
+context matcher on every character; its context index was not hoisted there.
+
+The shared =part-context-literal-end= now retains the prepared ASCII vector and
+Unicode character hash for the entire literal run. Empty initial buckets bypass
+rule matching. Candidate initials call the named =match-part-rules= helper also
+used by direct matching. Declaration order, prefix bounds, guard rejection,
+shorter-prefix overrides, and Unicode keys therefore retain the same matching
+algorithm. No extra index, callback, language declaration, compatibility path,
+schema version, or FFI surface is introduced.
+
+Range admission requires exact integer endpoints with
+=0 <= start <= end <= string-length=. Empty intervals return =end=. The previous
+loop started at =start + 1= and stopped only at equality with =end= or a successful
+match. With =start = end=, matching returned false beyond the endpoint and the
+cursor kept increasing. This nontermination follows from the source; the old
+infinite loop was not executed as a benchmark. Tests cover empty intervals,
+negative, reversed, escaping and fractional ranges, independent direct-matcher
+comparison at every start position, and truncated Unicode guards.
+
+** Native reference/candidate/candidate/reference control
+
+The same GCC-backed SDK, corpus, clients, 3 GiB heap, 120-second total budget
+and five-second silence limit were used throughout. Each process verified the
+actually admitted parts artifact: reference =part-profile~0.o1=, candidate
+=part-profile~0.o3=. Complete owned artifact snapshots were exchanged because
+the loader selects the last contiguous object suffix. Other native clients
+were unchanged. Temporary control entries and snapshots are qualification
+inputs, not repository interfaces. The final candidate build passed in
+16.643 seconds.
+
+Each micro sample executes 100 native literal scans through identical source
+orchestration, with 11 samples per block. ASCII and Unicode inputs each contain
+10,000 characters; rejected escape guards use a 9,000-character input. Values
+below are CPU medians in milliseconds, not complete-parser API latency.
+
+| Workload | Reference A | Candidate A | Candidate B | Reference B |
+|----------+-------------+-------------+-------------+-------------|
+| ASCII run | 15.801 | 2.428 | 2.430 | 15.018 |
+| Unicode run | 55.701 | 27.921 | 26.373 | 52.412 |
+| Guard rejection | 34.709 | 18.437 | 16.529 | 31.119 |
+| Complete public request | 31.362 | 29.057 | 23.725 | 24.700 |
+
+All micro blocks admit 11 allocation samples with the same 8,576-byte median
+from shared orchestration. The complete request uses 31 samples per block;
+admitted allocation counts are respectively 23, 23, 24 and 24. Its median
+allocation remains 39,103,304 bytes in every block. Complete products match
+the existing Scheme reference values for four corpus fixtures, empty, malformed
+and Unicode sources; source-bound checks also pass. Sequence-only allocation
+controls retain their reference values. All four processes return exit 0 and
+both literal and complete-product success receipts.
+
+The scan reduction repeats across both blocks: approximately sixfold for ASCII
+and twofold for Unicode, with substantial improvement under rejected guards.
+Complete-request CPU drifts across the surrounding references, so this control
+does not establish a stable end-to-end speedup or close the Tree-sitter gap.
+Allocation is unchanged. Remaining work must measure producer construction and
+semantic intermediary costs independently before changing their representation.
+
+Nine source modules passed 151 cases in 17.334 seconds with
+=TEST-SUITE-OK modules=9=, =OK= and exit 0. An initial invocation failed the
+five-second silence guard during entry dependency admission, before any suite
+ran. The successful invocation used the existing compiled-interface preloader
+and real import tracing around the test entry; neither guard was widened.
+That failed invocation is excluded from successful receipts.
+
+After rebasing onto the concurrent shared LR semantic-stack change =d69f015=,
+the merged LR runtime was freshly compiled with the same GCC SDK and guards
+in 48.724 seconds. Three integration modules (LR stack reductions, parts
+profiles and Bash parsing) passed 47 cases in 11.500 seconds, with
+=TEST-SUITE-OK modules=3=, =OK= and exit 0. This checks integration with that
+revision; the performance table remains a control against the earlier
+=0906fa3= client set and is not reclassified as merged-head timing.
+

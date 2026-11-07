@@ -1,0 +1,17 @@
+#+title: Record assignments language-pack fixture
+
+This fixture owns the same =grammar.ss=, =parser.ss=, =fixtures.ss=,
+=parser-test.ss=, and native corpus layout as an independent DSL package.
+It deliberately has no =gerbil.pkg= or Gerbil installation contract. Upstream
+generation CI drives its public
+=:gerbil-parser/rust-runtime-grammar-support= declaration through the standalone
+=gerbil-parser-runtime-aot= product and verifies the committed Rust module. The
+consumer acceptance step is then a standalone Cargo build: it needs only
+=gerbil-parser-runtime= and the generated module, never Gerbil, a private engine
+module, or a handwritten syntax sink.
+
+The production =parser.ss= imports only the grammar. =parser-test.ss= imports
+the optional corpus and declares =records-test-language= through
+=deflanguage-development-loader= over the exact production descriptor. Upstream
+native conformance includes this independent sample; production declarations
+reject development services even when those services come from a POO parent.

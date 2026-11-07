@@ -1,0 +1,51 @@
+direction: down
+vars: {
+  d2-config: {
+    theme-id: 200
+    pad: 32
+  }
+}
+
+declarations: "Scheme and Cargo declarations" {
+  shape: page
+}
+
+build: "Build owners" {
+  direction: right
+  core: "Core source closure" {
+    style.fill: "#243B53"
+    style.font-color: "#F1F5F9"
+  }
+  gerbil: "Gerbil compiler" {
+    style.fill: "#243B53"
+    style.font-color: "#F1F5F9"
+  }
+  bridge: "gerbil-scheme-rust\nC ABI tools and program archive"
+  core -> gerbil: "build specification"
+  bridge -> gerbil: "official package operations"
+}
+
+products: "Separate product owners" {
+  grid-columns: 2
+  library: "Production library"
+  ffi: "C ABI probes"
+  research: "Standalone qualification libraries"
+  support: "Signed Suite support"
+  rust: "Rust-owned ABI program"
+}
+
+transport: "Exact-run artifacts" {
+  shape: cylinder
+}
+consumers: "Independent consumers" {
+  grid-columns: 3
+  standalone: "Official gxi\nScoped observations"
+  suite: "Core TestingScript\nGerbil Harness"
+  rust: "Rust host\nUpstream affine VM lifecycle"
+}
+
+declarations -> build: "package and Cargo source"
+build -> products: "compiler-owned products"
+products.library -> products.ffi: "ABI providers"
+products -> transport
+transport -> consumers: "restore and execute"

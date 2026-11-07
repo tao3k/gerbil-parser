@@ -1,0 +1,224 @@
+#+TITLE: Gerbil Test and Build Ownership
+#+LANGUAGE: en
+
+* Execution boundary
+
+CI and development commands invoke gerbil test and gerbil build. A test module
+publishes Suite, Case and Fixture values. It must not launch another test round.
+Process fixtures which exercise a product subprocess or the compiler's stream
+API are different subjects; they do not select or execute test suites.
+
+Core already publishes TestingScript, module-test-file-source,
+module-test-execution and Fixture lifecycle policy. Use those existing facilities
+when a selected Module requires source admission or resource policy. Do not
+invent a Parser equivalent, synthetic source guard, evaluator launcher or harness.
+
+* Removed responsibilities
+
+- compiler-policy-output and its generated gxi expressions, data files and forced
+  child exit are removed. Two policy Cases live in t/fixtures/compiler-policy.ss,
+  explicitly executed by the CI/development native test command.
+- test-suite.ss, suite-runtime.ss, private Worker scheduling/affinity/exclusivity
+  fixtures and execution metadata are removed. Ordinary declarations lower to
+  native std/test values; the native harness owns discovery and execution.
+- run-observed-sdk-tests! no longer wraps gxtest in a Parser function. Preparation
+  no longer deletes test interfaces to force a private source execution route.
+- CI and development source-test callers use gerbil test. The native build.ss
+  still declares the actual Core/std-make projection; no new builder is added.
+
+* Native inputs and policy
+
+Native qualified test imports require the package's source parent in
+GERBIL_LOADPATH, or correctly compiled dependencies. A checkout whose leaf is
+not gerbil-parser must not be concealed by a custom module loader. Use a normal
+checkout/worktree with the package name and the existing native package prefix.
+This is source-layout alignment, not a second compiler environment.
+
+Compilation remains configured for two workers and its existing2GiB heap. The
+native complete test entry retains the existing3GiB process ceiling. The three
+modules with Core-profiled Cases declare native test-setup!/test-cleanup! Fixture
+hooks which select the same shared-process Case heap ceiling; Core continues to
+own duration, growth, sampling, cancellation and failure policy. The existing15-minute full-entry wall limit remains. Native gxtest has
+no Worker option; do not emulate one in Parser. Historical shared-Worker and
+per-Worker90/idle5 results are archived, not relabeled as native harness results.
+External product/process idle controls remain at their existing owners.
+
+Native gxtest loads selected modules before reporting the harness. Applying the
+old dispatcher's output-idle rule to that pre-harness phase refuses cohorts108
+and110, even after standard Suite compilation. Those refusals are retained;
+no heartbeat/preloader is restored. Native total deadlines and explicit final
+OK/error admission apply at CI/development entry boundaries.
+
+* Acceptance and current gaps
+
+The fresh native policy Suite passes2 Cases in4.99s at2GiB through the existing
+90-second qualification entry. A prior native negative run returned process0
+while reporting ERROR CASE/HARNESS, so process status alone is insufficient;
+the existing admission gate requires an exact final OK and rejects errors.
+
+The first complete native compatibility run is diagnostic, not a pass: it
+exposes missing qualified source imports under the noncanonical local checkout
+and default2GiB Case policy versus a3GiB process. Align source lookup and the
+existing Core policy; do not patch native loading or add a runner.
+
+Required gates: standard package build; native policy2 Cases; affected Suites;
+complete native discovery; syntax rejection of retired scheduling options;
+existing product/process negative controls; native research Suites and separate product program
+entries; Linux/macOS exact-head CI. Mathematical engine laws and LeanPoo revision
+remain unchanged by this execution-owner cleanup.
+
+The canonical51a2a32 checkout passes the policy2 Cases and4 affected native Suites
+without import or harness errors. A complete2GiB experiment overflows the managed
+heap; it is retained as a refusal. Restore the existing3GiB full-entry ceiling
+and relocate the former Case heap selection to a native module Fixture. This is
+configuration/lifecycle reuse, not a new test dispatcher or raised heap ceiling.
+
+An intermediate package-spec Fixture queried the build declaration inside the
+runtime process; full discovery rejected that context mixing. It is removed.
+
+Complete native discovery must use compiled-prefix/lib before the source parent
+in GERBIL_LOADPATH. The former private loader silently enforced this precedence;
+a source-first path interprets C declarations and creates incompatible runtime
+prototype generations. Native configuration now states the ordering directly.
+Fixture imports must also follow an existing interpreter directive; two misplaced
+shebangs in the first Fixture edit were caught by native discovery and corrected.
+No import/loader override is restored. These are current configuration/file-header
+repairs; historical native blocking stacks remain unknown.
+
+The complete native cohort refuses an in-process build spec query because public
+compiler-source admission sees already-loaded runtime SSI contexts. Build-source
+projection belongs to the existing dev/build.ss check-catalog entry. Its native
+comparison now also owns every former public-entry, duplicate, ABI-option and
+retired-target assertion. The runtime build-entry Suite and its execution Fixture
+are removed entirely. No runtime Suite launches or installs a build context.
+
+* Complete executor removal
+Ordinary tests and research fixture tests only declare Suites, Cases and Fixtures.
+No Parser test module calls test-suite!, test-run! or constructs TestHarness.
+The private conformance Suite executor, timer threads, manually linked Engine/
+event-fold runners, research Suite launchers and runtime-organization harness are
+removed. Existing development recipes invoke gerbil test against those original
+Suite modules. Compiler/product subprocess Fixtures remain SUT execution, never a
+second test/build harness. Research standalone programs have a separate entry and
+retain their existing process budgets; they no longer embed semantic Suite runs.
+
+The former conformance import/export/Suite partition validator and duplicate
+Suite catalog are removed. Native Gerbil discovers exported Suite values. The
+remaining build catalog selects helper compilation and research Suite inputs; it
+does not reimplement module discovery, test execution, Case policy or scheduling.
+The old conformance runner success/failure/timeout receipts are historical only.
+Native failure controls must be invoked from development/CI and rejected using
+actual harness diagnostics plus final OK, since process exit zero alone is not
+sufficient for native Gerbil test acceptance.
+
+Local cohort116: dev/build.ss check-catalog passes (50.67 seconds); isolated
+event-program Suite passes (13.38 seconds). This does not establish full native
+closure or remote Linux/macOS acceptance for the subsequent executor removals.
+
+Cohort117: five affected native modules, five research fixture modules and the
+isolated policy module pass. Complete native discovery reports183 MODULE-OK
+receipts but is rejected: qualification-output's intentional error cleanup calls
+ps, which this execution sandbox denies (Operation not permitted). Native Gerbil
+reports ERROR CASE and ERROR HARNESS and does not exit; the failed process was
+then terminated externally, preserving its log. This is not a passing full run.
+Requalification needs host process-topology access with the same two build workers,
+heap ceilings and native total deadlines. No source assertion or cleanup policy
+is relaxed to hide that environment refusal. Exact-head CI remains required.
+
+The host cohort118 passes seven affected modules,183 unique native modules
+(250.07 seconds, exact HARNESS-OK and OK, no errors) and standard gerbil build
+(62.83 seconds, two workers,2GiB). Research product closure then refuses a missing
+static all-languages benchmark module: the removed Suite compiler had implicitly
+owned that product input. The corrected build entry prepares only the benchmark
+and research program static inputs. It does not restore static Suite compilation,
+manual Harness execution, timers or nested tests. This separate product boundary
+must pass before remote qualification is considered complete.
+
+Cohort119 at2cdc733 corrects that product input ownership: native research
+preparation/link passes in199.80 seconds with the unchanged240-second/idle5 gate,
+two compiler workers and2GiB. All five standalone program controls pass in22.46
+seconds. No clean, timeout increase or Suite executor is used. Full183-module
+native coverage and standard package build are recorded at the preceding runtime-
+identical a7dd4d9; the subsequent code change only supplies the research benchmark
+static input. Current-head Linux/macOS CI remains an independent open gate.
+
+* Cold closure correction
+Both a7dd4d9 CI prepares fail at a different missing static input than the first
+local run: languages/tla-plus/parser-test. The benchmark imported parser-test
+modules to obtain shared corpus loaders. Historical local Suite objects masked
+that dependency, so cohort119's warm link is not cold/Suite-free qualification.
+The preserved Linux/macOS logs establish the dependency; no retry or clean is a fix.
+
+Each language now declares its unchanged corpus/loaders in same-directory
+fixtures.ss. Suite modules import/re-export those values; the benchmark imports
+Fixtures directly. No corpus text, identity, grammar or assertion is duplicated.
+The former native bootstrap parser/closure rejection helper and its self-mirroring
+Case were removed with the custom linker. Research roots now go directly through
+Core package-library-spec and Gerbil std/make. Runtime Suite discovery and source
+currentness controls remain independent. See ci-ownership.org for current ownership.
+
+* Final declaration checks
+Complete discovery at59e4c3c correctly refuses the old three-file topology rule:
+shared fixtures.ss had been classified as private grammar syntax. The updated
+contract explicitly separates grammar/parser, Fixture and Suite declarations,
+and rejects Fixture imports in production and Suite declarations in Fixtures.
+Those are stricter positive/negative boundaries, not a disabled topology check.
+
+The remaining process/history script tests now export native Suites too. Their
+process subjects retain the same exit/receipt/timeout controls and actual timeout
+phase observations; no script starts a Harness or forces test-process exit.
+Standalone research process admission reuses run-qualified! directly, removing
+its duplicate Case wrapper. Twelve affected native modules pass at50b0ab2,
+including both converted scripts, all language Suites and the topology/product
+closure controls. Full native discovery, final product controls and final-head
+Linux/macOS CI remain separate gates. Native ABI Suite startup uses its existing
+180-second total budget without the old dispatcher's idle5 bootstrap rule;
+external ABI/product idle controls are unchanged.
+
+* Closed local gates and remaining remote gate
+Cohort121 at50b0ab2 passes the complete183-module native discovery (402.22s,
+exit0, no errors),12 affected modules, the Suite-free native product link (78.36s)
+and five standalone programs (23.59s). Both Linux/macOS3840094 CI catalogs then
+expose exactly the eight new Fixture files in independent source discovery.
+The existing native development exclusion declaration now excludes those shared
+Fixture sources from production. Cohort122 ated0e504 passes check-catalog (89.16s)
+and standard gerbil build (84.82s), without a new builder or raised resources.
+
+Cohort122 also preserves a real scripts refusal: the output-fragment positive
+control hit its competing1s idle fence in bootstrap. Directed status/receipt Cases
+now retain their2s total budget without that unrelated idle fence. The dedicated
+2s/0.1s idle refusal and0.15s total/EOF controls are unchanged. Cohort123 atae14111
+passes all three script Suites (21.68s) and the intentional native failed-Suite
+refusal (exit70). Actual wrong-exit observation is17, reason false/session-ready;
+missing-marker observation is0, reason false/session-ready. Timeout controls keep
+their actual bootstrap phase, without claiming the child reached EOF.
+
+These later code changes affect the independent production discovery declaration
+and the directed process script controls; runtime/parser assertions remain those
+of the183-module pass. Final-head Linux/macOS CI is still required. Prior failed
+or warm receipts remain explicit and are never promoted to that remote gate.
+
+Final903e9e3 cold preparation passes on Linux and macOS, including catalog,
+standard package/native products and the actual Suite-free closure. Linux FFI,
+corpus and generation pass. Both semantics jobs correctly refuse the deliberately
+failed Suite but their development recipe then exits127: rg is not installed on
+those runners. The recipe now uses system grep -E, without adding dependencies.
+Cohort124 at17a52ee executes the complete just test-harness-refusal entry, including
+its normal build prerequisite, under a PATH containing no rg: exit0 and exact
+GERBIL-HARNESS-REFUSAL-OK in86.96s. This closes the command-entry omission locally;
+current-head Linux/macOS semantics still require CI. No failed Suite assertion,
+error detection, deadline or heap control is weakened.
+
+1416036 macOS semantics passes the corrected dependency-free refusal gate,
+research Suites/programs and callback GC, then refuses author-controls' old
+runtime list-modules expectation. The public grammar macro resolves the author
+service with for-syntax/import-module and for-template; runtime module residency
+is not its contract and may differ for compiled consumers. Author-controls now
+checks the real public resolver in expansion, including refusal of a missing
+export. Successful parsing, rejected input, malformed declaration and lexical
+binding/hygiene checks remain. No service is forced into runtime residency.
+Cohort126 atc22c522 passes all four phase modules from source (16.81s), standard
+gerbil compile at2GiB/two workers (22.39s), then the compiled-entry modules (20.67s).
+A first literal-construction error was retained and corrected using the native
+identifier context required by datum->syntax. Final-head remote semantics remain
+open; phase changes affect only these fixture declarations, not parser runtime.

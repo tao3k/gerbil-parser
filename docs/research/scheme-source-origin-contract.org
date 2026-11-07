@@ -1,0 +1,144 @@
+#+title: Scheme component origins: definition, invocation and generated rules
+#+date: 2026-10-06
+
+* Research question and evidence boundary
+
+The [[file:bound-declaration-publication.org][ordered declaration publication study]] implements the shared normalization,
+syntax-origin and Bound IR construction path, with source-selection controls and
+complete sidecar measurements. It preserves the historical origin experiment
+below and its separate qualification limits.
+
+Can a concise multi-rule component retain both its author invocation and its
+macro definition origin, through the existing POO and Bound IR owners?
+This follows the [[file:scheme-component-provenance.org][component provenance]] and
+[[file:scheme-composition-history.org][composition history]] studies.
+
+The local study runs against committed baseline
+=783381f33fa1b309ac4cc4b0012696f24c852d93=. Its syntax is experimental;
+no public language API has been selected. All location values come from reader
+syntax, not a manually maintained line table.
+
+* Official mechanism and a useful negative result
+
+The [[https://gerbil.scheme.org/reference/gerbil/expander/utilities.html][official Gerbil expander utilities]] document =stx-source= returning a locat
+or =#f=. Container and position accessors expose file paths and coordinates;
+a location may be a point without an end position. The fixture converts line
+and column to one-based values and preserves a missing end as =#f=.
+
+The initial attempt queried =stx-source= on a literal identifier created inside
+the transformer with =#'template-origin-anchor=. In this installed Gerbil,
+the result was =#f=. The reader location of the author's matched =owner=
+identifier survived. A retry reached that check and exited 70 when the driver
+incorrectly treated the absent template origin as an alist. This is a limitation
+of the attempted collection strategy, not evidence of a parser defect.
+
+The corrected strategy captures the real =defsyntax= declaration while an outer
+macro still receives its reader syntax. It binds the resulting inert origin at
+phase one, where the component transformer can read it. The invocation origin
+is independently read from the component owner's matched identifier.
+
+* Actual Scheme declarations and the two required questions
+
+The local [[file:../../t/fixtures/language-pack-research/reader-origin.ss][reader-origin.ss]] wrapper records the source of =definition= and
+expands to a phase-one origin binding plus the unchanged definition. The shape
+below abbreviates the transformer body; it is an explanatory excerpt, not a
+standalone module.
+
+#+begin_src scheme
+(with-reader-origin template-definition-origin
+  (defsyntax (deflocated-list stx)
+    ;; syntax-case matches owner from the author's invocation.
+    ;; authorOrigin   <- stx-source of the matched owner
+    ;; templateOrigin <- template-definition-origin
+    ;; Generated role + sources enter existing POO/Bound IR construction.
+    ...))
+
+;; Actual author invocation from located-list-roles.ss:
+(deflocated-list arguments-component call-arguments arguments
+  (reference name) (literal ",") (field argument))
+
+;; Question 1: Why is this DSL design better?
+;; Authors state list intent once, without repeated entry/tail patterns or manual source line tables.
+;; Invocation origins identify component declarations; definition origins identify generating templates.
+;; Scheme syntax objects and phase-one bindings retain origins; POO roles carry multi-rule contributions.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Coordinates must point to actual owner and defsyntax text, not merely populate a source field.
+;; Evidence: source-origins.ss passes 12 checks with exit 0 through existing Bound IR construction.
+;; Falsifier: wrong token coordinates, inconsistent entry/helper origins or invented missing locations.
+;; Limit: actual-language loading times out; nested chains and rendered diagnostics remain open.
+#+end_src
+
+The complete [[file:../../t/fixtures/language-pack-research/located-component.ss][located-component.ss]] constructs the checked role and source record;
+[[file:../../t/fixtures/language-pack-research/located-list-roles.ss][located-list-roles.ss]] composes it with the base role and associates the
+record with both contributed rules. It currently uses the unique-append source
+mapper. The override/removal history study explains why that mapper cannot be
+promoted unchanged to general composition.
+
+* Native checks and retained failures
+
+The focused driver [[file:../../t/fixtures/language-pack-research/source-origins.ss][source-origins.ss]] constructs and normalizes the POO grammar,
+then invokes the existing =bind-grammar-ir= with the captured source map.
+For each of two components it checks owner, generated status, author token,
+template token, distinct source files, and equal entry/helper source records.
+The token checks open the actual files and slice the reported line/column.
+The template token is =(defsyntax=; the author token is its owner name.
+
+#+begin_src sh
+GERBIL_LOADPATH=.. GERBIL_PATH="$PWD/.gerbil" \
+  gtimeout 10 gxi t/fixtures/language-pack-research/source-origins.ss
+#+end_src
+
+The corrected definition-location version reported
+=SOURCE-ORIGINS-OK: 12 checks passed= and exited 0.
+
+| Invocation | Observed result | Admission |
+|------------+-----------------+-----------|
+| Initial combined source-locations driver | Artifact generation progress, exit 124 | Timeout |
+| Combined retry with literal template anchor | Author token succeeded; absent template source, exit 70 | Failed strategy |
+| Focused corrected source-origins | 12 checks, exit 0 | Passing construction/Bound IR receipt |
+| Combined language/event driver with wrapper-binding origin | 21 checks and summary, exit 124 | Timeout, not a passing parity receipt |
+| Actual language driver with defsyntax-definition origin | 12 checks and summary, exit 124 | Timeout, not a passing language-loading receipt |
+
+The last driver is [[file:../../t/fixtures/language-pack-research/source-bound-locations.ss][source-bound-locations.ss]]. It loads the actual declaration's
+artifact-backed Bound IR. Its assertions completed, but its exit status remains
+a failed bounded invocation. The ten-second limit was not increased. The timing
+cause has not been isolated; neither the parser nor GC is identified as its cause.
+No successful end-to-end parsing or performance claim is inferred here.
+
+* Paper interpretation: coordinates do not complete diagnostics
+
+[[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][Culpepper and Felleisen, Fortifying Macros (ICFP 2010)]], section 2, explains
+that tracking source locations does not suffice when errors expose an expansion's
+implementation instead of the author's declaration. Their guard examples also
+show that rejecting syntax alone does not explain the reason. This supports
+separate obligations for origin capture and author-level error explanation.
+It does not establish that Gerbil provides Racket's syntax classes.
+
+Our design consequence is an explicit diagnostic contract: report the component
+operation and its author declaration first; retain generated rule identity and
+template definition as supporting detail. That presentation remains a proposal;
+this fixture checks metadata, not diagnostic rendering or editor navigation.
+
+* Working contract for discussion
+
+| Origin facet | Meaning | Current evidence / remaining work |
+|--------------+---------+-----------------------------------|
+| Invocation | Component instance chosen by author | Actual owner identifier coordinate checked |
+| Definition | Template implementation declaration | Actual defsyntax coordinate checked |
+| Generated identity | Rule admitted by current compiler | Existing binding plus owner metadata checked |
+| Effective contribution | Declaration selected after composition | Override requires operation-aware selection |
+| Expansion chain | Intermediates between definition and invocation | Existing flat lineage does not yet prove this chain |
+| Missing source | Explicit unknown, never invented coordinate | Source-free expansion checked; artifact integration pending |
+
+The working recommendation is to collect origins at their actual syntax
+boundaries, carry them through existing compilation, and keep these facets
+separate. The author should not need provenance bookkeeping in every language
+package. Before publishing syntax, qualify missing-source and nested-expansion
+cases and complete the bounded actual-language receipt. Author-task experiments
+must separately establish whether these origins make diagnostics easier to use.
+
+* Follow-up: declaration diagnostics and absent source
+
+The [[file:scheme-declaration-diagnostics.org][declaration diagnostics study]] now supplies passing real-reader and source-free
+expansion controls. It distinguishes syntax constructed within a transformer
+from actual reader arguments, and leaves rendered diagnostic presentation open.

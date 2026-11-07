@@ -1,0 +1,151 @@
+#+title: Construction vocabulary and unified correspondence
+
+* One integration boundary
+
+[[file:objective-and-evidence-boundary.org][The shared architecture ledger]] owns model coverage.
+[[file:physical-sparse-goto.org][The construction contract]] owns queue, storage and publication laws.
+This topic closes vocabulary transport into that same construction result;
+it introduces no separate factory or certification API.
+
+[[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]], sections 2.1--2.2, defines distinct terminal and
+nonterminal alphabets and goto by advancing over the same grammar symbol.
+The existing construction models the LR0 projection of closure/goto.
+Injective encoding alone does not establish that rebuilding a catalogue keeps
+ordinals. The paper's lookahead and augmented EOF convention need the separate
+lookahead/table/acceptance adapters; a non-EOF edge theorem does not close them.
+
+* Producer-to-consumer chain
+
+The real [[file:../../../src/compiler/lr.ss][production-terminal-catalog]] seeds EOF, scans productions and operands
+in order, conses unseen bases, reverses once and installs ordinal indices.
+Its supported source schema is =ProducerAdmission.Source.catalog=.
+=ConstructionEncoding= forms a reader catalogue; =ConstructionGrammar= forms
+another catalogue over encoded records before producing the CFG. Earlier
+roundtrip laws did not connect these two orders for arbitrary inputs.
+
+[[file:../../../formal/ParserEngine/ConstructionVocabulary.lean][ConstructionVocabulary]] supplies that missing composition:
+
+| Boundary | Derived law | Existing consumer |
+|----------+-------------+-------------------|
+| Successful raw key conversion | =encoded_key=, =key_encoded=, =key_roundtrip= | Total map notation is used only where successful lookup is proved |
+| First-discovery scan | =collect_transport= | Left inverse on the scanned domain preserves cons/skip behavior; no global injection assumption |
+| Every operand and row | =mapM_observe=, =operand_terminal=, =row_terminals=, =terminal_stream= | Reuses =mapM_trace=; preserves duplicates and complete ordering |
+| EOF seed and both catalogues | =catalogue_transport= | Producer catalogue is exactly the mapped reader catalogue |
+| Installed ordinal | =key_ordinal=, =terminal_symbol= | Producer-owned index, not a caller recoding function |
+| Retained CFG occurrence | =factory_terminal= | Same physical production and operand index |
+| Symbol discovery | =factory_symbol_index= | Symbol ID derived from the occurrence, not a separate certificate |
+| Final physical transition | =factory_paper_target= | Existing =ConstructionConsumer.physical_paper_target= for the same plan, state vector and edge row |
+
+=ConstructionConsumer.certified= remains the retained LeanPoo factory.
+The new laws consume its existing result rather than recomputing an automaton.
+The final law covers all allocated nodes and their published edges for the
+discovered terminal, retaining exact target closure/goto meaning for every child.
+
+* Declaration source authority
+
+The next source audit found that raw construction frames omitted declarations.
+=ConstructionEncoding.read= copied =origins.declarations= from the separate
+semantic metadata input, while =ConstructionEncodingWitness.fields= compared
+only rows and roots. That checked neither declaration provenance nor its order.
+A reserved reference and a declaration must remain different even when both
+already have directory indices.
+
+The actual lowering declaration callback now contributes an explicit list of
+symbol names to the raw frame. The fixture verifies that its helper callbacks
+agree with the separate proof-binding callbacks. The order follows the real
+=lower-grammar= publication: augmented owner, authored rows, then helpers in
+allocation order. The metadata decoder now projects its reversed binding
+observation back to that same chronological order. Duplicate authored names and
+helpers with no production row are retained. Reader data still comes from the
+existing source-data macro; no source-string serializer is added.
+
+=ConstructionEncoding= reads declaration symbols from this frame and encodes
+each through its own name directory before converting production operands.
+Missing names reject instead of receiving a default code. The reader no longer
+consults the semantic metadata's declaration field. Old incomplete frames fail
+the reader rather than entering a compatibility path. No schema version or
+versioned module name is introduced.
+
+[[file:../../../formal/ParserEngine/ConstructionDeclarationEncoding.lean][ConstructionDeclarationEncoding]] connects this input to the existing constructor:
+
+| Obligation | General theorem and consumer |
+|------------+------------------------------|
+| Declaration field is read from the same raw frame | =reader_declarations= derives its complete partial traversal. |
+| Side metadata cannot inject declarations | =metadata_independent= holds for every raw datum and replacement metadata list. |
+| Every name has this directory's code | =normalized_declarations= and =declaration_positions= retain every position and duplicate. |
+| Reservation is distinct from declaration | =declared_iff= equates encoded membership with the explicit raw declaration stream; =undeclared_operand= rejects reserved-only names. |
+| Absent declaration name | =missing_name_rejected= prevents constructing a normalized input. |
+| Retained constructor owner | =factory_owner_declared= consumes the same LeanPoo-backed construction product and traces its physical lhs back to the raw declaration stream. |
+| Real witness comparison | =declaration_mismatch_rejected= proves that the actual frame checker rejects a different declaration field; source corpus comparisons include order and multiplicity. |
+
+These are arbitrary-input encoding/consumer theorems.
+[[file:lowering-declaration-callbacks.org][Declaration callback composition]] now connects arbitrary generated lowering
+call trees and actual collector closure evaluation to the same constructor.
+The complete native dispatcher simulation, source rules, decode functions and
+recipes from arbitrary runtime heaps remain explicit producer obligations.
+Installed reader, symbol interning and scalar extraction also remain external.
+
+The existing parser-test owner exercises an undefined reserved reference,
+a zero-row helper and duplicate authored declarations. Existing real corpus
+freshness checks remain active. The encoding Quint model now mirrors declaration
+encoding before row conversion and rejects missing declarations and injected
+metadata codes. Its controls complement the general Lean results.
+
+* Remaining responsibilities
+
+The entry remains a restricted, normal-return parser protocol.
+
+| Responsibility | Current evidence | Remaining proof or premise |
+|----------------+------------------+----------------------------|
+| Reader identities and terminal ordinals | Generic roundtrip, occurrence, catalogue and final-edge composition | Host scalar extraction and interned-symbol identity are external |
+| Records, IDs, augmentation and references | Checked by =ConstructionGrammar.prepare= and consumed by the same factory; explicit raw declarations are independently encoded and compared | Does not show that every native DSL invocation produces an admitted record list or complete declaration callback history |
+| Lowering source rules and recipes | =Names= proves generic recipe semantics; the gate checks every supplied row/recipe; native corpus preserves actual publication | Complete source-control refinement for arbitrary native lowering runs and supplied source/decode/recipe metadata, including rejection behavior |
+| Queue, scratch, templates and vectors | Complete source-order construction, ownership, readiness and physical publication | Supported schemas and normal-return primitive contracts; not arbitrary Scheme execution |
+| Lookahead, selector and conflict policy | Dedicated graph, table and request models | Integrate supported semantic admission with the same raw vocabulary and complete request; LR0 closure does not discharge LR1/policy semantics |
+| AST, field/alias/layout actions and events | Separate semantic-value and event models | Recognition erasure omits action metadata; construction input is not an AST correctness certificate |
+| Arithmetic, storage, hashes, sorting, compiler and GC | Explicit external contracts | No Gambit changes/builds or host implementation proof |
+
+Input admission and a proved producer are different obligations.
+
+[[file:lowering-publication.org][The source publication refinement]] now derives counter allocation, observer
+failure and paired ordered publication through the same retained factory.
+[[file:lowering-traversal.org][Recursive branch-to-emission generation]] now constructs valid contexts and
+recipes for arbitrary depth, n-ary width and authored declaration counts. Its
+per-occurrence physical realization derives the complete existing origin gate.
+[[file:lowering-physical-execution.org][The physical protocol]] generates that realization rather than accepting it
+as an arbitrary caller premise; general Scheme evaluator adequacy remains open.
+The remaining native responsibility is universally generating that realization
+from Scheme control flow, mutable helper allocation and raw syntax extraction.
+=ConstructionGrammar.Input= still receives rules, decoding and recipes; their
+checker is not a universal operational theorem about Scheme lowering.
+Likewise, table schema validation does not prove selector/conflict semantics.
+Model closure is not claimed; runtime optimization remains gated.
+
+Continue along these producer/consumer seams through one complete admission
+path. Each closure needs a generic theorem, actual source owner, integration
+consumer and executable rejection control. A finite pass alone changes no status.
+
+* Qualification
+
+| Current gate | Result | Existing limit |
+|--------------+--------+----------------|
+| Standard clean and complete package build | 105.39 s, exit 0 | 180/5 |
+| Original four preparation owners | 42.30 s, exit 0 | 90/5 |
+| Real native and raw frame regeneration | 11.61 s, exit 0 | 90/5 |
+| Original 16-owner first cold aggregate | 152.20 s end to end, exit 0 | 180/5 |
+| Complete Lean model and axiom audit | 252 jobs passed | unchanged |
+| Encoding lifecycle controls | 12 tests and 1000 histories passed | 20 steps, seed 1 |
+
+The original aggregate retains the same sixteen owners, four workers and
+90-second combined preparation/execution per owner. Its resolved-grammar owner
+passes 58 macro-owned cases, including the new declaration controls and both
+real corpus freshness comparisons. Proof-input regeneration uses the fixture
+already compiled by the original preparation owners; no complete aggregate is
+executed before this first cold run. No warmer or narrower run substitutes for
+it. All SDK/Gambit objects remain installed inputs; neither is modified or built.
+
+The complete axiom audit includes source declaration reading, position and
+membership correspondence, retained owner authority and mismatch rejection.
+Only standard Lean logical axioms occur. No =sorry=, =native_decide= or host
+implementation axiom is introduced. These receipts establish neither arbitrary
+Scheme lowering adequacy nor CPU improvement.

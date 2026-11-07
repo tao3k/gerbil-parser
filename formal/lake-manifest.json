@@ -1,0 +1,16 @@
+{"version": "1.2.0",
+ "packagesDir": ".lake/packages",
+ "packages":
+ [{"url": "https://github.com/tao3k/lean-poo.git",
+   "type": "git",
+   "subDir": null,
+   "scope": "",
+   "rev": "e229504ef2219463a237812335bb545b1f8419b9",
+   "name": "LeanPoo",
+   "manifestFile": "lake-manifest.json",
+   "inputRev": "e229504ef2219463a237812335bb545b1f8419b9",
+   "inherited": false,
+   "configFile": "lakefile.toml"}],
+ "name": "ParserEngine",
+ "lakeDir": ".lake",
+ "fixedToolchain": false}

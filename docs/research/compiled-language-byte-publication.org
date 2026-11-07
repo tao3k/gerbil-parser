@@ -1,0 +1,208 @@
+#+title: Compiled language byte publication and admission
+#+startup: overview
+
+[[file:../audit/engine-design-realization.org][Engine realization audit]] |
+[[file:bound-declaration-publication.org][Declaration publication study]]
+
+* One responsibility boundary
+
+This realization follows canonical IR from immutable compiler publication
+through filesystem or linked AOT admission. Source baseline is
+=39fd28f0006b9ad116c94b06c7aabaf41e45277f= on PR #13. It extends the
+declaration identity study across producer and consumer ownership. It concerns
+compiled language IR, rather than request-owned ParseArtifact publication in
+[[file:artifact-publication-cost-boundaries.org][the request artifact study]].
+
+Authors continue to supply =grammar.ss=, =parser.ss= and =parser-test.ss=.
+No encoding, cache, reader or publication option is added to =deflanguage=.
+The ordered datum and content-addressed locator are observable contracts;
+the intermediate character string is private storage.
+
+| Stage | Owner | Complete obligation |
+|-------+-------+---------------------|
+| Canonical write | [[file:../../src/compiler/language-artifact.ss][Compiler publisher]] | Existing =write= representation, explicit UTF-8 and LF |
+| Address and compression | Same publisher | Hash those bytes; compress once at level 9 for all missing roots |
+| Immutable installation | Same publisher | Verify decompressed bytes before atomic rename; verify competing target |
+| Digest admission | [[file:../../src/runtime/language-artifact.ss][Runtime loader]] | Validate locator and authenticate decompressed bytes |
+| Datum admission | Existing loader for files and AOT images | Complete UTF-8 decoding, exactly one datum and expected schema |
+
+The publisher owns its fresh byte vector through digest, compression and
+verification. Warm publication verifies sidecars without recompression.
+The runtime retains complete UTF-8 decoding and its scoped character input port.
+Compression, runtime decoding and reader allocations remain. Text cache receipts
+keep their character writer because they have text consumers. Their identities
+and generators are outside this change.
+
+* Official mechanisms and paper transfer
+
+The [[https://gambitscheme.org/4.9.7/manual/][Gambit manual, I/O and ports]] supplies
+byte-vector ports and encoding settings. Explicit output =UTF-8= and =lf= make
+canonical writing an engine obligation. Strict byte input was studied as a
+separate candidate and withdrawn after complete-path CPU admission. Official
+availability is not sufficient evidence that an alternative port improves this
+engine's workload.
+
+[[https://www2.ccs.neu.edu/racket/pubs/icfp10-cf.pdf][Culpepper and Felleisen,
+Fortifying Macros]] informs preservation of declared invariants at an
+implementation boundary. Transferring this discipline to generated IR transport
+is a design inference. The paper establishes neither byte-port equivalence nor
+concurrency safety or engine performance; independent controls provide bounded
+observations. No parser or macro theorem is claimed for this change.
+
+The user-selected [[https://github.com/tao3k/gerbil-ascent/blob/f84155662b57ec8034bb60f0d14968715ad15cce/docs/coding-style/representations-and-results.org][Scheme representation guidance]]
+also separates ordered wire formats from private storage. These are closed
+named algorithms with no competing extensible implementations requiring public
+multiple dispatch.
+
+* Scheme witness and the two design questions
+
+#+begin_src scheme
+;; Compiler-owned bytes feed the address and compression.
+(call-with-output-u8vector '(char-encoding: UTF-8 eol-encoding: lf)
+  (lambda (port) (write canonical-ir port)))
+
+;; Existing runtime admission retains complete decoding and datum framing.
+(let (text (utf8->string decompressed-bytes))
+  (admit-digest decompressed-bytes locator)
+  (call-with-input-string text
+    (lambda (port)
+      (let ((value (read port)) (trailing (read port)))
+        (unless (eof-object? trailing) (error "trailing datum"))
+        (admit-schema value expected-schema)))))
+#+end_src
+
+Question 1: Why does this improve the Scheme DSL design?
+
+The S-expression remains the ordered semantic product. Gerbil macro expansion
+and POO composition determine it before publication. Ordinary Scheme =write=
+and =read= carry it across storage without another serialization DSL. Engine
+owners choose physical ports; authors declare syntax, metadata and observable
+parser behavior at the existing interfaces.
+
+Question 2: What makes the design scientific and falsifiable?
+
+An independent character writer specifies historical bytes. Tests compare the
+complete digest, locator, compressed output and admitted datum against that
+specification. Malformed comments must fail even with matching digests.
+Benchmarks compare complete products from saved original publisher and loader
+against current owners. Representation alone cannot establish CPU, retained
+heap or full parser latency improvements.
+
+* Admission order and negative controls
+
+The retained runtime keeps its existing admission order: complete UTF-8 decoding,
+digest, framing and schema. The byte-port experiment proposed identity before
+interpretation and tested that changed error priority. It was withdrawn with
+the reader candidate; no alternate admission path remains. Complete decoding
+still rejects malformed input in ignored trailing comments. A BOM is not
+silently stripped: the current reader treats
+it as additional framing and rejects the artifact. CR/LF inside strings retains
+the historical datum value.
+
+[[file:../../t/language-artifact-test.ss][Admission controls]] cover Unicode and
+supplementary characters, independent compressed-byte parity, warm republishing,
+both storage paths, digest/framing/schema rejection, corrupt targets, missing
+roots and twelve concurrent publishers. New controls reject illegal leading
+bytes, overlong sequences and incomplete multibyte tails in trailing comments.
+The preliminary port probe compared these outcomes with =utf8->string= followed
+by the character reader.
+
+* Measurement contract
+
+[[file:../../t/benchmarks/language-artifact/benchmark.ss][The source-owned benchmark]]
+constructs inputs using the original character writer before timing. Warm
+roundtrips include canonical writing, hashing, immutable file verification and
+filesystem admission. Embedded admission includes image unpacking,
+decompression, hashing, complete reading and schema admission. Every result
+equals the complete expected product; immutable input is checked again after
+measurement. These overlapping intervals cannot be summed into phase fractions.
+
+Original owner procedures are experiment inputs, never engine fallback routes.
+The shared sampler owns allocation population and paired CPU admission. Natural
+GC remains enabled; unresolved CPU batches fail admission. Allocation samples
+with unavailable attribution are excluded, never replaced with zero. Cold
+compression and atomic installation are semantic
+controls, not a claimed speedup from a warm benchmark.
+
+After the repository's normal source build, the retained component control is
+available through the existing Gerbil tools:
+
+#+begin_src sh
+gerbil env gxc -O t/benchmarks/language-artifact/benchmark.ss
+gerbil env gxi -e '(import :gerbil-parser/t/benchmarks/language-artifact/benchmark)
+                   (benchmark-language-artifact 20 5 128)
+                   (benchmark-language-artifact 20 5 512)'
+#+end_src
+
+For the matched original/current experiment, take the compiler and runtime
+=language-artifact.ss= owners from the declared source baseline, compile them
+under distinct experiment-only module names, and pass their exported publisher,
+roots loader and embedded loader to =compare-language-artifact=. Keep all other
+dependencies, port settings and native compiler flags equal. Use 20 groups,
+20 calls per batch and the same 128/512-row fixtures. Baseline module renaming
+belongs to the isolated experiment; no such modules are delivered by the engine.
+
+* Withdrawn runtime reader experiment
+
+The native prototype used an explicit UTF-8/LF input byte port with strict
+encoding errors. Its first consumer matrix passed 140 cases in 46.939 seconds.
+This includes the prototype's digest-first error priority, which is not a
+retained contract. The first benchmark attempt rejected an embedded CPU batch
+below the unchanged one-millisecond resolution requirement; it exited nonzero
+and is not a completed CPU receipt. Twenty calls per batch then produced 20
+alternating groups per interval and scale, with natural GC and full equality.
+That complete experiment exited zero in 37.795 seconds.
+
+| Rows | Roundtrip CPU ratio P10 / P50 / P90 | Embedded CPU ratio P10 / P50 / P90 |
+|------+------------------------------------+-----------------------------------|
+| 128 | 0.513 / 0.925 / 1.843 | 0.349 / 1.141 / 3.540 |
+| 512 | 0.990 / 1.154 / 1.315 | 0.549 / 0.774 / 2.109 |
+
+Ratios are candidate/original. The medians disagree across sizes and intervals,
+and every upper decile exceeds one. The runtime candidate is withdrawn rather
+than admitted on allocation arguments alone. The final compiler-only publisher
+requires its own consumer and matched performance receipts below.
+
+* Retained publisher qualification
+
+The final compiler-only experiment passes complete product and immutable-file
+checks, exits zero in 70.345 seconds and emits final =OK=. Component populations
+use 20 samples and five calls per sample. These are admitted allocation samples,
+not a retained-heap census or all-process allocation across natural collections.
+
+| Rows | Roundtrip original bytes/call | Roundtrip current bytes/call | Admitted original/current samples | Reduction |
+|------+-------------------------------+------------------------------+-----------------------------------+-----------|
+| 128 | 817,632 | 664,720 | 18 / 18 | 18.7% |
+| 512 | 2,817,176 | 2,203,464 | 14 / 13 | 21.8% |
+
+Embedded admission is a separate control with the restored original reader:
+128-row allocation is exactly 408,080 bytes/call on both sides (20 samples
+each). For 512 rows it is 1,479,673.6 versus 1,479,664 (17 samples each),
+which supplies no meaningful allocation improvement claim for that owner.
+The roundtrip reduction follows compiler publication; no runtime optimization
+is retained.
+
+Paired controls use 20 alternating groups and twenty calls per batch, retaining
+the one-millisecond CPU resolution requirement and natural GC.
+
+| Rows | Roundtrip CPU ratio P10 / P50 / P90 | Unchanged-reader control P10 / P50 / P90 |
+|------+------------------------------------+-----------------------------------------|
+| 128 | 0.469 / 0.892 / 1.964 | 0.218 / 0.868 / 1.307 |
+| 512 | 0.652 / 0.952 / 1.307 | 0.521 / 1.101 / 1.908 |
+
+The roundtrip median is lower at both sizes, but upper deciles exceed one and
+even the unchanged-reader control varies substantially. This is not a stable
+CPU speedup claim. Sequential roundtrip wall P95 per call is 3.553 versus
+3.975 ms at 128 rows and 31.480 versus 14.678 ms at 512 rows; these disagree
+across sizes and do not establish a parser P95 improvement. No percentile
+sum, GC attribution from wall delay, cold-publication latency or whole-language
+parse performance is inferred from these observations.
+
+The final twelve-module native consumer matrix passes 139 cases in 55.490
+seconds, exits zero and has complete case/suite/module/harness markers and
+final =OK=. It includes composition and selected origins, declaration binding,
+immutable publication and caches, both runtime loaders, language surface and
+entry contracts, ten-language ABI alignment, ordinary and contextual parsing.
+The final publisher, restored runtime, tests and benchmark compile natively
+and exit zero. These local receipts do not substitute for completed exact-head
+Ubuntu/macOS Scheme and Rust AOT CI after publication.

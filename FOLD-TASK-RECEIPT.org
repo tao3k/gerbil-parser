@@ -1,0 +1,7 @@
+#+title: Fold qualification history
+
+Historical experiments retain their original success, failure and rejection boundaries.
+
+- [[file:docs/research/fold-qualification/real-fold-cross-statement-qualification.org][Real Fold cross-statement qualification]]
+- [[file:docs/research/fold-qualification/restored-baseline-changing-input-native-call-census.org][Restored-baseline changing-input native call census]]
+- [[file:docs/research/fold-qualification/whole-frame-necessary-prefix-rejection-experiment-2026-10-13.org][Whole-frame necessary-prefix rejection experiment (2026-10-13)]]

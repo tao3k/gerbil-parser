@@ -1,0 +1,233 @@
+#+title: Recognition semantics and target obligations
+#+date: 2026-10-09
+
+Part of [[file:dsl-engine-contracts.org][the integrated DSL and engine study]].
+Existing dated receipts retain their original revision and scope.
+
+* Scope and evidence
+
+Repository observations began against commit =f058225a1454732af6144076f5916418bde71153=.
+Dated implementation sections distinguish delivered mechanisms and local receipts
+from the remaining proposals. Scanner replay and convergence do not establish
+parser subtree reuse. No new performance result is claimed.
+
+Build on [[file:scheme-deflanguage-design-synthesis.org][the vocabulary study]],
+[[file:scheme-language-pack-semantics.org][binding and field semantics]] and
+[[file:scheme-parser-performance-framework.org][the algorithm qualification framework]].
+This document connects those studies to current backend admission and execution.
+
+* Repository observations refreshed at de8bef5
+
+| Owner | Observed implementation | Remaining design question |
+|-------+-------------------------+---------------------------|
+| =src/language/entry.ss= | POO Loader values, sealed identity/dispatch slots, effective-object validation | How does extension validity propagate into all generated targets? |
+| =src/grammar/algebra.ss= | Local syntax checks reject directly empty repetition bodies | Resolved references are checked by the shared LR nullable owner |
+| =src/compiler/lr.ss= | Choice becomes alternative productions; repetition becomes left-recursive helpers; dependency-driven nullable and FIRST analyses exist | Repetition origins exist; productivity and general target proofs remain open |
+| =src/compiler/recursive-source.ss= | Choice commits to first successful child; admission pins the reviewed HCL grammar digest and lexical contract | Preserve the restricted admission boundary; prove equivalence before broadening it |
+| =src/language/grammar.ss= | Field catalogs are derived through helper references | Derive occurrence constraints without flattening nested node ownership |
+| =rust/gerbil-parser-runtime/src/engine/command_source/execution.rs= | Source tasks suspend and resume the Command VM; live-frame budget is 16,384 | Account separately for byte storage, allocations and total work |
+| =languages/bash/grammar.ss= | Scanner, region, binding, part, result and command declarations are engine data | Reduce repeated author declarations while retaining semantic control |
+
+These observations distinguish missing connections from missing algorithms.
+In particular, the repository already computes nullable and FIRST globally;
+adding another standalone nullable implementation would duplicate authority.
+The former Source recursion proposal is now implemented; its historical rationale
+below is not evidence of a remaining 256-level Source guard.
+
+* Choice is part of the language contract
+
+Tree-sitter's [[https://tree-sitter.github.io/tree-sitter/creating-parsers/2-the-grammar-dsl.html][official grammar DSL]] defines choice independently of argument
+order. Ford's [[https://bford.info/pub/lang/peg.pdf][Parsing Expression Grammars]] instead defines prioritized choice.
+These are different recognition semantics, even when their surface notation
+looks similar. Lexical priority, parse precedence and operational dispatch order
+also describe different decisions.
+
+The current recursive emitter is restricted to a reviewed HCL grammar by exact
+digest and lexical-contract admission. The following control therefore concerns
+future admission expansion, rather than a demonstrated current public bug:
+
+#+begin_example
+start = sequence(choice(literal("a"), literal("ab")), literal("c"))
+input = "abc"
+#+end_example
+
+CFG alternatives admit =abc=. A first-success choice consumes =a= and then
+fails at =c=; it does not reconsider =ab= after the enclosing sequence fails.
+This is a code-derived counterexample to qualify, not an executed test result.
+It should first be tested at the appropriate character or token layer, with
+lexical segmentation held identical across backends. Also exercise the helper
+reference and enclosing-node versions and compare output fields and ranges.
+
+Proposed admission rule: a specialized backend implementing first-success
+choice may accept CFG choice only when a sound analysis proves its restricted
+behavior equivalent, or when it implements the required alternative handling.
+An unproved case produces a compile-time diagnostic explaining the unsupported
+semantics. Generation must not silently reinterpret the grammar. Existing
+Command branch dispatch remains operationally ordered and gets a distinct IR
+meaning; it is not automatically an ordered grammar alternative.
+
+* Analyze the effective grammar before target lowering
+
+Krishnaswami and Yallop's [[https://www.cl.cam.ac.uk/~nk480/parsing.pdf][A Typed, Algebraic Approach to Parsing]] shows how
+compositional Null/First/FLast information can justify a deterministic parser
+for a restricted grammar class. The separability conditions matter: its FLast
+equations are not valid for arbitrary CFGs. Use its discipline to establish
+backend preconditions, rather than require every supported language to be LL(1).
+
+Proposed pipeline:
+
+#+begin_example
+POO composition -> effective declarations -> resolved expression graph
+ -> shared semantic analysis -> target admission -> lowering -> execution
+#+end_example
+
+The engine owns analysis; authors own semantic declarations. Internal named
+analysis functions compute immutable facts. POO exposes extension values and
+policies, not callback protocols for implementing the analysis.
+
+- Resolve references after inheritance/override/extend, preserving source origin.
+- Reuse fixed-point analysis for nullable and FIRST. Validate each original
+  repeat/repeat1 operand against resolved nullability before helper expansion.
+- Record productive versus empty-language rules separately from nullable rules.
+  Diagnose unproductive cycles without rejecting ordinary LR left recursion.
+- Track conservative field occurrences within the nearest node boundary using
+  the existing count-domain proposal. Keep field membership and cardinality distinct.
+- Describe scanner state reads/writes, deferred region obligations and result
+  ownership as engine effects. Unknown effects prohibit speculative reuse.
+- Preserve repeat, separator, delimiter and precedence origins in lowered IR.
+  Target diagnostics refer to the author's declaration, not only generated helpers.
+
+A resolved nullable repeat should fail with the reference path that makes it
+empty. Runtime zero-width guards remain defensive checks for malformed admitted
+programs. They do not replace declaration validation.
+
+* Grammar transformations and runtime scheduling are separate work
+
+Zimmerman's [[https://arxiv.org/pdf/2209.08383][Practical LR Parser Generation]] transforms intermediate helper
+nonterminals to defer reductions until their surrounding rule is complete.
+This suggests retaining EBNF origin and investigating targeted helper transforms
+when measured conflicts originate in flattening. Its XLR bounds depend on bounded
+branching; the paper does not justify unrestricted backtracking guarantees here.
+
+The historical execution proposal addressed Source host recursion. It is now
+implemented by =SourceTask= and suspended =CommandExecution= records:
+
+#+begin_example
+Source tasks <-> suspended Command VM
+                  Compound/List requests
+#+end_example
+
+The historical task design includes entering a compound, reading a list, assembling
+a pipeline, awaiting a child result and completing a node. Each task has a typed
+continuation and explicit input/state/output ownership. Nested commands suspend
+the parent task instead of calling another host parser recursively. Task records
+are private engine records; language declarations do not contain scheduler code.
+
+Deep alternating compound/list nesting, ordered fields, source ranges, heredoc
+FIFO and cleanup have existing controls recorded in [[file:dsl-source-execution.org][the Source implementation
+contract]]. Word/Region leaf operations do not automatically become suspension
+requests. The remaining resource work must account for bytes/allocations/work
+in addition to the current frame limit and retain a structured rejection path.
+
+* Scanner state is a prerequisite for safe incrementality
+
+Tree-sitter's [[https://tree-sitter.github.io/tree-sitter/creating-parsers/4-external-scanners.html][external scanner contract]] requires complete state serialization
+and restoration for edits and ambiguity. It also requires author-maintained C
+functions for external tokens. Our design goal is to derive equivalent engine
+state operations from declarations for common stateful constructs.
+
+Proposed shared policies cover quoted regions, balanced delimiters, line markers,
+deferred bodies and layout boundaries. The engine derives token/result catalogs
+where unambiguous; authors specify exceptional language semantics explicitly.
+Demonstrate reuse in at least two languages before adding a public abstraction.
+
+A reuse candidate must establish grammar identity, source/edit mapping, parser
+entry context, scanner entry context, exit-context compatibility and output
+ownership. Scanner context includes pending heredoc markers, quote/escape state
+and mode, not only an integer mode identifier. Hash equality alone is not proof:
+compare canonical state or use interned identities with verified equality.
+Checkpoint data must have explicit ownership across Scheme, Rust and C ABI.
+
+Wagner and Graham's [[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Efficient and Flexible Incremental Parsing]] connects
+sequence structure and context matching to incremental cost. Investigate balanced
+private repeat storage with unchanged public CST order and field observations.
+Their performance bounds rely on structural and grammar assumptions; a balanced
+container alone does not establish those bounds for this engine. Delaying helper
+reductions and exposing reusable sequence boundaries can conflict, so evaluate
+both transformations together before adopting either universally.
+
+* AOT and FFI must share semantic admission
+
+Scheme remains the declaration/IR authority. Rust executes admitted immutable
+plans; a language-independent C interface manages language, source and artifact
+handles. POO extension is resolved before target compilation. No schema version
+change is proposed here.
+
+Target capability validation covers every effective construct. Complete parity
+includes acceptance, rejection, diagnostics, ranges, ordered fields, deferred
+links, source identity and artifact lifetime; event equality is one component.
+The Rust Source implementation does not yet establish complete ParseArtifact/C
+ABI parity merely by executing Command profiles.
+
+Ford's [[https://bford.info/pub/lang/packrat-icfp02.pdf][Packrat Parsing]] motivates eliminating repeated work through memoization
+under its assumptions. Warth, Douglass and Millstein's [[https://tinlizzie.org/VPRIPapers/tr2007002_packrat.pdf][left-recursion extension]]
+can have superlinear cases. Any memoization proposal here must account for scanner
+context and bounded memory; it does not warrant a wholesale PEG conversion or
+an unconditional linear-time claim.
+
+* Implementation follow-up
+
+The implementation follow-up is rebased onto PR revision =30ac89d=. Resolved
+repetition admission now reuses the existing nullable fixed point and visits
+original expressions in one postorder pass. It reports the rule, repetition kind
+and original operand before LR state construction. Every child is validated even
+when the enclosing sequence or choice has an already known boolean result.
+
+[[file:../../t/resolved-grammar-test.ss][The Scheme semantic controls]] cover nullable references/cycles, wrappers,
+effective POO overrides, consuming prefixes, productive left recursion, all LR
+construction paths, GLR admission and exact common-prefix fields/ranges. The suite
+is included in the existing native =composition= conformance owner. The recursive
+strategy control belongs to [[file:../../t/build-strategy-test.ss][the build-strategy suite]].
+
+Local GCC/native qualification completed 15 resolved grammar, 31 composition,
+5 style and 9 build-strategy cases. Build-strategy tests declare two small
+DevelopmentLoaders instead of importing complete language corpus suites; corpus
+qualification remains with its language owners. Each module requires propagated
+status zero and the final =OK= marker.
+
+The cold full-package build did not satisfy the local 240-second total /
+30-second silence gate. Completing missing native products with the same GCC
+compiler enabled focused semantic qualification; it is not evidence that the
+cold build gate or runtime performance has improved. Exact-revision CI remains
+a separate qualification.
+
+That historical slice established resolved repetition admission. Subsequent
+work implemented selected repetition origins and Source continuations; see
+[[file:dsl-source-execution.org][Source execution and artifact ownership]]. =de8bef5= replaces nullable rescans
+with occurrence propagation; see [[file:dsl-effective-grammar-admission.org::*Dependency-driven nullable closure (2026-10-09)][the algorithm and qualification contract]].
+General predictive choice equivalence, helper/conflict origin serialization,
+diagnostic transport and complete cross-target artifact parity remain open.
+
+* Current implementation and qualification order
+
+The current sequence belongs to [[file:dsl-engine-contracts.org::*Next implementation sequence][the integrated implementation plan]]. Keep this
+recognition-specific target contract when applying it:
+
+| Obligation | Current status | Required next evidence |
+|------------+----------------+------------------------|
+| Resolved repeat/selected origins | Implemented and controlled | Preserve override diagnostics when extending analysis |
+| Nullable dependency closure | Implemented at de8bef5 | Preserve completed list/index and exact LRSpec |
+| General predictive choice admission | Open; HCL emitter is digest-restricted | Identical lexical segmentation; common-prefix and nested field controls; preserve output or reject compilation |
+| Productivity | Open | Distinguish dead cycles from nullable and productive left recursion; specify reachable-rule policy |
+| Source continuation scheduling | Implemented | Extend byte/work/resource qualification instead of building a second scheduler |
+| Source canonical events | Fixture parity implemented | Diagnostic transport, Rust encoding and deep live C ownership controls |
+| Incremental parsing | Scheme scanner sessions and LR fragment controls exist | Prove mapped Source subtree and artifact ownership for a specific target |
+
+Keep correctness controls in Scheme test owners and runtime measurements in ASP
+benchmark owners. Separate build/startup/FFI/scan/parse/artifact costs. Measure
+complete calls with matched workloads, work counts, allocation and peak memory;
+retain regressions and negative results. No generated JSON research snapshots or
+source-rewriting instrumentation are needed. Documentation changes require link
+and diff inspection; they do not justify rerunning the long native suites.
+
+

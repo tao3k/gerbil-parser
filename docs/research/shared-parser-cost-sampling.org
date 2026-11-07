@@ -1,0 +1,154 @@
+#+title: Shared parser cost sampling and optimization admission
+#+startup: overview
+
+Implementation baseline: PR #13 =ecebab9= plus this slice. This module closes
+the ownership gap between the [[file:artifact-publication-cost-boundaries.org][publication storage experiment]],
+[[file:engine-reduction-generation.org][shared reduction implementation]] and existing cross-language LR benchmarks.
+It is part of the same recognition -> reduction -> canonical publication study,
+not another language-specific optimization proposal.
+
+* Research obligation and implementation gap
+
+The independent event-container control closely tracks event-publication
+allocation in the measured families. It does not reveal a large removable
+traversal allocation budget. Recognition/reduction experiments therefore need
+consistent complete-product sampling and admission across languages.
+
+The repository already has cross-language selected-derivation counts, prepared
+LR controls, independent GLR publication equality and matched complete-request
+comparisons. Those mechanisms are retained. The gap was ownership: the generic
+batch sampler, GC snapshots, percentile selection and allocation summaries lived
+in =t/benchmarks/gql/runtime/matched-stages.ss=. The cross-language LR benchmark
+imported that GQL module and renamed =measure-gql-component=. A shared algorithm
+therefore acquired an unrelated language dependency and language-tagged receipts.
+
+* Implemented owner and consumer contract
+
+=t/benchmarks/parser-stage-cost/benchmark.ss= now owns the shared operations:
+
+| Operation | Contract |
+|-----------+----------|
+| =measure-parser-batch= | Integral, nontruncated calls; no implicit warmup, forced GC or logging; complete expected-result equality outside the interval |
+| =measure-parser-component= | Validate sample/batch dimensions before warmup; one warmup and initial GC; preserve naturally occurring GC in timed observations |
+| =sample-at-percentile= | Select the actual ranked observation, retaining its own CPU/GC counters; sample identity resolves ties |
+| =sample-gc-snapshot= | A new collection exposes only the latest whole-VM snapshot; a no-GC interval cannot inherit a stale collection |
+| =component-allocation-summary= | Single-caller intervals admit only nonnegative, no-GC deltas; thread-switching process observations do not acquire request allocation ownership |
+
+GQL workload selection, GQL actors and the cross-language LR benchmark import
+the shared operations directly. The old GQL sampling definitions, names and
+rename adapter are removed. GQL stage selection and directed-token reconstruction
+remain language-owned. Shared receipts use =PARSER-GC-BASELINE=,
+=PARSER-COMPONENT-SAMPLE= and =PARSER-COMPONENT-SUMMARY=; final workload receipts
+still identify the workload. This is a direct migration, without compatibility
+aliases or a versioned namespace.
+
+The native local diagnostic plan compiles the shared dependency before GQL
+consumers and checks its compiled product in prepared mode. Its required
+receipt names now match the shared sampler. The existing conformance build
+catalog already owns the shared module and its focused test suite.
+
+* Scheme witness and design questions
+
+#+begin_src scheme
+(import :gerbil-parser/t/benchmarks/parser-stage-cost/benchmark
+        :gerbil-parser/languages/arithmetic/parser
+        (only-in :gerbil-parser/src/runtime/artifact parse-artifact-valid-for-source?))
+
+(let* ((source "1 + 2 + 3")
+       (reference (parse-arithmetic source)))
+  (unless (parse-artifact-valid-for-source? reference source)
+    (error "reference failed source admission"))
+  ;; A shared sampler receives a complete result; no GQL import is needed.
+  (measure-parser-component 'arithmetic-complete 20 20
+    (lambda () (parse-arithmetic source)) reference)
+  ;; The inclusive observed stages serve attribution, not a latency comparison.
+  (measure-parser-stages parse-arithmetic source 20))
+#+end_src
+
+** Question: why does this improve the DSL and Scheme abstraction boundary?
+
+Language declarations continue expressing syntax/rules and parser metadata.
+Sampling, VM counter admission and batch validation are shared algorithms,
+implemented as named procedures over complete results. A language selects a
+workload; it does not implement or rename a different sampling policy. The
+canonical product remains the comparison boundary. No new =deflanguage= slot,
+grammar-level profiling declaration or public semantic storage protocol is added.
+
+POO dispatch remains appropriate for extensible parser capabilities and prepared
+representation selection. A homogeneous batch's arithmetic, ordering and
+counter validation require no extensible type decision. Adding generic methods
+here would not improve the scientific contract or remove grammar complexity.
+
+** Question: why is this scientifically testable?
+
+Existing controls preserve the wall-ranked observation's own CPU/GC values,
+reject stale GC attribution, retain unavailable thread ownership and reject
+truncated or changed products. New language-independent controls require invalid
+component dimensions to fail before any warmup call, count every admitted batch
+call and preserve an original thrown condition. The diagnostic plan explicitly
+owns the shared dependency. The cross-language caller still validates prepared
+and complete canonical products independently and reports actual source routes.
+
+Neither copying a sampler nor introducing a new owner proves a runtime speedup.
+Prepared LR and full-source costs are different experiments, not additive pieces
+of one request. Observer capture and derivation replay remain untimed controls;
+they must not be silently included in a production latency claim. Earlier
+rejected stack, unary-corridor and deferred-consumption candidates remain rejected.
+
+* Qualification and next decision
+
+Qualification must cover the shared native producer, all migrated consumers,
+source contract controls and cross-language complete requests. Exact-head Linux,
+macOS and Rust AOT CI remains a separate gate. The next optimization needs a
+measured recognition/reduction construction boundary and complete-request
+admission, rather than another GQL-owned measurement primitive.
+
+** Native producer, consumer and control receipts
+
+The shared sampler, GQL stage selector, GQL actor caller, cross-language LR
+caller, local qualification plan and focused test compile natively in =76.380s=.
+The first source control stops before tests because the plan's existing
+=qualification/process= native object is missing (=35.601s=, exit 1,
+=error-output=, no final =OK=). Its existing process/environment/products
+dependencies compile in =20.367s=. The next control reaches GQL execution
+assertions, then rejects an old native =execution-counts= product missing the
+current source's case-fold fields (=29.645s=, exit 137, =error-output=). Neither
+failed control is qualification success. Current execution/reduction diagnostic
+sources compile in =24.823s=; the expected assertions are retained.
+
+The final four-suite source run over the native producers passes all =30= cases
+in =42.303s=, exit zero, four =MODULE-OK= receipts, =HARNESS-OK= and final =OK=.
+It covers publication/sampling contracts, GQL stage and execution assertions,
+native dependency plans and language source contracts. GQL test input comes from
+the staged content with relative imports resolved to the same package modules;
+the pre-existing uncommitted deferred-materialization test is not included in
+this count or staged for this migration.
+
+Receipts: unarchived local execution.
+
+** Cross-language and actor consumers
+
+The migrated LR caller completes twelve prepared/full-source paired summaries
+across GQL, FHIRPath and Arithmetic, two source scales and two preferences, in
+=44.542s=. Each comparison retains twenty ABBA/BAAB groups and two calls per
+batch. Independent GLR equality, source admission, actual source-route witnesses
+and complete timed-batch products remain enforced. Exit is zero with
+=LR-REQUEST-BACKENDS-OK= and final =OK=. The identical-executor control is stable;
+complete-request benefit admission is =#f=. Ten comparisons are =not-admitted=;
+the 64-operand FHIRPath and Arithmetic prepared-only comparisons report
+=observed-regression=. These short-batch observations do not qualify a new
+default or a portable performance result. No engine representation is changed.
+
+The native actor consumer completes configurations =(1 client, 1 worker)=,
+=(2 clients, 1 worker)= and =(2 clients, 2 workers)= in =21.921s=. Each uses two
+samples of four requests plus its warmup. Canonical client results equal the
+public reference. All three summaries retain =process-with-thread-switches=,
+zero admitted allocation samples and unavailable per-request allocation.
+Exit is zero, three =SHARED-ACTOR-SAMPLING-OK= receipts, =GQL-ACTORS-OK= and final
+=OK=. The shared owner has not silently converted actor process counters into
+single-request allocation observations.
+
+Receipts: unarchived local execution. All local commands
+retain the five-second real-progress idle gate. At verification, the preceding
+=ecebab9= exact-head CI has passed Rust AOT; Linux Scheme remains in progress
+and macOS Scheme is queued. The migrated source needs its own exact-head CI.

@@ -1,0 +1,375 @@
+#+title: Request-owned LR stacks and immutable parser frontiers
+
+* One engine implementation unit
+
+This study follows [[file:engine-record-access.org][closed engine record access]] and
+[[file:parser-evidence-chain.org][the model and implementation evidence chain]]. It concerns the actual LR
+executor and semantic operand access, rather than a language-specific adapter.
+Grammar declarations, canonical IR, field/alias meanings and public artifacts
+retain their existing contracts.
+
+The optimization hypothesis is to remove the driver's two list-spine allocations
+per admitted shift/reduction and its two reduction-prefix traversals. Complete
+unobserved requests may own state/value vectors. Checkpoints, arbitrary stack
+observers, generated reductions and the event backend retain immutable list
+frontiers. These are execution domains with different ownership obligations,
+not language interfaces or legacy grammar versions.
+
+* Measured cost and rejected approaches
+
+A fresh statistical continuation profile at =e6cebe9= sampled 30,000 prepared
+representative GQL requests at a one-millisecond interval. Of 3,982 top-frame
+samples, =lr-run-checkpoint= contributed 1,901 (47.7%), =##table-access= 453
+(11.4%), the prepared action selector 287 (7.2%), alias construction 187 (4.7%),
+and sequence-for-action 90 (2.3%). These are sampled frames, not additive causal
+CPU shares. Among 631 selected table/hash frames, 488 also contained the action
+selector. Attribution identifies a hypothesis; it cannot establish its benefit.
+
+A finite literal-ID/request-classification candidate passed selector identity
+and Unicode controls but did not meet the long complete-request CPU margin.
+Its first implementation retained about 9 MB more live heap; compact/selective
+variants still lacked the required long-request benefit. Gambit string-key
+specialization, Gerbil's string-table owner, and directly expanded AST kernels
+also lacked the declared complete-request benefit when evaluated separately.
+None of those isolated candidates has an admitted published performance claim.
+The subsequent combined candidate
+stages the shared AST constructor bodies together with owned stack execution;
+its independent earlier failure is retained.
+Their failed, timed-out and completed exploratory receipts remain ignored study
+data. A source-load timeout and a test expecting the wrong resume return shape
+are retained as failures, separately from later passing checks.
+
+This redirects work to the executor itself. Its old recognition path borrows
+semantic operands but still walks both list prefixes to pop them and allocates
+two new stack pairs for each successful transition. The vector policy changes
+those operations without removing semantic children or postponing publication.
+
+A complete-source continuation profile of the owned-stack candidate sampled
+30,000 representative GQL requests. Among 2,608 top-frame samples, the owned LR
+driver contributed 919 (35.2%), the streaming source driver 304 (11.7%),
+recognition-event publication 280 (10.7%), table access 211 (8.1%), the lexical
+scanner closure 175 (6.7%), and the action selector 130 (5.0%). Inclusive stacks
+overlap and are not additive CPU shares. In particular, the lexical closure's
+=prepare-generated-lexer= enclosing name does not mean preparation runs per
+request: source inspection shows retained scanners prepared at machine creation.
+
+The source candidate also carries lexical winner selection through a direct
+ordered loop, and publishes ordinary child lists through a direct visit loop.
+These preserve candidate order, length/precedence/declaration ties, token
+identity and event order. Emitted Scheme confirms the lexical request loop
+rather than a newly captured fold callback. Neither this emitted-code observation
+nor sampled frame counts establish CPU benefit.
+
+* Official Scheme implementation study
+
+[[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][Sperber and Thiemann, The Essence of LR Parsing]] separates grammar-static work
+from dynamic execution through specialization. This study uses that principle;
+it does not reproduce their generator or inherit their performance results.
+
+Gerbil =2591dcd= =std/io/bio/input.ss= stages a finite operation protocol with
+=defrules __bio-read=. Its =std/struct/pqueue.ss= grows owned vector storage by
+copying a bounded range. The parser uses checked public =subvector-move!= and
+=subvector-fill!=. No unchecked primitive, compiler-metadata override or global
+request buffer is introduced. Inactive semantic cells are cleared to immediate
+zero; only the active prefix is meaningful, and discarded heap references are
+not retained until the next growth or request.
+
+* Shared transition body and storage ownership
+
+=lr-stack-storage.ss= owns the static storage operations and the explicit
+token-only observer capability. =lr-parser.ss= expands one transition body into
+the two policies. =reduction-plan.ss= expands one right-to-left operand algorithm
+with either a list cursor or a vector index. Generic backend/action selection
+remains in preparation; no new generic dispatch occurs per semantic child.
+
+#+begin_src scheme
+;; One semantic traversal, specialized by its cursor expressions.
+(def (reduce-lr-stack-plan actions stack offset)
+  (reduce-lr-cursor-plan actions offset
+    (cursor stack (car cursor) (cdr cursor))))
+
+(def (reduce-lr-vector-plan actions storage top offset)
+  (reduce-lr-cursor-plan actions offset
+    (cursor top (vector-ref storage (fx- cursor 1)) (fx- cursor 1))))
+
+;; One transition definition; the boolean is a compile-time storage choice.
+(define-lr-driver #f lr-run-persistent-checkpoint)
+(define-lr-driver #t lr-run-owned-checkpoint)
+#+end_src
+
+** Question: why does this exploit Scheme and Gerbil's strengths?
+
+Hygienic rules stage representation operations into a shared semantic algorithm.
+There is no second hand-maintained interpreter and no per-transition storage
+object dispatch. Private buffers are lexical request state; field/alias factories
+continue receiving ordinary child values and offsets, never buffer views.
+Named records express the observer's capability. Direct checked calls let the
+compiler retain argument/type knowledge instead of passing an optional-arity
+driver through an opaque procedure variable.
+
+** Question: how is this scientifically checked?
+
+The claim is bounded by independent artifact equality, model invariants, native
+semantic controls and matched complete-request measurements. A sampled hotspot,
+a Lean theorem, or fewer source-level allocations cannot substitute for the
+matched result. The first vector trial also exposed small-grammar dispatch
+regression; it was corrected before confirmation, rather than widening the
+control margin.
+
+* Frontier and proof obligations
+
+Owned state/value buffers are never stored in a checkpoint or returned to a
+caller. Fork/failure handoff copies only the active prefixes into newest-first
+lists. Selective GLR receives the existing exact frontier and cumulative counts,
+without replaying deterministic work. Generated steps and arbitrary stack
+observers keep their list protocol. Token-only observers cannot access buffers.
+
+=ParserEngine/OwnedStack.lean= proves active-prefix length, roundtrip projection,
+state/value depth alignment, prefix-preserving growth/clearing extensionality,
+and the push/frontier relation. It reuses the existing reduction/LeanPoo
+preparation model. The native bulk operations, mutation correspondence, GC,
+compiler correctness and concurrent foreign-call lifetime are implementation
+obligations, not silently proved by the abstract Array model. Quint's existing
+finite publication protocol remains a separate source-generation/cancellation
+obligation.
+
+Scheme controls cover empty/unary/wide/deep decorated productions, nullable
+anchors, position views, independent declaration trees and GLR, generated/event
+execution, frontier resumption after an intervening request, token-only versus
+arbitrary stack observers, and source ABI publication. An independent raw-rule
+scan checks literal action identity, first duplicates and fresh Unicode strings.
+
+* Reproducible admission
+
+=t/benchmarks/lr-request-stack/record-access.ss= retains the existing real
+workload: representative GQL, 64-value GQL RETURN, 64-term FHIRPath addition,
+arithmetic =1=, and an identical SDK UTF-8 encoder. Each child independently
+checks its full artifact against GLR, then measures 40 batches of 1,000 calls
+for prepared LR and complete source parsing. A batch CPU quantile is not a
+single-request latency quantile. Natural GC remains inside measurement.
+
+Before confirmation, =scope.json= declares GQL as the two benefit targets and
+FHIRPath/arithmetic as controls. The native =record-evidence.ss= checker reads
+all four supervised outputs, recomputes quantiles from raw samples, checks
+40 x 1,000 completeness, image markers, all four artifact hashes and exits.
+It requires worst candidate CPU median / best reference CPU median below
+=0.95= for every target stage, at most =1.05= for every control stage, and the
+existing =1.05= CPU P95 bound. The SDK control retains its fixed drift and
+repeated-band-overlap checks. Role declarations must partition all four
+families exactly; duplicate, missing and unknown roles are rejected.
+
+The reference is the independently retained =e6cebe9= product closure. Both
+images use byte-identical compiled workload products. Product/source hashes,
+raw receipts, failures and manifests live under ignored
+=.data/parser-goto-stack-study/=; earlier rejected confirmations remain under
+=.data/parser-owned-stack-study/=. Repository documentation does not contain
+host paths or copied execution logs. The full collector binds the declared
+scope, both product closures and native admission into Ascent. Python, managed
+by =uv=, transports/hashes observations; Scheme owns statistical admission and
+native Ascent owns relational inference. CI retains its existing owners and
+budgets; no workflow or glue-script layer is added.
+
+#+begin_src sh
+uv run --project formal/evidence --locked python -m unittest discover -s formal/evidence -v
+uv run --project formal/evidence --locked python formal/evidence/collect_engine.py --record-study .data/parser-goto-stack-study
+#+end_src
+
+* Qualification result
+
+The original owned-stack four-block confirmation failed. Its representative
+GQL prepared-LR median bound was approximately =0.726=, but its complete-source
+bound was approximately =1.086=; the latter does not satisfy =0.95=. This remains
+a failed four-stage CPU improvement, despite passing semantic/model controls.
+
+A subsequent traversal candidate completed all four supervised blocks and
+matched full artifacts, but native admission rejected the SDK control's
+nonoverlapping repeated median bands. Its raw representative complete-source
+quantiles also do not establish the required five-percent improvement. These
+receipts are retained separately from the original failure; they cannot be used
+to admit the later combined AST-staging candidate.
+
+The combined AST-staging confirmation also failed the unchanged native CPU
+check: its conservative representative prepared-LR ratio was approximately
+=0.754=, while complete source was approximately =1.068=. The SDK control passed
+in this confirmation. The failed complete-source result remains explicit.
+
+A subsequent streaming-stack ablation kept AST and lexical code unchanged and
+used persistent stacks only for source-fed calls. Its single representative
+screen did not establish the required complete-source benefit. This screen is
+not a repeated causal conclusion or four-stage admission; the temporary dispatch
+condition was reverted. The restored source was subsequently rebuilt through
+the unchanged native source build owner before the boundary study below.
+
+The combined source passed Lean, Quint, four native build owners, 80 Scheme
+Cases across seven Suites, the existing real-request measurement owner, and its
+four-claim native Ascent review before the ablation. That review did not request
+=record-cpu-improvement=, so its empty Missing relation does not admit the CPU
+optimization. The uv-managed evidence controls passed 11 tests separately.
+
+At that point the combined implementation remained unadmitted. The required claim
+still covers BOTH prepared LR and complete source for BOTH GQL targets. Native
+semantic/model observations, evidence-transport controls and previously green
+remote CI are separate from that CPU requirement. No failed receipt is converted
+to a passing stage-limited claim, and no unadmitted candidate is pushed.
+
+* Whole-request boundary diagnosis
+
+The native =request-cost.ss= workload supplies the exact significant tokens from
+the representative request through both prepared and streaming LR, then measures
+publication alone, LR plus publication, and the actual source entry. It requires
+complete artifact equality and an independent GLR product before measurement.
+All five intervals retain natural GC and raw samples. Separate medians cannot be
+subtracted as an additive decomposition or substituted for the four-stage gate.
+
+| Interval (40 x 1,000 requests) | Reference CPU median ms | Staged/owned CPU median ms |
+|-------------------------------+-------------------------+-----------------------------|
+| Prepared LR                   |                  80.402 |                      55.544 |
+| Callback-fed LR               |                  81.425 |                      56.309 |
+| Publication                   |                   8.254 |                       8.188 |
+| LR plus publication           |                  90.402 |                      89.224 |
+| Complete source               |                 105.777 |                     103.644 |
+
+The prepared intervals had collections in 22/40 reference batches and 13/40
+candidate batches. Mean CPU excluding the observed GC CPU was 58.630 versus
+55.423 ms. Complete-source intervals had collections in 40/40 versus 37/40
+batches, with corresponding execution means 81.743 versus 80.326 ms. These are
+diagnostic observations, including the profiler's limitations; the original
+inclusive CPU quantiles remain the admission authority. Allocation reduction
+changed the collection distribution much more than execution CPU. Therefore
+the prepared median improvement alone did not predict complete-request benefit.
+This does not establish a collector defect.
+
+A singleton sequence operand now prepends to a borrowed ordinary suffix with
+one immutable cons. It avoids a branch record followed by list materialization;
+views retain their explicit relocation structure. Native tests cover suffix
+sharing, independent prefixes, moved bounds, field/alias products and deep
+composition. Lean states the ordered-list equivalence, without claiming native
+allocation cost.
+
+The combined singleton/private-array confirmation remained a failure: its
+conservative representative prepared ratio was approximately =0.688= and full
+source approximately =0.976=. The rejection is retained.
+
+* Admitted symbolic lookup and private storage obligations
+
+Canonical production admission requires a Symbol nonterminal. The transition
+can therefore use the native =assq= protocol for short goto rows, preserving
+the first original pair. General-purpose association indexes retain their
+existing equality contract. A hygienic rule expands this finite protocol into
+the transition without an intermediate generic association procedure call.
+
+#+begin_src scheme
+(defrule (goto-target gotos-expr state-expr lhs-expr)
+  (let* ((gotos gotos-expr) (state state-expr) (lhs lhs-expr)
+         (index (vector-ref gotos state))
+         (entry (if (or (pair? index) (null? index))
+                  (assq lhs index) (hash-get index lhs))))
+    (and entry (cdr entry))))
+#+end_src
+
+This exploits the DSL's admitted symbolic domain and Scheme's native identity
+lookup. The grammar author supplies no dispatch IDs, caches or extra metadata.
+The independent GLR and declaration-derived semantic oracles remain controls.
+
+The installed SDK's =std/struct/pqueue.ss= combines typed boundaries with a local
+array invariant. The private LR storage follows the same ownership principle:
+initialization admits aligned frontiers, reductions check width against active
+depth, and pushes grow before writing. Only accesses to request-owned state/value
+buffers lower their repeated native checks. Borrowed frontiers, checkpoint export
+and bulk growth/clearing remain checked. No module-wide unchecked declaration or
+compiler metadata replacement is introduced. Lean discharges natural-number
+index inequalities conditional on admitted capacity; it does not certify native
+allocation, fixnum limits or machine code. Scheme controls exercise empty, unary,
+wide/growing frames, nullable aliases, failure snapshots and fork handoffs.
+
+The goto candidate's boundary preflight measured prepared LR at 49.240 ms and
+complete source at 93.661 ms per 1,000 calls. Admission uses the separate repeated
+request study below. The boundary workload remains in the existing evidence
+request owner; CI has no additional lane or budget.
+
+* Repeated request admission
+
+The reference retains production revision =e6cebe9=; the candidate applies these
+changes to =a7eb67a=. Four serial blocks use reference/candidate/candidate/reference
+order, each with 40 batches of 1,000 calls per stage. The native Scheme checker
+retains the original strict ratio: maximum candidate median divided by minimum
+reference median must be below 0.95 for all four GQL targets.
+
+| Request                         | Prepared LR ratio | Complete source ratio |
+|---------------------------------+-------------------+-----------------------|
+| Representative GQL              |            0.6129 |                0.9410 |
+| GQL RETURN with 64 values        |            0.9304 |                0.8488 |
+| FHIRPath addition with 64 values |            0.7802 |                0.8738 |
+| Single arithmetic control       |            1.0227 |                1.0158 |
+
+All four required GQL targets pass. The existing control median and P95 bounds,
+SDK drift and overlapping repeat bands also pass. These are observed matched
+admission results, not a statistical significance or universal speed claim.
+An earlier cold reference attempt exhausted the unchanged 120-second owner budget;
+its failed record remains separate. Repeating through the original frozen library
+completed within that budget. The retained reference copy is byte-identical to the
+execution library; this does not prove the cause of the cold timeout.
+
+The CPU receipt joins the existing Lean, Quint, Scheme conformance, build and
+matched-performance receipts through native Ascent inference, with no missing
+required evidence. The measured native runtime images and engine products remain
+byte-identical after qualification. Static conformance preparation regenerates
+auxiliary Scheme/C/object products separately. The local conformance run contains
+85 cases, including one pre-existing uncommitted GQL profile case; that unrelated
+edit is excluded from this change's publication. Twelve uv-managed evidence control
+tests pass. Formal models retain their conditional scope and do not authorize
+publication. Darwin preparation passes in 125 seconds under the unchanged
+240-second total and five-second idle budgets with CI-equivalent host tools.
+The existing closed native semantic/research/all-language benchmark profile also
+passes. Earlier local link failures remain retained as environment failures:
+the installed SDK referenced an obsolete OpenSSL directory, followed by system
+symbol resolution failure with the unrelated host toolchain on PATH. The exact
+generated GQL test unit cold-compiles with pinned Gambit/GCC in 2.73 seconds;
+this does not resolve or explain the earlier remote idle timeout. Exact-head
+remote CI remains a separate gate.
+
+* Native conformance lowering
+
+The unchanged-head Darwin retry again failed the five-second output deadline,
+now while compiling the publication-test module host. It did not establish a
+parser semantic failure. An isolated comparison uses the SDK's public
+=compile-module= API, identical module basename, =O1=, multiple-host policy and
+trusted tail-call flags. Enabling the existing Gerbil optimizer reduced that
+unit's GCC CPU from 2.67 to 0.96 seconds and GCC reported allocation from 180 MB
+to 77 MB. Both local compiler runs completed under the original watchdog; these
+observations do not prove every cause of the remote stall.
+
+The existing conformance build owner now optimizes test construction before
+native lowering. It retains all assertions, the compiler's native tail-call
+contract and all qualification budgets. Complete local preparation passes in
+114.85 seconds. No compiler-pass suppression, new CI lane or synthetic progress
+producer is introduced. Exact-head remote CI must independently admit this change.
+
+The existing source conformance discovery also passes all 108 modules. Initial
+local attempts omitted the CI source load path, then encountered partial cached
+native test interfaces and a stale partial ABI-generator wrapper. The existing
+CI =prepare-gxtest!= owner and targeted =std/make= cleanup restored source
+ownership. Their failed observations remain separate from the passing suite;
+no assertion was removed or skipped to obtain it.
+
+The first final evidence run after static preparation was rejected during first
+Suite loading with an idle timeout. The collector now reuses the existing
+=prepare-gxtest!= source owner, rather than assuming static test interfaces are
+valid source inputs. The subsequent full chain passes five preparation/build
+receipts, all eight targeted Suites (85 local cases), both real-request owners
+and the original four-stage CPU check. Native Ascent has no missing required
+evidence. All 591 retained production/benchmark native images are byte-identical
+to the measured candidate. The rejected chain remains failed. The twelve
+uv-managed evidence rejection/admission controls also pass after this change.
+
+The subsequent [[file:lr-unary-chain.org][unary-chain study]] starts from this admitted production
+revision and retains its own negative results and complete-request gate.
+
+
+The next complete engine unit is [[file:compact-recognition-children.org][compact recognition children and constructor continuations]],
+including action-selection negative results, logical representation proofs and
+unchanged complete-request admission obligations.
+
+The failed compact representation and subsequent real-request native sampling
+lead to [[file:lr-request-dispatch-cost.org][official inline contracts at the token boundary]].
+Its semantic, compiler-lowering and CPU-admission claims are kept separate.

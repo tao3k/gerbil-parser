@@ -1,0 +1,68 @@
+;;; Passive observations of the actual append-state! declaration. Template and
+;;; closure callbacks return controlled values; all primitive writes forward.
+(import (only-in "event-walk-source.ss" read-source-subdefinition))
+(export append-control-observation)
+
+(def (observe-append declaration)
+  (def (walk form)
+    (if (not (pair? form)) form
+      (if (eq? (car form) 'quote) form
+        (let* ((head (car form))
+               (tag (cond ((eq? head 'grow!) 'grown)
+                          ((eq? head 'template-for) 'template)
+                          ((eq? head 'lr0-closure) 'closure)
+                          ((and (eq? head 'vector-set!) (eq? (cadr form) 'states)) 'state)
+                          ((and (eq? head 'vector-set!) (eq? (cadr form) 'kernel-plans)) 'plan)
+                          ((eq? head 'table-set!) 'register)
+                          ((and (eq? head 'set!) (eq? (cadr form) 'state-count)) 'advance)
+                          (else #f)))
+               (original (map walk form))
+               (snapshot `(observe (quote ,tag) state-count states state-transitions kernel-plans state-index)))
+          (cond ((not tag) original)
+                ((memq tag '(template closure)) `(begin ,snapshot ,original))
+                (else `(begin ,original ,snapshot)))))))
+  (walk declaration))
+
+(def (append-control-observation capacity count)
+  (let* ((grow (read-source-subdefinition "src/compiler/lr-automaton.ss" 'build-lr0-automaton 'grow!))
+         (append-state (observe-append (read-source-subdefinition
+                         "src/compiler/lr-automaton.ss" 'build-lr0-automaton 'append-state!)))
+         (producer (eval `(lambda (states state-transitions kernel-plans state-count kernel
+                                  template-for lr0-closure observe)
+                           (let (state-index (make-table test: equal?))
+                             ,grow ,append-state
+                             (let (result (append-state! kernel))
+                               (list result state-count states state-transitions kernel-plans))))))
+         (states (make-vector capacity #f)) (rows (make-vector capacity '()))
+         (plans (make-vector capacity #f)) (kernel 17)
+         (template (vector 'shared-template)) (closure (vector 'closure kernel))
+         (events '()) (callbacks '())
+         (result (producer states rows plans count kernel
+           (lambda (value)
+             (set! callbacks (cons (list 'template value) callbacks)) template)
+           (lambda (value shared)
+             (set! callbacks (cons (list 'closure value (eq? shared template)) callbacks)) closure)
+           (lambda (tag current states rows plans state-index)
+             (set! events (cons (list tag current (vector-ref states count)
+                               (vector-ref plans count) (vector-ref rows count)
+                               (table-ref state-index kernel #f)) events)))))
+         (plan (vector-ref (list-ref result 4) count))
+         (expected (list
+           (list 'grown count #f #f '() #f)
+           (list 'template count #f #f '() #f)
+           (list 'closure count #f #f '() #f)
+           (list 'state count closure #f '() #f)
+           (list 'plan count closure plan '() #f)
+           (list 'register count closure plan '() count)
+           (list 'advance (+ count 1) closure plan '() count)))
+         (ordered (reverse events)))
+    (list
+      (equal? ordered expected)
+      (equal? (reverse callbacks) (list (list 'template kernel) (list 'closure kernel #t)))
+      (and (= (car result) count) (= (cadr result) (+ count 1))
+           (= (car plan) kernel) (eq? (cdr plan) template)
+           (eq? (vector-ref (caddr result) count) closure))
+      (andmap (lambda (store) (= (vector-length store) (if (= count capacity) (* 2 capacity) capacity))) (cddr result))
+      (and (not (equal? (reverse ordered) expected))
+           (not (equal? (cdr ordered) expected))
+           (not (equal? (append (take ordered 5) (reverse (drop ordered 5))) expected))))))

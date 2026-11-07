@@ -1,0 +1,259 @@
+#+title: Productive LR entry admission
+#+date: 2026-10-09
+#+startup: overview
+
+Part of [[file:dsl-engine-contracts.org][the integrated DSL and engine study]].
+Implementation and reported qualification below belong to =2bfec1f=.
+
+* Productivity: finite derivation and LR entry admission
+
+The shared =compute-productive= analysis and =validate-resolved-start= consumer
+are implemented in =src/compiler/lr.ss=. LR compilation checks the selected start
+before FIRST/state construction. This is an intentional admission change for an
+entry with no finite derivation. The domain is the existing
+lowered production graph after POO selection. Selected declaration origins must
+remain available to the diagnostic consumer.
+
+For a nonterminal A, =productive(A)= means that A has at least one finite
+derivation to terminal symbols, possibly epsilon. The equations are:
+
+#+begin_example
+productive(terminal) = true
+productive(empty rhs) = true
+productive(rhs sequence) = every rhs operand is productive
+productive(A) = some production for A has a productive rhs
+nullable(A) implies productive(A)
+productive(A) does not imply nullable(A)
+#+end_example
+
+The least fixed point starts with no productive nonterminals. Pure cycles add
+no fact. Terminal occurrences satisfy productivity obligations, whereas they
+block nullable clauses. Thus the current occurrence propagation is a relevant
+implementation pattern, but its terminal policy cannot be reused unchanged.
+A private graph-sharing abstraction requires actual consumers and measured
+benefit; do not add an author callback or a new language-level analyzer slot.
+
+Examples establish the necessary distinctions:
+
+| Effective rules | Nullable | Productive | FIRST alone sufficient? |
+|-----------------+----------+------------+-------------------------|
+| A -> A | false | false | No finite exit exists |
+| A -> epsilon | true | true | Empty FIRST can still have a finite derivation |
+| A -> A a or b | false | true | Ordinary productive LR left recursion is valid |
+| A -> a B; B -> B | false | false | FIRST can contain a even though no derivation completes |
+
+** Target policy and paper boundary
+
+For every existing =compile-lr-spec= route and conflict policy, an unproductive
+selected root is an author error: =LR start rule has no finite terminal derivation=.
+The lowered grammar is analyzed after POO selection and repetition validation;
+no additional author slot or schema version is introduced. A productive root is
+not rejected by productivity because of an unreachable dead rule or a dead alternative.
+Independent conflict obligations remain: a nullable optional around a pure unit
+cycle can still have a reduce/reduce conflict despite its epsilon exit. Neither
+the lowered productions nor public LRSpec rows are pruned or changed. Existing
+concise-language missing-reference validation still owns that distinct error.
+
+This target policy is our design choice, not a theorem or requirement from
+[[https://www.cl.cam.ac.uk/~nk480/parsing.pdf][Krishnaswami and Yallop, section 3]]. Their algebra includes the empty language
+and distinguishes it from the singleton empty word. We preserve that distinction
+in the analysis while requiring a usable finite entry for the current LR target.
+The paper's predictive typing/linear parsing theorem is not extended to our LR
+routes. Terminal productivity is over abstract grammar symbols: it does not
+prove lexer realizability, successful precedence resolution, semantic action
+termination, tree equivalence or a particular input's acceptance.
+
+** Occurrence worklist and explanation
+
+Each lowered production has one remaining count for its nonterminal occurrences.
+Terminals satisfy their obligations immediately. A clause with no remaining
+nonterminals seeds its lhs, including epsilon clauses. Register every reference
+occurrence, including duplicates, before draining work. Each productive name
+publishes once and discharges each registered occurrence once. A clause that
+reaches zero publishes its lhs; alternative productions share that membership
+fact. A cycle without a finite exit and undefined references cannot seed facts.
+The result list is materialized in first-lhs order after convergence.
+
+Soundness follows by induction on publication: seed clauses derive finite words;
+a clause whose children are already productive can concatenate their finite
+words. Completeness follows by induction on the height of any finite derivation:
+its terminal/epsilon leaves seed facts, then its productions' occurrences are
+discharged. Expected constant-time table operations give O(P + R) preparation
+and propagation for P productions and R rhs occurrences, with O(P + R) storage.
+This bound is for grammar analysis, not whole-parser execution.
+
+The error carries =startOrigin= and a finite =unproductiveRuleBlockers= graph.
+Origins use selected rule metadata and expression paths. Every choice alternative
+has a blocker; one unproductive operand suffices for a sequence. Reference edges
+identify the authored occurrence and target rule. Each rule is expanded once,
+so cycles terminate without inventing source coordinates or exposing synthetic
+helper names. This graph explains the completed fixed point; a single observed
+cycle or bounded failure to enumerate a word is not the proof of unproductivity.
+
+** Semantic and complete-construction controls
+
+The existing resolved grammar Suite compares an independent repeated-scan
+productivity oracle across 729 three-rule cyclic combinations, eight actual LR
+fixture families, alternative exits, duplicate/marked operands and undefined
+references. Nullable membership must imply productivity. A 4096-name reverse
+chain checks propagation and canonical publication order. Target controls cover
+five routes and three conflict policies, finite epsilon/left-recursive exits,
+unreachable dead rules, reachable dead alternatives and the terminal-prefix/dead-
+tail counterexample. POO override controls retain the selected blocker owner and
+restore admission with either a terminal or epsilon exit. Wrapper controls retain
+authored paths through alias/repeat1/field helpers; optional/repeat epsilon exits
+and an independent reduce/reduce conflict are matched positive/negative controls.
+
+Local focused qualification completed 52 source Cases (35 resolved grammar and
+17 canonical LR), final =OK= and status zero. Formal compiled qualification
+completed 369 semantic Cases in 23 groups and all five independent research
+entries with final =DSL-RESEARCH-CLOSURE-OK=, =OK= and status zero. The final
+Scheme-owned conformance preparation took 88.43 seconds under the unchanged
+240-second total and 5-second idle contracts. Complete real TLA+ LRSpec remains
+exactly equal to the pre-change snapshot: 40 rules, 280 productions, 390 states.
+Twenty complete construction samples measured CPU median 15.0955 ms with no
+in-call GC. This is the cost after adding an admission check, not an A/B speedup
+claim. Compiler/FFI/runtime and exact delivered-head CI receipts remain separate.
+
+
+* Scheme author example and the two design questions
+
+#+begin_src scheme
+;; Existing grammar.ss syntax: recursion is language intent, not an engine loop.
+(deflanguage finite-chain
+  (syntax
+    (lexical
+      (root source-file)
+      (lex (punctuation Punctuation (literals "a" "b"))
+           (unknown Unknown (fallback)))
+      (extras) (keywords) (recoveries)
+      (conflicts reject) (case-insensitive #f)))
+  (rules
+    (source-file (node SourceFile expression))
+    (expression (choice (seq expression (literal "a")) (literal "b")))))
+
+;; Question 1: Why is this DSL design better?
+;; The author writes recursive syntax once. Hygienic Scheme vocabulary and POO
+;; selection feed one engine-owned analysis; changing the effective finite exit
+;; changes admission without an author-maintained analyzer or callback.
+;; Question 2: Why does this DSL design have a scientific basis?
+;; Finite derivation has a precise meaning and least-fixed-point equations.
+;; Independent oracles, legal LR recursion and selected-origin controls can
+;; falsify the implementation. The admission policy is stated separately from
+;; the papers' semantic and predictive-parser claims.
+;; Limit: these controls establish this contract, not universal DSL superiority.
+#+end_src
+
+* Follow-up checkout verification
+
+After integrating =2bfec1f=, this checkout rebuilt the LR modules and reference
+fixture at the existing optimized compilation tier. The 52 resolved/canonical
+LR Cases passed with =HARNESS-OK=, final =OK= and status zero. The Scheme block
+above was extracted, imported with the production =deflanguage= macro and
+compiled, ending in =PRODUCTIVE-AUTHOR-EXAMPLE-OK=. This verifies its author
+syntax; it is not a new tree-equivalence or performance claim.
+
+* Joint completion solver: one graph, two meanings
+
+The follow-up source baseline is =2a4175ddea8e6c91f82f0dc91a3f91855aeda29e=.
+That revision had separate nullable and productivity occurrence graphs.
+=compute-completion= now registers the production/reference graph once and
+returns both completed ordered name lists and Boolean membership tables.
+=compile-lr-spec= calls it once. Standalone =compute-nullable= and
+=compute-productive= observe the corresponding projections; they do not own
+separate algorithms or graph construction paths. No language-author slot, public
+IR field, schema version or grammar rewrite is added.
+
+** Semantic domain and efficient evaluation
+
+For each defined nonterminal, the private two-bit state has only three semantic
+values: unknown, productive-only, and nullable-and-productive. A finite empty
+word is also a finite terminal word, so nullable admission publishes both bits.
+This invariant does not let productivity publish nullable: a terminal-only exit
+is a direct counterexample. References without a defining lhs retain obligations
+with no publisher; marked operands are interpreted through =base-symbol=.
+
+A private =completion-clause= holds the lhs index and two remaining occurrence
+counts. A terminal disables its nullable counter but satisfies its productive
+obligation. Every nonterminal occurrence is counted, including duplicates.
+Dense lhs indices, vector dependencies/facts/pending deltas and one worklist
+share discovery and scheduling. All dependencies exist before the seed queue
+drains. A queued index accumulates new bits; popping clears its pending delta
+and decrements only the counters corresponding to those new facts.
+
+Each domain's equation is unchanged. Soundness of combined nullable publication
+follows from nullable implies productive; both derivations concatenate already
+justified finite child derivations. Completeness follows from finite derivation
+height as in the separate solvers. Queue exhaustion satisfies both equations,
+and starting with no facts yields their least solutions. Shared scheduling and
+bit coalescing therefore change evaluation work, not the completed facts.
+Each name can publish at most two bits and each registered reference occurrence
+is visited at most twice. With expected constant-time index operations, graph
+preparation/propagation and storage are O(P + R); public list/table publication
+is O(N). One graph is shared, not one undifferentiated Boolean fact.
+
+[[https://www.cl.cam.ac.uk/~nk480/parsing.pdf][Krishnaswami and Yallop, section 3]] supplies the language/fixed-point reading.
+The finite joint domain and dependency schedule above are this engine's design;
+the paper's predictive grammar typing and linear parsing theorem are not claims
+about our LR routes. This refinement does not prove lexical realizability,
+semantic-action termination or general runtime speed.
+
+** Controls and receipt boundary
+
+The independent repeated-scan nullable/productivity oracles both observe the
+joint result across the existing 729 cyclic combinations and eight real LR
+fixture families. New controls distinguish productive-before-nullable from
+coalesced two-bit publication by reversing seed order. They include duplicate
+operands, missing references, terminal-blocked clauses and the empty graph.
+Existing finite exits, productive LR recursion, dead-start admission, selected
+POO origins and conflict/repetition diagnostics retain their independent controls.
+
+Local source qualification completed 53 Cases (36 resolved grammar and
+17 canonical LR), final =OK= and status zero. Formal preparation completed in
+79.21 seconds with unchanged 240-second total/5-second idle contracts. Compiled
+qualification completed 370 Cases in 23 groups plus all five independent
+research entries, final =DSL-RESEARCH-CLOSURE-OK= and =OK= with all exits zero.
+Native cost/equality comparison and delivered-head CI are separate receipts.
+
+The first standalone cost script emitted 20 samples but failed to exit before
+the original idle deadline; its failed receipt is retained and is not a passing
+qualification. The paired measurement entry explicitly exits after reporting.
+Temporary baseline module preparation also exposed an ambiguous package identity;
+explicit =completion-ab= package declarations repaired their generated interfaces
+without changing production modules, timeouts or the compiler backend.
+
+** Matched native cost and complete artifact equality
+
+The baseline functions and complete LR compiler from =2a4175d= were compiled
+into temporary =completion-ab= modules at the same SDK/GCC/optimization tier
+as the current engine. The pair imports those native modules without rebinding
+production procedures. Samples alternate baseline/candidate order in one
+process; explicit GC precedes each timed call and is excluded. Initialization,
+graph preparation, propagation and public result materialization are inside the
+analysis-call timing. Every pair checks complete ordered names and Boolean
+membership. Full construction compares complete LRSpec equality, not a state
+count or isolated kernel. Imports, explicit GC and equality checks are outside
+the timed region. No compiler ran concurrently during the admitted comparison.
+
+| Workload | Samples per side | Separate CPU median (ms) | Joint CPU median (ms) |
+|----------+------------------+--------------------------+----------------------|
+| Epsilon reverse chain 4096 | 7 | 2.341 | 1.334 |
+| Terminal reverse chain 4096 | 7 | 1.799 | 1.022 |
+| Real TLA+ completion facts | 21 | 0.145 | 0.079 |
+| Real TLA+ complete default LALR | 21 | 14.715 | 14.525 |
+
+The completed supervised pair ended =COMPLETION-NATIVE-AB-OK= and status zero
+under the original 90-second total/5-second idle contract (12.98 seconds total).
+Direct invocation also exited zero. Earlier supervised attempts emitted the
+final equality marker but hit the idle deadline during termination; those failures
+are retained, and their underlying termination delay was not stably reproduced.
+Do not treat those attempts as passing costs or claim their root cause repaired.
+The successful comparison is one local-host analysis-call result. The small
+full-construction difference does not establish a stable end-to-end speedup,
+parser throughput improvement or FFI/Rust runtime gain.
+
+The combined LR consumer avoids two graph builds. A standalone projection also
+computes the other domain and is not claimed faster than the prior domain-only
+routine. Future callers needing both facts must call the joint owner once,
+rather than separately request the two projections. Admitted grammar semantics,
+diagnostic precedence and public LRSpec output are unchanged.

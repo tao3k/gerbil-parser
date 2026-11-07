@@ -1,0 +1,82 @@
+#+TITLE: Native ownership of process qualification
+
+* Responsibility
+
+Language suites own assertions, examples, and benchmark algorithms. The compiled
+=t/conformance-main.ss= entry owns their shared runtime and ten-second group
+fences. The source Suite runner owns worker scheduling, affinity, ownership
+checks, and its five-second silence fence.
+
+=test-processes.ss= owns the observable contract at a process boundary. Its
+three profiles declare commands, expected normal exits, required diagnostics,
+and deadlines. Expected negative controls are data in that declaration; they
+are not interpreted by a shell pipeline. Every case writes its combined output
+and an accepted exit to the profile's log directory. A signal termination can
+never count as an expected normal nonzero exit.
+
+=build-conformance.ss= enters the existing Scheme preparation owner. It enables
+real compiler import and GC diagnostics before loading that owner. Preparation
+input admission, locking, compilation, and product publication remain in the
+existing build implementation.
+
+* Why use this declaration?
+
+#+begin_src scheme
+(process-case "duplicate"
+  '("gxi" "scripts/tests/conformance-runner-test.ss" "duplicate")
+  70 "duplicate conformance Suite" 10 5)
+#+end_src
+
+The record keeps the expected failure beside the command that must produce it.
+Its executor preserves actual bytes and waits for the actual child exit. This
+makes the accepted result inspectable without pipeline exit conventions, GNU
+=timeout= selection, shell arrays, or a separate grep-based success protocol.
+The S-expression is an ordinary value with a native record contract, rather
+than an additional parser DSL. Suite declarations and execution retain their
+existing Scheme owners.
+
+The architectural improvement is centralized ownership, not the filename
+extension. Four independent Bash entrypoints are removed; one Scheme process
+qualification declaration replaces their test coordination. The native build
+entry exposes the existing preparation implementation directly.
+
+* Bounds and evidence
+
+Research semantic execution retains its 240-second total and five-second
+real-output budgets. Its five research children retain ten-second deadlines.
+Conformance controls have ten-second total and five-second output budgets.
+Worker controls retain the source runner's silence fence; the qualification
+parent adds a thirty-second total bound. It does not race a second silence
+watchdog against the intentional silence control.
+
+The total timer covers output reads and the final process-status wait, including
+a child that closes its output while continuing to run. Partial output bytes
+count as real progress. Parent status messages do not count as child progress.
+
+These test entries own Scheme threads inside a direct child process. The native
+qualification executor kills and reaps that child on timeout. It is not a
+compiler process-tree supervisor. CI's existing host build watchdog still owns
+compiler descendants, host process cleanup, and the build's 240/5-second fence;
+that remaining Python infrastructure is a separate migration boundary.
+
+=scripts/tests/process-qualification-test.ss= exercises the production executor
+with real children: exact exit status, partial stdout/stderr output, rejected
+wrong exits, rejected missing diagnostics, silence timeout, continuous-output
+total timeout, and timeout after closed output. The profiles additionally run
+the original four conformance controls, seven worker controls, all compiled
+semantic groups, and all five research entries.
+
+* Post-link inventory admission
+
+The first delivered head, =7419c1d=, passed Linux and Rust CI. macOS linked the
+native conformance executable, then failed the unchanged five-second output
+fence during post-link input collection. This result is retained as a failure,
+not a successful preparation receipt.
+
+Preparation now expands the invariant module-product prefixes once per catalog
+and reuses the matcher across inventory files. Its sorted depth-first walk
+uses one accumulator and reports actual discovered files before digesting starts.
+A source-level A/B checked identical ordered lists for six complete roots and
+identical admission for 9,633 library files. Native controls additionally check
+ordering, hidden paths, missing roots, and single-file roots. Cache identity,
+input mutation rejection, digest admission, and deadlines remain unchanged.

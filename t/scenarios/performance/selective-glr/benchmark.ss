@@ -8,7 +8,7 @@
  (rule . GERBIL-PARSER-SELECTIVE-GLR-COMPLETION)
  (feature . selective-glr-completion)
  (optimizationFocus . "request-local configuration, completion, and recognition-fragment interning across complete GLR branch evaluation")
- (inputShape . "one hundred repetitions of four two-branch selective-GLR grammars per sample")
+ (inputShape . "one hundred repetitions of four prepared two-branch selective-GLR grammars per sample")
  (expectedOutcome . "every admitted branch completes; equivalent configurations and fragments are reused, dynamic scores rank, and distinct static ties fail closed")
  (measurementPhases collect-before collect-after policy-before policy-after
                     assert-time-gate observe-runtime-memory)

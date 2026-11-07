@@ -1,0 +1,273 @@
+#+title: Historical language interfaces receipts
+
+This module preserves prior design and qualification records. Its status notes
+are historical; the active execution plan is [[file:../0001-versioned-language-pack-closure.org][the convergence plan]].
+
+* Three-interface language pack contract
+
+Every language converges to =grammar.ss=, =parser.ss= and =parser-test.ss=.
+=parser.ss= is the only public entry. Grammar identity, upstream digests and
+corpus declarations stay with =grammar.ss=; the loader binds their values to
+POO metadata and fixture services. No separate =source.ss= or =fixtures.ss=
+authoring module is required. Test consumers import the public entry.
+Upstream grammar/corpus resources remain source files, not Scheme interfaces.
+
+Pure declaration consolidation removes seven extra modules across arithmetic,
+HCL, openCypher, FHIRPath and GQL. It changes neither language identity nor
+loader schema. FHIRPath and openCypher have three Scheme interfaces after this
+step. The other languages still contain execution or specialization modules;
+they need the shared-engine migrations above before this contract is closed.
+File consolidation alone does not qualify portable Rust/C execution.
+
+** Native verification of declaration consolidation
+
+The five updated grammar modules and four changed loader entries emitted and
+compiled through the native Gerbil SDK with GCC 16. A stale generated parser
+interface still imported the deleted fixture owner and caused an import
+conflict; refreshing only those generated interfaces resolved it. The failed
+compiler receipt remains recorded; no test mode or compiler profile changed.
+
+The engine now freezes ISO BNF source catalogs at expansion, matching the
+existing ANTLR source boundary. Runtime restores records instead of reparsing
+BNF when the public loader is loaded. The actual new native openCypher product
+contains =iso-bnf-source-from-datum=, with no BNF parse call at that binding.
+Full catalog field parity and malformed materialization controls passed.
+Source macro identity and expected digest are expansion-time literal values.
+
+| Native control | Result |
+|----------------+--------|
+| All ten POO loaders and registered corpora | 4 cases, OK; final run 6.12 s |
+| Loader extension/fixture admission | 15 cases, OK |
+| FHIRPath native conformance | 5 cases, OK |
+| openCypher native conformance | 4 cases, OK |
+| ISO BNF catalog and overlays | 6 cases, OK; final run 4.94 s |
+| ANTLR catalog and LR lowering | OK; final run 4.89 s |
+
+Controls ran with the existing 90-second total / 5-second idle test gates and
+explicit =OK= plus exit status propagation. These are verification durations,
+not a matched end-to-end performance benchmark. Source catalog consolidation
+does not qualify new Rust/C capabilities, Bash execution or all pack migrations.
+
+* Shared closed regions and Bash caller migration — 2026-10-05
+
+The first step of the whole Bash migration now has production callers. The
+public =defregion-plan= accepts stop values, quote escape/scope values and paired
+region values. =languages/bash/grammar.ss= declares the actual Bash plan;
+=scanner.ss= and =word.ss= consume the engine matcher. The 103-line procedural
+=scan-words.ss= and all its imports are removed. This is generic region
+execution, not a language-name dispatch or a copied Bash scanner under =src/=.
+
+The engine prepares and owns a copied plan and operator trie once. It traverses
+with one forward cursor and explicit frames rather than recursively invoking
+region scanners. Longest declared openers select arithmetic expansion before
+command substitution; process substitutions shield overlapping operator stops;
+quotes constrain visible nested regions. Initial-stop consumption is explicit
+so transitional marker scanning retains its existing behavior. The closed
+=region-word= operation is additive within Scanner IR v1; loader schema stays
+=gerbil-parser.language-entry.v2=.
+
+The existing Scheme producer emits the Rust region tables and nine source
+traces. Its final native output is byte-identical, after rustfmt, to the checked-in
+Rust fixture. The Rust executor admits the same scalar-depth constraints and
+uses explicit frames with UTF-8 byte offsets. No Scheme callback executes in
+that consumer.
+
+| Gate | Evidence | Bounded process time |
+|---+---+---|
+| Native Bash =parser-test.ss= | All 17 cases, source roundtrip, fields, malformed syntax and here-documents | 6.15 s |
+| Native region suite | Six cases; 5000 nested regions, nonzero start, opaque quotes, malformed suffixes, copied-plan isolation and admission | 5.02 s |
+| All ten POO loaders | Metadata, registered fixture conformance and independent Bash worker obligations | 6.35 s |
+| Existing contextual deferred suite | Nine cases; immutable checkpoints and FIFO controls | 2.98 s |
+| POO loader extension suite | Fifteen cases; inherited values and constraints | 5.11 s |
+| Native Scheme Rust producer | Nine traces; final generated Rust matches repository bytes | 8.67 s |
+| Rust unit suite | 90 passed; actual generated region traces, 5000 levels, UTF-8, malformed scope and admission | 1.07 s |
+| Rust clippy | All targets, warnings denied | 1.15 s |
+| ASP Rust source policy | Actual workspace dev gate passes without policy changes | 1.05 s |
+
+Native products were compiled with the configured Gerbil SDK and GCC. The first
+control batch failed because the new module's generated aggregate lacked a
+native object; compiling that actual aggregate fixed the import. Export-graph
+changes also required a fresh compiler process to avoid an old cached grammar
+interface. Those failures remain failures, with no interpreter fallback or
+compiler/profile change. The timings above are concurrent qualification runs,
+not comparative performance evidence.
+
+Fixtures are now declarative values in Bash =grammar.ss= and the unchanged
+regression corpus moved to =parser-test.ss=. The three remaining procedural
+modules are =scanner.ss=, =word.ss= and =parser-core.ss=. Command transitions,
+embedded word projection and recognition/result assembly are the next shared
+engine obligations. This step does not close Bash's three-interface target or
+qualify a complete Bash Rust AOT/C ABI product.
+
+* Constrained parser-test syntax — 2026-10-05
+
+=deflanguage-parser-tests= is now the public test declaration through the
+=language-test-support.ss= facade. It admits the POO Loader with the existing
+=LanguageLoaderContract=, evaluates the Loader once, and uses its effective
+=.parse= and named fixture-test service. Syntax rows own source/expected values;
+the engine owns evaluation and artifact validity/status/roundtrip/digest checks.
+Node/token membership, node counts, absent nodes, diagnostics, exact AST fields
+and byte spans, and projection values are typed clauses. Property extensions
+have explicit bindings and equality assertions; arbitrary test-case statement
+bodies, unknown sections and empty properties are rejected during expansion.
+Duplicate labels also reject before publishing a suite.
+
+| Owner | Current migration |
+|---+---|
+| Bash | 17 syntax/receipt/fixture rows; repeated parser calls and local event traversal removed |
+| Arithmetic | Five rows; direct-driver property, loader identity, fixtures, 1024-line input and exact AST |
+| HL7 | Five rows; ADT projection/identity, alternate delimiters, lossless rejection and fixtures |
+| FHIRPath | Six rows; official source identity, AU fixtures, normative forms and strict profile admission |
+| Independent Records pack | Two rows; public identity and accepted/rejected corpus through installed facades |
+| HCL | Existing 27 strategy/corpus cases remain; design shared seeded lexer/route parity test declarations next |
+| GQL / openCypher | Existing precedence, normalization and bound-source controls remain; generic AST/IR expectation extensions still required |
+| TLA+ scopes | Existing separate scope suites remain to migrate |
+
+Bash's two source-digest admission and UTF-8 checkpoint tests moved intact to
+=t/language-source-contract-test.ss= because they exercise engine contracts.
+The regression corpus, ordered marker/body checks, word/node kinds and rejection
+inputs were preserved. Tests now additionally check valid lossless artifacts and
+source digests for every ordinary syntax row, including rejected source rows.
+No parsing implementation, schema, dependency or backend selection changed.
+
+Native GCC-compiled test support qualified all five migrated consumers. Bash,
+Arithmetic, HL7 and FHIRPath bounded runs completed in 5.19, 5.08, 4.55 and 4.11
+seconds respectively. Engine controls cover ten expansion-time negative forms,
+single Loader/source/parser evaluation despite multiple expectations, macro
+hygiene, and effective inherited fixture override. Records and the retained
+source-contract controls also pass. These are qualification timings from
+concurrent runs, not performance comparisons.
+
+The first native support import failed because its newly emitted macro module
+had not yet been compiled. The first consumer batch exposed an empty generated
+=let= for syntax rows without extra structure expectations and one unmatched
+Arithmetic source delimiter. Both source defects were corrected; the exact
+failed logs remain separate from passing reruns. No timeout was relaxed and no
+interpreter/toolchain fallback was used. Full migration of the remaining
+advanced suites is still an open owner obligation; a bare suite wrapper is not
+accepted as completion.
+
+* Advanced graph-query tests and TLA+ layout migration — 2026-10-05
+
+GQL and openCypher now use only the public test facade and their =parser.ss=
+entry. Their local CST walkers, metadata/IR access helpers, token-driving loops,
+source generators and raw test-case bodies have been removed. Existing pinned
+identities, Parser/Bound IR counts and ordered references, compatibility and
+precedence overlays, digest prefixes, syntax sources, corpus structure and
+rejection controls remain declarations. GQL's selected comparison operands
+must retain their order; an additional reversed-operand query must fail.
+openCypher retains 1,317 states, 321 fork cells, absent nullable-prefix helpers,
+initial shift checks and the actual 300-item LR receipt with zero speculative
+branches and one completion.
+
+TLA+ layout's eight controls migrated to =parser-test.ss=; the old
+=layout-test.ss= was removed and the native suite owner/build exclusion updated.
+Field cardinality, source ordering, CRLF/tab layout, nine concurrent requests,
+fresh/incremental artifact equality and disabled recovery rejection all remain.
+Parallel scheduling and source-bound result selection belong to the engine;
+all workers join before a captured parser exception propagates. Incremental
+text selection uses the shared prefix matcher and converts character positions
+and deletion lengths to UTF-8 bytes. A Unicode HCL control exercises both a
+multibyte prefix and a multibyte replacement.
+
+| Native gate | Qualified result | Bounded process time |
+|---+---+---|
+| GQL | Ten cases; source-bound identity, full official fixtures constrained to accepted, syntax and positive/negative precedence queries | 4.58 s |
+| openCypher | Eight cases; original Bound IR, overlay, static conflict and actual LR receipt controls | 4.81 s; final current native products |
+| TLA+ layout | Eight cases, including nine barrier-coordinated requests, incremental/fresh parity and rejection/recovery | 4.66 s; final canonical parser-test entry |
+| Engine DSL controls | Seven cases; 20 expansion-time rejection forms, single evaluation, inherited fixtures, false subtree queries, five parallel sources and Unicode edit | 6.44 s |
+| Bash compatibility | All 17 existing declarative rows | 4.62 s |
+
+The native support was emitted and compiled with the configured Gerbil SDK and
+GCC. One emission failed at the imported =string-contains= signature: its
+inferred boolean result could not serve as a substring index. The test engine
+now uses the existing source-prefix primitive with an explicit forward cursor,
+then converts positions to bytes. Failed emission remains a failed receipt;
+passing consumers use subsequently emitted and compiled products. These runs
+qualify test execution and semantic obligations, not a performance comparison
+or a new Rust/C product. No timeout, compiler, profile or schema changed.
+
+** Remaining migration order
+
+1. HCL: replace its 27 raw strategy/corpus cases with engine-owned indexed
+   reference execution, named source/lexer strategy routes and a closed seeded
+   generator algebra. Preserve the exact LCG seeds, generated source sequences,
+   fast/fallback coverage, 1,024-line artifacts and complete corpus parity.
+   Register unsupported routes explicitly; do not hide copied loops in property
+   expressions or introduce a language-name branch.
+2. TLA+ core: move common syntax/corpus rows to the canonical parser-test entry;
+   model qualification needs constrained temporary-tool fixtures and typed
+   process/receipt expectations rather than an arbitrary callback body.
+3. SANY candidate/closure: constrain source coverage, scanner policy and proof
+   admission expectations without claiming stronger syntax or portable policy
+   semantics than the existing corpus. All legacy checks stay active until the
+   corresponding declarative consumer qualifies.
+
+The public language interfaces remain =grammar.ss=, =parser.ss= and
+=parser-test.ss= as the final target. Partial scope migration does not establish
+that TLA+ or HCL has reached that layout, nor does test migration close their
+remaining runtime/scanner/source-policy implementations.
+
+
+* HCL strategy and corpus test execution migration — 2026-10-05
+
+HCL's 27 raw cases migrated to 29 =deflanguage-parser-tests= declaration rows.
+The two added rows split the numeric boundary/generated-source checks and the
+Loader identity check; no former obligation was removed. =parser-test.ss= now
+imports only the public test facade and =parser.ss=. It has no local function,
+LR checkpoint loop, CST walker, random state, thread, scanner execution callback
+or free-form test-case body. Its source literals and five seed streams retain
+the original input ordering, string/comment terminators, number bounds and
+Unicode values. The 1,024-line attribute sources, two 256-block label variants,
+256 nested blocks and 128 compact lines keep exact indexed-reference artifacts.
+
+The engine's =language-strategy.ss= owns the ranked/indexed reference driver,
+closed source template interpreter, named generated recognizer routes, lexical
+parity and fast/fallback admission counts. The =native-test-profile= Loader slot
+is an ordinary extensible POO value. =LanguageLoaderContract= checks its profile,
+exact machine digest, source procedure identity and declared lexer procedure.
+The profile is optional; arbitrary recognizers do not acquire recursive-source
+parameter semantics merely by having a parse entry. This uses the existing
+=language-entry.v2= schema and adds no per-call runtime admission.
+
+Seven engine controls independently compare all 1,024 sources from the original
+five port-writing generators, require one lexer call per coverage input, admit
+an effective inherited profile and reject a stale digest, foreign recognizer,
+unknown profile, absent lexer or profile for another grammar. The public macro
+now rejects 35 malformed declaration forms, including unknown/duplicate routes,
+invalid bounds, unknown bindings and incomplete coverage obligations. Coverage
+uses the candidate lexical result once rather than running the scanner again.
+
+| Final native gate | Qualified result | Process time |
+|---+---+---|
+| HCL | All 29 rows, full 15-fixture corpus, exact generated/native/indexed artifact parity | 6.87 s |
+| Strategy engine controls | Seven cases; all five full source streams, profile admission and single lexical invocation | 4.26 s |
+| Public DSL controls | Seven cases; all 35 expansion rejection forms, hygiene, inherited fixtures, structural queries and Unicode edits | 4.57 s |
+| Bash compatibility | All 17 existing declarative cases | 4.68 s |
+
+The SDK/GCC production path remains unchanged. The first HCL run failed during
+macro expansion because a pattern variable collided with the reserved =status=
+keyword. A subsequent run caught =cdr= on the empty parser-route list in a
+lexical-only row. Both failed receipts remain failures; hygiene and empty-route
+handling were fixed in the engine, and final consumers passed with explicit
+=OK=, =HARNESS-RETURN status=0= and exit 0 under 90-second total/5-second idle
+limits. Native compiler phases retain 90/30 limits. These times are qualification
+receipts rather than an end-to-end performance claim.
+
+** Current remaining order
+
+1. TLA+ core/model qualification: migrate syntax/corpus rows and constrain the
+   temporary-tool/model process receipts without replacing existing assertions.
+2. TLA+ SANY candidate/closure: declare source coverage, scanner policy and proof
+   admission checks with their existing evidence boundaries.
+3. HCL generated product ownership: move =generate-direct.ss=, =direct-step.ss=
+   and =direct-recursive.ss= generation/execution responsibility into the engine.
+   The current test profile is an explicit compatibility adapter to those
+   generated products; it does not establish closed Scanner IR or portable AOT.
+4. Remaining procedural Bash/source backends: finish scanner, word and source
+   recognition convergence before claiming every language has only three files.
+
+This closes HCL test execution migration, not every language runtime directory
+or Rust/C qualification. All remaining legacy suites stay active until their
+replacement declarations qualify.
+

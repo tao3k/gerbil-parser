@@ -1,0 +1,442 @@
+;;; Boxed-vector oracle, independent of packed storage and lookup dispatch.
+(export host-ordering-litmus cache-copy-flonum-values host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-classification-control host-object-kind host-object-subtype host-ordering-layout-control host-chunk-control host-contended-control cache-flonum-values host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors cyclic-pointer-roots mutual-closure-frame-roots closure-frame-roots wide-frame-roots reference-layout-columns reference-packed-layout-columns layout-column-sources)
+
+(def (reference-layout-columns source)
+  (let* ((bytes (string->utf8 source)) (size (u8vector-length bytes))
+         (columns (make-vector (+ size 1) 0)))
+    (let loop ((offset 0) (column 0))
+      (if (= offset size)
+        (begin (vector-set! columns offset column) columns)
+        (let* ((byte (u8vector-ref bytes offset))
+               (width (cond ((< byte 128) 1) ((< byte 224) 2)
+                            ((< byte 240) 3) (else 4)))
+               (end (+ offset width)))
+          (let fill ((cursor offset))
+            (when (< cursor end)
+              (vector-set! columns cursor column) (fill (+ cursor 1))))
+          (loop end (cond ((or (= byte 10) (= byte 13)) 0)
+                          ((= byte 9) (* (+ (quotient column 8) 1) 8))
+                          (else (+ column 1)))))))))
+
+(def layout-column-sources
+  (list "" "ascii" "\t\t" "1234567\tX\t" "a\r\nb\rc\nd"
+        "éλ中😀\tZ\r\n名字\tend"
+        (list->string (map integer->char '(0 1 127 128 2047 2048 55295 57344 65535 65536 1114111)))))
+
+;;; Matched former packed producer, independent of the ASCII-specialized writer.
+;;; Keep the same capacity proof and private native setter as production.
+(def (reference-packed-layout-columns source)
+  (if (> (string-length source) (quotient #xffffffff 8))
+    (reference-layout-columns source)
+    (let* ((bytes (string->utf8 source)) (size (u8vector-length bytes))
+           (columns (make-u32vector (+ size 1) 0)))
+      (let loop ((offset 0) (column 0))
+        (if (= offset size)
+          (begin (##u32vector-set! columns offset column) columns)
+          (let* ((byte (u8vector-ref bytes offset))
+                 (width (cond ((< byte 128) 1) ((< byte 224) 2) ((< byte 240) 3) (else 4)))
+                 (end (+ offset width))
+                 (next-column (case byte ((10 13) 0)
+                                ((9) (* (+ (quotient column 8) 1) 8))
+                                (else (+ column 1)))))
+            (let fill ((cursor offset))
+              (when (< cursor end)
+                (##u32vector-set! columns cursor column) (fill (+ cursor 1))))
+            (loop end next-column)))))))
+
+;;; Host GC map control: the opaque callback keeps 96 independent roots live.
+(defsyntax (with-wide-frame-roots stx)
+  (syntax-case stx ()
+    ((_ seed collect)
+     (let loop ((index 0) (names '()) (indices '()))
+       (if (= index 96)
+         (with-syntax (((root ...) (reverse names))
+                       ((ordinal ...) (reverse indices)))
+           #'(let ((root (cons ordinal seed)) ...)
+               (collect)
+               (list root ...)))
+         (loop (+ index 1) (cons (genident 'live-root) names)
+               (cons (datum->syntax #'with-wide-frame-roots index) indices)))))))
+
+(def (wide-frame-roots seed collect)
+  (with-wide-frame-roots seed collect))
+
+;;; The returned closures are the only post-callback owners of these pairs.
+;;; Two environments and an opaque callback exercise future-use propagation.
+(def (closure-frame-roots seed collect)
+  (let* ((left (cons 'left seed)) (right (cons 'right seed))
+         (read-left (lambda () left)) (read-right (lambda () right)))
+    (collect)
+    (cons read-left read-right)))
+
+;;; Both escaping closures capture the other closure and their own heap value.
+(def (mutual-closure-frame-roots seed collect)
+  (let ((left-value (cons 'left seed)) (right-value (cons 'right seed)))
+    (letrec ((left (lambda (depth)
+                     (if (zero? depth) left-value (right (- depth 1)))))
+             (right (lambda (depth)
+                      (if (zero? depth) right-value (left (- depth 1))))))
+      (collect)
+      (cons left right))))
+
+;;; A pair's car requires tail marking, its cdr requires the later pair scan,
+;;; and vector slots introduce shared forwarding and backward-cycle references.
+(def (cyclic-pointer-roots seed collect)
+  (let* ((slots (make-vector 3)) (tail (cons (cons 'cdr seed) #f))
+         (root (cons slots tail)) (shared (cons 'shared seed)))
+    (vector-set! slots 0 root)
+    (vector-set! slots 1 shared)
+    (vector-set! slots 2 shared)
+    (set-cdr! tail root)
+    (collect)
+    root))
+
+;;; Host macro controls execute in the same compiled fixture as the GC controls.
+;;; The OS waiter touches only C-owned words, never Scheme values or a VM.
+(extern host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-classification-control host-object-kind host-object-subtype host-ordering-layout-control host-chunk-control host-contended-control host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors)
+(begin-foreign
+ (namespace ("gerbil-parser/t/fixtures/layout-columns#"
+             host-set-f64-bits host-flonum-bits host-flonum-address host-boxing-control host-forwarding-control host-classification-control host-object-kind host-object-subtype host-ordering-layout-control host-chunk-control host-contended-control host-ticket-control host-slot-control host-mutex-control host-spin-backend host-max-processors))
+ (c-declare #<<END-C
+#include <stdlib.h>
+#include <stddef.h>
+#include <string.h>
+/* Owned arenas exercise the actual SDK tag and CAS macros. This does not call
+   mem.c's collector or qualify SMP publication of an unfinished copied body. */
+/* Raw classification never dereferences an immediate. Object loads below are
+   only used for rooted, managed Scheme values supplied by the FFI. */
+static int parser_host_header_kind(___WORD object, ___WORD head) {
+  if (!___MEM_ALLOCATED(object)) return 0;
+  int kind = ___HD_TYP(head);
+  if (kind == ___MOVABLE0) return 1;
+  if (kind == ___STILL) return 2;
+  if (___TESTTYPE(kind, ___FORW)) return 3;
+  if (kind == ___PERM) return 4;
+  return 5; /* rejected header, not an implicit permanent object */
+}
+static int parser_host_classification_control(void) {
+#if defined(___NAN_BOXING) || ___FLONUM_SELF_TAGGING_TAGS > 2
+  return 1; /* unsupported memory predicate, not a skipped success */
+#else
+  if (sizeof(___WORD) != 8 || (___TB != 2 && ___TB != 3) || ___SB != 5) return 2;
+  for (int low = 0; low < 8; ++low) {
+    for (int kind = 0; kind < 8; ++kind) {
+      for (int subtype = 0; subtype < 32; ++subtype) {
+        for (int bytes = 0; bytes <= 104; ++bytes) {
+          ___WORD head = ___MAKE_HD(bytes, subtype, kind);
+          if (___HD_TYP(head) != kind || ___HD_SUBTYPE(head) != subtype ||
+              ___HD_BYTES(head) != bytes || ___HD_WORDS(head) != (bytes + 7) / 8) return 3;
+          int expected;
+          if (!(low % 2)) expected = 0;
+          else if (kind == 0) expected = 1;
+          else if (kind == 5) expected = 2;
+          else if (kind % (1 << ___TB) == 3) expected = 3;
+          else if (kind == 6) expected = 4;
+          else expected = 5;
+          if (parser_host_header_kind(low, head) != expected) return 4;
+        }
+      }
+    }
+  }
+  return 0;
+#endif
+}
+static int parser_host_object_kind(___SCMOBJ object) {
+  if (!___MEM_ALLOCATED(object)) return 0;
+  return parser_host_header_kind(object, ___HEADER(object));
+}
+static int parser_host_object_subtype(___SCMOBJ object) {
+  if (!___MEM_ALLOCATED(object)) return -1;
+  return ___HD_SUBTYPE(___HEADER(object));
+}
+
+static int parser_host_forwarding_control(void) {
+  ___WORD arena[24];
+  if (sizeof(___WORD) != 8) return 1;
+  for (int i = 0; i < 24; ++i) arena[i] = ___FIX(i + 40);
+  ___WORD *source = arena + 1;
+  ___WORD *winner = arena + 16;
+  ___WORD *cursor = arena + 8;
+  ___WORD head = ___MAKE_HD_WORDS(2, ___sPAIR);
+  source[-1] = head;
+  ___WORD object = ___TAG(source - ___REFERENCE_TO_BODY, ___tPAIR);
+  ___WORD published = ___TAG(winner - ___REFERENCE_TO_BODY, ___FORW);
+  if (___COMPARE_AND_SWAP_WORD(&source[-1], head, published) != head) return 2;
+  *cursor++ = head;
+  ___WORD observed = ___COMPARE_AND_SWAP_WORD(&source[-1], head,
+                         ___TAG(cursor - ___REFERENCE_TO_BODY, ___FORW));
+  if (observed == head) return 3;
+  --cursor;
+  ___WORD redirected = ___TAG(___UNTAG_AS(observed, ___FORW), ___TYP(object));
+  if (cursor != arena + 8 || source[-1] != published) return 4;
+  if (arena[8] != head || arena[9] != ___FIX(49)) return 5;
+  if (___BODY0(redirected) != winner || ___TYP(redirected) != ___TYP(object)) return 6;
+  if (!___TESTTYPE(___HD_TYP(source[-1]), ___FORW)) return 7;
+  /* A winner also redirects references with a distinct original object tag. */
+  redirected = ___TAG(___UNTAG_AS(published, ___FORW), ___tSUBTYPED);
+  if (___BODY0(redirected) != winner || ___TYP(redirected) != ___tSUBTYPED) return 8;
+  for (int i = 2; i < 8; ++i) if (arena[i] != ___FIX(i + 40)) return 9;
+  return 0;
+}
+
+static int parser_host_slot_control(void) {
+  ___WORD words[256];
+  ___WORD *base = words + 160;
+  for (int delta = 0; delta < 128; ++delta) {
+    ___WORD *writer = base;
+    ___FP_ADJFP(writer, delta)
+    *base = ___FIX(999);
+    for (int slot = 1; slot <= 96; ++slot) {
+      ___FP_SET_STK(writer, slot - delta, ___FIX(slot))
+    }
+    ___WORD *scanner = writer;
+    ___FP_ADJFP(scanner, -delta)
+    if (scanner != base || *base != ___FIX(999)) return 1;
+    for (int slot = 1; slot <= 96; ++slot) {
+      if (&___FP_STK(writer, slot - delta) != &___FP_STK(scanner, slot)) return 2;
+      if (___FP_STK(scanner, slot) != ___FIX(slot)) return 3;
+    }
+  }
+  return 0;
+}
+static int parser_host_ticket_control(void) {
+  ___TICKETLOCK lock;
+  ___WORD temporary;
+  ___TICKETLOCK_INIT(lock);
+  if (!___TICKETLOCK_TRYLOCK2(lock.next_ticket, lock.current_ticket, temporary)) return 1;
+  if (lock.next_ticket != ___FIX(1) || lock.current_ticket != ___FIX(0)) return 2;
+  if (___TICKETLOCK_TRYLOCK2(lock.next_ticket, lock.current_ticket, temporary)) return 3;
+  if (lock.next_ticket != ___FIX(1) || lock.current_ticket != ___FIX(0)) return 4;
+  ___TICKETLOCK_UNLOCK(lock);
+  if (lock.current_ticket != ___FIX(1)) return 5;
+  if (!___TICKETLOCK_TRYLOCK2(lock.next_ticket, lock.current_ticket, temporary)) return 6;
+  ___TICKETLOCK_UNLOCK(lock);
+  return lock.next_ticket == lock.current_ticket ? 0 : 7;
+}
+static int parser_host_boxing_control(void) {
+#if ___WORD_WIDTH == 64 && ___FLONUM_SELF_TAGGING_TAGS == 0 && !defined(___NAN_BOXING) && !defined(___USE_HANDLES) && ___REFERENCE_TO_BODY == 1
+  static const ___U64 patterns[] = {0, 0x8000000000000000ULL, 0x3ff0000000000000ULL,
+    0xbff0000000000000ULL, 1, 0x7ff0000000000000ULL, 0xfff0000000000000ULL,
+    0x7ff8000000000042ULL, 0x7fefffffffffffffULL};
+  ___WORD arena[32], boxed[9];
+  for (int i = 0; i < 32; ++i) arena[i] = ___FIX(42);
+  ___WORD *___hp = arena + 2;
+  for (int i = 0; i < 9; ++i) {
+    ___F64 value;
+    memcpy(&value, &patterns[i], sizeof value);
+    boxed[i] = ___F64BOX(value);
+    if (___hp != arena + 2 + 2*(i+1)) return 1;
+    if (___FLONUM_TO_START(boxed[i]) != arena + 2 + 2*i) return 2;
+    if (*___FLONUM_TO_START(boxed[i]) != ___MAKE_HD_WORDS(___FLONUM_SIZE,___sFLONUM)) return 3;
+    for (int j = 0; j <= i; ++j) {
+      ___F64 restored = ___F64UNBOX(boxed[j]);
+      ___U64 bits;
+      memcpy(&bits, &restored, sizeof bits);
+      if (bits != patterns[j]) return 4;
+    }
+    if (arena[0] != ___FIX(42) || arena[1] != ___FIX(42)) return 5;
+  }
+  return 0;
+#else
+  return -1;
+#endif
+}
+#ifdef ___USE_POSIX_THREAD_SYSTEM
+#include <sched.h>
+struct parser_host_contended {
+  ___TICKETLOCK lock;
+  ___WORD payload;
+  int status;
+};
+static void *parser_host_ticket_waiter(void *argument) {
+  struct parser_host_contended *state = argument;
+  ___TICKETLOCK_LOCK(state->lock);
+  state->status = state->payload == ___FIX(42) ? 0 : 1;
+  ___TICKETLOCK_UNLOCK(state->lock);
+  return NULL;
+}
+static int parser_host_contended_control(void) {
+  struct parser_host_contended state;
+  pthread_t waiter;
+  ___TICKETLOCK_INIT(state.lock);
+  state.payload = ___FIX(0); state.status = -1;
+  ___TICKETLOCK_LOCK(state.lock);
+  if (pthread_create(&waiter, NULL, parser_host_ticket_waiter, &state)) {
+    ___TICKETLOCK_UNLOCK(state.lock); return 2;
+  }
+  int attempts;
+  for (attempts = 0; attempts < 1000000; ++attempts) {
+    if (___FETCH_AND_ADD_WORD(&state.lock.next_ticket, 0) == ___FIX(2)) break;
+    sched_yield();
+  }
+  if (attempts == 1000000) abort();
+  /* Waiter allocated its ticket while the parent still owns the lock. No
+     waiter-side RMW or added barrier follows the normal lock's polling loop. */
+  state.payload = ___FIX(42);
+  ___TICKETLOCK_UNLOCK(state.lock);
+  if (pthread_join(waiter, NULL)) abort();
+  return state.status;
+}
+/* End-chunk publication/recheck protocol using the unchanged SDK operations.
+   This is an owned queue fixture, not a replacement collector or an ISA proof. */
+struct parser_host_chunk_queue {
+  ___TICKETLOCK lock;
+  ___WORD anchor;
+  ___WORD *head;
+  ___WORD *tail;
+  ___WORD chunk[4];
+  int status;
+};
+static int parser_host_ordering_layout_control(void) {
+  return sizeof(___WORD) == 8 && ___FIX(1) == 8 && ___TAG(0, ___FORW) == 3 &&
+    offsetof(struct parser_host_contended, lock.current_ticket) == 0 &&
+    offsetof(struct parser_host_contended, lock.next_ticket) == 8 &&
+    offsetof(struct parser_host_contended, payload) == 16 &&
+    offsetof(struct parser_host_chunk_queue, head) == 24 &&
+    offsetof(struct parser_host_chunk_queue, tail) == 32 &&
+    offsetof(struct parser_host_chunk_queue, chunk) == 40 ? 0 : 1;
+}
+static void *parser_host_chunk_reader(void *argument) {
+  struct parser_host_chunk_queue *state = argument;
+  ___WORD *link;
+  ___TICKETLOCK_LOCK(state->lock);
+  if (state->head == state->tail) {
+    state->status = 1;
+    ___TICKETLOCK_UNLOCK(state->lock);
+    return NULL;
+  }
+  /* Keep the source order: decode the link before the reader barrier. */
+  link = ___UNTAG_AS(*state->head, ___FORW);
+  state->head = link;
+  ___SHARED_MEMORY_BARRIER();
+  ___TICKETLOCK_UNLOCK(state->lock);
+  if (link != state->chunk) { state->status = 2; return NULL; }
+  if (link[1] != ___MAKE_HD_WORDS(1, ___sVECTOR) || link[2] != ___FIX(42) ||
+      link[3] != ___TAG(0, ___FORW)) state->status = 3;
+  return NULL;
+}
+static int parser_host_chunk_control(void) {
+  struct parser_host_chunk_queue state;
+  pthread_t reader;
+  ___TICKETLOCK_INIT(state.lock);
+  state.anchor = ___TAG(0, ___FORW);
+  state.head = &state.anchor;
+  state.tail = &state.anchor;
+  for (int i = 0; i < 4; ++i) state.chunk[i] = ___FIX(0);
+  state.status = 0;
+  ___TICKETLOCK_LOCK(state.lock);
+  if (pthread_create(&reader, NULL, parser_host_chunk_reader, &state)) {
+    ___TICKETLOCK_UNLOCK(state.lock); return 4;
+  }
+  int attempts;
+  for (attempts = 0; attempts < 1000000; ++attempts) {
+    if (___FETCH_AND_ADD_WORD(&state.lock.next_ticket, 0) == ___FIX(2)) break;
+    sched_yield();
+  }
+  if (attempts == 1000000) abort();
+  state.chunk[1] = ___MAKE_HD_WORDS(1, ___sVECTOR);
+  state.chunk[2] = ___FIX(42);
+  state.chunk[3] = ___TAG(0, ___FORW);
+  *state.tail = ___TAG(state.chunk, ___FORW);
+  ___SHARED_MEMORY_BARRIER();
+  state.tail = state.chunk;
+  ___SHARED_MEMORY_BARRIER();
+  ___TICKETLOCK_UNLOCK(state.lock);
+  if (pthread_join(reader, NULL)) abort();
+  return state.status;
+}
+
+struct parser_host_handoff {
+  ___MUTEX lock;
+  ___WORD payload[32];
+  int status;
+};
+static void *parser_host_waiter(void *argument) {
+  struct parser_host_handoff *state = argument;
+  if (!___MUTEX_LOCK(state->lock)) { state->status = 4; return NULL; }
+  for (int i = 0; i < 32; ++i)
+    if (state->payload[i] != ___FIX(i + 1)) state->status = 5;
+  if (!___MUTEX_UNLOCK(state->lock)) state->status = 6;
+  return NULL;
+}
+static int parser_host_mutex_control(void) {
+  struct parser_host_handoff state;
+  pthread_t waiter;
+  state.status = 0;
+  for (int i = 0; i < 32; ++i) state.payload[i] = 0;
+  if (!___MUTEX_INIT(state.lock)) return 1;
+  if (!___MUTEX_LOCK(state.lock)) { ___MUTEX_DESTROY(state.lock); return 2; }
+  if (pthread_create(&waiter, NULL, parser_host_waiter, &state)) {
+    ___MUTEX_UNLOCK(state.lock); ___MUTEX_DESTROY(state.lock); return 3;
+  }
+  /* Writes follow pthread_create: thread creation cannot publish these values. */
+  for (int i = 0; i < 32; ++i) state.payload[i] = ___FIX(i + 1);
+  if (!___MUTEX_UNLOCK(state.lock)) abort();
+  if (pthread_join(waiter, NULL)) abort();
+  if (!___MUTEX_DESTROY(state.lock)) return 9;
+  return state.status;
+}
+#else
+static int parser_host_mutex_control(void) { return -1; }
+static int parser_host_contended_control(void) { return -1; }
+#endif
+static int parser_host_spin_backend(void) {
+#ifdef ___SINGLE_THREADED_VMS
+  return 0;
+#elif defined(___USE_MUTEX_FOR_SPINLOCK)
+  return 1;
+#else
+  return 2;
+#endif
+}
+END-C
+ )
+ (define host-set-f64-bits
+   (c-lambda (scheme-object int unsigned-long-long) void
+     "___U64 bits = ___arg3; memcpy(___CAST(___U64*,___BODY_AS(___arg1,___tF64VECTOR)) + ___arg2, &bits, sizeof bits);"))
+ (define host-flonum-bits
+   (c-lambda (scheme-object) unsigned-long-long
+     "___U64 bits; memcpy(&bits, ___FLONUM_TO_BODY(___arg1), sizeof bits); ___result = bits;"))
+ (define host-flonum-address
+   (c-lambda (scheme-object) unsigned-long-long
+     "___result = ___CAST(___U64,___FLONUM_TO_BODY(___arg1));"))
+ (define host-ordering-layout-control (c-lambda () int "parser_host_ordering_layout_control"))
+ (define host-chunk-control (c-lambda () int "parser_host_chunk_control"))
+ (define host-classification-control (c-lambda () int "parser_host_classification_control"))
+ (define host-object-kind (c-lambda (scheme-object) int "parser_host_object_kind"))
+ (define host-object-subtype (c-lambda (scheme-object) int "parser_host_object_subtype"))
+ (define host-forwarding-control (c-lambda () int "parser_host_forwarding_control"))
+ (define host-boxing-control (c-lambda () int "parser_host_boxing_control"))
+ (define host-contended-control (c-lambda () int "parser_host_contended_control"))
+ (define host-ticket-control (c-lambda () int "parser_host_ticket_control"))
+ (define host-slot-control (c-lambda () int "parser_host_slot_control"))
+ (define host-mutex-control (c-lambda () int "parser_host_mutex_control"))
+ (define host-spin-backend (c-lambda () int "parser_host_spin_backend"))
+ (define host-max-processors (c-lambda () int "___result = ___MAX_PROCESSORS;")))
+
+;;; Intrinsic flonums are boxed/spilled before an opaque callback and read after it.
+(def (cache-flonum-values seed collect)
+  (let* ((left (##fl+ seed 0.25)) (right (##fl* left 2.0))
+         (difference (##fl- right seed)))
+    (collect)
+    (list left right difference)))
+
+;;; A runtime branch forces the backend to reconcile copied flonum locations.
+;;; The callback allocates/collects after those values have been materialized.
+(def (cache-copy-flonum-values seed select-right? collect)
+  (let* ((left (##fl+ seed 0.25)) (right (##fl* left 2.0)))
+    (set! left (if select-right? right left))
+    (collect)
+    (list left right)))
+
+;;; Emit to an owned output port, e.g. (display (host-ordering-litmus 'link #f) port).
+;;; The LDAR variant is a model control, not an installed SDK replacement.
+(def (host-ordering-litmus kind acquire?)
+  (case kind
+    ((payload) (if acquire?
+      "AArch64 ticket_contended_acquire\n{\nnext=8; current=0; payload=0;\n0:X0=next; 0:X1=current; 0:X2=payload;\n1:X0=next; 1:X1=current; 1:X2=payload;\n}\nP0 | P1 ;\nMOV X3,#0 | MOV X3,#8 ;\nLDADDAL X3,X4,[X0] | LDADDAL X3,X4,[X0] ;\nCMP X4,#16 | LDAR X5,[X1] ;\nB.NE L0 | CMP X5,X4 ;\nMOV X3,#42 | B.NE L1 ;\nSTR X3,[X2] | LDR X6,[X2] ;\nMOV X3,#8 | MOV X3,#8 ;\nLDADDAL X3,X5,[X1] | LDADDAL X3,X7,[X1] ;\nL0:NOP | L1:NOP ;\nexists (0:X4=16 /\\ 1:X4=8 /\\ 1:X5=8 /\\ 1:X6=0)\n"
+      "AArch64 ticket_contended\n{\nnext=8; current=0; payload=0;\n0:X0=next; 0:X1=current; 0:X2=payload;\n1:X0=next; 1:X1=current; 1:X2=payload;\n}\nP0 | P1 ;\nMOV X3,#0 | MOV X3,#8 ;\nLDADDAL X3,X4,[X0] | LDADDAL X3,X4,[X0] ;\nCMP X4,#16 | LDR X5,[X1] ;\nB.NE L0 | CMP X5,X4 ;\nMOV X3,#42 | B.NE L1 ;\nSTR X3,[X2] | LDR X6,[X2] ;\nMOV X3,#8 | MOV X3,#8 ;\nLDADDAL X3,X5,[X1] | LDADDAL X3,X7,[X1] ;\nL0:NOP | L1:NOP ;\nexists (0:X4=16 /\\ 1:X4=8 /\\ 1:X5=8 /\\ 1:X6=0)\n"))
+    ((link) (if acquire?
+      "AArch64 ticket_chunk_decode_acquire\n{\nuint64_t q[2]={link,link}; link=3; chunk=42; next=8; current=0;\n0:X0=next; 0:X1=current; 0:X2=q; 0:X3=link; 0:X4=chunk;\n1:X0=next; 1:X1=current; 1:X2=q;\n}\nP0 | P1 ;\nMOV X5,#0 | MOV X5,#8 ;\nLDADDAL X5,X6,[X0] | LDADDAL X5,X6,[X0] ;\nCMP X6,#16 | LDAR X7,[X1] ;\nB.NE L0 | CMP X7,X6 ;\nADD X13,X4,#3 | B.NE L1 ;\nSTR X13,[X3] | LDP X8,X9,[X2] ;\nDMB ISH | CMP X8,X9 ;\nSTR X4,[X2,#8] | B.EQ L1 ;\nDMB ISH | LDR X10,[X8] ;\nMOV X5,#8 | SUB X12,X10,#3 ;\nLDADDAL X5,X11,[X1] | STR X12,[X2] ;\nNOP | DMB ISH ;\nNOP | MOV X5,#8 ;\nNOP | LDADDAL X5,X11,[X1] ;\nL0:NOP | L1:NOP ;\nexists (0:X6=16 /\\ 1:X6=8 /\\ 1:X7=8 /\\ 1:X9=chunk /\\ 1:X10=3)\n"
+      "AArch64 ticket_chunk_decode\n{\nuint64_t q[2]={link,link}; link=3; chunk=42; next=8; current=0;\n0:X0=next; 0:X1=current; 0:X2=q; 0:X3=link; 0:X4=chunk;\n1:X0=next; 1:X1=current; 1:X2=q;\n}\nP0 | P1 ;\nMOV X5,#0 | MOV X5,#8 ;\nLDADDAL X5,X6,[X0] | LDADDAL X5,X6,[X0] ;\nCMP X6,#16 | LDR X7,[X1] ;\nB.NE L0 | CMP X7,X6 ;\nADD X13,X4,#3 | B.NE L1 ;\nSTR X13,[X3] | LDP X8,X9,[X2] ;\nDMB ISH | CMP X8,X9 ;\nSTR X4,[X2,#8] | B.EQ L1 ;\nDMB ISH | LDR X10,[X8] ;\nMOV X5,#8 | SUB X12,X10,#3 ;\nLDADDAL X5,X11,[X1] | STR X12,[X2] ;\nNOP | DMB ISH ;\nNOP | MOV X5,#8 ;\nNOP | LDADDAL X5,X11,[X1] ;\nL0:NOP | L1:NOP ;\nexists (0:X6=16 /\\ 1:X6=8 /\\ 1:X7=8 /\\ 1:X9=chunk /\\ 1:X10=3)\n"))
+    (else (error "unknown host ordering protocol" kind))))

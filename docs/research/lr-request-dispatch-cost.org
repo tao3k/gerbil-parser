@@ -1,0 +1,341 @@
+#+title: LR Request Dispatch and Official Inline Contracts
+
+[[file:lr-owned-stack.org][Request execution research index]]
+
+* Evidence and decision
+
+The compact-child study reduced allocation but failed complete CPU admission;
+its production changes were restored. An independent macOS native sample then
+observed ten seconds of the retained baseline executing real representative
+GQL complete source requests. The compiled workload performs 30000 requests
+per invocation and checks the complete final product; ten invocations completed
+with the original 120-second watchdog. Sampling is an attribution experiment,
+never a performance-admission run.
+
+The sample contained 8437 main-thread snapshots. Top-of-stack observations
+included 1005 in the LR driver module, 529 in publication, 406 in tokens,
+393 in reduction plans and 303 in the action index. These are module-level
+observations, not exclusive Scheme-function timings. Gambit's generated module
+handlers combine multiple procedures and tail calls obscure their Scheme
+callers. GC, runtime primitives and unresolved frames remain in the report;
+they must not be assigned to a parser subphase without further evidence.
+
+This evidence supports studying hot checked access boundaries alongside action
+selection. It does not prove that token access alone accounts for a particular
+CPU percentage or that inlining will improve a complete request.
+
+* Official implementation mechanism
+
+Gerbil's =core/contract.ss= defines =definline= in terms of a lifted dispatch
+rule and a normal contracted procedure. =std/time/precise.ss= uses it for
+accessors; =std/text/parser/char-set.ss= uses it for small predicates. The
+compiler exports inline rules through SSXI. The experiment follows that public
+mechanism rather than introducing a parser-specific accessor macro framework.
+
+#+begin_src scheme
+(definline (token-kind (token : :t)) => :t
+  (vector-ref token 0))
+
+;; Both forms retain checked vector reads; neither caches a token's contents.
+(token-kind source-token)
+(map token-kind source-tokens)
+#+end_src
+
+The deliberately broad argument and return type preserves the original vector
+protocol. The constructor still creates the same four-element vector; =token?=
+still validates its complete original shape. This experiment changes direct
+call lowering, not token admission, metadata, lexical modes or action priority.
+
+** Question: why use this Scheme/Gerbil design?
+
+A single procedure body supplies both first-class calls and compiler-staged
+calls. The official expander and optimizer own lifting, hygienic argument
+bindings and inline metadata. Parser consumers keep their existing names and
+contracts; no extra runtime object or public DSL configuration is required.
+
+** Question: why is the design scientifically justified?
+
+The baseline sample supplies a concrete investigation boundary. Scheme tests
+must compare direct and first-class reads, mutation visibility, malformed
+vectors, constructor behavior and complete LR/GLR products. Compiler output
+must show actual call lowering. These semantic and lowering observations remain
+separate from the unchanged four target CPU margins and control gates.
+
+* Observed lowering
+
+The candidate's standard source build completed with exit zero. Its expanded
+LR module contains no direct references to the four public token getter
+procedures, versus 45 source occurrences in the retained baseline expansion.
+The candidate exports compiler inline metadata and retains ordinary procedure
+bindings. This establishes lowering at those source sites, not a runtime call
+count, a byte-size improvement or complete-request CPU benefit.
+
+* Qualification
+
+The standalone inline candidate was rejected. Keep all four target CPU ratios below 0.95,
+all original controls and tails, and the SDK repeat-band overlap. Bind measured
+source and actually selected native images. Python uses the locked =uv= project;
+Scheme computes statistical admission and native ASCENT reviews receipts.
+CI retains its existing owners and budgets. No allocation-only or stage-only
+claim can authorize a push.
+
+** Standalone candidate result
+
+Ten Scheme modules passed 107 Cases. The standard source and benchmark builds
+completed after retaining initial signature and startup failures. Interrupted
+measurement sequences remain censored, with all partial samples retained.
+The final four-role sequence completed. The aggregate SDK repeat control
+passed, but native Scheme admission rejected representative GQL prepared LR
+with conservative ratio 0.98181 against the original 0.95 bound. ASCENT retained
+=record-cpu-improvement= as missing. No push
+was authorized by that evidence. A lower complete-source median does not
+replace the prepared-LR margin or the control gates.
+
+A subsequent candidate combines the same checked inline boundary with scalar
+endpoint handoff in the existing AST constructors. It retains the original
+child representation. Logical endpoint equivalence, runtime identities and
+matched full-request CPU are separate obligations; their effects must not be
+added from independent microbenchmarks. This combined candidate is pending.
+
+** Combined candidate result
+
+The combined =parser-request-bounds-study= binds the three changed engine
+owners and both retained native closures. Symmetric import-only preparation
+completed before the four-role sequence; its logs are separate from request
+samples. All four 40-by-1000 roles completed with the unchanged budget.
+
+| Mandatory CPU target | Conservative candidate/reference ratio |
+|----------------------+----------------------------------------|
+| Representative GQL prepared LR | 0.941906 |
+| Representative GQL complete source | 0.926462 |
+| Long RETURN prepared LR | 0.907502 |
+| Long RETURN complete source | 0.883317 |
+
+Each target ratio meets the original 0.95 bound. These are descriptive target
+results, not an admitted overall benefit. The identical SDK encoder reference
+medians were 7.061 and 7.079 milliseconds per 1000 calls; candidate medians
+were 7.120 and 7.177. Their aggregate ratio 1.011103 meets the five-percent
+ratio bound, but the two repeat intervals do not overlap. The original SDK
+control therefore rejects the complete experiment. No source or threshold was
+changed to turn this trajectory into a pass.
+
+The full existing evidence command then passed Lean, Quint, all five build
+owners, ten Scheme modules with 108 Cases and the real-request benchmark checks.
+The locked =uv= evidence tests passed 13 Cases, including actual native ASCENT
+review and source/native-product drift rejection. Native ASCENT established
+those receipts while retaining =record-cpu-improvement= as missing and denying
+execution authorization. Benchmark execution and semantic matching do not
+establish CPU admission.
+
+#+begin_src sh
+uv run --project formal/evidence --locked python formal/evidence/collect_engine.py \
+  --record-study .data/parser-request-bounds-study
+#+end_src
+
+The candidate remains uncommitted and unpushed. CI definitions are unchanged.
+This result supports further qualification of the combined call boundary;
+it does not qualify a GitHub revision or waive the SDK overlap requirement.
+
+* SDK repeatability: controlled measurement ownership
+
+The rejected request-bounds trajectory remains rejected. Its raw SDK samples
+allocate the same 4144336 bytes per 1000-call batch in both roles. Collections
+occur only in sample 38 or 39; the median separation also appears in batches
+without GC. The observed median separation therefore cannot be explained as
+one role's P50 including a timed collection. Baseline heap sizes differ by
+about one MiB, which is an observation rather than a causal explanation.
+
+A fixed four-role diagnostic placed an identical source-level SDK probe before
+and after the existing request workload. Probe medians changed within a role,
+and substantial wall/CPU differences were observed. The probe's source closure
+is not the original compiled control closure. These diagnostic samples cannot
+replace admission samples or prove that heap state causes the original gap.
+All four roles and their negative observations are retained.
+
+Native identity inspection found another uncontrolled boundary: the original
+roles selected different compiled images for both the SDK caller in
+=record-access= and the shared sampler in =parser-stage-cost/benchmark=.
+Identical source text does not establish an identical native caller. Build
+metadata and code placement can differ even when the encoder primitive itself
+is unchanged; binary differences alone do not establish a CPU cause.
+
+The follow-up =parser-shared-control-study= freezes the baseline caller and
+sampler images into both roles, including their phase-zero images. Each engine
+keeps its own frozen runtime closure. The collector rejects differing selected
+measurement-image digests and reference-image drift, in addition to candidate
+source/product drift. Existing evidence tests exercise these rejection paths.
+This changes experimental ownership, not parser thresholds or CI lanes.
+
+The experiment retains the original reference/candidate/candidate/reference
+order, 40 samples of 1000 calls, complete-product comparisons, four mandatory
+CPU margins, control tail limits and SDK repeat-interval overlap. Import-only
+preparation is symmetric and outside timing. A new result cannot convert the
+previous failed trajectory into a pass. Measurement-image equality is a
+necessary control condition, not a performance result or a remedy proven to
+make SDK timing reproducible.
+
+** Shared-image experiment result
+
+The first shared-image four-role qualification also failed. Reference SDK
+medians were 7.257 and 7.762 milliseconds per 1000 calls; candidate medians
+were 7.063 and 7.115. Their aggregate ratio was 0.944004, outside the original
+five-percent control bound, and the repeat intervals were disjoint. The
+representative GQL prepared-LR conservative ratio was 0.967533, independently
+below the required benefit. Native Scheme rejected admission and ASCENT
+retained the missing CPU claim. Image equality therefore did not restore
+repeatability or qualify the candidate.
+
+An attempted native-call interception failed because changing an exported
+binding did not redirect the compiled caller. Its complete failed receipt is
+retained; no SDK closure was captured, so this is not a before/after result.
+The replacement benchmark explicitly owns a compiled encoder closure:
+
+#+begin_src scheme
+(call-with-record-sdk-control
+  (lambda (encode expected)
+    (measure-parser-component '(sdk-native-before utf8) 40 1000 encode expected)
+    (record-request-main)
+    (measure-parser-component '(sdk-native-after utf8) 40 1000 encode expected)))
+#+end_src
+
+** Question: why use this Scheme ownership boundary?
+
+A continuation receives one native encoder closure and its complete expected
+result. Its payload remains live across both phases. The official compiler
+keeps direct imports; the diagnostic does not depend on mutable-binding
+interception or source-interpreted encoder bodies. The ordinary admission
+entry still uses the same 4096-character input, 40 samples and 1000 calls.
+
+** Question: what can this experiment establish?
+
+The =record-repeatability= entry compares the same compiled closure before
+and after a complete request workload in one VM. Each batch validates its
+complete output. Shared caller/sampler digests remove native-image variation
+between roles. Heap snapshots and no-GC samples remain observations; a time
+change does not identify heap state, scheduling or hardware frequency as its
+cause. Extra diagnostic phases cannot replace ordinary admission receipts.
+
+[[https://kar.kent.ac.uk/33611/][Kalibera and Jones (2013)]] distinguish uncertainty between builds,
+executions and iterations and motivate repetition at the level that varies.
+[[https://users.elis.ugent.be/~leeckhou/papers/oopsla07-stat.pdf][Georges, Buytaert and Eeckhout (2007)]] separate startup and steady-state
+measurement and discuss scheduling, locality and system effects. These support
+separate diagnostics for native-image, VM and sample variation. Their Java/JIT
+results are not evidence about Gerbil AOT, nor do they authorize changing the
+fixed parser admission rules. Our two-repeat range is an admission control,
+not a statistically calibrated confidence interval.
+
+** Encoder-entry identity and output scheduling
+
+The complete retained/fresh/retained contrast did not support payload age as a
+uniform explanation. Most fresh medians were near the surrounding retained
+medians, while the ordinary entry sometimes remained slower. Standalone Gambit
+C lowering of the retained factory source showed two encoder closure entries:
+one inside the exported factory and another copied into its same-module
+=main= caller. Their instruction sequences perform the same primitive call;
+this establishes duplicated entry locations, not a proven timing cause in the
+previously measured binary.
+
+The =sdk-control= module now owns the encoder factory separately from request
+measurement. The request module's lowered Scheme contains no encoder primitive
+body. The ordinary entry returns the measured encoder to the diagnostic, which
+checks =##closure?= before comparing =##closure-code=. Four complete roles
+confirmed actual code equality between ordinary, retained and fresh encoders.
+The internal primitives are used only for this checked diagnostic, not parser
+contracts or unchecked runtime access. Shared-image admission also binds the
+factory's selected images in both roles.
+
+Despite entry equality, one role observed substantially higher CPU medians
+than the others. Code duplication therefore cannot explain all repeatability
+failures. These observations do not establish a specific hardware-frequency,
+processor-placement or background-thread cause.
+
+The next fixed contrast examines output scheduling on one retained native
+encoder: immediate/deferred/immediate. Immediate mode writes and flushes every
+row between timed batches; deferred mode retains the already collected rows
+and emits them after all batches. Encoding, semantic validation, 40 samples,
+1000 calls per sample, initial GC and natural timed collections are unchanged.
+The default remains immediate for request progress. No timeout or CPU threshold
+changes. This is a measurement-interference diagnostic; it cannot be admitted
+as an ordinary nine-stage receipt.
+
+** Canonical CPU clock intervals
+
+The output-scheduling contrast completed all four roles. Deferred SDK medians
+were 6.735000000004043, 6.734000000005014, 6.735000000002489 and
+6.760000000004651 milliseconds in reference/candidate/candidate/reference
+order. The intended shared endpoint was 6.735 milliseconds, but binary
+subtraction of cumulative floating CPU counters separated it numerically.
+This is a concrete false separation at a timer tie, independently of the
+larger earlier fluctuations. The diagnostic remains a diagnostic.
+
+Gambit's =os_time.c= getrusage path converts integral timeval seconds and
+microseconds to floating seconds. The installed Gerbil precise-time library
+keeps seconds and subsecond fields integral. The sampler now reconstructs
+bounded cumulative CPU timestamps as integral nanoseconds before subtracting
+user and system intervals. It publishes both =cpu-ns= and display milliseconds;
+summary nanoseconds are independently reconstructed by native admission.
+
+Admission uses these exact intervals and the original exact fractions
+=19/20= and =21/20=. Target comparisons remain strict, control comparisons
+inclusive, and SDK repeat ranges must still overlap. No tolerance is added.
+A Scheme regression checks equal clock intervals with different origins,
+separate user/system contributions, and a genuine one-microsecond gap that
+must remain separated. Ten Scheme modules pass 109 Cases with the standard
+120-second total and five-second idle watchdog.
+
+The ordinary SDK control now defers row output until its unchanged 40 batches
+complete. Parser stages retain immediate progress output. Every ordinary
+receipt must also contain one checked encoder-entry identity witness; missing
+or duplicate witnesses are rejected. All these conditions flow through native
+Scheme admission and the existing ASCENT evidence collector, with unchanged
+CI lanes. The =parser-sdk-canonical-study= binds engine and shared measurement
+sources before fresh sampling. Earlier failed or censored trajectories are
+not rounded, pooled or retroactively accepted.
+
+
+** Fresh ordinary-request admission
+
+The source-bound =parser-sdk-canonical-study= completed the fixed
+reference/candidate/candidate/reference sequence. Every ordinary role retained
+40 samples of 1000 calls for each of the eight parser stages and the SDK
+control, complete artifact equality, a checked shared encoder-entry witness,
+and a successful supervised exit. The two reference SDK medians were 7.002
+and 7.013 milliseconds; candidate medians were 6.942 and 7.101 milliseconds.
+Their intervals overlap and the aggregate candidate/reference ratio is
+=14043/14015=, approximately 1.002. This admits the original calibration rule;
+it does not establish uniform SDK timing or explain every earlier fluctuation.
+
+| Target | Stage | Conservative candidate/reference CPU P50 ratio | Original strict limit |
+|--------+-------+------------------------------------------------+-----------------------|
+| Representative GQL | prepared LR | 569/609 = 0.934319 | < 0.95 |
+| Representative GQL | full source | 21649/23675 = 0.914424 | < 0.95 |
+| GQL RETURN | prepared LR | 122713/137575 = 0.891972 | < 0.95 |
+| GQL RETURN | full source | 16958/19099 = 0.887900 | < 0.95 |
+
+Native Scheme admission passed all four target comparisons, both FHIRPath
+and arithmetic control stages, and every parser-stage CPU P95 non-regression
+check. Ratios use the worse candidate repeat and better reference repeat;
+no execution is excluded and no earlier failed study is pooled into this one.
+The combined engine change is official checked token inlining plus staged
+recognition bounds. These results do not isolate each component's marginal
+contribution, claim a new lexer algorithm, or qualify unrelated languages.
+
+The first complete evidence collection exposed duplicate paths where shared
+measurement images intersected the retained baseline closure. Source and
+native snapshots reject duplicate inputs before observation. The collector
+now forms a sorted distinct union at this admission boundary, retaining every
+artifact identity once. The failed collection is retained separately. All
+13 UV-managed evidence tests pass, including source drift, candidate image
+mutation, mismatched measurement images and baseline image mutation rejection.
+The complete evidence chain is rerun after this collector correction; local
+admission and exact-head remote CI remain separate qualification boundaries.
+
+
+The corrected complete collector exited zero. Native ASCENT established Lean
+model checking, Quint protocol checking, all five Scheme build receipts,
+Scheme conformance, matched request performance and repeated CPU improvement;
+its =Missing= relation is empty. This is evidence admission, not an execution
+permission: =executionAuthorized= remains false by design. The local working
+checkout ran ten Suite modules and 109 Cases, including existing unstaged
+controls; the committed revision's clean CI is a separate check. No workflow,
+timeout, sample count or admission limit was changed for this qualification.

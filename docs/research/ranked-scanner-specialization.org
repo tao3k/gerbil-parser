@@ -1,0 +1,590 @@
+#+title: Ranked lexical specialization and rejected candidates
+#+startup: overview
+
+Part of [[file:shared-ranked-scanner-execution.org][the integrated execution study]].
+Historical revisions, failed experiments and receipt limits retain their original scope.
+
+* Ranked literal publication experiment: rejected lowering
+
+The current Coding Style research requires known private calls, checked
+boundaries, and admitted ownership. Reading the pinned Gerbil SDK =2591dcd=,
+=src/std/text/parser/ll1.ss=, shows =ll1-uint= accumulating its scalar result
+while consuming digits. This motivates retaining a decision during traversal
+and constructing an observable result only at the output boundary. It does
+not establish that an additional accumulator is free in a compiled lexer.
+The earlier rejected dense region-trie experiment remains rejected.
+
+The shared ranked literal trie originally constructs a four-element result
+for each admitted accepting prefix along the matching path. A prefix chain
+can therefore allocate O(A) result spines for A accepted terminals even though
+only one escapes. Three candidates reduced publication to O(1) per successful
+call while retaining the same trie edges and terminal selection: an explicit
+endpoint plus a named publication helper; a prepared terminal width with
+publication after traversal; and an explicit endpoint with direct publication
+at each exit. Traversal and terminal admission complexity were unchanged.
+No language-specific rule, unchecked annotation, compatibility mode or schema
+change was added. None of these runtime candidates is retained.
+
+** Native qualification and negative result
+
+The GCC SDK, 3 GiB heap, 120-second total guard and five-second silence guard
+were fixed. Reference artifact =scan~0.o3=, helper candidate =scan~0.o4=,
+width candidate =scan~0.o5= and direct-exit candidate =scan~0.o6= were verified
+from the runtime loader in fresh processes. Complete artifact snapshots
+retained contiguous object suffixes. No build or test from this task overlapped
+timed controls. Identical interpreted orchestration invokes native scanner
+closures; these are component measurements, not a compiled-parser latency claim.
+
+Each block takes eleven samples of 1,000 scanner calls. Preparation occurs
+outside timing. The catalog has 32 accepting prefixes of one through 32 ASCII
+characters. Controls admit only the shortest terminal, use a singleton catalog,
+and reject every terminal through the mode mask. Endpoint sums are checked
+for every sample. Natural GC is retained; allocation intervals crossing GC
+remain unadmitted.
+
+The prepared-width candidate used reference/candidate/candidate/reference
+blocks with the following CPU medians in milliseconds per 1,000-call sample:
+
+| Workload | Reference A | Width candidate A | Width candidate B | Reference B |
+|----------+-------------+-------------------+-------------------+-------------|
+| Prefix chain | 1.054 | 1.048 | 1.045 | 1.270 |
+| Short admitted | 1.216 | 1.077 | 1.076 | 1.000 |
+| Singleton | 0.215 | 0.287 | 0.282 | 0.211 |
+| All filtered | 1.342 | 1.383 | 1.062 | 0.974 |
+
+The named-helper candidate also measured singleton medians of 0.286 and
+0.288 ms against the initial reference's 0.214 ms. Direct exit publication
+was then bracketed by the previous final reference and a new trailing reference:
+
+| Workload | Reference before | Direct A | Direct B | Reference after |
+|----------+------------------+----------+----------+-----------------|
+| Prefix chain | 1.270 | 1.139 | 1.072 | 1.218 |
+| Short admitted | 1.000 | 1.198 | 1.048 | 1.002 |
+| Singleton | 0.211 | 0.245 | 0.286 | 0.220 |
+| All filtered | 0.974 | 0.957 | 1.033 | 0.982 |
+
+All three candidates reduce prefix-chain median allocation from 6,464,576
+to 512,576 bytes. The reference admits 10/11 allocation samples in every
+reported block; candidates admit 11/11. Short-admitted and singleton allocation
+remain 512,576 bytes, and all-filtered allocation remains 320,576 bytes, with
+11/11 admission. These figures include unchanged interpreted orchestration.
+Every successful control emits =RANKED-CONTROL-OK= and exits 0.
+
+Publication allocation decreases substantially, but singleton CPU is worse
+across the tested representations, and shortest-admitted CPU also worsens
+in some surrounding comparisons. The final direct-exit candidate therefore
+fails the admission gate. The original runtime source and complete native
+artifact snapshot are restored. No complete-request or Tree-sitter improvement
+is claimed. These controls do not identify whether argument passing, generated
+control flow or call-boundary behavior explains the CPU cost. That diagnosis
+requires a compiled caller and complete lexer/request controls before another
+production representation change.
+
+** Permanent contracts and reproducibility
+
+The independent linear catalog oracle compares every source position across
+all 64 mode masks for six overlapping, tied-rank and Unicode declarations.
+It validates longest match before rank and declaration order, rejected longer
+terminals retaining shorter accepted candidates, and end-of-source behavior.
+Additional cases mutate caller-owned declaration strings and returned results
+to prove preparation and future-call isolation. These tests are retained
+against the restored production scanner.
+
+The repository-owned =t/benchmarks/ranked-literal/benchmark.ss= exposes the
+four workloads with positive exact sample/iteration counts, checked endpoint
+sums, per-call CPU/allocation output and the existing GC-aware allocation
+admission rule. It can be compiled and invoked as a native caller; no alternate
+engine, JSON result snapshot or process-per-case wrapper is committed.
+Two candidate edits initially failed reader admission with an incomplete form.
+Both were fixed before measurement; those failed builds are excluded from
+successful receipts.
+
+The permanent benchmark compiled natively in 4.643 seconds. On the restored
+=b61522e= engine, eight source modules passed 70 cases and the compiled
+benchmark completed two 1,000-call samples for each workload in 23.403 seconds
+total. Receipts include =TEST-SUITE-OK modules=8=, =OK=,
+=RANKED-LITERAL-OK= and exit 0. After rebasing onto the concurrent Fold revision
+=26f96a5=, two directly owned scanner modules passed six cases and the same
+compiled benchmark completed again in 23.223 seconds, with all success
+receipts and exit 0. The concurrent Fold change is outside this experiment's
+performance scope; neither these tests nor the micro table qualify its new
+byte-frame implementation. The shared scanner source has no retained diff.
+
+* Closed-start specialization of the shared regular DFA
+
+The current Scheme Coding Style research favors binding-preserving syntax,
+prepared decisions and small named loops. Reading the pinned Gerbil SDK
+=2591dcd=, =src/gerbil/core/contract.ss= (=definline=) shows signature-aware
+dispatch expansion rather than a promise that every abstract call is free.
+The SDK's =src/std/text/parser/ll1.ss= likewise retains compact loop state.
+The transfer here is to remove state that cannot occur, using a private
+hygienic lowering whose expansion is inspected before measurement.
+
+** State argument and implementation
+
+A regular scanner's initial mask contains only the six declared run bits,
+so it lies in 0..63. Number starts use bit 32. If an admitted initial mask
+lies below 32, no transition can introduce a number state: the generic
+number transition only advances already active number states. The other
+five run families intersect their active mask with the current character
+mask; they can lose bits but never gain them. Every surviving subset is
+accepting. This path therefore needs neither pending fraction/exponent state
+nor an accepted-subset/accepted-end rollback pair.
+
+=make-ranked-regular-scanner= retains its prepared winner table and numeric
+state machine. At matching entry, a nonnumeric initial subset selects the
+existing monotone run algorithm, even when the grammar also declares a
+number rule. Numeric starts keep their original rollback behavior. Modes
+without number rules also use the same monotone lowering. The private
+=scan-regular-run= syntax expands that algorithm at both call sites using
+caller bindings and evaluates the initial offset once. No callback, table,
+public scanner API, language metadata, schema version or compatibility route
+is added. The final implementation adds no unsafe operation or type assertion.
+
+** Rejected contract lowering and generated-code inspection
+
+The first =definline= attempt with an empty argument contract failed macro
+admission with =invalid match target=. Supplying a checked string contract
+compiled correctly, and emitted Scheme showed the loop expanded at both
+call sites, with a remaining =string?= check and parameter binding group.
+A subsequent private string assertion relied on the caller's preceding
+=string-length= and removed that check. It still failed the complete-lexer
+control: batched HCL lexer medians were 60.20/61.50 microseconds for the
+surrounding references and 64.80/65.95 for the candidate. Neither contract
+version is retained. These measurements do not prove that the bindings
+caused the difference.
+
+The final implementation uses Gerbil's ordinary hygienic =defrules= mechanism
+for the private loop. Generated Scheme contains the expanded cursor/active
+loop at each call site, with no helper call, contract check or contract
+parameter binding group. Entry selection uses the proven initial range
+instead of computing a bit intersection and then testing zero.
+
+** Native caller reference/candidate/candidate/reference control
+
+The shared engine benchmark is compiled with the same GCC-backed SDK before
+all measured blocks. It invokes native scanner closures inside native loops;
+GXI only starts the entry. The 3 GiB heap, 120-second total guard and five-second
+silence guard remain fixed. Loaded artifacts are asserted: reference
+=scan~0.o3= and final candidate =scan~0.o7=. Complete owned snapshots preserve
+contiguous loader suffixes; other clients are unchanged. No build or test
+from this task overlaps timing. The final scanner build passed in 10.568
+seconds; the preserved legacy benchmark and new request-cost entry compiled
+in 15.193 seconds.
+
+Each block uses eleven samples. The six scanner controls run 100 calls per
+sample. Long inputs contain 4,096 ASCII identifier characters, Unicode
+identifier characters, spaces or decimal digits. Singleton and unmatched
+inputs are one character. Complete HCL lexer samples run 20 calls on a
+64-line assignment source. Independent =direct-lex-hcl= equality checks
+complete token products before measurement and the last product of each
+sample after measurement. Preparation and equality are outside timing.
+
+CPU medians below are microseconds per call:
+
+| Workload | Reference A | Candidate A | Candidate B | Reference B |
+|----------+-------------+-------------+-------------+-------------|
+| ASCII identifier | 62.84 | 26.48 | 26.48 | 56.95 |
+| Unicode identifier | 194.85 | 173.38 | 146.16 | 203.53 |
+| Whitespace | 58.11 | 29.76 | 26.44 | 66.38 |
+| Numeric | 56.56 | 60.84 | 51.84 | 51.77 |
+| Singleton | 0.07 | 0.03 | 0.03 | 0.03 |
+| Unmatched | 0.02 | 0.05 | 0.02 | 0.02 |
+| Complete HCL lexer | 60.60 | 63.50 | 56.00 | 61.85 |
+
+Successful scanner allocation remains 194.08 bytes per call, and unmatched
+allocation remains 2.08, including measurement overhead; every scanner block
+admits 11/11 allocation samples. Complete lexer median allocation remains
+336,906.4 bytes per call with 10/11 admitted samples in every block. Natural
+GC is retained, with the existing allocation admission rule unchanged. All
+four blocks emit =REGULAR-MODE-OK= and =REGULAR-CONTROL-OK= and exit 0.
+
+Long ASCII and whitespace scan costs improve by roughly a factor of two
+in both candidate blocks. Unicode scans also improve. Numeric and very short
+controls vary; the short timings are too small for a portable speed claim.
+Complete lexer CPU moves in opposite directions across candidate blocks,
+so no stable complete-lexer or complete-parser speedup is established. This
+is a shared engine state specialization, not closure of the Tree-sitter gap.
+An earlier one-call complete-lexer protocol was visibly noisy and was
+replaced by the same twenty-call protocol on both sides; its timings are
+excluded from the final table.
+
+The existing =t/benchmarks/regular-mode/benchmark.ss= CLI and its independent
+old-mode oracle are preserved. The adjacent =request-cost.ss= owns these
+native caller controls and complete-token checks. No language implementation
+file is modified. Permanent tests compare the subset DFA against independent
+individual run scanners at every input offset across all 64 rule subsets,
+including Unicode numeric characters and truncated fraction/exponent forms.
+
+** Qualification after the latest PR rebase
+
+After rebasing onto revision =6dbc112=, eight source test modules passed
+71 cases: ranked regular and literal scanning, lexical plans and first-character
+contracts, structured lexical behavior, parser runtime, region scanning, and
+Bash. The regular suite includes the independent comparison across all 64
+rule subsets. The compiled =request-cost.ss= entry also completed its scanner
+result and complete HCL token checks. The combined qualification exited 0 in
+29.465 seconds, under the unchanged 120-second total and five-second idle
+limits with a 3 GiB heap. This smoke run establishes semantic qualification;
+the performance conclusions remain bounded by the native ABBA controls above.
+
+A subsequent remote LR update (=31c0667=) arrived during publication and was
+rebased before delivery. Its runtime module rebuilt with GCC in 18.117 seconds.
+The regular scanner, parser runtime, and Bash suites passed 42 cases together.
+The direct GXI entry emitted both success markers but stalled during process
+shutdown; the unchanged idle guard rejected that run after 18.046 seconds.
+Repeating through the existing test-only process exit interface completed in
+11.954 seconds with exit 0 and both required markers. That receipt qualifies
+the merged runtime; it does not establish that the direct GXI shutdown issue
+is resolved.
+
+* First-character competition staging and callback ownership
+
+** Source study and phase ownership
+
+The pinned Gerbil SDK revision =2591dcd= provides a useful distinction in
+=src/std/text/parser/ll1.ss=. The =ll1-bind= and =ll1-begin= combinators compose
+procedures before reader execution, whereas =ll1-or/list= retains a named loop
+where input-dependent failure determines the next alternative. The =peeker=
+constructor resolves the specification's outer representation before the
+resulting predicate sees input. These are concrete implementation patterns,
+not evidence that every closure composition improves performance.
+
+The existing [[file:scheme-dsl-research-basis.org][DSL research basis]] and
+[[file:scheme-macro-binding-experiments.org][binding experiments]] retain
+language declaration context and place derived execution mechanisms in the
+shared engine. These experiments need no author macro, POO slot, grammar field,
+unsafe assertion, or compatibility path. They investigate prepared dispatch
+and callback ownership inside the existing ranked lexical algebra.
+
+Previously, an ASCII table selected the nonregular candidate list, but each
+token folded that list with a source/offset callback and checked whether regular
+and literal scanners participated. The participation facts are derivable during
+preparation. The experiments below show why derivability alone is insufficient
+to admit a new execution representation.
+
+** Historical execution candidate, withdrawn after the cross-language audit
+
+The initially retained candidate kept the existing ASCII table, mode admission,
+conservative non-ASCII path, regular/literal dispatch and mode-miss fallback.
+The private =scan-ranked-candidates= hygienic macro preserves the stable
+source, offset and candidate bindings at its sole call site. It applies the
+existing =prefer-generated-match= in a named loop without a new procedure
+argument boundary. It preserves
+all candidate calls and their order, including no-match results. The caller no
+longer constructs a source-dependent fold callback for each token. There is no
+new prepared procedure catalog, nested composition graph or transient interning
+cost. This isolates callback ownership from the rejected staging designs.
+
+The original nonregular order, regular scanner and literal scanner order remain
+unchanged. Token materialization and byte extents retain their existing owner.
+No claim about eliminating all scanner allocation follows from removing this
+one callback. The fixed GCC compiler owns ordinary procedure and sequence checks.
+
+** Independent semantic controls
+
+The initial staged prototype passes six modules with 55 cases in 21.287 seconds
+and exit 0: first-character admission, lexical plans, ranked regular and literal
+scanners, parser runtime, and Bash. The new first-character case uses independent
+instrumented scanners to check evaluation order, longest match before priority,
+a missing candidate, Unicode byte offsets and an empty ASCII projection.
+Existing controls retain unfiltered reference dispatch, declaration-order ties,
+directed mode fallback, all 64 regular subsets and complete incremental products.
+
+Native callers are held constant within each matched control series. Reference
+and candidate lexical module objects are selected explicitly before process
+admission. The 3 GiB heap, 120-second total bound and five-second idle guard
+remain unchanged. Compilation and semantic admission are outside measured
+request batches.
+
+** Rejected nested-composition prototype
+
+The first prototype composed a captured previous procedure and next scanner for
+each ranked fold edge. The complete HCL lexer allocated 312,330.4 bytes instead
+of 336,906.4 in both candidate blocks. Its CPU medians were 49.05 and 47.40
+microseconds per call, against reference values 98.75 and 58.50; the reference
+itself varied considerably. Each block used eleven samples of twenty lexer
+calls and checked complete tokens against the independent direct HCL lexer.
+
+That component result did not justify retention. Native complete requests use
+twenty samples of twenty calls at sizes 64 and 512, with complete source-bound
+artifacts admitted against independent materialized GLR output. The 512-item
+GQL route regressed in both candidate blocks: 2.55185 and 2.50270 ms per call,
+against references 2.29435 and 2.33710. Prepared LR allocation remained unchanged
+while complete requests allocated fewer bytes. CPU improvements on some other
+routes could not override this repeated regression.
+
+The prototype also increased HCL lexer preparation allocation from 353,360 to
+1,023,200 bytes per call; all eleven samples in each block were admitted.
+Preparation CPU medians were 0.185 and 0.196 ms for the references, versus
+0.407 and 0.406 for the candidates. Those calls execute the factory once per
+sample and check its returned lexer against independent complete tokens after
+timing. The two cost boundaries therefore exposed both request and setup risks.
+
+A second staging prototype replaces nested composition with a named loop
+and interns tuple keys before building procedure lists, so equivalent ASCII
+classes do not repeatedly allocate those lists. It retains staged participation
+and removes the per-token fold callback. Nested frames remain an investigation
+hypothesis, not a proven isolated cause of the first prototype's CPU change.
+The second prototype was also rejected, as recorded below.
+
+** Rejected staged-loop prototype
+
+The second prototype's complete-request ABBA still leaves the 512-item GQL
+candidate above both references. Prepared LR CPU also varies, so these data do
+not isolate the cause or establish a speed equivalence margin. The prototype
+is not retained as a performance optimization. CPU values below are batch CPU
+P50 divided by twenty, in milliseconds per call; allocation is admitted
+bytes per call. Complete products remain admitted against independent GLR.
+
+| Route | Reference A | Candidate A | Candidate B | Reference B | Reference bytes | Candidate bytes |
+|-------+-------------+-------------+-------------+-------------+-----------------+-----------------|
+| gql-return 64 prepared-lr | 0.26665 | 0.22170 | 0.28530 | 0.21620 | 230932. | 230932. |
+| gql-return 64 full-source | 0.36290 | 0.31155 | 0.35580 | 0.32865 | 542941.6 | 530589.6 |
+| fhirpath-addition 64 prepared-lr | 0.22660 | 0.21915 | 0.22460 | 0.23470 | 255540. | 255540. |
+| fhirpath-addition 64 full-source | 0.39165 | 0.35525 | 0.36910 | 0.35280 | 695181.6 | 678989.6 |
+| arithmetic-addition 64 prepared-lr | 0.09380 | 0.12410 | 0.09520 | 0.09490 | 134804. | 134804. |
+| arithmetic-addition 64 full-source | 0.15455 | 0.15155 | 0.15885 | 0.15105 | 462141.6 | 445949.6 |
+| gql-return 512 prepared-lr | 1.77545 | 2.03600 | 1.98900 | 1.84755 | 1894004. | 1894004. |
+| gql-return 512 full-source | 2.77905 | 2.96355 | 3.15610 | 2.79175 | 4330101.6 | 4231733.6 |
+| fhirpath-addition 512 prepared-lr | 1.76920 | 1.76395 | 1.99520 | 1.79975 | 2104980. | 2104980. |
+| fhirpath-addition 512 full-source | 3.59885 | 3.29520 | 3.55690 | 3.40980 | 5585421.6 | 5454541.6 |
+| arithmetic-addition 512 prepared-lr | 0.79980 | 0.89065 | 0.75345 | 0.76800 | 1080980. | 1080980. |
+| arithmetic-addition 512 full-source | 1.44400 | 1.17690 | 1.19105 | 1.18840 | 3696477.6 | 3565597.6 |
+
+HCL preparation allocation falls from the first prototype's 1,023,200 bytes to
+656,624, but still exceeds the reference's 353,360. Eleven of eleven samples
+are admitted in every block. Preparation CPU medians are 0.172, 0.353, 0.435
+and 0.175 ms in ABBA order. Thus reducing repeated prepared-key construction
+improves that prototype's setup cost without qualifying it for retention.
+
+The complete HCL lexer still allocates 312,330.4 candidate bytes per call,
+against 336,906.4 reference bytes. Its CPU medians are 75.35, 63.35, 50.10
+and 53.60 microseconds per call in ABBA order, with eleven samples of twenty
+calls. Allocation admission is 11/11, 10/11, 10/11 and 11/11 respectively.
+Those component results cannot override the complete GQL request risk.
+
+
+** Procedure-boundary loop experiment and system contention
+
+A third candidate preserved the original preparation and dispatch but moved the
+candidate fold into an ordinary named procedure. Preparation allocation stayed
+at 353,360 bytes, and the complete HCL lexer allocated 312,330.4 bytes. However,
+its HCL CPU medians were 97.35 and 116.75 microseconds per call, against references
+54.25 and 55.50. Those timings do not qualify the procedure form as a CPU
+optimization. The focused 512-item GQL ABBA also varies, including unchanged
+prepared-LR controls: complete-request CPU medians are 3.38985, 3.53775,
+3.36565 and 3.67730 ms in order. No stable complete-request speedup follows.
+
+A live process inventory during the last series confirmed concurrent GXI, GSC
+and GCC compilation processes. The logs also show substantial wall-minus-CPU
+intervals. This is evidence that the measurement environment was not exclusive;
+it does not isolate the cause of any earlier prototype's CPU result or excuse a
+regression. The procedure-boundary version is not retained. The next lowering
+uses a private hygienic macro, following the qualified regular-run lowering in
+the preceding section, to preserve call-site bindings directly.
+
+Two preliminary focused-control entries failed before sampling because they
+used a parser-module namespace for the grammar-owned GQL machine binding.
+The generated interface identified the correct grammar binding; the corrected
+four blocks completed with every required marker and exit 0. These entry errors
+are excluded from the performance table.
+
+** Rebase compilation boundary
+
+The work rebases onto =aff9375=. Byte-span helpers, source-line helpers and the
+new completion-policy module compile before the affected LR runtime. The GCC
+invocation for =lr-parser~0= then triggers the unchanged five-second silence
+guard; the overall run exits 124 after 72.626 seconds, with an idle-timeout
+reason and no completed new LR object. This failure is retained. No compiler
+switch or deadline increase is used to admit it. The shared lexical module
+with the hygienic loop independently compiles with GCC in 39.100 seconds and
+exits 0. Its component receipts do not by themselves qualify that failed LR
+rebuild or establish whole-head native closure.
+
+** Hygienic loop component control
+
+The final component series runs candidate/reference/reference/candidate in
+that order. Each block uses the same compiled =request-cost.ss= caller,
+independently checks complete HCL tokens, and asserts the loaded lexical phase.
+The native lowering has no separate =scan-ranked-candidates= procedure: the
+named loop is in the prepared scanner's lexical body. Ordinary checked engine
+operations and the original prepared tables remain intact.
+
+| Boundary | Candidate A | Reference A | Reference B | Candidate B |
+|----------+-------------+-------------+-------------+-------------|
+| Complete HCL lexer CPU, us/call | 50.300 | 60.750 | 60.200 | 83.800 |
+| complete-hcl-lexer bytes/call | 312330.4 | 336906.4 | 336906.4 | 312330.4 |
+| complete-hcl-lexer allocation admission | 10/11 | 10/11 | 10/11 | 10/11 |
+| HCL preparation CPU, ms/call | 0.175 | 0.221 | 0.203 | 0.202 |
+| hcl-lexer-preparation bytes/call | 353360.0 | 353360.0 | 353360.0 | 353360.0 |
+| hcl-lexer-preparation allocation admission | 11/11 | 11/11 | 11/11 | 11/11 |
+
+Preparation allocation is identical in all blocks. The complete lexer saves
+24,576 admitted bytes per call (about 7.3 percent) in both candidates. Existing
+regular scanner microcontrols retain their products and allocation. CPU is
+reported with the known contention boundary; no stable complete-parser CPU
+improvement or portable latency multiplier is claimed. These receipts qualify
+the shared lexical component, not the previously failed fresh LR rebuild.
+
+A bounded retry compiles only the LR runtime and its current native benchmark
+caller. It completes in 64.801 seconds with exit 0 under the same GCC toolchain,
+heap, total limit and idle guard. The earlier failed run remains part of the
+receipt. The successful retry resolves the fresh native object gate for these
+related modules; it does not prove that shared-host contention is absent or that
+all unrelated runtime owners have been requalified locally.
+
+The rebased test phase at =aff9375= completes all eight modules and 63 cases,
+including completion-policy and generic dispatch contracts, and emits both
+=TEST-SUITE-OK modules=8= and =OK=. The combined entry then fails while loading
+the current benchmark's unbuilt selective-GLR fixture; its overall exit is 1,
+so that combined command is not reported as a successful gate. Building only
+that missing fixture completes in 15.494 seconds with exit 0. A separate native
+control then checks explicit current LR and lexical phase identities, complete
+GQL/FHIRPath/Arithmetic artifacts against independent GLR, HCL token equality,
+and regular scanner products. It emits all four required markers and exits 0
+in 11.097 seconds. Source phase results and the corrected native gate remain
+separate receipts; no repeated source test run is used to conceal the fixture
+admission failure.
+
+* Cross-language audit of callback removal
+
+** Admission correction
+
+The preceding HCL scanner receipt is insufficient to retain a shared runtime
+optimization. The macro was therefore audited on GQL, FHIRPath and Arithmetic
+at both 64 and 512 units using the existing
+[[file:../../t/benchmarks/lr-request-stack/benchmark.ss][complete-request benchmark]].
+The series order was candidate A, reference A, reference B, candidate B. Each
+route used twelve samples of ten calls, one initial GC and natural timed GC.
+CPU values below are batch medians divided by ten, not individual request
+percentiles. Import, compilation, product validation and derivation diagnostics
+are outside timed intervals. Each complete artifact agrees with the independent
+materialized GLR interpreter and owns the original source.
+
+The LR runtime was freshly compiled from the semantic preparation refactor
+included in =f3dff04=. All four children explicitly admitted =lr-parser~0.o6=;
+only the lexical module varied between the original fold =.o1= and the private
+macro =.o5=. Both use the same language modules and native benchmark caller.
+The owned checkout was aligned with =b1b13e0= before qualification. The unchanged
+GCC SDK, 3 GiB heap, 120-second total bound and five-second idle guard applied.
+All four children exited zero with both required markers in 25.807, 29.299,
+16.522 and 20.123 seconds respectively.
+
+| Family and units | Boundary | Candidate A ms | Reference A ms | Reference B ms | Candidate B ms |
+|------------------+----------+----------------+----------------+----------------+----------------|
+| GQL 64 | prepared LR | 0.2310 | 0.2638 | 0.2314 | 0.2437 |
+| GQL 64 | full source | 0.5827 | 0.4148 | 0.3278 | 0.3369 |
+| FHIRPath 64 | prepared LR | 0.2660 | 0.2180 | 0.2645 | 0.2184 |
+| FHIRPath 64 | full source | 0.4186 | 0.3917 | 0.3599 | 0.3594 |
+| Arithmetic 64 | prepared LR | 0.1068 | 0.1021 | 0.1034 | 0.0982 |
+| Arithmetic 64 | full source | 0.1864 | 0.1514 | 0.1539 | 0.1490 |
+| GQL 512 | prepared LR | 2.0286 | 1.9738 | 2.1479 | 1.9309 |
+| GQL 512 | full source | 2.9448 | 2.9773 | 2.7429 | 3.3626 |
+| FHIRPath 512 | prepared LR | 2.4565 | 1.9853 | 1.7413 | 2.1148 |
+| FHIRPath 512 | full source | 3.2144 | 3.3384 | 3.4735 | 4.0724 |
+| Arithmetic 512 | prepared LR | 0.9260 | 0.8371 | 0.8229 | 0.8247 |
+| Arithmetic 512 | full source | 1.4478 | 1.2146 | 1.4126 | 1.2914 |
+
+Full-request allocation decreases reproducibly: GQL 512 from 4,330,163.2 to
+4,231,795.2 bytes, FHIRPath 512 from 5,585,483.2 to 5,454,603.2 bytes, and
+Arithmetic 512 from 3,696,539.2 to 3,565,659.2 bytes. Prepared LR allocation is
+unchanged in every family. These are admitted no-GC intervals, not raw deltas
+across collections.
+
+CPU does not provide a consistent complete-request benefit. Candidate A's
+small GQL request and candidate B's large GQL and FHIRPath requests are slower
+than both references. Prepared LR observations also vary despite unchanged
+code, so this series cannot establish a causal regression percentage. It does
+establish that retention as a CPU optimization is unsupported. The macro is
+withdrawn and the original fold restored. Independent candidate-order and
+Unicode controls remain useful and stay in the test suite. The earlier HCL
+allocation receipt remains a historical observation, not a current runtime win.
+
+** Broader Gerbil source study and structural experiment
+
+The installed =2591dcd= sources add distinct representation contracts to the
+previous LL1 and iterator study:
+
+| SDK source | Mechanism inspected | Engine consequence |
+|------------+---------------------+--------------------|
+| src/std/text/parser/ebnf/stream.ss | char-stream-getc and location-getc keep lookahead and location ownership together | Request position state must have an explicit owner; stream state is not a free replacement for source-bound artifacts |
+| src/std/text/parser/ebnf/lexer.ss | token-stream-get removes ignored tokens in a named loop; token-stream-next caches its EOF token | Name the execution algorithm and retain stable prepared state without creating a new language interface |
+| src/std/struct/queue.ss | Typed private fields and tail-cell insertion; queue->list publishes a copy | Mutable construction and published representation have different ownership and allocation costs |
+| src/std/vector/extensible.ss | Geometric storage growth, fill-pointer contract and boundary conversion | Growth policy must be evaluated with construction and final publication; substituting vectors for lists alone is insufficient |
+| src/gerbil/runtime/hash.ss | defhash-method stages typed access; hash-fold retains a dynamic callback | Hygienic staging and runtime composition both exist in the SDK; style alone cannot decide their request cost |
+
+The next retained implementation is a benchmark capability, not another lexical
+loop substitution. =benchmark-lr-request-backends= compares the existing
+recognition and event representations across the same three languages and two
+scales. It records requested preference and prepared backend admission separately; an
+ineligible grammar remains a recognition fallback. An untimed cost observer
+records actual source stages together with installed generated drive/source
+capabilities. Its complete artifact is checked before timing; the observer is
+absent from measured calls. The reference public artifact is always
+constructed with recognition enabled. Both the selected prepared root and the
+independent materialized GLR root must publish that same canonical artifact.
+Timed public requests must agree with it too. Derivation instrumentation stays
+on recognition and outside measured intervals.
+
+This closes a previous measurement gap: selecting an event parameter does not
+prove that a language admitted the event executor, and comparing roots directly
+would confuse representation with semantic equivalence. Complete source parsing
+and prepared recognition remain separate workloads, not additive parts of a
+cost decomposition. Language declarations and public loader slots are unchanged.
+
+** Structural qualification and remaining boundaries
+
+The first native representation control uses twelve samples of ten calls per
+route with the original scanner fold restored. Six cases pass in the
+first-character and semantic-preparation suites against the fresh native LR
+runtime. Both explicitly admitted runtime objects are =.o6=. All twenty-four
+prepared/full-source routes pass complete product controls; the child exits zero
+in 19.810 seconds with =TEST-SUITE-OK=, =LR-REQUEST-BACKENDS-OK= and
+=BACKEND-CONTROL-OK=. The lexical module and benchmark caller build together in
+20.535 seconds. The earlier fresh LR build completes in 30.484 seconds with
+the unchanged compiler and guard, closing that local artifact gate.
+
+| Family, 512 units | Recognition prepared CPU ms | Requested-event prepared CPU ms | Recognition full CPU ms | Requested-event full CPU ms | Prepared event admitted? |
+|-------------------+-----------------------------+---------------------------------+-------------------------+-----------------------------+--------------------------|
+| GQL | 1.7837 | 1.7961 | 3.0839 | 2.9312 | no |
+| FHIRPath | 1.8466 | 2.8944 | 3.3349 | 4.0219 | yes |
+| Arithmetic | 0.9576 | 1.4696 | 1.2874 | 1.3076 | yes |
+
+This is a representation diagnostic in recognition-then-event order, not an
+alternating performance qualification. The event executor saves some prepared
+allocation but its CPU observations do not justify enabling it by default.
+GQL's negative eligibility is a control, not an event execution result.
+Arithmetic's installed generated drive constructs recognition fragments directly;
+its full-source allocation remains 3,696,539.2 bytes under both preferences even
+though its prepared event route drops from 1,081,000 to 851,992 bytes. FHIRPath's
+ordinary checkpoint path admits the event executor and exhibits its cost in both
+prepared and complete requests. Prepared backend admission therefore cannot be
+reported as proof of full-source executor selection.
+
+The shared follow-up now has explicit falsifiers: generated execution must own
+its semantic representation contract; prepared and generated paths must publish
+the same canonical artifact; and a representation change must qualify complete
+requests across these distinct routes before becoming a default. Neither a
+macro style preference nor reduced allocation closes that obligation. Bash's
+contextual source parser is a separate engine route and is not qualified by this
+LR family measurement.
+
+#+begin_src scheme
+(import :gerbil-parser/t/benchmarks/lr-request-stack/benchmark)
+(benchmark-lr-request-backends 20 20)
+#+end_src
+
+Compile the current runtime and benchmark before native qualification. Source
+loading, native artifact identity, semantic tests and completed exact-head CI
+remain separate evidence boundaries. No process supervisor or alternate engine
+is added to the repository for this study.
+
+The final route-witness caller is rebuilt natively without the observer in timed
+calls. It repeats all twenty-four product-controlled routes at twelve samples
+of ten calls, explicitly admits both =.o6= runtime objects, and exits zero in
+58.928 seconds with =LR-REQUEST-BACKENDS-OK= and =BACKEND-CONTROL-OK=. The
+witness confirms Arithmetic's generated drive and the ordinary GQL/FHIRPath
+source path at both scales. This is a local receipt; PR CI belongs to the
+subsequent exact pushed head.
+

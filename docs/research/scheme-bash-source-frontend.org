@@ -1,0 +1,412 @@
+#+title: Bash author grammar and source frontend
+#+date: 2026-10-07
+
+* Decision and implemented boundary
+
+The author syntax contract belongs to =deflanguage=: one =syntax= block and
+one =rules= block. Release identity belongs to parser.ss metadata. There is no additional required SourceGrammar model.
+[[file:../../languages/bash/grammar.ss][Bash grammar.ss]] declares the common =shell= vocabulary and semantic command
+rules. The old profile declaration and its author entry have been removed;
+no independently runnable legacy grammar or compatibility alias is retained.
+
+| Author interface | Responsibility |
+|------------------+----------------|
+| grammar.ss | Lexical policies, semantic syntax and named AST rules |
+| parser.ss | Release metadata, checked Loader entry and parser services |
+| parser-test.ss | Independent inputs, tree/field/span expectations and benchmarks |
+
+[[file:../../src/language/grammar.ss][deflanguage]] elaborates source vocabulary through native macros.
+[[file:../../src/compiler/source-language.ss][Source syntax elaboration]] expands =defgrammar-syntax= vocabulary and checks
+command rule structure before emitting the common compiler call.
+[[file:../../language-support/shell-grammar.ss][The common source library]] assembles internal POO profiles and the admitted
+source strategy. Profiles and execution recipes are compiler products.
+=language-source-support= exposes checked source inspection and the parser
+receipt declaration, not profile constructors.
+
+* Metadata value and native POO alternatives
+
+All eight production packages now declare release language/version/contract in
+parser.ss. Compiler products are named =*-syntax= and have no release version or
+contract until the parser entry binds them. Upstream source pins in grammar.ss
+identify grammar inputs; they are distinct from parser release metadata.
+
+Ordinary values are the default. Native POO is optional when authors need
+inheritance or effective slot overrides. Both satisfy the metadata domain
+contract; POO objects are not required wrappers around ordinary data.
+
+#+begin_src scheme
+;; Normal author value; no POO construction or prototype declaration required.
+(deflanguage-parser-loader bash-language
+  (source bash-syntax)
+  (parse parse-bash)
+  (slots metadata: '((language . "bash") (version . "5.3")
+              (contract . "bash-5.3-structured-source.v1")
+              (grammar-format . source-parser))))
+
+;; With inheritance, metadata may instead be a native POO object:
+;; (slots metadata: (.o (:: self MetadataBase.) version: "v2"))
+;; Its effective slots must supply valid language/version/contract values.
+
+;; Question 1: Why is this design better?
+;; Ordinary users declare values directly. Extension users keep native POO;
+;; release identity has one authoring location, separate from recognition rules.
+;; Question 2: Why is this scientifically defensible?
+;; Equivalent value and inherited-object inputs must produce identical identity,
+;; parse events and receipts. Missing fields, duplicate keys and invalid values
+;; must fail admission. Independent corpus tests must preserve parser behavior.
+#+end_src
+
+The engine binds effective metadata once, snapshots identity strings, retains
+native POO extension behavior or ordinary association-list representation, and
+adds digest/digest-kind. =language-metadata-ref= reads either representation.
+Source digests include release identity and the normalized source recipe; LR
+Parser IR digests remain syntax-content identities. Changing a parser edition
+does not manufacture a different LR table.
+
+* Complexity transferred to the common library
+
+| Former author obligation | Author states now | Common library owns |
+|--------------------------+-------------------+---------------------|
+| Scanner modes and queue transitions | Shell lexical semantics through the shell vocabulary | Scanner states and FIFO here-document actions |
+| Numeric quote/pair widths | Delimiters, quote policies and contexts | Derived widths and matching actions |
+| Capture frames and projection instructions | AST kinds and labelled fields | Capture programs, indexes and admission |
+| Repeated command schemas | Command AST constructors | Publication from one internal schema authority |
+| take/list/until/balance/call programs | seq/choice/optional/repeat/reference/balanced | Consuming plans and call-site continuations |
+| Strategy assembly | Identity and syntax vocabulary | Native POO strategy construction and binding |
+
+The author grammar no longer contains scanner transitions, command VM
+instructions, capture programs or duplicate result schemas. Changing a labelled
+rule changes the compiler input; the library derives the execution plan.
+Shell semantics remain specific to the common shell library. Execution modules
+still reside under =src/runtime=; complete physical relocation is not claimed.
+
+* Scheme witness and the two questions
+
+This mechanism is implemented with native Scheme vocabulary expansion:
+
+#+begin_src scheme
+(defgrammar-syntax (compound-loop kind opener)
+  (node kind
+    (field keyword opener)
+    (field condition command-list)
+    (field keyword "do")
+    (field body command-list)
+    (field keyword "done")))
+
+;; These rows belong inside deflanguage's rules block:
+(while-loop (compound-loop WhileCommand "while"))
+(until-loop (compound-loop UntilCommand "until"))
+
+;; Question 1: Why is this design better?
+;; Authors state grammar structure and AST meaning once. Native macro vocabulary
+;; reuses that structure. Compilation derives termination and capture programs;
+;; authors do not maintain backend opcodes or scanner state machines.
+;; Question 2: Why is this scientifically defensible?
+;; Reduced author obligations are a testable hypothesis, not proof from brevity.
+;; Independent cases must preserve acceptance, fields, spans, catalogs and
+;; receipts. Diagnostic quality and grammar-change effort remain measurable
+;; obligations; a shorter file establishes neither safety nor speed.
+#+end_src
+
+S-expressions preserve structured syntax for subsequent analysis. Native
+=defsyntax=/=defrules= add contextual transformation and reusable vocabulary;
+POO supplies admitted implementation objects. General effective-rule selection
+with precise origin tracking is a separate research obligation, not established
+by this Bash frontend.
+
+* Elaboration and admission
+
+#+begin_example
+grammar.ss: deflanguage syntax / rules
+  -> native source-vocabulary expansion
+  -> checked named command expressions
+  -> common compiler: lexical policies, continuations, capture programs
+  -> admitted scanner / part / result / command plans and source descriptor
+  -> parser.ss: checked Loader and services
+  -> parser-test.ss: independent semantic observations
+#+end_example
+
+Source plans remain distinct from CFG/LR GrammarIR. Bound source identity incorporates
+the normalized recipe; a refactor may change its digest while preserving
+observable behavior. Versioning and downstream artifact renewal remain explicit
+release responsibilities.
+
+The frontend rejects duplicate sections/rules, unknown rule constructors,
+unresolved references, FIRST cycles, non-consuming repetition and command-list
+calls without a continuation. Lexical/profile values undergo existing admission
+when the declaration is bound. Structural diagnostics retain expression or author
+macro invocation blame. Complete parameter and expansion provenance remains open.
+
+Dispatch inference is scoped to the closed shell adapter. Special executor
+positions are declared independently of private rule names; ordinary selectors
+follow token-prefix structure. See the coordinated migration below for the
+policy and its limits.
+
+* Native validation and retained failures
+
+The first new executable stalled during source binding and exceeded the unchanged
+ten-second child bound. That failure is retained. POO slot initializers used
+names identical to outer lexical values, causing recursive reads; distinct
+lexical names corrected the binding. No timeout was increased.
+
+For the preceding Bash frontend commit, after correction, native translation completed with actual exit zero, and the
+native executable linked in 15.25 seconds with actual exit zero. The Bash child
+completed with actual exit zero and =DSL-SUITE-OK: bash=, covering author contract
+rejection and the existing independent Bash semantic suite: nested expansions,
+Unicode spans, FIFO here-documents, compound commands, empty-body rejection,
+long chains, arrays, catalogs and receipts.
+
+The complete closure subsequently passed all 26 bounded children with actual
+exit zero, including all eight language suites, topology, Loader/source services,
+composition/provenance controls and the one-sample benchmark smoke. This smoke
+is not a performance comparison. Incremental local native
+qualification does not establish a clean build, exact-head GitHub CI, a downstream
+installed consumer or a performance improvement.
+
+** Metadata migration qualification
+
+The subsequent metadata migration preserves the two admitted representations:
+ordinary association-list values and native POO objects. Focused controls compare
+identity, source digest, parse events and roundtrip output, exercise native slot
+overrides, reject malformed metadata and verify copied release identity strings.
+
+Two incremental native crashes occurred in old test consumers: the entry boundary
+module and the common language-strategy module. Debugger frames identified those
+consumers; recompiling and relinking them removed the crashes. An intermediate
+loadable-module build and a link attempt exceeded the unchanged five-second
+output-idle fence and remain failed receipts. The final native link completed in
+218.41 seconds with actual exit zero under the 240-second build fence.
+After narrowing the expression research fixture import, the final incremental
+link completed in 32.18 seconds with actual exit zero.
+
+Bash product inspection now derives internal plans from the compiled syntax in a
+test-only fixture. The narrow grammar frontend avoids importing unrelated grammar
+adapters. Binding-name generation passed 135 traces. Command/Source generation
+initially exceeded ten seconds while loading an unused Bash test-suite import;
+removing that import produced 54 controls in 9.01 seconds with actual exit zero.
+These generator checks do not establish downstream Rust execution or a speedup.
+The expression research child first timed out during import, then completed all
+85 assertions but exceeded its deadline during process exit. It now uses the
+existing disposable test-child exit helper after every assertion and output
+flush; the focused child exited zero within the unchanged ten-second fence.
+
+The final complete closure passed all 26 children with actual exit zero under
+unchanged ten-second fences: all eight language suites, ten production/development
+entries, value/POO contracts, topology, services, composition/provenance controls
+and the ten-entry one-sample benchmark smoke. This is incremental local evidence;
+the smoke is not a performance comparison.
+
+The preceding GitHub head, =2a55f99=, passed Rust CI, but both native CI jobs
+exceeded the 240-second conformance compilation fence. Local incremental checks
+do not establish that clean CI gate. No timeout was widened.
+
+* Paper connection and transfer limit
+
+[[https://www2.ccs.neu.edu/racket/pubs/icfp24-bgh.pdf][Compiled, Extensible, Multi-language DSLs]], section 1 and Figure 1, motivates
+an extensible macro surface elaborated into a checked compiler-oriented core.
+Our inference is that the removed Bash recipe exposed too much of that core.
+The implementation transfers the boundary principle, not Racket's syntax-spec
+API. The paper does not prove this compiler or a runtime speedup.
+
+The [[file:scheme-dsl-research-basis.org][research basis]] owns the broader paper study. This module owns the complete
+Bash migration, implementation limits and independent admission evidence.
+
+* Coordinated contextual compiler migration
+
+The review of =2a55f99= identified a real semantic coupling: private rule names
+selected entry positions in the compiler and in both execution backends. The
+metadata migration at =14741fe= did not remove that coupling. This migration
+changes the compiler, admission, Scheme execution, Rust emission and Rust
+execution together; it is not a grammar-file shortening exercise.
+
+** Entry identity and structural selection
+
+Only rules invoked at a special executor position declare that capability.
+Ordinary rules retain structural inference. The source vocabulary separates the
+private rule identifier, semantic entry position, selector and output node kind:
+
+#+begin_src scheme
+(assignment-elements
+  (at assignment-tail
+    (node ArrayAssignment
+      (field open (operator "("))
+      (repeat (field element word))
+      (field close (operator ")")))))
+
+(pipeline-modifiers
+  (at pipeline-head
+    (node Pipeline
+      (optional (field negate "!")))))
+
+;; Question 1: Why is this design better?
+;; Entry capability is declared independently of private helper names. Ordinary
+;; productions infer selectors; authors do not maintain dispatch integers.
+;; Question 2: Why is this scientifically defensible?
+;; Rename every private rule and call target while retaining entry capabilities.
+;; Acceptance, fields, byte spans, events and deferred-body links must agree.
+;; Missing, duplicate and foreign entry bindings must fail before execution.
+#+end_src
+
+The compiler emits a distinct entry table. Admission requires exactly one
+assignment-tail and one pipeline-head binding, checks their node/program
+contracts and resolves their target references. Both Scheme and Rust execution
+read that table, rather than interpreting =array-tail= or =pipeline-prefix= as
+reserved private names. Direct command token prefixes determine lookahead up to
+the first contextual operation; the field name =keyword= has no selector meaning.
+
+The current shell adapter orders selectors by specific token head and prefix
+width. Its bounded numeric encoding belongs to the generated backend product,
+not the author DSL. This is a documented adapter policy, not a proof of general
+ambiguity resolution or a complete precedence partial-order implementation.
+
+** Source diagnosis and transfer limits
+
+Expansion retains an occurrence map to syntax objects before passing closed
+rule data to lowering. A direct structural error blames its expression; an error
+inside generated syntax blames the author macro invocation. Executable controls
+check these two cases separately. This does not yet provide macro parameter
+identity, a complete expansion lineage, or hygienic binding identities in the
+canonical source product. Those remain part of the unified-core migration.
+
+[[https://www2.ccs.neu.edu/racket/pubs/icfp24-bgh.pdf][Compiled, Extensible, Multi-language DSLs]] supplies the boundary principle:
+precise extension positions and binding structure elaborate into a checked core.
+It does not establish this implementation's correctness. Native POO composition
+is optional for declaration inheritance; ordinary values remain valid inputs.
+No extra required author file or public SourceGrammar model is introduced.
+
+** One remaining architecture objective
+
+| Boundary | Current implementation | Remaining acceptance obligation |
+|----------+------------------------+---------------------------------|
+| Entry positions / selectors | Explicit bindings, structural selection, both backends | General overlap witnesses and declared incomparable choices |
+| Macro origins | Expression or author invocation blame | Parameter identity and complete lineage through canonical admission |
+| Recognition / Context / Tree | Checked command, scanner, part and result products | Shared contextual Parser IR authority, rather than parallel source recipes |
+| Incremental context | Canonical scanner checkpoint and same-source restore | Cross-edit boundary mapping, entry/exit state and pending-queue reuse evidence |
+| Recovery | Existing lossless rejection and LR recovery paths | Context-aware partial trees, budgets and repair evidence without marking repaired source valid |
+| Physical execution | Scheme command executor and generated Rust Source executor | Measured specialization from the unified product; no assumed speedup |
+
+This table is one migration plan. Entry-contract closure is not advertised as
+completion of Contextual Parser IR, editor recovery, or incremental Bash parsing.
+The existing canonical LR(1) reference tests and contextual scanner compiler are
+inputs to that migration; adding duplicate implementations would not close it.
+
+** Coordinated migration qualification (2026-10-07)
+
+The final native link completed in 21.62 seconds with exit 0. The focused Bash
+suite passed 46 cases and exited 0 in 1.28 seconds. All 26 children in
+The historical Bash research runner, now replaced by =test-processes.ss research=,
+exited 0 under the unchanged ten-second limit,
+including every language suite and the all-language benchmark smoke control.
+The benchmark smoke control has one sample per entry and establishes execution,
+not a statistically supported latency improvement.
+
+The Scheme generator emitted 54 Command/Source controls. The Rust library suite
+passed all 127 tests, including private-rule renaming across all 49 base controls.
+Prepared Rust entry references and Scheme entry forms are resolved once, before
+request execution. No end-to-end performance improvement is claimed.
+
+An earlier provenance control completed its assertions but failed the child exit
+limit. Research children now use the existing native disposable-child exit
+binding after assertions and flushed output. CI compiles that binding before
+research execution. The original timeout remains a failure receipt; completion
+markers alone are not acceptance. Local qualification does not establish remote
+CI success or completion of the remaining architecture obligations above.
+
+** Single source compilation and Rust access boundary
+
+Source providers now classify declaration shape and compile once. Compilation
+returns the identity recipe and executable engine together. Shell scanner,
+result, part and command plans are compiled/admitted in that operation; the
+recipe is projected from the plans used by the runtime. Line providers and
+negative test providers use the same protocol. This removes the former separate
+recipe-generation and engine-binding compilations. The coordinated
+[[file:scheme-contextual-parser-ir.org][Contextual Parser IR migration]] now supplies a closed v2 envelope for LR,
+command and line products. General command-selector overlap witnesses, cross-edit
+source certificates and recovery remain separate implementation obligations. No
+measured latency gain is claimed.
+
+The native convenience facade obtains release-bound descriptors from
+=parser.ss=. Raw syntax from =grammar.ss= cannot substitute for a descriptor
+whose metadata supplies language identity. The existing entry-boundary suite
+now checks native publication for accepted and rejected GQL/Cypher input,
+including UTF-8 and the binary event count/length contract.
+
+Rust consumers access Scheme AST results through the following primary path:
+
+#+begin_example
+Rust caller -> C ABI -> Scheme parser engine -> canonical result
+            <- owned payload + borrowed AST/CST access
+#+end_example
+
+The Rust access layer must retain node kinds, field associations, child order,
+source spans and source text. It may index the result for navigation; it must
+not re-run language recognition or construct another authoritative syntax tree.
+An owned payload wrapper must keep the native runtime and language handle alive
+until all borrowed views are released. Semantic AST wrappers should resolve
+fields through the canonical result catalog, with no second grammar contract.
+
+The implemented native Rust wrapper now obtains a catalog from its own language
+handle and borrows GPA1 through =NativeParsed::view()=. Node, token and named
+field navigation require no generated =LanguageSpec= or =ContextualParserSpec=.
+The native crate depends only on =gerbil-parser-artifact= and exposes borrowed
+navigation directly over the admitted payload. The independent Rust AOT backend uses flat
+source-range indexes in =gerbil-parser-runtime= and is not a dependency of the
+primary Scheme FFI client. See [[../architecture/0006-rust-aot.org][the implementation and qualification contract]].
+
+Benchmark obligations distinguish Scheme execution, ABI transport, artifact
+admission/indexing, AST field traversal and optional extra tree materialization.
+Architecture alone establishes no relative performance result. Equivalent outputs and downstream traversal must be compared before a
+performance conclusion is admitted.
+
+Qualification: the final native link exited 0 in 36.06 seconds. All 26 DSL
+research children exited 0 under the unchanged ten-second child limit. The
+entry-boundary suite passed five cases, including native facade publication;
+the source-services suite passed four cases, including single compilation.
+The Rust library passed 127 tests after command product types were separated
+from execution and the glob import was removed.
+
+The original full FFI test module could not load its record-parser fixture in
+the temporary environment. A separate cold interpreted facade probe exceeded
+the ten-second limit while loading dependencies, before assertions ran. Neither
+is counted as a successful FFI receipt. Native entry-boundary tests provide the
+bounded publication receipt above; the broader native ABI suite remains a CI
+obligation. The ASP Rust quality gate was not qualified locally: its initial
+cold run exceeded ten seconds, and separate dependency compilation later failed
+the five-second output-idle fence. Required limits were not increased.
+
+* Implemented native representation separation
+
+The preceding qualification records belong to the prior published revision.
+The current refactor implements the separation proposed above: an independent
+=gerbil-parser-artifact= vocabulary and borrowed AST API, handle-bound catalog
+admission, engine-derived =rootKind= publication, and field-owner validation.
+The FFI client has no dependency on generated =LanguageSpec= values or on the
+independent Rust AOT executor. Native consumers retain borrowed event navigation without materializing another tree.
+
+#+begin_src scheme
+;; Parser products publish their actual root and result catalog together.
+;; Native publication reads these engine-owned values; authors do not maintain
+;; a second Rust grammar or positional catalog convention.
+(source-language-root-kind descriptor)
+(source-language-result-catalog descriptor)
+#+end_src
+
+Why does this design preserve Scheme's advantage? The =deflanguage= declaration,
+macro expansion and POO composition still select the effective parser product;
+Rust consumes that product's vocabulary and events through one publication
+contract. Language authors retain =grammar.ss=, =parser.ss= and
+=parser-test.ss= as their interfaces.
+
+Why is this design technically justified? Source and grammar digests, vocabulary
+admission, owner-specific fields and ordered scope indexes provide falsifiable
+contracts. Tests compare independent execution with canonical Scheme artifacts
+and reject damaged or mismatched results. Removing a redundant representation
+does not establish a latency improvement; equivalent traversal benchmarks are
+still required for that conclusion.
+
+The observed prior-head macOS generator failure came from applying a
+LanguageDevelopmentLoader contract to an ordinary parser Loader with one added
+slot. The generator now emits its bound BuildStrategy directly. The prior-head
+Ubuntu conformance build exceeded the unchanged 240-second fence. Test entry
+modules now skip whole-module Scheme optimizer analysis while linking the
+optimized production parser; this does not change production build settings.

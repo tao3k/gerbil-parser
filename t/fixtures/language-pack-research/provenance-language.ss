@@ -1,0 +1,42 @@
+#!/usr/bin/env gxi
+;;; -*- Gerbil -*-
+(import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
+        "list-language"
+        (only-in "../../../src/compiler/bound-ir" bound-grammar-ir-ref bound-grammar-ir-binding)
+        (only-in "../../../src/compiler/parser-ir" parser-ir-ref)
+        (only-in "../../../src/runtime/parser" parse-source)
+        (only-in "../../../src/runtime/artifact"
+                 parse-artifact-success? parse-artifact-roundtrip parse-artifact-events))
+(export main)
+(def (main)
+
+     (def checked 0)
+     (def (probe label actual expected)
+          (unless (equal? actual expected) (error "language provenance mismatch" label actual expected))
+          (set! checked (+ checked 1))
+          (display "PROVENANCE-LANGUAGE-CASE-OK: ") (display label) (newline) (force-output))
+     (def (ref value key) (let (row (assq key value)) (and row (cdr row))))
+     (let* ((helper (bound-grammar-ir-binding list-study-bound-grammar-ir 'rule 'call-arguments/tail))
+            (source (ref helper 'source)))
+       (probe 'admitted-component-owner (ref source 'componentOwner) 'call-arguments)
+       (probe 'admitted-generated-flag (ref source 'generated?) #t)
+       (probe 'admitted-provider-path (ref source 'path)
+              "t/fixtures/language-pack-research/list-roles.ss")
+       (probe 'admitted-expansion-lineage (ref helper 'expansionLineage)
+              '(deflist-study make-nonempty-list-role)))
+     (probe 'composition-propagates-to-published-parser
+            (parser-ir-ref list-study-parser-ir 'compositionDigest) (ref list-composition-receipt 'compositionDigest))
+     (probe 'complete-canonical-input-retained list-study-grammar list-composed-ir)
+     (for-each
+      (lambda (source)
+        (let ((candidate (parse-source list-study-parser source))
+              (control (parse-source list-control-parser source)))
+          (probe (list 'accepted source) (parse-artifact-success? candidate) #t)
+          (probe (list 'roundtrip source) (parse-artifact-roundtrip candidate) source)
+          (probe (list 'event-parity source)
+                 (parse-artifact-events candidate) (parse-artifact-events control))))
+      '("f(a,b)" "[a,b]" "f()"))
+     (display "PROVENANCE-LANGUAGE-OK: ") (display checked)
+     (display " checks passed") (newline) (force-output)
+     (test-child-process-exit! 0)
+     )

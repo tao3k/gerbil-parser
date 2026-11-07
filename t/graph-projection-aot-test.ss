@@ -1,82 +1,92 @@
+(import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
 ;;; POO graph rules are validated and resolve against one grammar identity.
 
 (import (only-in :std/test check test-case test-suite)
-        (only-in :gerbil-parser/languages/arithmetic/v1/grammar
+        (only-in :gerbil-parser/languages/arithmetic/parser
                  arithmetic-language-grammar)
         (only-in :gerbil-parser/graph-projection-support
                  make-graph-projection make-graph-node make-graph-field
                  graph-projection? graph-projection-digest))
-(import (only-in :gerbil-parser/src/compiler/graph-projection-rowan
-                 graph-projection-rowan-source))
-(export graph-projection-aot-test)
+(import (only-in :gerbil-parser/src/compiler/graph-projection-runtime
+                 graph-projection-runtime-source))
 
-(def graph-projection-aot-test
-  (test-suite "POO graph projection AOT"
-    (test-case "typed graph rules bind to generated node and token kinds"
-      (let* ((projection
+
+(deflanguage-parser-tests graph-projection-aot-test "POO graph projection AOT"
+  (engine)
+    (property "typed graph rules bind to generated node and token kinds"
+      (bindings (projection
               (make-graph-projection
                (list (make-graph-node
                       'Expression "document" "root"
-                      (list (make-graph-field 'Number "value"))))))
-             (source (graph-projection-rowan-source
-                      arithmetic-language-grammar projection))
-             (digest (graph-projection-digest
+                      (list (make-graph-field 'Number "value")))))) (source (graph-projection-runtime-source
+                      arithmetic-language-grammar projection)) (digest (graph-projection-digest
                       arithmetic-language-grammar projection)))
-        (check (graph-projection? projection) => #t)
-        (check (and (string-contains source "GraphProjectionSpec")
+      (equal (graph-projection? projection)  #t)
+      (equal (and (string-contains source "GraphProjectionSpec")
                     (string-contains source "projection_digest: \"sha256:")
                     (string-contains source "name: \"value\"")
                     (string-contains source "mode: GraphFieldMode::Append")
                     #t)
-               => #t)
-        (check (if (string-contains
+                #t)
+      (equal (if (string-contains
                     source (string-append "projection_digest: \""
                                           digest "\""))
                  #t #f)
-               => #t)))
-    (test-case "field cardinality is checked and changes the generated contract"
-      (let* ((append-rule
+                #t))
+    (property "field cardinality is checked and changes the generated contract"
+      (bindings (append-rule
               (make-graph-projection
                (list (make-graph-node
                       'Expression "document" "root"
-                      (list (make-graph-field 'Number "value"))))))
-             (each-rule
+                      (list (make-graph-field 'Number "value")))))) (each-rule
               (make-graph-projection
                (list (make-graph-node
                       'Expression "document" "root"
-                      (list (make-graph-field 'Number "value" 'each))))))
-             (source (graph-projection-rowan-source
+                      (list (make-graph-field 'Number "value" 'each)))))) (source (graph-projection-runtime-source
                       arithmetic-language-grammar each-rule)))
-        (check (if (string-contains source "mode: GraphFieldMode::Each")
+      (equal (if (string-contains source "mode: GraphFieldMode::Each")
                  #t #f)
-               => #t)
-        (check (equal? (graph-projection-digest
+                #t)
+      (equal (equal? (graph-projection-digest
                         arithmetic-language-grammar append-rule)
                        (graph-projection-digest
                         arithmetic-language-grammar each-rule))
-               => #f)
-        (check
+                #f)
+      (equal
          (with-catch
           (lambda (error) #t)
           (lambda () (make-graph-field 'Number "value" 'invented) #f))
-         => #t)))
-    (test-case "empty append fields remain Scheme-declared AOT graph values"
-      (let* ((projection
+          #t))
+    (property "empty append fields remain Scheme-declared AOT graph values"
+      (bindings (projection
               (make-graph-projection
                (list (make-graph-node
                       'Expression "document" "root"
                       (list (make-graph-field
-                             'Number "value" 'append-or-empty))))))
-             (source (graph-projection-rowan-source
+                             'Number "value" 'append-or-empty)))))) (source (graph-projection-runtime-source
                       arithmetic-language-grammar projection)))
-        (check (graph-projection? projection) => #t)
-        (check (if (string-contains
+      (equal (graph-projection? projection)  #t)
+      (equal (if (string-contains
                     source "mode: GraphFieldMode::AppendOrEmpty")
                  #t #f)
-               => #t)))
-    (test-case "duplicate graph node owners are rejected"
-      (check
+                #t))
+    (property "node text fields resolve against node kinds"
+      (bindings (projection
+              (make-graph-projection
+               (list (make-graph-node
+                      'Expression "document" "root"
+                      (list (make-graph-field
+                             'Expression "source" 'node-text)))))) (source (graph-projection-runtime-source
+                      arithmetic-language-grammar projection)))
+      (equal (graph-projection? projection)  #t)
+      (equal (if (string-contains
+                    source "mode: GraphFieldMode::NodeText")
+                 #t #f)
+                #t))
+    (property "duplicate graph node owners are rejected"
+      (bindings)
+      (equal
        (with-catch
         (lambda (error) #t)
         (lambda ()
@@ -84,15 +94,16 @@
            (list (make-graph-node 'Expression "document" "root" '())
                  (make-graph-node 'Expression "element" "duplicate" '())))
           #f))
-       => #t))
-    (test-case "wrong-category syntax references are rejected at AOT"
-      (check
+        #t))
+    (property "wrong-category syntax references are rejected at AOT"
+      (bindings)
+      (equal
        (with-catch
         (lambda (error) #t)
         (lambda ()
-          (graph-projection-rowan-source
+          (graph-projection-runtime-source
            arithmetic-language-grammar
            (make-graph-projection
             (list (make-graph-node 'Number "document" "root" '()))))
           #f))
-       => #t))))
+        #t)))

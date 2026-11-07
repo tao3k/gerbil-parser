@@ -1,0 +1,148 @@
+#+title: Complete Org Fold backend baseline
+
+* What is compared
+
+The complete =fold-input-program.ss= declaration from Orgize, not an outline
+or arithmetic approximation, is admitted by the engine's Scheme and typed
+Rust backends. The same grammar, helpers, initial state, line/final actions,
+and default parameters feed both. Rust lowering uses the workspace's pinned
+GitHub gerbil-scheme-rust IR dependency. No dependency is changed to a local
+path. The checked Rust runtime rlib is supplied explicitly at link time;
+retain its Cargo compiler-artifact receipt, source identity and hash.
+
+Scheme uses the existing production =pruned= effect lowering and
+=ordinary-run= plan. Rust uses its existing typed event IR backend, producing
+=Vec<TreeEvent>= and then canonical OEV1. This is not a claim that the backends
+have the same optimizer or allocation behavior. The Rust event vector and tape
+are both included in its observed maximum output reserved capacity. No new
+parser algorithm or input/result cache is introduced by the benchmark.
+
+Inputs cycle the actual Orgize =doc.org= (394 bytes), =plain-links.org=
+(299 bytes), and =quote-heavy.org= (639 bytes) fixtures, appending a changing
+request index and non-ASCII text. Both start at =count * batch=, batches 1..20.
+The native Scheme string representation and Rust UTF-8 string representation
+are intentionally retained; Scheme Fold's input encoding is inside its call.
+Do not describe their input capacities as interchangeable.
+
+* Boundaries and admission
+
+The request timer covers the complete Fold and canonical OEV1 materialization.
+The batch wall additionally includes per-request recording, output SHA256
+stream validation and releasing results. Hashing occurs after the request
+timer. No output tape collection is retained across requests. Input preparation,
+input SHA256 and one warmup precede the batch timer; percentile sorting and
+printing follow it. No interpreter, compiler or graph projection runs in the
+timed region. RSS includes all these preparation/observation costs and runtime
+image, so it is not exclusive Fold memory or live heap.
+
+Rust uses monotonic Instant, Scheme uses the SDK integer-nanosecond realtime
+clock with backwards observations rejected. Per-request nearest-rank P95/P99
+are summarized as medians of twenty batch percentiles, not pooled percentiles.
+
+Each of sixty backend/batch pairs must match grammar, input bytes, input SHA256,
+output bytes, complete concatenated OEV1 SHA256, batch index and boundary.
+The reporter fails closed on missing completion, partial matrices or mismatch.
+Cross-backend output agreement is differential evidence, not an independent
+proof that all Org syntax is correct or that every generated lowering is valid.
+Existing language controls and formal evidence retain their separate role.
+
+These are serial backend baselines, not a change to production processor,
+actor, thread or VM counts. SMP is not blanket skipped or passed here; no SMP
+speed or multi-threaded/multiple-VM capability follows from these results.
+This is neither public Org graph parsing nor FFI/Tokio/Python acceptance.
+It does not waive the historical performance target or promote an optimization.
+
+* Reproduction and diagnostics
+
+=just prepare-org-backend-baseline PROGRAM OUTPUT= generates both owners.
+Run the generated =build-fold.ss= in the installed official Gerbil package
+environment, then =just link-org-scheme-baseline OUTPUT LOAD_PATH=.
+=just emit-org-rust-baseline IR OUTPUT_RS= uses the locked upstream compiler;
+=just link-org-rust-baseline OUTPUT RUNTIME_RLIB SHA_RLIB= links its real product
+with release artifacts identified by Cargo, not arbitrarily selected wildcards.
+Run =just run-org-backend-baseline BINARY COUNT FIXTURES GRAMMAR RECEIPT= once
+per backend at 1000/10000/100000, without concurrent compiler or benchmark jobs.
+Use the existing matched report entrypoint for the complete output directory.
+
+The same Scheme executable accepts a final =diagnostic= argument. That mode
+records the twenty slowest calls per batch with GC count/time, process CPU
+and involuntary context switches from read-only installed SDK/OS counters.
+Its probes and row collection perturb allocation and scheduling: never merge
+it into the baseline or retrospectively assign a historical spike's cause.
+The normal baseline reads counters only at batch boundaries, including VM
+heap bytes and latest-GC live counter. They are not process RSS. The installed
+Gambit header defines heap size in words, explicitly converted with sizeof word;
+the official source snapshot sets latest_gc_live to live words * word size.
+Retain raw counter deltas; GC-crossing allocation deltas are not qualified
+allocated-byte measurements (see =admit-parser-allocation=).
+
+* 2026-10-16 source and result receipt
+
+Parser source =58faa58e559fdbd2e626308845017564f41d3673= plus the baseline
+drivers; locked Rust IR =2c82b845c141ce68147cf74cb5a4ec680c6ffb07=.
+Consumer checkout =d63f5e4b9e22fdfe59ed355f0cefc5d21c333fb5=, with its recovered
+complete declaration snapshot. This is not an assertion that Orgize's public
+current PR or dependency pins have been changed by this work.
+Declaration SHA256 =d37b4b160c9d956a549e86486e0b590b0cbdbf2a273ccb16f683c100d3158c38=.
+The 1.49 MB declaration remains in the persistent recovery checkout at
+=/Users/guangtao/.codex/worktrees/parser-fold-recovery-20261014/gerbil-parser/.recovery/tape-run-baseline/fold-input-program.ss=;
+do not substitute a smaller grammar. The consumer's =t/generate-org-fold.ss=
+owns regenerating this declaration; verify its digest before comparison.
+
+Generated complete Rust source SHA256
+=b3e8bb97c3aa98d23ac530b21841a5ea175a49c448cb3f9704955ebd6a419a49=.
+Rust executable SHA256
+=5ecd8539b17887184289e3e8905ed067882a32aec322b2d30ff13be3c48ae5e3=.
+Scheme executable SHA256
+=85546f87c58669c9d27790fa9ca68b2d2469950f5d4f5fccafb118c8c7057700=.
+The Rust driver was whitespace-formatted after linking; retained timings bind
+to this executable, not a claim of bitwise reconstruction from formatting.
+No runtime, event compiler or kernel code was changed. The release runtime
+source and lock were unchanged between the arithmetic source and =58faa58=;
+Cargo's compiler-artifact JSON identifies the exact linked release rlibs.
+Installed SDK, machine and Rust version match the preceding arithmetic receipt.
+
+All three loads completed twenty batches in separate sequential processes,
+Rust first then Scheme for each ascending load. No compiler or second matrix
+ran concurrently. =just report-backend-baseline= validates all sixty pairs;
+four negative controls reject incomplete batches, duplicate indices, differing
+output and diagnostic data. Strict build-support all-target clippy passed.
+Raw receipts under [[file:receipts/20261016-org/][receipts/20261016-org]] reproduce the root README table.
+Full local binaries/generated units remain under =.data/org-backend-*= in this
+persistent worktree. No Automation was started and no SDK was rebuilt.
+
+* Tail and memory findings (not a speed admission)
+
+The separate twenty-batch, 1000-request probe selected the twenty slowest
+calls from each batch: 108 of those 400 calls crossed GC. All eight largest
+observed calls crossed GC. For example, a 511 us call has 469 us GC wall and
+510 us process CPU; a 537 us call has 394 us GC wall, 483 us CPU and four
+involuntary switches. Non-GC calls also remain: 301 us wall/327 us observed CPU
+(probe boundaries overlap) and 233 us wall/215 us CPU with one switch. Thus
+not every tail is a GC or scheduler event. Probes add overhead; the old
+arithmetic 643 us P99 cannot be retroactively attributed from these new calls.
+
+Baseline GC wall / batch wall is 4.93%, 2.55%, 3.89% across the three loads;
+CPU / batch wall is 99.88%, 99.53%, 95.67%. These overlapping observations are
+not additive phase costs. GC and non-CPU waiting do not explain most complete
+Fold cost; ordinary execution remains CPU-dominant.
+
+At 100000 requests, Scheme's maximum observed VM heap is 667217424 bytes,
+latest-GC live counter 296305704 bytes, and process peak RSS 788316160 bytes.
+Their maxima need not coincide. They are different accounting domains, not
+three values to add or an exact partition of RSS. The retained input cohort
+is about 48 MB UTF-8; its Scheme character-string representation is not that
+byte buffer. Each source contains supplementary Unicode. Input construction,
+GC slack and sorting/measurement storage contribute to the process peak.
+The SDK's GC source computes target heap space from live storage / live-percent,
+so lower GC count can accompany higher heap reservation. No live-percent or
+heap option was tuned to hide this memory cost. Exact per-object RSS attribution
+has not been established by these counters; do not call 788 MB a Fold leak.
+
+Rust retains about 91.2 MB of input String/vector capacity at the largest load,
+versus about 48 MB input UTF-8 bytes; observed maximum simultaneous per-request
+event-vector plus tape capacity is 7776 bytes. Results are not retained en masse.
+The generated Rust backend still executes the typed stateful event program;
+Scheme uses its established pruned/ordinary-run lowering. Optimizer parity,
+not the faster arithmetic table parser or Tokio queues, is the next engine
+investigation. This baseline does not itself prove a specific CPU root cause.

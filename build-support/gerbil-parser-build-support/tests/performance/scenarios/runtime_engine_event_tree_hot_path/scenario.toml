@@ -1,0 +1,11 @@
+id = "runtime-engine-event-tree-hot-path-v1"
+title = "Scheme-AOT structural events stay inside the AOT latency red zone"
+policy_ids = ["RUST-AGENT-RUNTIME-ENGINE-PERFORMANCE-001"]
+agent_goal = "Preserve bounded lossless indexed syntax construction from deeply nested generated parser events."
+reference_repositories = ["rust-analyzer/runtime", "tree-sitter/tree-sitter"]
+reference_patterns = [
+  "Structural parser decisions remain downstream-owned",
+  "The generic sink validates exact source coverage without copying source text",
+]
+inputs = "inputs"
+expected = "expected"

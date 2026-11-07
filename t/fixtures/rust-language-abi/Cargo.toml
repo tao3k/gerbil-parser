@@ -1,0 +1,51 @@
+[package]
+name = "rust-language-abi-fixture"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["rlib", "staticlib"]
+
+[[bin]]
+name = "rust-language-abi-fixture"
+path = "src/main.rs"
+required-features = ["embedded-runtime"]
+
+[features]
+embedded-runtime = ["dep:gerbil-scheme", "dep:gerbil-scheme-sys", "dep:gerbil-scheme-aot-build"]
+standalone = ["gerbil-parser-ffi/standalone"]
+tokio = ["gerbil-parser-ffi/tokio", "gerbil-parser-ffi/benchmark-controls", "dep:tokio"]
+
+[dependencies]
+gerbil-parser-ffi = { path = "../../../rust/gerbil-parser-ffi" }
+tokio = { version = "1.53.1", features = ["rt", "sync"], optional = true }
+
+[dependencies.gerbil-scheme]
+workspace = true
+optional = true
+features = ["external-program"]
+
+[dependencies.gerbil-scheme-sys]
+workspace = true
+optional = true
+features = ["external-program"]
+
+[build-dependencies]
+gerbil-scheme = { workspace = true, optional = true }
+gerbil-scheme-aot-build = { workspace = true, optional = true }
+
+[workspace]
+resolver = "2"
+
+[workspace.dependencies]
+gerbil-scheme = { git = "https://github.com/tao3k/gerbil-scheme-rust", rev = "838af1ab4e6c0c8177fed176efba448c694012b5" }
+gerbil-scheme-sys = { git = "https://github.com/tao3k/gerbil-scheme-rust", rev = "838af1ab4e6c0c8177fed176efba448c694012b5" }
+gerbil-scheme-aot-build = { git = "https://github.com/tao3k/gerbil-scheme-rust", rev = "838af1ab4e6c0c8177fed176efba448c694012b5" }
+
+
+# Match the production workspace for complete-request CPU qualification.
+[profile.release]
+opt-level = 3
+lto = "thin"
+overflow-checks = true

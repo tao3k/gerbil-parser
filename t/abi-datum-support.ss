@@ -1,0 +1,11 @@
+(export abi-datum-read)
+(def (abi-datum-read text)
+  (def (decode value)
+    (cond
+     ((and (pair? value) (eq? (car value) 'object))
+      (let (table (make-hash-table))
+        (for-each (lambda (entry) (hash-put! table (car entry) (decode (cadr entry)))) (cdr value))
+        table))
+     ((and (pair? value) (eq? (car value) 'list)) (map decode (cdr value)))
+     (else value)))
+  (call-with-input-string text (lambda (port) (decode (read port)))))

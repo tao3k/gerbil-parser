@@ -1,0 +1,78 @@
+#+TITLE: Module publication, configuration and execution ownership
+#+LANGUAGE: en
+
+* Audited framework baseline
+The publication audit originally used Yuanxu0e3c1f8 / POO29c58aa. The current
+language/testing alignment is documented in [[file:language-testing-ownership.org][language and testing ownership]]. Dependency declarations
+remain authoritative. Core source admission requires types/objects/config/interface
+role files; its declaration compiler makes Config an optional binding and lowers
+core.exports into the link function. Core linking retains the normalized candidate
+returned by Scope admission. Parser must not implement any of those mechanisms.
+
+* Decisions by responsibility
+| Surface | Keep | Remove / correct |
+|---------+------+------------------|
+| init | One Yuanxu selection window, nine domain selections, Core std-make-spec | No second loader, walker, source catalog or generated init registry |
+| Config | Required role file; a real local composition can be added when needed | Nine Config aliases, repeated Objects imports and explicit Config exports removed |
+| Interface | Explicit domain identity, requires/features and selected service prototype | core.exports selects the Objects prototype directly; no alias hop |
+| Scope Types | POO Record field/method Types, Core Contract context and normalized result | No Parser admission factory, descriptor compiler or second field table |
+| Objects | Typed domain service prototype and bindings to actual implementation owners | Build host initialization removed from declarative services |
+| Compiler integration | Pure compiler option/spec/link functions and standard build script | build.ss calls the existing initializer directly; no init/Config/Scope execution effect |
+| Runtime | Actual machine and lexical execution sources | Three compiler forwarding modules removed; real and emitted imports use runtime |
+| FFI | Source-owned schema versions and ABI Build contribution | Scope must match canonical schema values; arbitrary UInt metadata no longer passes |
+| Public library entries | Parser prelude and domain-owned capability interfaces; narrow src/declarations vocabulary | Redundant src/api full import/re-export umbrella removed; no replacement aggregate or alias |
+| Build declarations | Owner public roots and foreign options; Core derives import closure | Runtime owns runtime public roots; Compiler no longer republishes forwarding paths |
+| Development audit | Independent native package inventory comparison | Remains a validation oracle, not the production membership list |
+
+Binding-free Config roles declare =(export)=, a framework-conforming input. They do not claim
+a new configuration service. Deleting mandatory role files would violate Core's
+source contract; inventing another factory to compress the repeated Record and
+Contract declarations would obscure the actual public Types.
+
+The explicit source registration in build.ss is retained in both macro and runtime
+phases: these have separate native expander/load contexts. Likewise structural
+Grammar/ParseArtifact boundaries remain necessary across source and compiled
+worlds. Native import caching does not replace current-source admission.
+
+* Tests and evidence boundaries
+The actual init-selected Scopes must still execute typed operations and reject
+malformed input/output. Config roles read as binding-free export declarations, and direct
+service selection must pass Core admission. BuildSupport Scope must not expose
+the imperative initializer. Existing compiler-process tests still execute the
+real initializer and preserve host option idempotence and failure propagation.
+
+FFI Scope accepts schema-derived metadata and rejects each positive but incorrect
+version, as well as the prior invalid negative value. Runtime execution uses the
+same API semantics and generated products, while a negative residency check
+rejects all retired compiler execution identities. No compatibility forwarding
+files remain. The native catalog comparison requires runtime products and rejects
+the three retired compiler targets.
+
+The complete entry rebuilds test support with standard Gerbil before discovery
+and admits native output using error/HARNESS/final-OK checks. Existing negative
+controls, process limits, two build workers and memory ceilings remain unchanged.
+Current-head Linux/macOS cold preparation, source/compiled phases, restoration,
+semantic tests, generation and FFI must pass; previous-head success is historical.
+std Djot remains paused. Gerbil/SDK are unchanged; gerbil.pkg owns current dependency pins.
+
+* Observed source admission refusal
+The first candidate used comment-only Config files. Core correctly refused
+"module role cannot be empty" before linking; the native spec failure is retained.
+Optional Config binding does not mean an empty admitted source role. Each Config
+now declares =(export)=, matching Core's existing source-admission control, and
+publishes no setting or prototype alias. This correction preserves the pinned
+Core contract and requires no upstream change.
+
+* Shared lexical declaration ownership
+The structured lexical generator imports its actual grammar fixture, rather than
+a TestSuite module. Native test publication supplies Suite metadata for interpreted
+execution; it does not promise a compiled Suite runtime. The grammar declaration
+therefore belongs to t/fixtures/structured-lexical.ss, consumed directly by both
+the original Suite and Rust generator. No second declaration or re-export remains.
+
+The original two lexical Cases pass through gerbil test, including malformed
+classes, empty spans, nullable children and arbitrary offsets. The case corpus
+and checked-in Rust output are unchanged. Local generation under the original
+90-second total and five-second idle limits still fails the idle gate before
+the generated receipt; this is not a regeneration pass. Remote exact-head
+generation must confirm the unchanged rustfmt/cmp checks.

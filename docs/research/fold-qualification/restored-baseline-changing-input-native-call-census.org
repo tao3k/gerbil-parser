@@ -1,0 +1,744 @@
+#+title: Restored-baseline changing-input native call census
+
+*** Restored-baseline changing-input native call census
+
+The .real-baseline-census diagnostic product retains exactly the original IR
+file bytes (SHA d37b4b160c9d956a549e86486e0b590b0cbdbf2a273ccb16f683c100d3158c38).
+Its 24 independent controls pass. The new prepared-counts attribution driver
+then compares all 1000 changing inputs and 1017619 output tape bytes against the
+existing independent oracle: .baseline-census-changing-counts-retry.log exits 0
+and ends DIAGNOSTIC-OK. No speed/allocated-bytes claim: 302.614 ms diagnostic CPU
+includes every instrumentation table update and four GCs. Native census binary
+SHA ac22a196537ba6b56acbd49ea88b3e854df8ba8a846c4311f2ac28a9815ed8ff.
+
+The first prepared-counts call attempted the production performance binder and
+was correctly rejected (negative .baseline-census-changing-counts.log). That
+protection is UNCHANGED. The corrected diagnostic-only interface binds the
+corpus digest; generated IR and actual binary hashes are sealed separately in
+this receipt. It does not obtain production admission or infer backend parity.
+
+Expressions 54 and 565 each execute 95001 times; 13 expressions (including 120,
+130, 555, 558, 560 and intermediate dispatch nodes) execute 94668 times each.
+The latter include an ordered active-state selection chain over slots 15, 32,
+50, 73 etc. Expression 42 computes a clamped two-byte successor 89606 times.
+These are dynamic CALL counts, not per-expression exclusive CPU attribution.
+Source encoding and event publication each execute 1000 times, and inline-span
+is entered 5331 times. Thus static ordinary-run alphabet reduction alone does
+not remove the heavily exercised residual selection path.
+
+New guard-name diagnostics (.baseline-run-guard-cells.log) expose all 12/16
+ordinary guard cells rather than only their count. Counts include inactive mode
+payload counters; whether they cause fast-path rejection still needs executed
+guard-hit evidence, not inference from names.
+
+*** Whole-residual byte-region candidate: rejected
+
+The barrier-aware byte-region cofactor was implemented over the complete
+residual, retaining ordered writes, else arms and original positive conditions.
+Six run controls and 24 independent actual Org tapes passed. The source-bound
+Lean/Quint/Scheme-AOT chain passed at the unchanged 240-second limit, recorded
+in .residual-region-full-evidence.log and .residual-region-real-evidence.
+That packet describes the subsequently rejected version, NOT current sources.
+All compiler/evidence jobs and an unrelated SDK source experiment had ended
+before the following strictly serial, awaited timing lanes:
+
+| Lane | 1000-request wall ms | P95 us | P99 us | Requests/s | CPU ms | RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| control 1 | 58.877 | 156 | 370 | 16984.56 | 56.124 | 28868608 |
+| candidate 1 | 46.834 | 70 | 191 | 21352.01 | 45.378 | 30769152 |
+| candidate 2 | 46.490 | 71 | 197 | 21510.00 | 45.636 | 30801920 |
+| control 2 | 48.220 | 72 | 257 | 20738.28 | 46.625 | 28819456 |
+| candidate 3 | 41.581 | 60 | 80 | 24049.45 | 41.558 | 30818304 |
+| control 3 | 43.780 | 61 | 116 | 22841.48 | 43.714 | 28803072 |
+| control 4 | 43.807 | 62 | 103 | 22827.40 | 43.678 | 28819456 |
+| candidate 4 | 82.181 | 209 | 603 | 12168.26 | 62.133 | 30801920 |
+
+All lanes compare 1000 complete independent tapes and fail the 10 ms gate
+(exit 70). Candidate GC counts are four, versus five for controls, but this
+does NOT offset the unstable wall/CPU or roughly 2 MB higher process RSS.
+The compiler grows from 52 to 74 generated parts and 4713 helper definitions.
+The stable reverse lane improves CPU only about five percent; the last lane
+regresses. Withdraw this integration, preserving pre-existing condition
+lowering and the immutable baseline. Archive .rejected-residual-region-source.diff
+includes pre-existing context: it is NOT a wholesale rollback patch. Rejected
+actual product SHA 04c0722e05e0f9d2008d4d5328d3ebaecbf4e5548d4a97c1bfa6e839b5d209ee;
+prepared SHA 4a8713405500c9df15ffa453ebc528b8f2439079bac844019c4ec6154111b5a4.
+
+*** Idle trigger execution: rejected after actual AOT qualification
+
+The next implementation separates state admission from source-byte admission:
+a trigger byte need not imply an active machine. Keep existing ordinary-run
+scanning; on a residual byte, check the complete body's zero-state guards and
+execute its existing barrier-aware cofactor when eligible, otherwise execute
+the original ordered body. Facts are invalidated at writes/opaque barriers
+inside the byte and checked anew at the next iteration; no maintained cache.
+This replaces the rejected whole-byte case expansion rather than stacking it.
+Six native run controls pass, including distinct idle trigger and active-state
+paths. .idle-trigger-controls owns compilation; .real-idle-trigger passes all
+24 independent actual AOT complete-tape controls. Generated parts/definitions
+are 53/3377, versus the control's 52/~3319, not the rejected 74/4713 expansion.
+The complete source-bound chain exits 0 at the unchanged 240-second limit:
+
+- Lean: c6a054e06c60245c6e79966f6e65ddaefd8f1ede70c9f572250a820844f4c8a8
+- Quint: 20e5bcaf3d31f32b8802837803c7805254043c244059ca92a0744a98c3f742f8
+- Scheme/actual AOT: 73c9e3d7421957adee17bd78ea8a840f67b1c125a98d14f32151d434ade0e7f3
+
+.idle-trigger-full-evidence.log retains matched-performance Missing and
+executionAuthorized=false. Staged source/product: .idle-trigger-real-evidence.
+Actual product SHA 8b108a5aaab8b8f64537b46bd541c75df34a9966cadb2bad14cfb8215cca5aa5;
+prepared SHA 0acd3c22f413771c029e29144576264736796930763df4b672345afcb33a5d6a.
+Original IR and corpus hashes are unchanged. Before timing, another session's
+new-SDK reference diagnostic was found consuming roughly 94 percent CPU;
+wait for it to end without terminating or modifying its work. A subsequent
+Ascent compiler batch also ended before timing. No performance qualification
+follows from models. The strictly serial, explicitly awaited lanes are:
+
+| Lane | 1000-request wall ms | P95 us | P99 us | Requests/s | CPU ms | RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| control 1 | 44.102 | 60 | 129 | 22674.71 | 43.509 | 28803072 |
+| candidate 1 | 75.223 | 157 | 428 | 13293.81 | 68.337 | 28901376 |
+| candidate 2 | 42.067 | 64 | 92 | 23771.60 | 41.814 | 28884992 |
+| control 2 | 45.846 | 66 | 145 | 21812.15 | 45.561 | 28819456 |
+| candidate 3 | 45.751 | 73 | 182 | 21857.45 | 45.126 | 28901376 |
+| control 3 | 45.547 | 61 | 154 | 21955.34 | 45.243 | 28868608 |
+| control 4 | 46.747 | 68 | 136 | 21391.75 | 46.381 | 28819456 |
+| candidate 4 | 43.806 | 65 | 152 | 22827.92 | 43.197 | 28884992 |
+
+All lanes compare all 1000 complete independent tapes, report five GCs and
+fail the unchanged preflight (exit 70). The raw allocation counter deltas are
+identical, but are NOT allocated-byte totals under GC. No stable major gain:
+candidate 1 regresses markedly, candidate 3 CPU is essentially tied, and
+candidate RSS is slightly higher. A new external reference diagnostic appears
+in the post-timing process snapshot; polling does not establish an isolated
+host throughout the entire interval. Thus no architectural speedup or exact
+cause of candidate 1's extra CPU is inferred. Reject the integration rather
+than select its best singleton. Full matrices remain unopened.
+
+The added idle-residual lowering, experiment-only test and test-count change
+are withdrawn; pre-existing condition lowering stays intact. Five restored
+native run controls pass with exit 0 in .idle-trigger-rollback-controls.
+.rejected-idle-trigger-source.diff archives the experiment (also contains
+pre-existing condition lowering; NOT a wholesale rollback). The model/product
+packet is now historical rather than current source qualification. Immutable
+baseline hash remains a94f3fb148469e3f3f04bffc89bec90be66d65efcdd32664a8787e844ffa17c0.
+
+Next architectural obligation: establish per-consumer/state dependency support
+and executed idle-admission coverage before another specializer. A monolithic
+all-zero entry guard still couples independent payload counters and machines;
+repeating that guard per byte does not prove removal of residual work. Do not
+assume a counter is irrelevant from its name or introduce a maintained cache.
+Lean's eligible-domain equivalence remains separate from Quint's invalidation,
+ordered publication and ownership protocol. Real AOT and the 10 ms gate must
+discharge the implementation/performance obligations, not just these models.
+
+** 2026-10-13 bounded run leaf rejection and dependency-derived calling convention
+
+GitHub PR 13 was verified at b5e1895c8bc9a79dcb3d4e845130cdc113b7d2be.
+The installed pinned SDK and all existing baseline binaries remain unchanged.
+No automation was restarted. Two engine candidates were implemented in order.
+
+The first moved the already-admitted ordinary-run endpoint search into a
+synchronous borrowed-buffer C leaf, with a single-byte specialization. Four
+native controls include exhaustive byte/suffix differential checks; 24 real
+Org AOT complete-tape controls pass. The candidate's standalone Lean and Quint
+checks pass, but the combined source-bound Scheme gate times out at its original
+240 seconds; that failed observation is retained, not counted as conformance.
+The original memchr version failed dynamic linking, and was replaced by a
+bounded C loop without changing the installed SDK or its link configuration.
+
+Sequential A/B/B/A diagnostics under other active compiler workloads:
+
+| Lane | 1000-request wall ms | P95 us | P99 us | Requests/s | CPU ms | RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Existing anchored control 1 | 76.117 | 97 | 499 | 13137.670 | 52.118 | 28983296 |
+| Borrowed run leaf 1 | 56.158 | 96 | 337 | 17806.902 | 53.835 | 29048832 |
+| Borrowed run leaf 2 | 93.750 | 229 | 818 | 10666.667 | 62.464 | 29016064 |
+| Existing anchored control 2 | 75.350 | 200 | 693 | 13271.400 | 59.364 | 28950528 |
+
+All four compare all 1000 independent complete tapes, have five GCs and fail
+the unchanged 10 ms gate (exit 70). CPU cost did not improve; RSS increased.
+These disturbed diagnostics do not qualify throughput. The new runtime APIs,
+compiler import/lowering and active scanner tests were rolled back. Negative
+artifacts remain under .real-run-leaf, .run-leaf-*, and the test is archived as
+.rejected-run-leaf-scan-test.ss. The pure first-trigger/partition lemmas remain
+applicable to the restored Scheme scanner; they do not prove the rejected C.
+
+The second candidate derives each generated helper's fixed arguments from its
+normalized body, including transitive calls. Unused source/bounds/slots/owner
+arguments are removed without request caches, speculative effects, code
+inlining, or changes to event publication. Four focused native controls pass
+for state-only bodies, quoted names, lexical cursor binding and list ownership;
+Lean's EnvironmentExpr.project_required proves read-dependent projection for
+its explicit expression fragment. Quint retains lifecycle responsibility.
+The real generated product has 3319 definitions versus 3499 in its anchored
+predecessor; static private argument slots decrease approximately 28 percent.
+Static syntax counts are not dynamic instruction or allocation measurements.
+Its real AOT binary 71412dddaf0a3920844c8743120d52266aff886f82ddefed022e2697e15a3cb6
+passes 24 complete-tape controls. Full evidence-real-fold-controls passes within
+the unchanged 240-second Scheme limit, with realAotControlsBound=true:
+Lean d54d8d3b80bacc978181469c260854af00cc79d3c8d904fca0e21cc675e32be8;
+Quint 7c9a6ae3b8eaf0e2fb8b2843081571d3230dbce5448dc23d8ad291f1efc22f35;
+Scheme 8c0faa156f6020e026340dfe33eab4aa50643e9acd6d2cf890812290819a7ea1.
+Native review 9993bfcece3a0f79cd0f16d160cf5957bd176ce404cfcbe58854ba79df1b8a91
+still has matched-performance missing and executionAuthorized=false.
+The prepared binary hash is a94f3fb148469e3f3f04bffc89bec90be66d65efcdd32664a8787e844ffa17c0.
+
+After this task's compilation ended, matched A/B/B/A and reversed B/A/A/B
+preflights retained the same corpus, full tapes, flags and five GCs:
+
+| Lane | Wall ms | P95 us | P99 us | Requests/s | CPU ms | RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Anchored control 1 | 45.327 | 64 | 100 | 22061.906 | 44.865 | 28950528 |
+| Projected environment 1 | 43.471 | 60 | 95 | 23003.842 | 43.063 | 28803072 |
+| Projected environment 2 | 43.217 | 62 | 107 | 23139.043 | 43.136 | 28835840 |
+| Anchored control 2 | 44.048 | 63 | 93 | 22702.506 | 43.994 | 28934144 |
+| Projected environment 3 | 142.624 | 164 | 1226 | 7011.443 | 73.236 | 28819456 |
+| Anchored control 3 | 212.749 | 350 | 3135 | 4700.375 | 84.107 | 28950528 |
+| Anchored control 4 | 70.518 | 120 | 476 | 14180.777 | 65.431 | 28950528 |
+| Projected environment 4 | 148.276 | 237 | 1509 | 6744.180 | 70.871 | 28868608 |
+
+Every lane passes 1000 complete semantic comparisons but exits 70 at the hard
+10 ms gate. The first round has a modest wall/CPU decrease and lower peak RSS;
+the reversed round is unstable for both products and does not reproduce a
+qualified benefit. No concurrent compiler was found in the snapshot after
+that round, so its pauses must NOT be attributed to compiler load by assumption.
+Raw receipts remain .call-environment-abba-*.log; none are discarded.
+The projected candidate's non-CPU remainder rises from 0.408/0.081 ms in the
+first round to 69.388/77.405 ms in the second. CPU cost also rises: subtracting
+CPU from wall alone cannot identify GC, scheduling or blocking mechanisms.
+Keep this private candidate unpromoted; the installed/committed baseline stays
+unchanged. No three-load twenty-batch matrix, performance acceptance or push.
+Do not extrapolate these engine-only times to public Org::parse or FFI/Tokio.
+
+** 2026-10-12 run specialization and spike attribution
+
+Verified GitHub parser PR 13 still has head a7eb67a3c6c5398c7e591b88fafa2d2f4275fa94.
+Attempted a contiguous foreign scan only for admitted overwrite-only ordinary
+runs (87 generated real Org call sites), never arbitrary state/effect regions.
+Nine focused controls and 24 complete actual AOT tapes passed. Sequential B/R/R/B:
+
+| Product | Wall ms | P95 us | P99 us | Requests/s | CPU ms | RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Buffer 9 | 49.054 | 65 | 70 | 20385.697 | 48.541 | 29048832 |
+| Run leaf 1 | 48.578 | 65 | 75 | 20585.450 | 48.563 | 29081600 |
+| Run leaf 2 | 48.326 | 66 | 72 | 20692.795 | 48.325 | 29081600 |
+| Buffer 10 | 47.879 | 64 | 71 | 20885.983 | 47.879 | 29065216 |
+
+No stable timing/RSS improvement; all failed the unchanged 10 ms gate.
+Rolled back byte scanner API and compiler import/lowering; archive
+.rejected-ordinary-leaf.patch. .real-buffer-runs is REJECTED, not a new baseline.
+Restored eight active consumer controls; compiler closure rebuilt after rollback.
+No full 20-batch matrix, README performance promotion or push.
+
+Lean standalone Fold check passed with two new universal theorems: run residual
+retention and contiguous partition. Quint full existing protocol suite passed
+(7 publication, 8 shared-scan, 4 idle, 4 run controls); each of the three lifecycle
+invariants ran 1000 seeded traces of 20 steps. These are bounded traces, not
+exhaustive verification. Model collection now binds actual admission, lowering,
+runtime scanner/writer and control source files. Aggregate Lake/ASCENT evidence
+was not rerun: private checkout has no materialized LeanPoo dependency.
+
+Three diagnostic-only complete-tape runs read installed header VM GC counters
+and getrusage counters per call. Logs .stalls-runs-{1,2,3}.log retain top 20 rows.
+Observed GC pauses 234-564 us account for most of the 314-696 us GC-bearing
+requests; non-GC requests also show involuntary switches. Cold initial call and
+extra probes mean these rows cannot replace matched performance receipts.
+The historical 71.459 ms batch had 62.551 ms CPU, an 8.908 ms wall/CPU gap and
+712 whole-process involuntary switches. Those process-wide counts include
+initialization and do not identify timed-call switches. Its full root cause
+remains UNPROVEN; do not attribute the whole spike to GC or scheduling.
+
+Kernel/SDK unchanged; unsupported SMP still skipped; Automation remains off.
+
+Source baseline: parser PR 13 a7eb67a3c6c5398c7e591b88fafa2d2f4275fa94;
+Orgize PR 18 8f04aa246290b56b5605f4a38f25c55d0b416268.
+Private checkout paths are experimental build locations, not dependency pins.
+SDK: installed Gerbil 1cfb032 / Gambit ea114fc, unchanged.
+ASP f5b7c009, POO 099b3815 and Core e85fd453 were privately rebuilt.
+Complete parser source and current Org syntax declarations compiled successfully.
+
+The candidate emitted 13 lexical shared-scan bindings and 28 frame-byte
+bindings. Both control and candidate passed all 24 complete OEV1 tape cases.
+Five planner and five lowering safety cases passed before rollback.
+Independent changing-input preparation contains 1000 inputs and complete tapes.
+
+Sequential unsandboxed paired preflights (identical binaries/options/input,
+no task compiler active; order candidate/control/control/candidate):
+
+| Product | Wall ms | P95 us | P99 us | Requests/s | Peak RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Candidate 2 | 60.211 | 86 | 99 | 16608.26 | 29507584 |
+| Control 2 | 61.121 | 86 | 104 | 16360.99 | 29310976 |
+| Control 3 | 58.712 | 83 | 95 | 17032.29 | 29278208 |
+| Candidate 3 | 62.922 | 90 | 168 | 15892.69 | 29491200 |
+
+All four failed the unchanged 1000-request <=10 ms gate. No 20-batch matrix
+was launched. P95/P99 are per compiled parser call; wall includes complete
+semantic comparison. Peak RSS includes executable, retained inputs/oracles,
+and process initialization, not a parser-only allocation measurement.
+Each batch reported five GCs and the same raw allocation delta 23014968;
+the runtime did not admit that counter as allocated bytes. CPU approximately
+matched timed wall. These are Fold/OEV1 results, not public Org, Tokio, Python,
+or FFI end-to-end acceptance. Earlier sandboxed runs could not report RSS and
+are retained separately, not pooled into these controls.
+
+Rollback: removed candidate runtime lowering and the candidate generation
+mode. Original runtime lowering restored; the rejected lowering patch and test
+are retained as =.rejected-cross-lowering.patch= and
+=.rejected-frame-guard-test.ss=. Existing =.real-cross= binaries are REJECTED
+artifacts compiled before rollback, not the active source baseline.
+Pure analysis, its division-error safety fix, compiler dependency separation
+and private build/qualification support remain uncommitted and unpromoted.
+
+Previous architectural target: fuse the full-range inline trigger precheck with
+the guarded ordinary-run traversal. Actual Org currently scans for triggers
+before traversing the same source range again. Any fusion must preserve the
+no-trigger branch's lack of state writes, entry guard cells, exceptional-byte
+ordering, final ordinary-prefix state, and complete tapes. Do not simply
+delete the precheck or execute skipped state updates. No cross-request cache.
+
+Receipt locations: =.control-preflight-{1,2,3}.log=,
+=.candidate-preflight-{1,2,3}.log=, =.real-{control,cross}/org-fold-test.log=.
+** Subsequent whole-engine experiments
+
+Parser PR 13 head was reverified through GitHub as a7eb67a3c6c5398c7e591b88fafa2d2f4275fa94.
+Scope remains the upstream parser engine; no downstream FFI/runtime changes.
+
+Trigger/traversal cursor fusion reached six actual Org AOT sites and passed
+five planner/lowering controls plus all 24 complete tape cases. Strict awaited
+order control 6 / fused 3 / fused 4 / control 7 produced:
+
+| Product | Wall ms | P95 us | P99 us | Requests/s | Peak RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Control 6 | 65.184 | 89 | 169 | 15341.188 | 29294592 |
+| Fused 3 | 68.016 | 90 | 177 | 14702.423 | 30474240 |
+| Fused 4 | 64.157 | 89 | 151 | 15586.764 | 30507008 |
+| Control 7 | 62.530 | 86 | 137 | 15992.324 | 29278208 |
+
+Rejected and rolled back compiler lowering, context flag, generator mode,
+and active tests. Archive: .rejected-trigger-fusion.patch and
+.rejected-trigger-fusion-test.ss. Fused binaries are rejected artifacts.
+Earlier overlapping/yielded preflights 1/2 and controls 4/5 are diagnostic
+only, excluded from this matched sequence.
+
+Bounded one-use generated procedure contraction reduced private definitions
+3588 -> 1830 and units 57 -> 29. Seven native controls covered argument-once,
+sharing/escape, quotation, size budgets, lexical assignment, nested remaining
+references and recursion. The actual AOT product passed all 24 complete tape
+cases. No request cache, source snapshot, SDK or kernel changes.
+
+Two strictly sequential C/K/K/C preflight groups were run; source corpus,
+SDK, linker, process options and hard gate were unchanged:
+
+| Product | Wall ms | P95 us | P99 us | Requests/s | CPU ms | RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Control 8 | 72.001 | 93 | 354 | 13888.696 | 65.599 | 29310976 |
+| Contracted 1 | 77.681 | 109 | 589 | 12873.161 | 59.773 | 27590656 |
+| Contracted 2 | 60.711 | 107 | 211 | 16471.480 | 60.478 | 27590656 |
+| Control 9 | 98.548 | 87 | 321 | 10147.339 | 65.739 | 29310976 |
+| Control 10 | 62.873 | 89 | 132 | 15905.078 | 62.546 | 29310976 |
+| Contracted 3 | 84.686 | 204 | 443 | 11808.327 | 75.512 | 27623424 |
+| Contracted 4 | 54.205 | 79 | 114 | 18448.483 | 54.073 | 27557888 |
+| Control 11 | 61.735 | 88 | 141 | 16198.267 | 61.608 | 29327360 |
+
+Wall/CPU divergences and CPU variation preclude a stable performance claim.
+Candidate GC counts 4 vs control 5 and lower RSS do not qualify throughput.
+Every run failed the original <=10 ms / >=100000 requests/s gate (exit 70).
+Do not pool batch P95/P99: these remain individual per-call distributions.
+Allocation-counter deltas were not admitted as bytes by the runtime.
+
+Contraction activation and lowering were rolled back. Archive:
+.rejected-call-contraction.patch, .rejected-call-graph.ss and
+.rejected-call-graph-test.ss. .real-contracted binaries are REJECTED artifacts,
+not the accepted compiler. Baseline .real-control binary remains unchanged.
+Restored compiler closure was rebuilt through build-fold-attribution (exit 0);
+two cost controls and five state/effect controls passed with final OK.
+Fresh tape-run generation in .real-restored matched every control
+parse-org-compiled-events*.ss byte-for-byte (SOURCE-ROLLBACK-OK).
+All task compilation/test/preflight processes have finished; no matrix active.
+
+No full 60-batch matrix, public Org/FFI acceptance, README speed claim or push
+was performed. Unsupported SMP remains skipped. Automation stays off.
+Do not repeat either experiment as a fresh candidate. Next work must address
+whole-engine execution/scan ownership and actual state dependence, not just
+function counts, GC counts, or downstream queue concurrency.
+
+** Continuous buffer / record consumer experiment
+
+Parser PR 13 exact head was again verified unchanged through GitHub.
+The retained local candidate changes only engine source traversal and tape
+consumer: one synchronous std/ffi borrowed-buffer leaf per line boundary,
+and one leaf per complete OEV1 start/token record. No retained pointer,
+Scheme callback from C, host-alignment cast, request cache or kernel change.
+Unsigned bounds, all wire byte orders, source visit order and seal checks
+are retained. Eight native controls and all 24 actual tape controls passed.
+The grammar digest and independent 1000-input/oracle corpus are unchanged.
+The original .real-control executable remains immutable and accepted source.
+The local .real-buffer candidate is NOT promoted or pushed.
+
+First matched awaited C/B/B/C group:
+
+| Product | Wall ms | P95 us | P99 us | Requests/s | CPU ms | RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Control 12 | 67.740 | 97 | 301 | 14762.327 | 65.687 | 29310976 |
+| Buffer 1 | 50.733 | 69 | 102 | 19711.036 | 50.679 | 29114368 |
+| Buffer 2 | 50.243 | 71 | 100 | 19903.270 | 50.152 | 29097984 |
+| Control 13 | 62.013 | 89 | 115 | 16125.651 | 61.867 | 29310976 |
+
+Additional buffer controls (never suppress noisy/negative records):
+
+| Product | Wall ms | P95 us | P99 us | Requests/s | CPU ms | RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Buffer 3 | 50.085 | 67 | 105 | 19966.058 | 49.643 | 29097984 |
+| Buffer 4 | 49.580 | 67 | 78 | 20169.423 | 49.566 | 29130752 |
+| Buffer 5 | 54.252 | 75 | 123 | 18432.500 | 53.140 | 29114368 |
+| Buffer 6 | 50.270 | 69 | 111 | 19892.580 | 50.162 | 29130752 |
+| Buffer 7 | 71.459 | 176 | 383 | 13994.039 | 62.551 | 29097984 |
+| Buffer 8 | 54.555 | 74 | 183 | 18330.126 | 54.271 | 29163520 |
+| Control 14 | 64.159 | 88 | 133 | 15586.278 | 62.211 | 29278208 |
+
+All preflights failed the unchanged <=10 ms / >=100000 requests/s gate.
+No batch percentiles are pooled or called a per-request distribution.
+Eight preflight processes are NOT a twenty-batch qualification matrix.
+
+The extension lowering full-range membership probes, paired masks and
+ordinary-run seeks to checked foreign leaves was slower than .real-buffer:
+51.683/52.367 ms vs bracketing 50.085/49.580 ms; RSS 29130752/29114368.
+P95 69/72 us, P99 90/112 us, CPU 51.611/52.286 ms, five GCs throughout.
+Rolled back byte-spans API and every compiler lowering site. Evidence:
+.rejected-buffer-scans.patch, .rejected-buffer-consumer-scans-test.ss,
+.buffer-scans-preflight-{1,2}.log. .real-buffer-scans is a rejected artifact.
+
+Official std/crypto/cipher.ss and std/misc/ports.ss were inspected for
+private-buffer shrink publication. It removed the final copy in an experiment
+but did not establish stable throughput/RSS improvement over .real-buffer:
+
+| Owned publication | Wall ms | P95 us | P99 us | Requests/s | CPU ms | RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 76.635 | 194 | 397 | 13048.868 | 70.494 | 29114368 |
+| 2 | 49.250 | 68 | 97 | 20304.569 | 49.160 | 29147136 |
+| 3 | 56.690 | 77 | 187 | 17639.795 | 54.085 | 29147136 |
+| 4 | 49.776 | 66 | 76 | 20090.003 | 49.767 | 29130752 |
+
+GC fell 5 -> 4; raw allocation-counter delta 23037048 -> 21104040, but
+neither delta is admitted allocated bytes because GC occurred. GC count is
+not a wall/throughput claim. Conservative selection restored copy publication;
+archive .rejected-owned-publication.patch and .real-buffer-owned artifacts.
+Retain every negative sample; neither GC nor scheduler cause is proven by
+wall/CPU differences alone. No unsupported SMP acceptance or formal-model
+proof is inferred from these controls.
+
+Active private source now corresponds to .real-buffer, not scans/owned.
+Final restored test-fold-buffer-consumer completed with eight CASE-OK and
+HARNESS-OK/OK (exit 0). Static input comparisons are not byte-identical
+because compile products include varying generated metadata; do not claim
+artifact identity from source restoration alone. All task build
+and preflight processes finished; no duplicated matrix/process is running.
+No full matrix is active; no README qualified-performance claim or push.
+Continue with actual generated state execution/dependence and remaining
+allocation ownership. Do not repeat the rejected unconditional foreign scan
+or shrink publication as newly discovered candidates. Automation stays off.
+
+** Architecture review: event representation versus recognition execution
+
+The user requested an architecture diagnosis before further optimization.
+New implementation is paused. Condition-only Boolean lowering and lexical
+horizontal-prefix sharing are experimental source edits: compilation is not
+actual AOT conformance or performance acceptance. Do not promote these edits.
+The immutable .real-buffer/prepared-tape-fold executable remains the control.
+
+The ready-gated .fold-profile-2.sample observes the actual Fold generated units,
+state execution and event writer. A concurrent build was active; the sample is
+not matched exclusive CPU attribution or qualified performance evidence.
+.fold-profile-1.sample captured startup and is excluded from Fold attribution.
+
+The diagnostic .real-counts/counts.log records 4518 calls to expression-3471
+across 24 complete AOT controls. In .real-buffer/parse-org-compiled-events-part-40.ss,
+3471 scans horizontal whitespace; 3473 invokes 3471 and 3476 invokes 3473.
+Code interning therefore does not establish shared dynamic scan results.
+Counts are not exclusive timing, and the diagnostic Just invocation did not
+complete successfully at its external resource-reporting boundary. The printed
+diagnostic completion does not turn that invocation into a passed recipe.
+
+Primary research distinguishes output representation from efficient recognition:
+flap (https://arxiv.org/html/2304.05276) fuses deterministic lexer/parser work
+and eliminates ephemeral tokens; its LL(1) assumptions are not established for
+the whole Org strategy. A Typed, Algebraic Approach to Parsing
+(https://www.cl.cam.ac.uk/~jdy22/papers/a-typed-algebraic-approach-to-parsing.pdf)
+uses grammar restrictions and staging, not merely AOT compilation of every
+rule. These papers do not prove this EventFold compiler correct or fast.
+
+Current judgment: retain the lossless ordered event boundary provisionally;
+do not qualify the recognition/execution architecture as high-performance.
+Audit frame-local scan dependencies, effect/ordering barriers, active-rule
+dispatch, source progress and per-byte work before selecting a restructuring.
+Independent language conformance remains distinct from agreement between an
+interpreter and a compiler consuming the same strategy. Lean owns semantic
+refinement/progress/work bounds; Quint owns finite ownership/publication and
+activation histories, not duplicate algebra or a physical latency proof.
+The 71.459 ms historical spike remains only partly attributed; wall-minus-CPU
+alone cannot identify a cause. No full matrix, baseline promotion, PR push,
+kernel/SDK change or Automation restart occurred.
+
+** Authorized architecture implementation follow-up
+
+Audit: docs/research/event-fold-recognition-architecture.org records research
+assumptions, recognizer/output separation and unproved whole-program bounds.
+The frame-fact/condition candidate .real-frame-plan passes five frame lowering
+controls, four condition controls and 24 actual complete Org AOT controls.
+Its native prepared executable is .real-frame-plan/sdk/prepared-tape-fold.
+Same independent input/oracle corpus and grammar identity are retained.
+
+Sequential control/candidate/candidate/control preflight results:
+
+| Lane | Batch wall ms | P95 us | P99 us | Requests/s | CPU ms | Peak RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Buffer 11 | 83.344 | 150 | 445 | 11998.464 | 60.326 | 29097984 |
+| Frame 1 | 47.997 | 67 | 114 | 20834.635 | 47.856 | 28803072 |
+| Frame 2 | 47.991 | 65 | 108 | 20837.240 | 47.823 | 28819456 |
+| Buffer 12 | 50.837 | 67 | 106 | 19670.712 | 50.802 | 29065216 |
+
+All four exit 70 at the unchanged physical gate. Buffer 11 includes a 13.505 ms
+request spike: no large causal speedup is admitted from that disturbed lane.
+Both candidates retain five GCs; raw counter deltas are not allocated bytes.
+Static call graphs change 3590/7599 definitions/calls to 3494/7444. Counts are
+not a runtime throughput proof. Do not start the twenty-batch matrix.
+
+Baseline executable SHA256:
+0db434809bbc5af932bc587a76f1f6663f7f9550401548546924d4dbbd5cf73d
+Independent .real-preflight.ss SHA256:
+e9ccee6c366bdc07f733c525634ed9efed2eb1d2932ef93b54f5ba4cd820df40
+
+The next opt-in candidate moves private state into lexical execution-region
+owners. Four ownership lowering controls pass. Its generated .real-lexical-plan
+has 1616 definitions / 6365 private call sites; these are static counts only.
+Actual linking is owned by exec session 2108; do not duplicate that build.
+Its complete AOT controls and physical preflight have NOT yet run.
+Compiler flag current-fold-scheme-lexical-state defaults to false. Root/helper
+layout and parameter overrides are changed only in the explicit candidate.
+
+Lean formal-fold, including the new conditional frame-representation transition
+refinement theorem, passes. The theorem requires transition commutation; it is
+not a proof of the concrete compiler. Quint formal-protocol passes publication,
+scan, idle and run directed controls plus seeded bounded histories. Source
+controls are wired into qualify-fold-plan and source identities bound by the
+collector; the full Lake/ASCENT chain was not executed in this private checkout
+because its pinned LeanPoo materialization is absent. Do not claim full closure.
+
+** Follow-up closure: rejected lexical owners and fresh restored qualification
+
+Supersedes the earlier missing-dependency state: exact LeanPoo manifest commit
+0a111f6c5de43b261de5bba9287b48540d9f7c2e was materialized offline in the private
+Lake package checkout; GitHub origin and manifests remain unchanged. Full
+=just formal= passes all 38 jobs. Locked Quint dependencies are prepared offline.
+The existing upstream .gerbil/native/libascent.dylib is loaded, not rebuilt.
+The helper source/AOT bundle passed native evidence-real-fold-controls with
+Lean, Quint and scheme-conformance established, matched-performance missing and
+executionAuthorized=false. That source-bound packet is historical after rollback.
+
+Strict matched results (1000 changing requests, complete comparison in wall):
+
+| Lane | Wall ms | P95 us | P99 us | Requests/s | CPU ms | Peak RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Frame 3 | 46.292 | 61 | 76 | 21602.005 | 45.174 | 28819456 |
+| Lexical 1 | 41.072 | 57 | 65 | 24347.487 | 41.066 | 28147712 |
+| Lexical 2 | 104.958 | 154 | 1168 | 9527.621 | 57.008 | 28196864 |
+| Frame 4 | 44.342 | 61 | 75 | 22551.982 | 44.317 | 28770304 |
+| Frame 5 | 44.977 | 59 | 69 | 22233.586 | 44.193 | 28770304 |
+| Helper 1 | 145.675 | 299 | 2130 | 6864.596 | 69.181 | 27426816 |
+| Helper 2 | 44.563 | 62 | 103 | 22440.141 | 44.497 | 27361280 |
+| Frame 6 | 48.229 | 65 | 132 | 20734.413 | 47.908 | 28803072 |
+
+GC: lexical six, helper seven, controls five. Raw deltas under GC remain
+unadmitted allocated bytes. Slow-lane non-CPU gaps remain unattributed.
+Both candidates passed 24 actual complete AOT controls but fail physical gates.
+Their compiler flag/root/helper layouts and temporary lexical test were removed;
+compiled artifacts and every negative timing receipt are retained. The source
+snapshot .rejected-lexical-owner-source.diff includes other task changes versus
+base and is not a standalone rollback patch. No user source was deleted.
+
+Active source retains frame-fact/condition lowering and explicit vector state.
+=git diff --check= passes. Immutable baseline SHA256 remains
+0db434809bbc5af932bc587a76f1f6663f7f9550401548546924d4dbbd5cf73d.
+Restored current-source evidence is running as exec 80767 against fresh
+.restored-evidence-controls/.restored-evidence-real. Do not duplicate this run;
+the historical helper-source packet cannot stand in for the restored source.
+No matrix, PR push, kernel/SDK change or Automation restart.
+
+Restored exec 80767 completed exit 0. Native ASCENT now establishes the current
+source's Lean model f5ca890c3f848f63c7a19456ffd5051504cef8b1d63238b8e1d939f813e8d681,
+Quint protocol 675f8d76e6213f6d8e37b78e073f03bb831c0bd06276c0b5eb64e64083b3039b,
+and Scheme/AOT conformance fd9fe9fedf9bd499a1f16effd613878eddee1668fc81d393c686a257060851da.
+Review bundle 8fbb6f1450f89e5b7ab89c6b2c5a8560bbadd88e2c94760b509faf02e1d7186a
+retains matched-performance missing and executionAuthorized=false. Its durable
+packet is .data/parser-evidence/fold-controls.json. Do not mislabel it full
+compiler proof, independent Org grammar completeness, FFI/Tokio/Python admission
+or a physical speed claim. Fresh restored compiler controls are in
+.restored-evidence-controls/lib; prefer them over the older .aligned-1cfb
+compiler products containing historical experimental lowering.
+All owned builds, model checks, AOT controls and preflight processes completed.
+The <=10 ms gate remains failed; no twenty-batch matrix or promoted baseline.
+
+** One-step state settling, 2026-10-13
+
+New owned candidate: event-fold-run-settle.ss computes per-transition constant
+post-state facts, joins both branches and preserves the entry transition.
+Ordinary-run admission now accepts a stable overwrite residual after that
+entry, rejects read/write recurrences and keeps prefix/entry guards unwritten
+across both entry and residual. Lowering executes entry at the first byte and
+residual at the last byte; the trigger remains for the original transition.
+No runtime cache, event-owner transfer, kernel/SDK change or Automation restart.
+
+Seven native admission cases pass, including first-byte capture, external
+stable reads, recurrences and event/query barriers. Static real-IR run coverage
+is 47/285 versus 33/285, not a performance measurement. Full actual Org AOT
+product .real-settled-plan passes all 24 controls. Native preflight is linking
+as exec 95907. Source-bound Lean/Quint/AOT collector is running as exec 12801
+in .settled-evidence-controls/.settled-evidence-real; do not mutate source
+inputs or duplicate these processes. Lean settled_run_refinement explicitly
+requires stable-region agreement/preservation; Quint owns peeled-entry epoch
+and commit ordering. Focused Lean and Quint checks pass; neither proves speed.
+The original .real-buffer baseline SHA256 remains unchanged.
+
+Settled v1 completed all source-bound model/actual-AOT controls through native
+Ascent: Lean ff668b2f8f4379edd59aa4be8b3f2eb79f064168f38668ecc92137ab7d7d2900,
+Quint f96bb76c75a2647997c0f1e08f786226b3f12fa9c7a24a7547369e3bf6734000,
+Scheme e1b46397fe28968588df1644859c60f6e61152de1c50fb3d14537b7c1499699d.
+Matched-performance stays missing, executionAuthorized=false. Sequential ABBA:
+Frame7 46.374 ms, P95 62 us/P99 97 us, 21563.807 req/s, RSS 28819456 bytes;
+Settled1 48.930 ms, P95 65 us/P99 137 us, 20437.359 req/s, RSS 28819456;
+Settled2 47.077 ms, P95 65 us/P99 98 us, 21241.795 req/s, RSS 28819456;
+Frame8 47.903 ms, P95 65 us/P99 119 us, 20875.519 req/s, RSS 28835840.
+All complete 1000 requests/independent full tapes, five GCs, gate exit 70.
+V1 is rejected, immutable product/receipts retained. V2 restores unchanged
+already-admitted overwrite kernels and removes duplicate entry/residual
+execution on singleton runs. V1 source-bound receipt is historical after this
+revision. Do not claim a whole-engine speedup or start the three-by-twenty matrix.
+
+V2 completed native source-bound closure after fast-forward to PR #13 exact
+head b5e1895c8bc9a79dcb3d4e845130cdc113b7d2be. The upstream delta is one
+request-owned LR commit; verified no Fold compiler/tape/source-lines delta.
+No unrelated dirty edits were discarded; no push or path-pin mutation occurred.
+V2 bundle: Lean 94acb95e2f31b961a211ddff3ded9a10f593a5ef766a467e20e9d2daee050d27,
+Quint ded044e2bfdf63df7180ae40b3836ec34199e2c548e102b31d271a5b997052cc,
+Scheme 1c356314bab03672f9a558211fc2a0fd3cbbc443b12cc659af56e3c8fca43149;
+review 7b8cd2d742e3e3134ecbdaceb89ad5879ea7478f3aa63cc28a53eec5a989a64e
+still lacks matched-performance and executionAuthorized=false.
+
+V2 ABBA1: Frame9 137.279 ms (CPU64.381, max27865 us), candidate
+57.128/46.096 ms (P95 79/61 us, P99 394/71 us), Frame10 46.635 ms.
+No speedup inferred from the disturbed control. Repeated calmer ABBA2:
+Frame11 44.537 ms, P95 60 us/P99 73 us, 22453.241 req/s, RSS28786688;
+V2-3 45.936 ms, P95 62 us/P99 86 us, 21769.418 req/s, RSS28803072;
+V2-4 45.341 ms, P95 62 us/P99 85 us, 22055.094 req/s, RSS28803072;
+Frame12 46.412 ms, P95 63 us/P99 117 us, 21546.152 req/s, RSS28819456.
+All 1000 complete independent tapes, five GCs, gate exit70. No robust physical
+benefit; V2 is rejected as well. Baseline mean45.4745 ms versus45.6385 ms
+candidate in this calm sequence; do not turn an individual faster lane into
+an admitted improvement. Raw allocation counter deltas remain unadmitted.
+
+Removed only this turn's settling production path/new module, extra test cases,
+Justfile projection and model changes. Original ordinary-run/test files show
+no tracked diff; frame-fact/condition and prior work remain. Prototype moved
+to .rejected-event-fold-run-settle.ss; .rejected-settling-source.diff includes
+other task diffs versus Git head and is NOT a standalone rollback patch.
+Both compiled products, generated source and negative timing receipts remain.
+Fresh restored latest-head source/Ascent/AOT qualification will use
+.restored-latest-controls/.restored-latest-real; older V2 packets are historical
+after rollback. No full matrix, promoted baseline, kernel/SDK change or Automation.
+
+Restored latest-head exec11018 completed exit0. Current source-bound native
+Ascent packet re-establishes Lean22b42bd804ff2ede969e742c556e907507b17c2537da011aae924e63ee080a9f,
+Quint b3b72589621a30c1bbadfacd84a1419dd54cc14e39f5175d3e41b947fedfacee,
+Scheme c290d4bff26ccba06fc95cc74557686cd4189077a538e76ae943a1c11b5ad175.
+Review de405019967899a253a0a1616fafd6445a076f5a0666bec36711910659effbcb
+retains matched-performance missing and executionAuthorized=false. Prefer fresh
+.restored-latest-controls/lib for continued compilation. The candidate packets
+remain historical; this is Fold qualification, not new LR/FFI/Tokio/downstream
+acceptance. All task processes completed. No three-by-twenty matrix was started
+because every real 1000-request preflight failed the unchanged <=10 ms gate.
+Next implementation must target shared recognition across consumers/frames with
+explicit action-order and ownership admission; static loop eligibility alone
+did not identify the dominating dynamic costs. Do not repeat either settling
+candidate or interpret host scheduling spikes as a causal optimizer benefit.
+
+** Cross-consumer delimiter facts, 2026-10-13
+
+Exact parser PR13 head remains b5e1895c8bc9a79dcb3d4e845130cdc113b7d2be.
+The first prototype propagated immutable horizontal facts across declared
+helpers, but actual IR inspection found zero eligible scans in all 27 helpers.
+It was removed, not reported as a runtime improvement. Its generated product
+.real-cross-consumer is historical and must not qualify current source.
+
+The active prototype lowers dominating start-anchored delimiter/word/key scans
+to lexical facts across ordered consumers. It does not hoist a conditionally
+reached first observation or cross helper, loop, opaque or frame barriers.
+The first consumer must have no query/error effect; state-dependent scans are
+not admitted. Existing rejected unconditional content/trim sharing is not
+re-enabled. No runtime lookup/cache, event list or new owner is introduced.
+
+Directed tests caught an incorrect traversal of the statement list: the first
+statement was not rewritten and its scan remained duplicated. Fixed by mapping
+expression rewriting over each statement. The obsolete generator PID8791 was
+terminated, preserving unrelated Ascent builds. .real-cross-delimiter is an
+incomplete historical product. Corrected .real-cross-delimiter-v2 is active
+in exec session65618; do not duplicate it. Five frame and five statement tests
+now pass. Lean owns observation/ordered fold equality; Quint owns same-extent
+consumer lifecycle and invalidation, not throughput. Actual AOT/Ascent and
+physical preflight remain required. Baseline/corpus hashes remain unchanged.
+
+Corrected AOT generated nine lexical delimiter facts: 3499 definitions,
+7423 private call sites, 2079 syntactic tail calls, 70 event assignments.
+Frame control has 3494/7443/2081/70. No dynamic cost inferred from these counts.
+The new prepared executable SHA256 is
+a65833e33e410f6f2ebc2022a41177241df153dea745953d67b050d0cfd2f155.
+Actual 24 independent Org tape controls pass. Source-bound native Ascent join
+exec92813 is active; current Lean observation is
+3da42191790121abb3a98e0ec602d78d0dcbad452ecfb3b58ba1844a77e49dbf,
+Quint746813527f5a2be1d8b8a9ed5528a651caa1f58722ce362e3782ef0368b31b5d.
+Nine directed Fold lifecycle controls pass; bounded histories are not exhaustive.
+Do not edit bound source while this collector runs. Physical ABBA must wait
+for compilation to finish. No full matrix or baseline promotion occurred.
+
+Installed official optimize-call.ss:239-296 explicitly checks procedure effect
+signatures before discarding evaluation and preserves evaluation with begin
+otherwise. This prototype uses a stricter no-query/no-error/no-allocation
+admission rather than treating successful model tests as a purity oracle.
+
+Source-bound Ascent exec92813 completed exit0. Scheme conformance observation
+a2b60a430cd22f3e0bc0f7732d6e0e77c02e185e790bc72a84dadc8b1f9ab532;
+review20b3dccbdad6120c1da21a9bb30725230cf34d0dd4fed277252eb3d53f1a6f08
+still lacks matched-performance, executionAuthorized=false. Directed tests,
+bounded Quint histories, Lean and 24 actual AOT tapes are distinct from speed.
+
+All owned compilations ended before sequential ABBA preflights. Same pinned
+SDK, executable controls, 1000 changing inputs, 2856770 bytes, independent
+complete expected tapes and original 10 ms/100000 requests/s gate:
+
+| Lane | Wall ms | P95 us | P99 us | Requests/s | Peak RSS bytes | CPU ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Frame1 | 52.707 | 63 | 353 | 18972.812 | 28835840 | 50.031 |
+| Candidate1 | 45.609 | 62 | 79 | 21925.497 | 28770304 | 45.606 |
+| Candidate2 | 45.573 | 62 | 71 | 21942.817 | 28753920 | 45.548 |
+| Frame2 | 46.113 | 63 | 85 | 21685.859 | 28819456 | 46.099 |
+| Frame3 | 46.906 | 64 | 91 | 21319.234 | 28819456 | 46.805 |
+| Candidate3 | 44.855 | 64 | 86 | 22294.059 | 28737536 | 44.810 |
+| Candidate4 | 45.843 | 62 | 83 | 21813.581 | 28721152 | 45.785 |
+| Frame4 | 45.827 | 62 | 81 | 21821.197 | 28819456 | 45.787 |
+
+All eight lanes complete full semantic comparison, have five GCs and reject
+with exit70. Allocation counter delta23037048 is NOT allocated-byte evidence
+across GC. Candidate RSS27.390625-27.4375 MiB includes initialization, retained
+inputs/oracles and native code; not per-request memory. Request percentiles
+cover compiled Fold calls; batch wall includes full tape comparison, not Rust,
+Tokio, Python or public Org::parse. No claim of a stable large speedup: Frame1
+is disturbed and Frame4 nearly ties Candidate4. No consistent regression was
+observed, so the source remains an unpromoted local candidate, not a new baseline.
+Original .real-buffer and .real-frame-plan hashes remain unchanged. No push,
+SDK/kernel change, Automation restart or three-by-twenty matrix occurred.
+
+Next work must address ordinary-text recognition dispatch across consumers,
+not mistake nine delimiter facts for whole-engine fusion or repeat the unused
+declared-helper contract. Do not rebuild current products merely to repeat
+the same diagnostic. Full workload matrix remains blocked by the unchanged
+preflight gate, not by missing model evidence. All owned sessions completed.

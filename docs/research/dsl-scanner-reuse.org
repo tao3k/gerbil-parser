@@ -1,0 +1,214 @@
+#+title: Scanner contexts and suffix convergence
+#+date: 2026-10-09
+
+Part of [[file:dsl-engine-contracts.org][the integrated DSL and engine study]].
+Existing dated receipts retain their original revision and scope.
+
+* Scanner request and checkpoint ownership
+
+The next incremental boundary is executable ownership, before edit mapping or
+subtree admission. A Scheme string is mutable. Previously a scanner retained the
+caller's string, canonical receipts exposed the scanner digest and delimiter
+strings, and restored obligations retained receipt strings. Mutating an input or
+receipt could therefore change a live scanner or a future restored branch.
+
+The engine now snapshots the source once per request. A private lazy source
+identity belongs to that snapshot and is shared by checkpoint publication and
+restore. Publishing a receipt copies schema, scanner/source digests, and pending
+and active delimiter strings; restoring owns new delimiter strings. The fixed
+checkpoint schema and declaration DSL do not change. Language authors add no
+scanner callbacks, ownership wrappers, or loader slots.
+
+This is a semantic precondition for the context reasoning in
+[[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Wagner and Graham, sections 4 and 6]]. Their state-matching condition is sufficient
+but not necessary, while conflict resolution requires additional care for subtree
+admission. Our exact-source scanner restore remains deliberately narrower than
+cross-edit parser reuse. No paper complexity bound is claimed for this change.
+The source snapshot costs one O(N) copy per prepared request; hashing is lazy and
+occurs once per request instead of once per checkpoint operation. Receipt size
+still scales with delimiter obligations, and restore's UTF-8 position check still
+examines the prefix. There is no measured end-to-end performance claim.
+
+[[https://www.cl.cam.ac.uk/~nk480/parsing.pdf][Krishnaswami and Yallop]] use Null/First/FLast information to justify predictive
+combinators and staging for their typed grammar class. Those compile-time proofs
+cannot substitute for request-owned contextual scanner state, nor be imposed
+unchanged on our LR grammar class. The DSL continues to own static declarations;
+the engine owns mutable execution, immutable plans, and receipt admission.
+
+The added semantic controls use both HCL raw and Bash quote-removal delimiter
+policies through the same engine. They mutate caller source, receipt identity
+strings, queued markers and active markers, then compare canonical states and
+exact Unicode body/end tokens after restore. Existing source/machine mismatch
+and UTF-8 position controls remain required. Rust already retains an immutable
+source borrow and private shared obligations; portable Rust/C checkpoint transport
+and cross-edit scanner mapping remain future work.
+
+Qualification for this ownership slice: pinned-SDK GCC compilation succeeded;
+all 23 contextual/deferred scanner cases passed under the unchanged 90-second
+batch/five-second silence gate, including both new ownership controls. All 54
+Command Source controls regenerated successfully through the Scheme watchdog;
+the formatted Rust source and native binary fixture were byte-identical to the
+checked-in products. These are local semantic and target-output receipts, not a
+latency result or a portable checkpoint ABI qualification.
+
+* AOT representation experiment and the remaining edit boundary
+
+At revision =7c05c47=, Rust and macOS CI passed while Ubuntu failed the unchanged
+five-second output-silence gate during reusable native objects. The final active
+objects were TLA+ layout/core; core had entered GCC's front end, not Scheme IR
+decoding. The compiler and optimization policy remain GCC with the same settings.
+
+The AOT representation previously wrapped compressed sidecar bytes in Base64
+text. Gambit emitted =___STR8= initializers, whose character-width macro expands
+three byte/word alternatives; the runtime then allocated a decoded compressed
+buffer before decompression. An intermediate local experiment embedded the original compressed =u8vector=
+directly. The final PR implementation at =6c9b513= instead packs network-order
+unsigned 64-bit words with byte length and canonical zero tail padding. Both
+representations remove the Base64 envelope; the packed word form further limits
+C initializer work. The intermediate byte-vector implementation is superseded. Serialized IR, schemas, content hashes, sidecar files,
+DSL forms and language-loader metadata remain unchanged.
+
+A controlled representation probe rewrote only the three embedded payloads in
+the actual TLA+ core static Scheme module. The same pinned Gambit and host GCC 16
+preprocessor produced 5,141,913 bytes for the string image and 3,914,507 bytes for
+the byte image. Generated C grew from 696,003 to 736,566 bytes because byte
+literals use decimal syntax. This is a reduction in macro-expanded material,
+not measured runtime latency or proof of the Ubuntu GCC 13 gate. The final decoder removes the Base64 operation but reconstructs compressed bytes
+from packed words before decompression. No allocation or latency reduction is
+claimed for that decode step.
+
+The next cross-edit implementation must establish lexical decision validity,
+not simply relocate a checkpoint whose prefix text happens to match. A scanner
+may have read beyond a token boundary to decide longest match, failed quoted or
+balanced alternatives, or the next delimiter. Safe prefix restart needs decision
+read-dependency evidence or replay under the recorded parser positions. Suffix
+convergence instead requires independently reached states with equal effective
+scanner semantics, mode, ordered pending obligations, active delimiter and
+expectation, plus equal remaining source and compatible parser context. Neither
+criterion is implemented by this representation change; unchanged-source restore
+continues to require exact identity. This preserves the scanner-state prerequisite
+from the incremental research section without introducing an unsafe resume API.
+
+
+The packed-image constructor now reads complete unsigned words directly from the
+original byte input and builds at most one partial tail word. It no longer
+allocates and copies a padded byte vector for the whole payload before packing.
+The destination word vector and transport framing remain unchanged; the
+network-order rule is portable across host endianness. Existing every-tail,
+unsigned-max, padding-rejection and Unicode/identity controls apply directly.
+
+The intermediate local experiment passed 14 artifact cases and 54 regenerated
+Source controls. Its broad package build hit the retained 240-second total
+budget; native-object completion was then performed separately. Full source-mode
+TLA+ qualification still failed before cases at the 90-second admission budget.
+These results are not a full language-suite pass for the final packed-word head.
+
+
+The Scheme suite's failure label now gives the total budget precedence when its
+bounded read reaches 90 seconds. Previously the read returned =quiet= at that
+deadline and incorrectly labeled the total-budget failure as silence. Both
+limits and the killing behavior are unchanged; this corrects the diagnostic for
+the retained source-mode failure above.
+
+Final packed-tail qualification: the fixed SDK/GCC engine build passed and all
+16 artifact cases passed with final =OK=. The framing corpus additionally covers
+4 KiB, 8 KiB and 64 KiB buffer boundaries and neighboring partial tails. Independent
+network-order golden words cover unsigned high bits, and mutation of the original
+input cannot change the packed image. This removes the constructor's padded
+full-buffer copy; it is not a measured parser/FFI runtime speedup.
+
+On the final packed-tail workspace, all 54 Scheme Source controls regenerated
+with identical formatted Rust and native binary fixtures. The integrated packed
+image revision =6c9b513= independently passed Ubuntu native and Rust AOT CI in
+[[https://github.com/tao3k/gerbil-parser/actions/runs/37727437327/job/113148708306][run 37727437327]]. That baseline qualification does not substitute for exact-head
+CI after this constructor and diagnostic change.
+
+* Independently reached scanner suffix convergence
+
+The Scheme engine now exports =contextual-scan-state-converged?= and Rust
+=ScannerCheckpoint::converges_with=. Two independently reached checkpoints
+converge only when they share the admitted immutable scanner plan, mode,
+expectation, ordered pending delimiter values and complete active delimiter
+(marker, strip-tabs, quoted), and their remaining source is exactly equal.
+Scheme compares characters in owned snapshots without copying the suffix; Rust
+compares borrowed UTF-8 suffix bytes. Digest equality alone never admits a plan.
+Raw Scheme IR requests have a private request identity; cross-request admission
+requires the shared prepared plan. No schema version or language DSL changes.
+
+This is an engine prerequisite for suffix reuse, under an identical future
+parser-position schedule. It does not relocate an old checkpoint, prove parser
+stack equivalence, or implement incremental Source/CST publication. Existing
+restore and step ownership checks still reject foreign sources/requests. The
+prefix decision-read-dependency work described above remains open.
+
+The check is linear in the remaining source and pending marker data; it must not
+be presented as a constant-time edit operation. Ordered FIFO comparison ignores
+the internal front/back partition and preserves both checkpoints. Matched HCL
+raw and Bash shell-quote-removal controls independently scan modified Unicode
+prefixes and compare the complete suffix token kinds and relative byte ranges.
+Negative controls hold the suffix fixed while changing delimiter properties,
+expectation or FIFO order, and reject changed suffixes and foreign plans.
+No runtime latency improvement is claimed by this admission primitive.
+
+Local qualification of this implementation: the pinned Gerbil 0.19 SDK and
+host GCC 16 compiled the final scanner module; the existing test-suite gate
+passed both scanner modules (12 deferred-delimiter and 12 contextual cases),
+with final =OK=. Rust runtime passed 137 cases across two suites, and strict
+Clippy for all runtime targets passed. The original 90-second total and
+5-second silence test limits remain in force. These local receipts do not
+qualify the pushed revision's Ubuntu CI by themselves.
+
+* Prefix replay admission after suffix edits
+
+Suffix convergence alone cannot admit a prefix checkpoint on changed source:
+longest-match, EOF and quoted-region decisions may have inspected the edited
+suffix. The engine now provides =contextual-scanner-replay-prefix= and Rust
+=ContextualScanner::replay_prefix=. The caller supplies its recorded parser-position
+schedule. Both original and edited sources execute that schedule through the
+ordinary scanner, preserving full matcher selection and lookahead. Admission
+requires the same prepared plan, exact prefix text, identical token kinds and
+UTF-8 ranges, and complete matching endpoint scanner contexts. The original
+checkpoint must also be reproduced by the supplied schedule.
+
+The result belongs to the new scanner. Foreign checkpoint stepping remains
+invalid. Empty-prefix admission, pending markers and active heredoc bodies are
+covered; changed longest-match/EOF/quote decisions, shortened or edited prefixes,
+foreign plans, incomplete schedules and unrecorded external mode changes reject.
+Scheme controls exercise HCL raw and Bash shell-quote-removal policies. Rust
+executes its existing Scheme-generated specification; no hand-written language
+callbacks or DSL fields are added.
+
+#+begin_src scheme
+;; An application records its parser positions while driving the scanner.
+;; The engine owns checkpoint validation and creates a state for the new source.
+(def next-state
+  (contextual-scanner-replay-prefix edited-scanner old-checkpoint
+                                   recorded-parser-positions))
+(contextual-scanner-step edited-scanner next-state 'command)
+#+end_src
+
+Why is this preferable? A grammar author keeps syntax and rules declarative;
+lookahead validation, UTF-8 ranges, deferred obligations and source ownership are
+resolved by the shared engine. The caller supplies an existing execution input,
+not a second lexical algorithm. Why is it justified? Actual replay checks token
+observations and endpoint context on both sources, including lookahead past the
+checkpoint boundary. Exact FIFO comparison occurs only at the endpoints, avoiding
+an additional sum of queue lengths over all replayed tokens. Cost still includes
+all normal matcher work and scanning the prefix twice; no constant-time edit,
+parser speedup or whole-tree reuse claim follows.
+
+This admission primitive is an engineering prerequisite motivated by the
+context/reuse distinction in Wagner and Graham's
+[[https://harmonia.cs.berkeley.edu/papers/twagner-parsing.pdf][Efficient and Flexible Incremental Parsing]]. It does not implement that paper's
+sentential-form parser, balanced sequence transformations or optimal node reuse.
+Parser-stack compatibility and Source/CST publication remain separate contracts.
+
+Local qualification (2026-10-08): the current native scanner dependency closure
+compiled under the CI-pinned Gerbil SDK. Both scanner test modules passed
+(13 deferred-delimiter and 12 contextual cases), with final =OK= and process
+status zero in 3.92 seconds. Rust runtime passed 138 cases; strict runtime
+Clippy and the ASP Rust source-policy gate passed. The FIFO convergence test
+now resides under =tests/unit= with explicit imports, repairing the policy
+failure on revision =bc233b8=. These are local receipts, not qualification of
+a subsequent pushed revision. No timeout or silence limit was increased.
+

@@ -1,0 +1,18 @@
+;;; Standalone research programs; Suite execution belongs to gerbil test.
+(import (prefix-in (only-in :gerbil-parser/t/benchmarks/versioned-languages/all-languages main) benchmark-)
+        (prefix-in (only-in :gerbil-parser/t/fixtures/language-pack-research/package-expression-runtime main) concise-runtime-)
+        (prefix-in (only-in :gerbil-parser/t/fixtures/language-pack-research/composition-history main) history-)
+        (prefix-in (only-in :gerbil-parser/t/fixtures/language-pack-research/list-runtime main) native-poo-runtime-)
+        (prefix-in (only-in :gerbil-parser/t/fixtures/language-pack-research/provenance-language main) provenance-))
+(export main)
+(def (main name . args)
+  (let (program (assoc name (list (cons "concise-runtime" concise-runtime-main)
+                                (cons "history" history-main)
+                                (cons "native-poo-runtime" native-poo-runtime-main)
+                                (cons "provenance" provenance-main))))
+    (cond (program
+           (unless (null? args) (error "unexpected research arguments" args))
+           ((cdr program)))
+          ((equal? name "all-language-benchmark")
+           (apply benchmark-main (if (null? args) ["1"] args)))
+          (else (error "unknown research program" name)))))

@@ -1,0 +1,217 @@
+#+title: Historical source design receipts
+
+This module preserves prior design and qualification records. Its status notes
+are historical; the active execution plan is [[file:../0001-versioned-language-pack-closure.org][the convergence plan]].
+
+** Bash authoring closure is one complete migration unit
+
+The authoring audit at =1d2d98a479f622c95d6754c2059f69b6b4b7e830= finds
+18 lines in =languages/bash/grammar.ss= delegating execution to 1,353 lines:
+126 scanner, 103 word-boundary scanner, 390 word decomposition and 734 source
+parser/recognition lines. Registering those procedures with a loader does not
+make the syntax declarative. Rust and Ubuntu native CI passed at this exact
+head; that evidence qualifies the current implementation, not this migration.
+
+The previous shared-FIFO patch is a prerequisite. It does not satisfy the
+language authoring boundary. Bash's four procedural modules must migrate as
+one authoring obligation; individual helper moves cannot mark Bash converged.
+The public pack should retain grammar declarations, its POO loader and declared
+fixtures/tests/metadata. A downstream pack must not implement scanner traversal,
+word slicing, worker state, artifact publication or C/Rust transport.
+
+Source-backed result publication now uses the common UTF-8 span context,
+source-local nested boundary cache and persistent token sequence. ASCII skips
+the index vector; ordinary words skip the region context. The shared boundary
+suite also executes an independent declaration with overlapping quote/pair
+entries, and Bash declares large Unicode/parameter controls through its test
+macro. This removes three repeated-work paths inside Word execution; it does
+not replace the remaining Word/Command recognition decisions.
+
+Result construction now uses a shared admitted POO =ResultProfile.=. Bash
+Word/Command builders and the independent line source engine execute the same
+indexed kind/field/terminal operations. Scanner terminals are derived from the
+scanner slot; generated terminals and node fields are declared once. The native
+catalog is derived from these operations, and source descriptors bind directly
+to the language-independent length-delimited C ABI. Construction operations
+participate in descriptor identity; schemas remain unchanged. S3 recognition
+rules and S5 standalone Rust source recognition remain open; a Scheme engine
+behind the C ABI does not close Rust portability.
+
+Part selection and literal boundaries now execute one =PartProfile.= plan.
+Bash declares context/prefix/guard/operation rows; the engine compiles ordered
+context/first-character dispatch. Quote, substitution, name and escape
+selection no longer repeat conditions in two procedural paths. Assignment
+values and here-document contents use the same plan. An independent =@name=
+template configuration exercises the shared executor and POO rule override.
+Admission checks result fields/terminals and region agreement before binding;
+rule recipes enter source identity without a schema bump. This closes the
+part-dispatch migration, not the internal parameter/assignment grammar,
+Command recognition or standalone Rust Source AOT.
+
+Binding recognition now shares the existing TextProfile and literal-trie
+algorithms. Bash declares simple names, parameter names/prefixes/operators,
+assignment names/operators and array delimiters as POO =BindingProfile.= values.
+The engine owns bounded matching, role admission, projection and source-local
+scoped captures; hand-coded parameter/assignment name and operator matching
+and the separate subscript traversal are removed. Independent assignment
+syntax overrides operators through values. Rust =PreparedTextProfile= uses
+the same existing matcher to execute production name IR with exact bounded
+Unicode endpoint controls. This closes binding-name recognition and its AOT
+control; Command/result projection and full standalone Source AOT stay open.
+
+Tree-sitter's public grammar DSL supplies sequence, choice, repetition,
+precedence, aliases and fields, and generates ordinary lexical/parse execution.
+Its external-scanner interface explicitly assigns special token recognition,
+lifecycle and state serialization to C functions written by the grammar author;
+Bash here-documents are an example in its documentation. Our authoring target
+is more specific: built-in closed region/deferred-state operations should cover
+these mechanisms so packs can declare them without implementing that C worker.
+This is a target, not a claim of broader Bash coverage or measured superiority.
+
+References:
+- [[https://tree-sitter.github.io/tree-sitter/creating-parsers/2-the-grammar-dsl.html][Tree-sitter grammar DSL]]
+- [[https://tree-sitter.github.io/tree-sitter/creating-parsers/4-external-scanners.html][Tree-sitter external scanners]]
+- [[https://github.com/tree-sitter/tree-sitter-bash/blob/master/grammar.js][Bash grammar authoring example]]
+
+*** One authoring boundary, several engine representations
+
+| Current module | Language declaration that replaces it | Engine obligation |
+|---+---+---|
+| =scan-words.ss= | Quotes, opaque escapes, ordered substitution openers/closers, balancing and operator stops | Compile one shared region plan; match nested spans with progress/termination bounds and explicit quote context |
+| =scanner.ss= | Command/body modes, comment/newline rules, deferred marker policy and transitions | Prepare a source worker from the admitted IR; own queue, source/worker identity, checkpoint serialization and token bytes |
+| =word.ss= | Word-part rules with aliases/fields for quotes, parameters, assignments and substitutions | Lower embedded recognition/projection from closed data; retain exact CST field/span identity and source partition |
+| =parser-core.ss= | Command, redirect, compound-command, list and pipeline rules plus precedence and fields | Use the grammar/recognition machine and common artifact admission; own failure frontiers and typed here-document links |
+
+These declarations belong to the existing syntax compiler and its shared
+Scanner/Parser IR boundary. Do not introduce a =(syntax bash)= selector that
+hides the old parser behind a language-name branch. Do not duplicate these
+rules in a parallel source-parser DSL, or merely rename Bash procedures under
+=src/=. Missing generic region, state or recognition operations must be added
+to the engine and admitted before a pack can use them.
+
+The language loader derives its scanner services from the compiled grammar.
+Authors must not supply a =make-*-scanner= factory, scanner callback or custom
+serializer for these closed declarations. POO slots extend grammar/metadata/
+fixtures/test declarations as values; the compiler validates the effective
+inherited value and rejects unknown operations, missing roles and incompatible
+products before installation. The current raw source-worker bridge remains a
+transitional Scheme capability until its last production pack is migrated.
+The unreleased =gerbil-parser.language-entry.v2= schema remains unchanged.
+
+*** Structural work required during lowering
+
+Word decomposition currently computes each byte offset by encoding the entire
+prefix substring again. The engine must prepare offsets in one forward pass
+and materialize ordered spans from that index, preventing repeated prefix
+allocation on words with many parts. Region matching must handle longest
+openers such as =$((= versus =$(=, process substitutions shielding operator
+stops, escaped delimiters, opaque single quotes/backticks and nested quoted
+substitutions. Node/field identity is declared data, independent of scanning
+control. Command recognition must also avoid repeatedly appending accumulated
+children or pending marker lists; immutable checkpoints and ordered publication
+remain mandatory.
+
+*** Whole-pack exit gates
+
+1. Bash grammar carries its real syntax/scanner/word declarations. No grammar
+   entry dispatches to a pack-owned procedural parser or scanner.
+2. All four procedural language modules above and their imports/build entries
+   are removed after callers use the common engine; fixture and metadata
+   declarations remain in the three language interfaces.
+3. The POO loader supplies parse, scanner, fixture and test services from the
+   admitted grammar without author-written worker/FFI functions.
+4. A minimal independent downstream pack extends or overrides declared values,
+   compiles with the same public facade and consumes its C/Rust artifact without
+   importing engine internals. An unsupported target must reject explicitly;
+   =source-parser= metadata or a registered Scheme closure cannot certify Rust.
+5. Current complete Bash acceptance/rejection, UTF-8 roundtrip, word/node/field
+   spans, deferred link ordering and checkpoint isolation remain controls.
+   Nested/ambiguous opener, malformed suffix and large-part inputs supplement
+   them; syntax coverage still does not exceed the qualified corpus.
+6. Scheme producers deterministically emit the same closed product consumed by
+   Rust AOT and the language-independent C ABI. Each actual consumer must pass
+   before portable closure is reported. No per-language Rust/C shim is required.
+
+The dependency order is region IR -> source transitions -> embedded recognition
+-> command grammar -> downstream products. These are internal implementation
+steps of one Bash migration, not independent claims of authoring closure.
+
+** S2 source context contract and execution order
+
+The remaining work has three distinct input dependencies. They must share the
+existing contextual Scanner IR and the loader's admitted scanner service rather
+than gain independent language worker runtimes.
+
+| Pack | Remaining language-owned execution | Engine representation / migration gate |
+|---+---+---|
+| HL7 | Six external roles repeatedly derive MSH delimiters | Prepared prefix capture set, typed slot match / maximal exclusion run; remove all six callbacks after Scheme/Rust conformance |
+| TLA+ SANY | Identifier and two proof roles are local; module text rescans source prefix | Close local profiles first; then prepare a nesting boundary index once and use predecessor lookup; keep proof policy a separate capability |
+| Bash | Word/substitution recognizer, command token routing and source result assembly | Declarative balanced regions, command transitions and deferred obligations; migrate token routing before recognition/result assembly |
+| FHIRPath | No external scanner roles after S1 migration | Keep full native parser and native-produced Rust AOT controls |
+| HCL, HL7 segment/terminator, other grammar packs | Existing closed/generated lexing | Remain under common loader and product admission; generated strategies are S4, not source-worker migration |
+
+A source preparation call creates a worker bound to an immutable input revision,
+its exact Scanner IR digest and its capture layout. A new parse or edit creates
+a new worker. Captures are prepared once before scanning, never keyed by a
+module-global last-source cache or inferred from pointer identity of mutable
+strings. Existing source-worker callbacks are still an explicitly advertised
+Scheme capability; registered factories alone do not establish closed IR.
+
+HL7's declaration needs: exact =MSH= prefix, five characters beginning at
+character offset three, pairwise uniqueness and the producer's alphabetic/numeric
+rejection predicate. Consumers refer to a named capture slot: matching one
+captured character or a maximal run excluding the capture set plus CR/LF.
+Capture preparation preserves the current rejection semantics, including
+Unicode; Rust must consume an authoritative Scheme character class, not its
+broader platform predicate. Captures are characters, source spans are UTF-8
+bytes in Rust and character/byte pairs in Scheme. Missing/invalid captures
+reject before token execution. Equivalent declarations share a prepared capture
+within one worker; distinct workers never share mutable state.
+
+TLA+ needs a single source pass over module opens/closes, nested comments,
+quoted strings and line comments. Publish ordered boundary/depth records tied
+to that source revision; predecessor lookup answers the depth at a candidate
+offset. Repeated prefix rescans are removed only after arbitrary-offset,
+nested-module, comment/string and checkpoint controls agree with the original
+recognizer. Edits invalidate/rebuild the index before reusing any checkpoint.
+
+Bash now consumes the engine's existing immutable delimiter FIFO and marker
+quote-removal operation. Enqueue allocates a constant number of cells instead
+of copying all previous obligations with =append=. A linear drain reverses each
+rear batch once, giving linear total queue work; replaying branches can repeat
+a reversal, so no branching amortized bound is claimed. The public pending
+value remains an ordered list projection. The scanner's own quote-removal loop
+is removed; double-quoted backslashes before ordinary characters now retain
+the backslash, matching the existing closed engine/Rust marker policy.
+Command/substitution routing still remains in Bash. This shared state algorithm
+is partial S2 implementation, not complete Bash Rust portability.
+
+Native-owned generated AOT tables belong in the existing =generated= ownership
+boundary. The FHIRPath fixture moves there without changing its bytes. The
+existing ASP policy is unchanged; native regeneration, byte comparison and
+Rust parser consumers continue to check this product.
+
+Qualified local evidence for this state convergence slice:
+
+| Gate | Result | Bounded wall time |
+|---+---+---|
+| Source worker/queue suite | Six cases; rejected malformed obligations, branching/replay, Unicode spans and 128 Bash markers | 2.93 s |
+| Complete Bash parser suite | Accepted/rejected syntax and lossless quote-removal regression cases pass | 4.28 s |
+| Closed deferred contextual scanner suite | Queue/checkpoint restoration and shell/raw policies pass | 5.62 s |
+| All ten public loaders | Metadata, fixture conformance and independent Bash workers pass | 5.46 s |
+| Native FHIRPath AOT regeneration | Formatted bytes equal the moved product, SHA256 =8435e3e9186c2ecd28baf837706395e50c8a608c95274cc71c33511e075f8e2f= | 6.59 s before formatting |
+| Rust complete engine unit suite | 88 tests pass; moved full FHIRPath parser product is consumed | 0.55 s |
+
+The first dependent Bash compilation imported an earlier native engine cache
+and rejected its new export; the engine was rebuilt before the dependent.
+The first full Bash test used a previously inlined heredoc-record accessor and
+terminated abnormally. Rebuilding the unchanged parser caller from current
+source restored the matched native record representation and the final suite
+passed. These initial failures remain failures, not conformance evidence.
+The local ASP policy test's cold dependency build hit the 30-second idle fence
+in two attempts (86.29/50.97 seconds total). Its source-policy execution did not
+run locally. No compiler profile or timeout was changed; the exact new PR head's
+Ubuntu Rust CI still has to qualify this gate. The prior head's Ubuntu/macOS
+native jobs passed, while its Rust source policy rejected the oversized fixture
+outside the existing generated-table ownership boundary.
+

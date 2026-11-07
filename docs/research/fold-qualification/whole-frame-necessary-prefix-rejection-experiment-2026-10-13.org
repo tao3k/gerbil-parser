@@ -1,0 +1,151 @@
+#+title: Whole-frame necessary-prefix rejection experiment (2026-10-13)
+
+** Whole-frame necessary-prefix rejection experiment (2026-10-13)
+
+Existing PR13 still points to b5e1895c8bc9a79dcb3d4e845130cdc113b7d2be
+(live GitHub head check). The experiment stages a shared necessary-prefix trie
+across ordered consumers and selects a negative residual program. Positive
+classification retains the original program. Pure state reads before the
+necessary prefix may disappear only on the negative path. Queries/errors,
+helpers, loops and source-frame changes remain opaque. No request cache,
+kernel change, SDK rebuild, Automation restart or dependency path pin is added.
+
+Changed source owners are byte dispatch, prefix-family and frame-statement
+lowering. Lean negative_line_consumer has explicit necessity/effect premises;
+Quint NegativeConsumer concerns current frame/owner histories only. The model
+collector now binds the prefix-family implementation and byte-dispatch tests.
+The directed byte-dispatch suite has two CASE-OK markers and final OK after
+compiling the current prefix implementation. An earlier module load observed
+the stale first-byte experiment; neither that failed check nor its historical
+.real-line-negative product is a qualified current-source result.
+
+Fresh .line-prefix-controls build completed. Actual .real-line-prefix contains
+3811 definitions, 8697 private calls, 2637 syntactic tail calls and 70 event
+assignments. These are static counts, not execution counts or speed evidence.
+Native links are active sessions3627 and85884; do not duplicate them.
+Prepared independent corpus and all three historical baseline executable
+SHA256 values rechecked unchanged. Concurrent unrelated Ascent/parser-quality
+compilation was observed; no affected timing is admitted as an idle-host result.
+Current candidate has not yet received source-bound full AOT closure or timing.
+
+The duplicate-program prefix experiment is rejected, not promoted. Actual24
+complete tapes passed, but matched elevated ABBA lanes were control45.078ms,
+candidate90.471ms, candidate47.987ms, control51.529ms. Candidate peak RSS
+29360128/29409280bytes exceeds control28753920/28770304bytes. Candidate P95
+122/67us, P99 818/117us, throughput11053/20839requests/s, fiveGCs. The slow
+candidate's wall-minus-CPU36.447ms does not identify a cause. Earlier sandboxed
+lanes1/2 cannot qualify RSS because time's sysctl was denied. All raw results
+remain. Immutable rejected executable SHA256 is
+c29d3d31d514096711ece4dba129242be342735ee9c54121a0b6211d8b685c44.
+
+Production prototype now removes that duplicate-program expansion: one lexical
+prefix classification guards admitted original conditions, keeping each
+transition once. It does not introduce a runtime cache. The internal immutable
+predicate is admitted as total and discarded on nested source-frame entry.
+Fresh .line-shared-controls compiler and directed tests completed with finalOK.
+Analysis was recompiled after the internal fact's totality declaration before
+actual generation. Session17453 is preparing .real-line-shared; do not duplicate.
+This replacement still requires current-source AOT closure and timing. No
+three-by-twenty workload matrix is authorized by the failed preflight.
+
+Final current-turn boundary: the single-body variant is an unpromoted source
+prototype, NOT qualified AOT or performance. The independent executable link
+failed with truncated generated C during overlapping links; subsequent owned
+CLI and official compile-exe parallel:#f retries stopped making progress with
+no compiler children. All were terminated with TERM, not left as active jobs.
+.line-shared-linker.sample records select waiting; it does not establish a
+kernel root cause. No SDK/kernel source was edited. Future links sharing static
+outputs must be sequential. Retry logs include .line-shared-product.log,
+.line-shared-preflight-serial-build.log and .line-shared-official-serial-build.log.
+
+Correction: the 24 GXI checks import generated Scheme source, NOT a native
+compiled module. They establish source-level complete-tape agreement only.
+The attempted module preflights failed at import (illegal declare in ~0.scm),
+before timing, and overlapped; they provide NO performance/RSS qualification.
+The temporary module driver was removed from Justfile. Do not present these
+receipts as AOT acceptance or compare them to the standalone baseline.
+
+Current source-bound Lean identity28d41357d95bec7df065c5a2ac86152d510f6250a2a097674f054d7f88ec6645
+and Quint identity674445d5c530f4235895970f9976c98dfed5c90575075109d5b978c4ce1b0c10
+passed. Native review3e319af898280354eab2479757e42d6f1f070622d61a6e7954ae45010fd21008
+correctly lacks scheme-conformance and matched-performance, executionAuthorized=false.
+No source-bound full current AOT packet, standalone single-body performance,
+twenty-batch matrix, push or baseline promotion is claimed. Historical baseline
+executable hashes remain unchanged. No owned benchmark/compiler sessions remain.
+Next work must close the generated-product linking gate without kernel/SDK
+modifications, then measure this single-body variant under matched conditions;
+do not duplicate an active matrix or revive the rejected duplicate-program path.
+
+** Independent AOT lock recovery and horizontal anchors (2026-10-13)
+
+Live PR13 remains b5e1895c8bc9a79dcb3d4e845130cdc113b7d2be. Official driver.ss
+compile-obj retries while its exact .o.lock exists. Process inventory and lsof
+found no owner for the retained part-11 lock under .real-line-shared/lib/static.
+Moved only that lock to .real-line-shared/part-11.stale-object-lock.evidence.
+No SDK/kernel source changed. Sequential existing CLI links then completed.
+The prior select-only sample was a lock wait, not a proved kernel deadlock.
+No active unrelated compiler was terminated or baseline binary overwritten.
+
+Just now exposes link-org-fold-candidate for resume without regeneration.
+Both link recipes call the small t/benchmarks/parser-throughput/link-locks.ss
+guard: any lock rejects the build, no automatic deletion. Its native GXI
+fixture checks clean admission, dirty rejection, unchanged evidence and clean
+re-admission. Final OK passed; initial import-syntax failures were fixed before
+qualification. qualify-fold-plan includes this regression check.
+
+Recovered .real-line-shared/org-fold SHA256:
+c14618c3a26ccf542dffa2ba668bd95d9dc6a54de3b6b8361f47e9a95835e4dd.
+Recovered prepared-tape-fold SHA256:
+21f8b36cb45965c5d4a121eb1ed8e6093ce07445e5e047997fc0d78aa42f5078.
+All 24 independent native Org tapes pass. Eight sequential delimiter-control
+ABBA preflights have candidate43.006-45.728ms, P9560-65us, P9966-87us;
+control43.494-47.975ms. Candidate RSS28803072-28917760bytes. All semantic1000
+requests pass, all have fiveGCs, all fail the unchanged10ms gate with exit70.
+No large/stable speedup or promoted baseline is claimed.
+
+Current unpromoted prototype extends necessary prefix classification to total
+line-skip-horizontal start anchors and expanded byte membership predicates.
+The horizontal offset is bound once and reused in original consumer bodies;
+mutable state offsets and query/error predecessors cannot admit a guard.
+Nested source frames clear both prefix and horizontal facts. No runtime cache,
+duplicated full/residual program, kernel edit or Automation restart is added.
+Fresh .line-anchored-controls compilation and two directed byte controls pass.
+Actual .real-line-anchored has3499defs/7420privatecalls/2081syntactic-tailcalls/
+70eventassignments, static observations only. Its native24complete tapes pass.
+org-fold SHA256 b7424e97e412c293cf3a0f83b66f3b17825fdfc968eb53f3a05578aab5a17bcb;
+prepared-tape-fold71d478a55a052d0bf04f658aa3671bcd79c788fa3c9ed7264f7b74b32ebb691b.
+
+Sequential ABBA versus delimiter control:47.230/44.626/45.312/46.060ms.
+Sequential ABBA versus single-body predecessor:51.264/44.320/44.919/49.605ms.
+Four anchored lanes P9563-64us, P9996-124us, throughput22069.209-22563.177req/s,
+RSS28901376-28917760bytes, CPU44.209-45.212ms, fiveGCs. The later predecessor
+controls are slower than earlier43ms lanes; no stable large benefit inferred.
+Candidate memory exceeds delimiter controls. All full1000independent tapes
+pass and all gate exits are70. Counterdelta23037048 acrossGC is not allocated
+bytes. Request percentiles are compiledFold calls; wall includes complete tape
+comparison; wholeprocessRSS includes retained inputs/oracles/nativecode. No
+FFI/Tokio/Python/publicOrg::parse or SMP parallelism acceptance is implied.
+
+Source-bound Lean and Quint model checks passed. Current real AOT join is
+running as exec15974, using .line-anchored-evidence-controls and immutable
+.line-anchored-real-evidence. Do not change bound Scheme/Just/model/test inputs
+or duplicate this qualification while active. There is no active benchmark
+matrix. No20batchmatrix, push or baseline promotion occurred. README and the
+research report record explicit units, failed gates and evidence boundaries.
+Historical baseline hashes rechecked unchanged. Unsupported SMP remains open,
+not passed. Continue whole-engine ordinary-loop work after this evidence gate;
+the anchored frame classifier alone does not eliminate that remaining work.
+
+Final evidence exec15974 completed exit0 within the unchanged240s gate:
+Lean cd0c4843cf7df4969a5401eef5e21f4ee1f5deca1059544e83a0d531cf4fa2a1;
+Quint e2dd4fab0166eb1c9eeca6763400822a2eaef991d3d146748d9329999d46e869;
+Scheme-to-actual-AOT9b9a8362dd437b28c14522da24796ea14c1d603afee00ba8a0945d71a01009ba.
+Native review627eafa6dddbe7fc767fcae6571e9886d3331024b62a8a6b8c818c8236ffff04
+has realAotControlsBound=true, matched-performance missing and
+executionAuthorized=false. This is conditional model plus differential
+conformance, not a complete compiler proof or speed admission. All owned
+builds/models/benchmarks have ended. Three historical executable hashes remain
+unchanged; git diff --check passes. No push, baseline promotion, kernel/SDK
+change or Automation restart. Retain the prototype unpromoted: current matched
+receipts do not establish a consistent regression against its predecessors,
+but also do not qualify the hard gate or eliminate ordinary-loop dispatch.

@@ -1,0 +1,41 @@
+;;; Ownership starts at a direct process with a private acknowledged session.
+(import :std/misc/process :std/os/signal)
+(export ownership-plan stop-owned-processes!)
+(def (ownership-plan root rows session-owner)
+  (unless (= root session-owner) (error "unverified process session" root session-owner))
+  (let loop ((members (list root)))
+    (let (next (filter (lambda (row)
+                        (and (member (cadr row) members) (not (member (car row) members)))) rows))
+      (if (pair? next) (loop (append (map car next) members))
+        (list members
+          (cons root (filter-map (lambda (row)
+                                 (and (member (car row) members)
+                                      (member (caddr row) members) (caddr row))) rows)))))))
+(def (process-topology)
+  (let (text (run-process ["ps" "-axo" "pid=,ppid=,pgid="]))
+    (filter-map (lambda (line)
+                  (let (numbers (filter number? (map string->number (string-split line #\space))))
+                    (and (= (length numbers) 3) numbers))) (string-split text #\newline))))
+(def (stop-owned-processes! process witness reaped?)
+  (unless (or reaped? (integer? (process-status process 0 'running)))
+    (let* ((root (process-pid process))
+           (owner (and (file-exists? witness) (call-with-input-file witness read))))
+      (if (not (equal? owner root))
+        ;; Before session acknowledgement, admit only the direct unreaped child.
+        (with-catch void (lambda () (kill root SIGKILL)))
+        (let* ((plan (ownership-plan root (process-topology) owner))
+               (members (car plan))
+               (groups (foldl (lambda (group acc) (if (member group acc) acc (cons group acc))) '() (cadr plan))))
+          (for-each (lambda (group) (with-catch void (lambda () (kill (- group) SIGTERM)))) groups)
+          (thread-sleep! 0.25)
+          ;; Refresh membership before escalation. A completed/reaped root
+          ;; cannot qualify a recycled group; descendants must still belong
+          ;; to the previously admitted group in the fresh topology.
+          (let ((rows (process-topology))
+                (root-live? (not (integer? (process-status process 0 'running)))))
+            (for-each
+             (lambda (group)
+               (when (ormap (lambda (row)
+                              (and (= (caddr row) group) (member (car row) members)
+                                   (or (not (= (car row) root)) root-live?))) rows)
+                 (with-catch void (lambda () (kill (- group) SIGKILL))))) groups)))))))

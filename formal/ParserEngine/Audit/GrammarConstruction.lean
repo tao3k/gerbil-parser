@@ -1,0 +1,815 @@
+import ParserEngine.TestPhase
+import ParserEngine.AuthorPhase
+import ParserEngine.ModuleWrapper
+import ParserEngine.ModuleEvaluation
+import ParserEngine.BuildEnvironment
+import ParserEngine.LanguagePhase
+import ParserEngine.PhaseDemand
+import ParserEngine.SourceEnvironment
+import ParserEngine.SourceDependencies
+import ParserEngine.SourceDependencyExecution
+import ParserEngine.SourceDependencyAdapter
+import ParserEngine.SourceDeclarationStorage
+import ParserEngine.SourceSiteExtraction
+import ParserEngine.SourceProcedureAdmission
+import ParserEngine.LoweringReservationEvaluation
+import ParserEngine.LoweringPreprocessingEvaluation
+import ParserEngine.Components
+import ParserEngine.SchemeCells
+import ParserEngine.LoweringAllocationCalls
+import ParserEngine.LoweringRootScope
+import ParserEngine.SchemeNameEncoding
+import ParserEngine.SourceInventory
+import ParserEngine.ConstructionDeclarationEncoding
+
+#print axioms ParserEngine.TestPhase.generic_requests
+#print axioms ParserEngine.TestPhase.batch_independent
+#print axioms ParserEngine.TestPhase.generic_independent
+#print axioms ParserEngine.TestPhase.source_independent
+#print axioms ParserEngine.TestPhase.loader_missing
+#print axioms ParserEngine.TestPhase.loader_independent
+#print axioms ParserEngine.TestPhase.build_order
+#print axioms ParserEngine.TestPhase.import_absence
+#print axioms ParserEngine.TestPhase.caller_import_survives
+#print axioms ParserEngine.TestPhase.generic_effect_counterexample
+#print axioms ParserEngine.AuthorPhase.interface_independent
+#print axioms ParserEngine.AuthorPhase.declaration_requires_compiler
+#print axioms ParserEngine.AuthorPhase.expansion_context
+#print axioms ParserEngine.AuthorPhase.template_service_dormant
+#print axioms ParserEngine.AuthorPhase.eager_admission_counterexample
+#print axioms ParserEngine.AuthorPhase.ambient_masks_missing
+#print axioms ParserEngine.AuthorPhase.retained_operands
+#print axioms ParserEngine.AuthorPhase.literal_transport
+#print axioms ParserEngine.AuthorPhase.literal_context_counterexample
+#print axioms ParserEngine.ModuleWrapper.extraction_sound
+#print axioms ParserEngine.ModuleWrapper.extraction_complete
+#print axioms ParserEngine.ModuleWrapper.selected_trace
+#print axioms ParserEngine.ModuleWrapper.data_walk_counterexample
+#print axioms ParserEngine.ModuleWrapper.opaque_rejects_whole_plan
+#print axioms ParserEngine.ModuleWrapper.raw_encoding
+#print axioms ParserEngine.ModuleWrapper.raw_execution
+#print axioms ParserEngine.ModuleWrapper.declaration_context
+#print axioms ParserEngine.TestPhase.requested_phases
+#print axioms ParserEngine.TestPhase.selected_import_owned
+#print axioms ParserEngine.TestPhase.stored_import_order
+#print axioms ParserEngine.TestPhase.source_overlay_excluded
+#print axioms ParserEngine.TestPhase.nonzero_phase_excluded
+
+#print axioms ParserEngine.SourceInventory.selection_exact
+#print axioms ParserEngine.SourceInventory.visits_bound
+#print axioms ParserEngine.SourceInventory.derived_inputs_exact
+#print axioms ParserEngine.SourceInventory.derived_snapshot_exact
+
+#print axioms ParserEngine.Grammar.nullable_iff_derives
+#print axioms ParserEngine.Grammar.nullable_least
+#print axioms ParserEngine.Grammar.first_least
+#print axioms ParserEngine.Grammar.first_reach
+#print axioms ParserEngine.Grammar.nullable_productive
+#print axioms ParserEngine.Grammar.eof_lookahead_requires_nullable
+#print axioms ParserEngine.Grammar.terminal_lookahead_has_derivation
+#print axioms ParserEngine.Grammar.erase_reduce
+#print axioms ParserEngine.Grammar.trace_valid
+#print axioms ParserEngine.Grammar.accepted_trace_derivation
+#print axioms ParserEngine.Grammar.table_driven_acceptance
+#print axioms ParserEngine.Grammar.source_request_derivation
+#print axioms ParserEngine.Grammar.Fixture.repeated_S
+#print axioms ParserEngine.Viable.completed_rhs
+#print axioms ParserEngine.Viable.accepting_stack
+#print axioms ParserEngine.Viable.lr1_graph_constructed
+#print axioms ParserEngine.Completion.nullable_certificate_exact
+#print axioms ParserEngine.Completion.first_certificate_exact
+#print axioms ParserEngine.NativeFacts.first_exact
+#print axioms ParserEngine.Completion.fresh_notification_counts_occurrences
+#print axioms ParserEngine.Completion.zero_remaining
+#print axioms ParserEngine.Lowering.lowering_exact
+#print axioms ParserEngine.Lowering.named_lowering_exact
+#print axioms ParserEngine.Lowering.native_root_sound
+#print axioms ParserEngine.Worklist.quiescent_exact
+#print axioms ParserEngine.Solver.preparation_pipeline_exact
+#print axioms ParserEngine.Lowering.isolated_repeat_origin
+#print axioms ParserEngine.Lowering.isolated_repeat1_origin
+#print axioms ParserEngine.Encoding.delta_conservation
+#print axioms ParserEngine.Encoding.field_complete
+#print axioms ParserEngine.Worklist.batch_quiescent_exact
+#print axioms ParserEngine.Names.unique_names
+#print axioms ParserEngine.Names.reserved_not_helper
+#print axioms ParserEngine.Names.ordinal_alignment
+#print axioms ParserEngine.Names.checked_native_root_sound
+#print axioms ParserEngine.Worklist.mask_notification_valid
+#print axioms ParserEngine.Solver.batched_preparation_exact
+#print axioms ParserEngine.Encoding.publish_queue_valid
+#print axioms ParserEngine.Encoding.drain_queue_valid
+#print axioms ParserEngine.Names.helpers_avoid_source
+#print axioms ParserEngine.Encoding.merge_delivered
+#print axioms ParserEngine.Encoding.queue_empty_exact
+#print axioms ParserEngine.Completion.register_count
+#print axioms ParserEngine.Completion.mutable_notification_exact
+#print axioms ParserEngine.Completion.mutable_prefix_nonnegative
+#print axioms ParserEngine.Completion.mutable_enables_exact
+#print axioms ParserEngine.Completion.counter_trace_exact
+#print axioms ParserEngine.Names.produced_recipe_checked
+#print axioms ParserEngine.Names.sequence_recipe_produced
+#print axioms ParserEngine.Names.choice_recipe_produced
+#print axioms ParserEngine.Names.repeat_recipe_produced
+#print axioms ParserEngine.Names.repeat1_recipe_produced
+#print axioms ParserEngine.Names.admitted_native_sound
+#print axioms ParserEngine.Viable.dense_coordinate_roundtrip
+#print axioms ParserEngine.Viable.dense_goto_refines_advance
+#print axioms ParserEngine.Viable.closure_trace_exact
+#print axioms ParserEngine.Names.admitted_native_root_sound
+#print axioms ParserEngine.Viable.goto_kernel_exact
+#print axioms ParserEngine.Viable.construction_traces_supported
+#print axioms ParserEngine.Names.operand_recipe_produced
+#print axioms ParserEngine.Names.native_sequence_recipe_produced
+#print axioms ParserEngine.Viable.lr1_trace_exact
+#print axioms ParserEngine.Viable.lr1_goto_kernel_exact
+#print axioms ParserEngine.Viable.lr1_construction_traces_supported
+#print axioms ParserEngine.Construction.intern_decodes
+#print axioms ParserEngine.Construction.intern_unique
+#print axioms ParserEngine.Construction.interned_identity_injective
+#print axioms ParserEngine.Construction.positive_kernel_identity
+#print axioms ParserEngine.Construction.refinement_never_merges
+#print axioms ParserEngine.Construction.active_signature_agrees
+#print axioms ParserEngine.Construction.packed_conflict_has_origin
+#print axioms ParserEngine.Construction.packed_bits_exact
+#print axioms ParserEngine.Construction.published_table_supported
+#print axioms ParserEngine.Construction.install_choice_origin
+#print axioms ParserEngine.Construction.admitted_event_supported
+#print axioms ParserEngine.Construction.install_preserves_cell_trace
+#print axioms ParserEngine.Construction.physical_code_injective
+#print axioms ParserEngine.Construction.duplicate_rules_keep_physical_identity
+#print axioms ParserEngine.Construction.split_successor_dirty
+#print axioms ParserEngine.Construction.clean_predecessor_transport
+#print axioms ParserEngine.Construction.replay_candidates_trace
+#print axioms ParserEngine.Construction.replayed_table_supported
+#print axioms ParserEngine.Construction.scratch_write_covered
+#print axioms ParserEngine.Construction.scratch_clear_empty
+#print axioms ParserEngine.Construction.publication_retains_row_and_clears
+#print axioms ParserEngine.Construction.admitted_physical_event_supported
+#print axioms ParserEngine.Construction.augmented_cannot_reduce
+#print axioms ParserEngine.Construction.authored_cannot_accept
+#print axioms ParserEngine.Construction.decoded_candidates_admitted
+#print axioms ParserEngine.Construction.physical_replayed_table_supported
+#print axioms ParserEngine.Construction.clean_group_uniform
+#print axioms ParserEngine.Construction.event_scratch_covered
+#print axioms ParserEngine.Construction.event_scratch_trace
+#print axioms ParserEngine.Construction.event_row_publication
+#print axioms ParserEngine.Construction.refined_signature_uniform
+#print axioms ParserEngine.Construction.vector_write_refines
+#print axioms ParserEngine.Construction.vector_clear_refines
+#print axioms ParserEngine.Construction.vector_clear_covered
+#print axioms ParserEngine.Construction.vector_event_projection
+#print axioms ParserEngine.Construction.vector_event_publication
+#print axioms ParserEngine.Construction.raw_reductions_origin
+#print axioms ParserEngine.Construction.layout_selection_origin
+#print axioms ParserEngine.Construction.layout_replay_supported
+#print axioms ParserEngine.Construction.union_masks_exact
+#print axioms ParserEngine.Construction.quotient_lookahead_origin
+#print axioms ParserEngine.Construction.suffix_evidence_exact
+#print axioms ParserEngine.Construction.suffix_delivery_exact
+#print axioms ParserEngine.Construction.suffix_evidence_allowed
+#print axioms ParserEngine.Construction.suffix_prediction_supported
+#print axioms ParserEngine.Construction.shifted_lookahead_retained
+#print axioms ParserEngine.Construction.cell_events_origin
+#print axioms ParserEngine.Construction.vector_layout_publication
+
+#print axioms ParserEngine.SuffixSemantics.scan_exact
+#print axioms ParserEngine.SuffixSemantics.catalogue_semantic
+#print axioms ParserEngine.SuffixSemantics.packed_at
+#print axioms ParserEngine.SuffixSemantics.from_completed_exact
+#print axioms ParserEngine.LRStateSemantics.closure_exact
+#print axioms ParserEngine.LRStateSemantics.merge_accumulator
+#print axioms ParserEngine.LRStateSemantics.closure_merge_sorted
+#print axioms ParserEngine.LRStateSemantics.decoded_closure
+#print axioms ParserEngine.LRStateSemantics.completed_prediction
+#print axioms ParserEngine.LRStateSemantics.physical_goto
+#print axioms ParserEngine.CompilerSemanticsSource.checked_suffix_semantic
+#print axioms ParserEngine.CompilerSemanticsWitness.source_checked
+#print axioms ParserEngine.SuffixSemantics.reverse_execution
+#print axioms ParserEngine.LRStateSemantics.foldl_cons_tail
+#print axioms ParserEngine.CompilerSemanticsSource.checked_closure_exact
+#print axioms ParserEngine.CompilerSemanticsSource.changed_suffix_rejected
+#print axioms ParserEngine.PropagationSemantics.reach_supported
+#print axioms ParserEngine.PropagationSemantics.replay_supported
+#print axioms ParserEngine.SuffixSemantics.after_dot_read
+#print axioms ParserEngine.PropagationSemantics.compiled_suffix
+#print axioms ParserEngine.PropagationSemantics.extracted_supported
+
+#print axioms ParserEngine.PredictionQueue.checked_exact
+#print axioms ParserEngine.PredictionQueue.step_rank
+#print axioms ParserEngine.PredictionCatalog.checked_prediction
+#print axioms ParserEngine.PredictionExtraction.decoded
+#print axioms ParserEngine.StateInterning.intern_valid
+#print axioms ParserEngine.StateInterning.retained
+#print axioms ParserEngine.StateInterning.grow_retains
+#print axioms ParserEngine.NodeCoordinates.lookup_sound
+#print axioms ParserEngine.NodeCoordinates.lookup_complete
+#print axioms ParserEngine.NodeCoordinates.written_at
+#print axioms ParserEngine.LRConstructionWitness.source_checked
+#print axioms ParserEngine.ConstructionAdmission.prediction_exact
+#print axioms ParserEngine.ConstructionAdmission.state_preserves
+#print axioms ParserEngine.ConstructionAdmission.coordinate_exact
+#print axioms ParserEngine.ConstructionAdmission.changed_prediction_rejected
+
+#print axioms ParserEngine.PredictionTermination.finite_rank
+#print axioms ParserEngine.PredictionTermination.finishes
+
+#print axioms ParserEngine.PredictionWitness.execute
+#print axioms ParserEngine.PredictionWitness.generated_exact
+#print axioms ParserEngine.PredictionObservation.checked_record
+#print axioms ParserEngine.PredictionObservationWitness.native_checked
+#print axioms ParserEngine.PredictionObservationWitness.changed_dequeue_rejected
+#print axioms ParserEngine.PredictionMaterialization.template_exact
+#print axioms ParserEngine.PredictionMaterialization.closure_exact
+#print axioms ParserEngine.TransitionPublication.valid
+#print axioms ParserEngine.TransitionPublication.row_exact
+#print axioms ParserEngine.TransitionPublication.drain_valid
+#print axioms ParserEngine.LRTemplateWitness.source_checked
+#print axioms ParserEngine.LRTemplateSource.checked_closure
+#print axioms ParserEngine.LRTransitionWitness.source_checked
+#print axioms ParserEngine.LRTransitionSource.published_rows
+
+#print axioms ParserEngine.PublishedClosure.core_membership
+#print axioms ParserEngine.PublishedClosure.factory_exact
+#print axioms ParserEngine.PublishedClosure.target_exact
+
+#print axioms ParserEngine.TemplateCache.fetched_from_history
+
+#print axioms ParserEngine.NameDiscovery.name_index
+#print axioms ParserEngine.NameDiscovery.coverage
+#print axioms ParserEngine.NameDiscovery.completed_slots_ignored
+#print axioms ParserEngine.PublishedClosure.discovered_factory_exact
+
+#print axioms ParserEngine.PhysicalCoreExtraction.advance_extracted
+#print axioms ParserEngine.PhysicalOperandExtraction.extracted_symbol
+#print axioms ParserEngine.PhysicalSymbolDiscovery.discovered_from_physical
+#print axioms ParserEngine.SymbolDiscovery.index_injective
+#print axioms ParserEngine.SparseGroupMasks.groups_bit
+#print axioms ParserEngine.SparseGoto.kernel_bound
+#print axioms ParserEngine.SparseGoto.generated_goto
+#print axioms ParserEngine.KernelConstruction.history_bound
+#print axioms ParserEngine.KernelConstruction.target_goto_exact
+#print axioms ParserEngine.SparseGroupWitness.source_checked
+#print axioms ParserEngine.SparseGroupSource.checked_bound
+
+#print axioms ParserEngine.DiscoveryOrder.keys_sorted
+#print axioms ParserEngine.GroupOrder.native_own_sort
+#print axioms ParserEngine.GroupOrder.generated_sorted
+#print axioms ParserEngine.GroupScratch.first_ready
+#print axioms ParserEngine.GroupScratch.order_permutation
+#print axioms ParserEngine.GroupScratch.borrowed_reset
+#print axioms ParserEngine.ConstructionQueue.dequeue_fifo
+#print axioms ParserEngine.ConstructionQueue.tick_rank
+#print axioms ParserEngine.ConstructionQueue.finish_empty
+#print axioms ParserEngine.ConstructionRows.complete
+#print axioms ParserEngine.ConstructionProtocol.source_current
+#print axioms ParserEngine.ConstructionProtocol.native_group_call
+#print axioms ParserEngine.ConstructionProtocol.grouping
+#print axioms ParserEngine.ConstructionProtocol.complete
+#print axioms ParserEngine.ConstructionProtocol.paper_target
+
+#print axioms ParserEngine.BitTraversal.least_properties
+#print axioms ParserEngine.BitTraversal.clear_bit
+#print axioms ParserEngine.BitTraversal.direct_sorted
+#print axioms ParserEngine.BitTraversal.direct_run_sound
+#print axioms ParserEngine.BitTraversal.fields_exact
+#print axioms ParserEngine.BitTraversal.source_field_callbacks
+#print axioms ParserEngine.BitTraversal.dispatch_exact
+#print axioms ParserEngine.BitTraversalWitness.source_checked
+#print axioms ParserEngine.BitTraversalSource.execute_exact
+#print axioms ParserEngine.TraversalCapabilities.callbacks_exact
+#print axioms ParserEngine.TraversalCapabilities.order_retains_factories
+#print axioms ParserEngine.TraversalCapabilities.consumer_exact
+#print axioms ParserEngine.ConstructionProtocol.callback_cores
+#print axioms ParserEngine.ConstructionProtocol.traversedGroups_exact
+#print axioms ParserEngine.ConstructionProtocol.traversal_finish_exact
+#print axioms ParserEngine.BitTraversalSource.changed_source_rejected
+#print axioms ParserEngine.BitTraversalSource.changed_width_rejected
+
+#print axioms ParserEngine.TemplateCapabilities.build_exact
+#print axioms ParserEngine.TemplateCapabilities.build_stored
+#print axioms ParserEngine.TemplateCapabilities.build_retained
+#print axioms ParserEngine.TemplateCapabilities.cache_hit
+#print axioms ParserEngine.CachedConstruction.intern_exact
+#print axioms ParserEngine.CachedConstruction.publish_exact
+#print axioms ParserEngine.CachedConstruction.finish_exact
+#print axioms ParserEngine.CachedConstruction.construct_exact
+
+#print axioms ParserEngine.CachedConstruction.groups_exact
+#print axioms ParserEngine.CachedConstruction.tick_covered
+#print axioms ParserEngine.CachedConstruction.construct_covered
+#print axioms ParserEngine.CachedConstruction.source_current
+
+#print axioms ParserEngine.CachedConstruction.plan_template
+
+#print axioms ParserEngine.PlanStorage.fetch_valid
+#print axioms ParserEngine.PlanStorage.objects_retained
+#print axioms ParserEngine.PlanStorage.decode_install
+#print axioms ParserEngine.PlanStorage.decode_other
+#print axioms ParserEngine.PlanStorage.shared_reference
+#print axioms ParserEngine.PlanStorage.vector_decode
+#print axioms ParserEngine.PlanStorage.grow_decode
+#print axioms ParserEngine.TemplateCapabilities.build_plan
+#print axioms ParserEngine.TemplateCapabilities.build_scratch
+#print axioms ParserEngine.CachedConstruction.construct_aligned
+#print axioms ParserEngine.CachedConstruction.runGroup_memory
+#print axioms ParserEngine.CachedConstruction.tick_scratch
+
+#print axioms ParserEngine.PlanStorage.fresh_separates
+
+#print axioms ParserEngine.TemplateIndex.record_view
+#print axioms ParserEngine.TemplateIndex.lookup
+#print axioms ParserEngine.TemplateIndex.own_exact
+#print axioms ParserEngine.VectorStorage.copy_read
+#print axioms ParserEngine.VectorStorage.grow_exact
+#print axioms ParserEngine.VectorStorage.append_refines
+#print axioms ParserEngine.PlanStorage.trace_shape
+#print axioms ParserEngine.PlanStorage.trace_decode
+#print axioms ParserEngine.CachedConstruction.constructed_vector
+#print axioms ParserEngine.ConstructionExtraction.extracted_sources
+#print axioms ParserEngine.ConstructionExtraction.recipe_write
+#print axioms ParserEngine.ConstructionExtraction.recipe_copy
+#print axioms ParserEngine.ConstructionExtraction.source_current
+
+#print axioms ParserEngine.ConstructionExtraction.changed_growth_rejected
+#print axioms ParserEngine.ConstructionExtraction.changed_template_rejected
+
+#print axioms ParserEngine.ConstructionConsumer.rejected
+#print axioms ParserEngine.ConstructionConsumer.admitted
+#print axioms ParserEngine.ConstructionConsumer.physical_index
+#print axioms ParserEngine.ConstructionConsumer.paper_target
+
+#print axioms ParserEngine.ConstructionConsumer.prepared
+#print axioms ParserEngine.ConstructionConsumer.current_admitted
+
+#print axioms ParserEngine.ConstructionConsumer.source_correspondence
+
+#print axioms ParserEngine.ConstructionConsumer.complete
+
+#print axioms ParserEngine.ConstructionStorage.copy_fields
+#print axioms ParserEngine.ConstructionStorage.empty_row_encoding
+#print axioms ParserEngine.ConstructionStorage.append_exact
+#print axioms ParserEngine.ConstructionStorage.append_refines
+#print axioms ParserEngine.ConstructionStorage.publish_refines
+#print axioms ParserEngine.ConstructionStorage.trace_shape
+#print axioms ParserEngine.ConstructionHeap.intern_owned
+#print axioms ParserEngine.ConstructionHeap.tick_owned
+#print axioms ParserEngine.ConstructionHeap.construct_owned
+#print axioms ParserEngine.ConstructionConsumer.joint_observations
+#print axioms ParserEngine.ConstructionConsumer.physical_complete
+#print axioms ParserEngine.ConstructionConsumer.physical_paper_target
+#print axioms ParserEngine.ConstructionConsumer.joint_index
+#print axioms ParserEngine.ConstructionExtraction.schema_recipe
+#print axioms ParserEngine.ConstructionConsumer.schema_constructs
+
+#print axioms ParserEngine.ConstructionControl.forward_prefix
+#print axioms ParserEngine.ConstructionControl.allocation_permutation
+#print axioms ParserEngine.ConstructionControl.copy_exact
+#print axioms ParserEngine.ConstructionControl.loop_safe
+#print axioms ParserEngine.ConstructionControl.growth_safe
+#print axioms ParserEngine.ConstructionControl.owner_stages
+#print axioms ParserEngine.ConstructionControl.grow_exact
+#print axioms ParserEngine.ConstructionControl.append_exact
+#print axioms ParserEngine.ConstructionControl.source_decoded
+#print axioms ParserEngine.ConstructionControl.trace_realizes
+#print axioms ParserEngine.ConstructionControl.source_realizes
+#print axioms ParserEngine.ConstructionControl.malformed_rejected
+#print axioms ParserEngine.ConstructionControl.unsupported_rejected
+#print axioms ParserEngine.ConstructionControl.nonadvancing_rejected
+#print axioms ParserEngine.ConstructionConsumer.source_execution
+#print axioms ParserEngine.ConstructionAppend.run_exact
+#print axioms ParserEngine.ConstructionAppend.registration_stage
+#print axioms ParserEngine.ConstructionAppend.write_bounds
+#print axioms ParserEngine.ConstructionAppend.source_decoded
+#print axioms ParserEngine.ConstructionAppend.execute_exact
+#print axioms ParserEngine.ConstructionAppend.trace_realizes
+#print axioms ParserEngine.ConstructionAppend.source_realizes
+#print axioms ParserEngine.ConstructionAppend.unsupported_rejected
+#print axioms ParserEngine.ConstructionAppend.intern_step
+#print axioms ParserEngine.ConstructionAppend.intern_index
+#print axioms ParserEngine.ConstructionInitialization.schema_decoded
+#print axioms ParserEngine.ConstructionInitialization.source_decoded
+#print axioms ParserEngine.ConstructionInitialization.run_exact
+#print axioms ParserEngine.ConstructionInitialization.write_bounds
+#print axioms ParserEngine.ConstructionInitialization.initial_exact
+#print axioms ParserEngine.ConstructionFIFO.source_decoded
+#print axioms ParserEngine.ConstructionFIFO.target_exact
+#print axioms ParserEngine.ConstructionFIFO.groups_exact
+#print axioms ParserEngine.ConstructionFIFO.groups_replay
+#print axioms ParserEngine.ConstructionFIFO.tick_exact
+#print axioms ParserEngine.ConstructionFIFO.tick_replay
+#print axioms ParserEngine.ConstructionFIFO.finish_exact
+#print axioms ParserEngine.ConstructionFIFO.finish_replay
+#print axioms ParserEngine.ConstructionFIFO.start_exact
+#print axioms ParserEngine.ConstructionFIFO.construct_exact
+#print axioms ParserEngine.ConstructionFIFO.construct_replay
+#print axioms ParserEngine.ConstructionFIFO.construct_safe
+#print axioms ParserEngine.ConstructionFIFO.source_execution
+#print axioms ParserEngine.ConstructionConsumer.source_replay
+#print axioms ParserEngine.ConstructionConsumer.source_complete
+#print axioms ParserEngine.ConstructionFIFO.rejected
+#print axioms ParserEngine.TemplateCapabilities.produce_exact
+#print axioms ParserEngine.TemplateCapabilities.produce_storage
+#print axioms ParserEngine.TemplateCapabilities.produce_reframe
+#print axioms ParserEngine.ConstructionInstallation.growth_prefix
+#print axioms ParserEngine.ConstructionInstallation.append_exact
+#print axioms ParserEngine.ConstructionInstallation.append_accounting
+#print axioms ParserEngine.ConstructionInstallation.append_id
+#print axioms ParserEngine.ConstructionInstallation.append_queue
+#print axioms ParserEngine.ConstructionInitialization.initial_accounting
+#print axioms ParserEngine.ConstructionFIFO.target_existing
+#print axioms ParserEngine.ConstructionFIFO.target_before_enqueue
+#print axioms ParserEngine.ConstructionInitialization.before_registration
+#print axioms ParserEngine.ConstructionFIFO.counted_prefix
+#print axioms ParserEngine.ConstructionFIFO.target_processed
+#print axioms ParserEngine.ConstructionFIFO.groups_processed
+#print axioms ParserEngine.ConstructionFIFO.groups_boundary
+#print axioms ParserEngine.ConstructionFIFO.tick_phases
+#print axioms ParserEngine.ConstructionReadiness.visited
+#print axioms ParserEngine.ConstructionReadiness.ready
+#print axioms ParserEngine.ConstructionReadiness.complete
+#print axioms ParserEngine.ConstructionReadiness.finish_visit
+#print axioms ParserEngine.ConstructionReadiness.construct_visit
+#print axioms ParserEngine.ConstructionConsumer.source_readiness
+#print axioms ParserEngine.ConstructionGrammar.admitted_fields
+#print axioms ParserEngine.ConstructionGrammar.nonempty
+#print axioms ParserEngine.ConstructionGrammar.project_index
+#print axioms ParserEngine.ConstructionGrammar.id_index
+#print axioms ParserEngine.ConstructionGrammar.operand_exact
+#print axioms ParserEngine.ConstructionGrammar.origins
+#print axioms ParserEngine.ConstructionGrammar.source_derivation
+#print axioms ParserEngine.ConstructionGrammar.rejected
+#print axioms ParserEngine.ConstructionGrammar.consumer_success
+#print axioms ParserEngine.ConstructionGrammar.complete
+#print axioms ParserEngine.ConstructionEncoding.lookup_sound
+#print axioms ParserEngine.ConstructionEncoding.lookup_injective
+#print axioms ParserEngine.ConstructionEncoding.terminal_roundtrip
+#print axioms ParserEngine.ConstructionEncoding.terminal_injective
+#print axioms ParserEngine.ConstructionEncoding.symbol_roundtrip
+#print axioms ParserEngine.ConstructionEncoding.symbol_injective
+#print axioms ParserEngine.ConstructionEncoding.mapM_trace
+#print axioms ParserEngine.ConstructionEncoding.row_roundtrip
+#print axioms ParserEngine.ConstructionEncoding.table_positions
+#print axioms ParserEngine.ConstructionEncoding.factory_positions
+#print axioms ParserEngine.ConstructionEncoding.complete
+#print axioms ParserEngine.ConstructionEncodingWitness.source_checked
+#print axioms ParserEngine.ConstructionEncodingWitness.no_truncation
+
+#print axioms ParserEngine.NativeFacts.nullable_exact
+#print axioms ParserEngine.NativeFacts.origin_sound
+#print axioms ParserEngine.NativeFacts.origin_language_sound
+#print axioms ParserEngine.GrammarWitnessDecoder.array_positions
+#print axioms ParserEngine.GrammarWitnessDecoder.malformed_rejected
+#print axioms ParserEngine.NativeFacts.origin_facts
+#print axioms ParserEngine.NativeFacts.completion_decode_checked
+#print axioms ParserEngine.NativeFacts.origin_decode_checked
+#print axioms ParserEngine.ConstructionVocabulary.collect_transport
+#print axioms ParserEngine.ConstructionVocabulary.terminal_stream
+#print axioms ParserEngine.ConstructionVocabulary.catalogue_transport
+#print axioms ParserEngine.ConstructionVocabulary.key_ordinal
+#print axioms ParserEngine.ConstructionVocabulary.factory_terminal
+#print axioms ParserEngine.ConstructionVocabulary.factory_symbol_index
+#print axioms ParserEngine.ConstructionVocabulary.factory_paper_target
+#print axioms ParserEngine.LoweringPublication.emission_failed
+#print axioms ParserEngine.LoweringPublication.origin_failure
+#print axioms ParserEngine.LoweringPublication.proof_failure
+#print axioms ParserEngine.LoweringPublication.successful_ids
+#print axioms ParserEngine.LoweringPublication.successful_payloads
+#print axioms ParserEngine.LoweringPublication.failed_not_constructed
+#print axioms ParserEngine.LoweringPublication.complete
+#print axioms ParserEngine.LoweringPublicationWitness.source_checked
+#print axioms ParserEngine.LoweringPublication.run_append
+#print axioms ParserEngine.LoweringPublication.failed_prefix
+#print axioms ParserEngine.LoweringPublication.dense_ids
+#print axioms ParserEngine.LoweringPublication.constructed_fields
+#print axioms ParserEngine.LoweringPublication.tape_append
+#print axioms ParserEngine.LoweringBranches.every_emission_checked
+#print axioms ParserEngine.LoweringBranches.realized_native
+#print axioms ParserEngine.LoweringTraversal.single_declaration
+#print axioms ParserEngine.LoweringTraversal.declarations_admitted
+#print axioms ParserEngine.LoweringTraversal.declarations_language_sound
+#print axioms ParserEngine.LoweringProtocol.generated_origin
+#print axioms ParserEngine.LoweringProtocol.complete
+#print axioms ParserEngine.LoweringTraversalWitness.compared
+#print axioms ParserEngine.LoweringTraversalWitness.precedence_barrier
+#print axioms ParserEngine.LoweringTraversalWitness.truncated_rejected
+#print axioms ParserEngine.LoweringNames.search_total
+#print axioms ParserEngine.LoweringNames.search_trace
+#print axioms ParserEngine.LoweringNameStore.stable
+#print axioms ParserEngine.LoweringCallStack.realized
+#print axioms ParserEngine.LoweringCallStack.admitted
+#print axioms ParserEngine.LoweringProgram.complex_operand_eq
+#print axioms ParserEngine.LoweringProgram.physical_realized
+#print axioms ParserEngine.LoweringBranchSource.source_checked
+#print axioms ParserEngine.LoweringProtocol.current_ready
+#print axioms ParserEngine.LoweringProgramControls.generated_origin
+#print axioms ParserEngine.LoweringCallStack.returns_before_continuation
+#print axioms ParserEngine.LoweringCallStackControls.exact_physical
+
+#print axioms ParserEngine.SchemeTableEvaluation.Eval.deterministic
+#print axioms ParserEngine.RuleIndexEvaluation.source_execution
+#print axioms ParserEngine.RuleIndexEvaluation.complete
+#print axioms ParserEngine.RuleIndexEvaluation.overwrite_loses_first
+#print axioms ParserEngine.RuleIndexSource.source_checked
+#print axioms ParserEngine.RuleIndexSource.simulate
+#print axioms ParserEngine.RuleIndexSource.complete
+#print axioms ParserEngine.SchemeCells.shared_counter
+#print axioms ParserEngine.SchemeCells.increment_not_atomic
+#print axioms ParserEngine.LoweringClaimEvaluation.available_unique
+#print axioms ParserEngine.LoweringFreshEvaluation.extracted_declarations
+#print axioms ParserEngine.LoweringFreshEvaluation.loop_eval
+#print axioms ParserEngine.LoweringFreshEvaluation.fresh_unique
+#print axioms ParserEngine.LoweringFreshEvaluation.allocation_simulation
+#print axioms ParserEngine.LoweringAllocationCalls.source_history
+#print axioms ParserEngine.LoweringAllocationCalls.source_unique
+#print axioms ParserEngine.LoweringAllocationCalls.every_return
+#print axioms ParserEngine.LoweringAllocationCalls.committed_frame
+#print axioms ParserEngine.LoweringRootStorage.source_entry
+#print axioms ParserEngine.LoweringRootStorage.roots
+#print axioms ParserEngine.LoweringRootStorage.root_frame
+#print axioms ParserEngine.LoweringRootScope.extracted
+#print axioms ParserEngine.LoweringRootScope.root_allocations
+#print axioms ParserEngine.SchemeNameEncoding.extracted
+#print axioms ParserEngine.SchemeNameEncoding.every_return
+#print axioms ParserEngine.SchemeNameEncoding.code_preserves_identity
+#print axioms ParserEngine.ConstructionGrammar.undeclared_rejected
+
+#print axioms ParserEngine.ConstructionGrammar.declared_operand
+
+#print axioms ParserEngine.LoweringReservationEvaluation.source_execution
+#print axioms ParserEngine.LoweringReservationEvaluation.every_return
+#print axioms ParserEngine.LoweringReservationEvaluation.frame
+#print axioms ParserEngine.LoweringDeclarationVocabulary.reserved_undeclared
+#print axioms ParserEngine.LoweringProtocol.input_allocated
+#print axioms ParserEngine.LoweringProtocol.input_undeclared
+
+#print axioms ParserEngine.ConstructionGrammar.lhs_declared
+#print axioms ParserEngine.ConstructionGrammar.undeclared_lhs_rejected
+
+#print axioms ParserEngine.LoweringPreprocessingEvaluation.source_execution
+#print axioms ParserEngine.LoweringPreprocessingEvaluation.prefix_execution
+#print axioms ParserEngine.LoweringPreprocessingEvaluation.frame
+
+#print axioms ParserEngine.ModuleEvaluation.observation_preserves
+#print axioms ParserEngine.ModuleEvaluation.eager_import_counterexample
+#print axioms ParserEngine.ModuleEvaluation.built_observation
+
+#print axioms ParserEngine.ModuleEvaluation.missing_helper_not_ready
+#print axioms ParserEngine.ModuleEvaluation.parent_failure_cache
+
+#print axioms ParserEngine.BuildEnvironment.normalize_preserves
+#print axioms ParserEngine.BuildEnvironment.prepared_capabilities_preserved
+#print axioms ParserEngine.BuildEnvironment.reordering_changes
+
+#print axioms ParserEngine.ModuleEvaluation.settled_replay_context
+
+#print axioms ParserEngine.LanguagePhase.prepare_preserved
+#print axioms ParserEngine.LanguagePhase.consumer_preserved
+#print axioms ParserEngine.LanguagePhase.outside_request
+
+#print axioms ParserEngine.PhaseDemand.reachable_allowed
+#print axioms ParserEngine.PhaseDemand.requests_allowed
+#print axioms ParserEngine.PhaseDemand.prepare_preserved
+#print axioms ParserEngine.PhaseDemand.consumer_preserved
+#print axioms ParserEngine.PhaseDemand.constructor_absent
+#print axioms ParserEngine.PhaseDemand.direct_import_counterexample
+#print axioms ParserEngine.PhaseDemand.template_runtime_cut
+
+#print axioms ParserEngine.PhaseDemand.record_dependencies
+#print axioms ParserEngine.PhaseDemand.stopped_requests
+#print axioms ParserEngine.PhaseDemand.wrapper_requests
+#print axioms ParserEngine.PhaseDemand.extracted_wrapper_requests
+
+#print axioms ParserEngine.PhaseDemand.recorded_sound
+#print axioms ParserEngine.PhaseDemand.recorded_constructor_absent
+
+#print axioms ParserEngine.PhaseDemand.prepared_provider_identity
+
+#print axioms ParserEngine.SourceEnvironment.selected_resolves
+#print axioms ParserEngine.SourceEnvironment.missing_rejects
+#print axioms ParserEngine.SourceEnvironment.variable_evaluates
+#print axioms ParserEngine.SourceEnvironment.bound_cell_can_be_uninitialized
+#print axioms ParserEngine.SourceEnvironment.retained_cell_reads_write
+
+#print axioms ParserEngine.SourceDependencies.complete
+#print axioms ParserEngine.SourceDependencies.record_exact
+#print axioms ParserEngine.SourceDependencies.recorded_complete
+#print axioms ParserEngine.SourceDependencies.supplied_requires
+#print axioms ParserEngine.SourceDependencies.prepared_covers_source
+#print axioms ParserEngine.SourceDependencies.admitted_closed
+#print axioms ParserEngine.SourceDependencies.deferred_omission
+#print axioms ParserEngine.SourceDependencies.rhs_omission
+
+#print axioms ParserEngine.SourceDependencies.supplied_complete
+
+#print axioms ParserEngine.SourceDependencyExecution.extracted_record
+#print axioms ParserEngine.SourceDependencyExecution.extracted_readback
+#print axioms ParserEngine.SourceDependencyExecution.callback_step
+#print axioms ParserEngine.SourceDependencyExecution.callback_sequence
+#print axioms ParserEngine.SourceDependencyExecution.complete_readback
+
+#print axioms ParserEngine.SourceDependencyExecution.extracted_reference_method
+#print axioms ParserEngine.SourceDependencyExecution.extracted_assignment_method
+
+#print axioms ParserEngine.SourceDependencyExecution.extracted_collector
+
+#print axioms ParserEngine.SourceDependencies.kernel_prefix_is_insufficient
+#print axioms ParserEngine.SourceDependencies.host_primitive_is_resolved
+#print axioms ParserEngine.SourceDependencies.absent_capability_is_recorded
+
+#print axioms ParserEngine.SourceDependencyExecution.extracted_resolution
+
+#print axioms ParserEngine.SourceDependencyExecution.callback_invocation
+#print axioms ParserEngine.SourceDependencyExecution.each_is_closure_calls
+#print axioms ParserEngine.SourceDependencyExecution.closure_complete_readback
+
+#print axioms ParserEngine.SourceDependencyAdapter.extracted_shared
+#print axioms ParserEngine.SourceDependencyAdapter.extracted_event
+#print axioms ParserEngine.SourceDependencyAdapter.pieces
+#print axioms ParserEngine.SourceDependencyAdapter.shared_keeps_whole_body
+#print axioms ParserEngine.SourceDependencyAdapter.event_keeps_whole_body
+#print axioms ParserEngine.SourceDependencyAdapter.first_body_projection_loses_tail
+
+#print axioms ParserEngine.SourceDependencyExecution.extracted_preparation
+
+#print axioms ParserEngine.SourceDeclarationReading.reads_exact
+#print axioms ParserEngine.SourceDeclarationReading.read_iff
+#print axioms ParserEngine.SourceDeclarationReading.selected_occurs
+#print axioms ParserEngine.SourceDeclarationReading.duplicate_rejects
+#print axioms ParserEngine.SourceDeclarationReading.read_error_rejects
+#print axioms ParserEngine.SourceDeclarationTransformation.extracted_transform
+#print axioms ParserEngine.SourceDeclarationTransformation.invoke_closure
+#print axioms ParserEngine.SourceDeclarationTransformation.checked_closure
+#print axioms ParserEngine.SourceDeclarationTransformation.unique_execution
+#print axioms ParserEngine.SourceDeclarationTransformation.read_transform_prepare
+
+#print axioms ParserEngine.SourceDeclarationTransformation.changed_interface_rejects
+
+#print axioms ParserEngine.SourceDeclarationPredicate.emitted_source
+#print axioms ParserEngine.SourceDeclarationPredicate.predicate_corresponds
+#print axioms ParserEngine.SourceDeclarationPredicate.predicate_read_iff
+
+#print axioms ParserEngine.SourceDeclarationTransformation.extracted_snapshot
+
+#print axioms ParserEngine.SourceDeclarationTransformation.aliased_snapshot_overwritten
+#print axioms ParserEngine.SourceDeclarationTransformation.distinct_snapshot_retained
+
+#print axioms ParserEngine.SchemeTableEvaluation.literal_total
+
+#print axioms ParserEngine.SourceDeclarationTransformation.original_test_corresponds
+#print axioms ParserEngine.SourceDeclarationTransformation.result_test_corresponds
+#print axioms ParserEngine.SourceDeclarationTransformation.guards_accept_iff
+#print axioms ParserEngine.SourceDeclarationTransformation.emitted_original_guard
+#print axioms ParserEngine.SourceDeclarationTransformation.emitted_result_guard
+#print axioms ParserEngine.SourceDeclarationStorage.replay_frame
+#print axioms ParserEngine.SourceDeclarationStorage.published_factory_reads
+#print axioms ParserEngine.SourceDeclarationStorage.published_variable_evaluates
+#print axioms ParserEngine.SourceDeclarationStorage.aliased_factory_changes
+
+#print axioms ParserEngine.SourceDeclarationStorage.request_after_mutations
+
+#print axioms ParserEngine.SourceDeclarationStorage.declaration_does_not_supply_reference
+
+#print axioms ParserEngine.SourceDependencyAdapter.lambda_data_evaluates
+
+#print axioms ParserEngine.SourceDeclarationTransformation.accepted_lambda_shape
+
+#print axioms ParserEngine.SourceProcedureAdmission.check_iff
+#print axioms ParserEngine.SourceProcedureAdmission.checked_closed
+#print axioms ParserEngine.SourceProcedureAdmission.execution_checked
+#print axioms ParserEngine.SourceProcedureAdmission.checked_supplied_coverage
+#print axioms ParserEngine.SourceProcedureAdmission.closed_data_is_not_a_procedure
+
+#print axioms ParserEngine.SourceProcedureAdmission.execution_ready
+#print axioms ParserEngine.SourceProcedureAdmission.nonprocedure_result_rejected
+
+#print axioms ParserEngine.SourceSiteExtraction.complete
+#print axioms ParserEngine.SourceSiteExtraction.selected_visible
+#print axioms ParserEngine.SourceSiteExtraction.factory_visible
+#print axioms ParserEngine.SourceSiteExtraction.quoted_absent
+#print axioms ParserEngine.SourceSiteExtraction.extracted_sites
+
+#print axioms ParserEngine.SourceSiteExtraction.extracted_nested
+#print axioms ParserEngine.SourceSiteExtraction.extracted_mutations
+
+#print axioms ParserEngine.SourceSiteExtraction.ordered
+
+#print axioms ParserEngine.SourceSiteExtraction.read_nested_sound
+
+#print axioms ParserEngine.ConstructionDeclarationEncoding.metadata_independent
+#print axioms ParserEngine.ConstructionDeclarationEncoding.declaration_positions
+#print axioms ParserEngine.ConstructionDeclarationEncoding.declared_iff
+#print axioms ParserEngine.ConstructionDeclarationEncoding.missing_name_rejected
+#print axioms ParserEngine.ConstructionDeclarationEncoding.undeclared_operand
+#print axioms ParserEngine.ConstructionDeclarationEncoding.factory_owner_declared
+
+#print axioms ParserEngine.ConstructionDeclarationEncoding.reader_declarations
+#print axioms ParserEngine.ConstructionEncodingWitness.declaration_mismatch_rejected
+
+#print axioms ParserEngine.LoweringProtocol.callback_bindings
+#print axioms ParserEngine.LoweringProtocol.input_callback_order
+#print axioms ParserEngine.LoweringDeclarationEvaluation.extracted
+#print axioms ParserEngine.LoweringDeclarationEvaluation.slot_eval
+#print axioms ParserEngine.LoweringDeclarationEvaluation.collect
+#print axioms ParserEngine.LoweringDeclarationEvaluation.unique
+#print axioms ParserEngine.LoweringDeclarationEvaluation.generated_collector
+#print axioms ParserEngine.LoweringCallStackControls.ordered_callbacks
+
+#print axioms ParserEngine.LoweringProtocol.callbacks_unique
+
+#print axioms ParserEngine.LoweringDeclarationCalls.source_history
+#print axioms ParserEngine.LoweringDeclarationCalls.every_return
+
+#print axioms ParserEngine.LoweringDeclarationCalls.generated_history
+#print axioms ParserEngine.LoweringCallStackControls.authored_requests
+
+#print axioms ParserEngine.SchemeTableEvaluation.Eval.case_inversion
+#print axioms ParserEngine.SchemeTableEvaluation.Eval.selected_sequence
+#print axioms ParserEngine.SchemeTableEvaluation.first_match
+#print axioms ParserEngine.LoweringDispatchSyntax.tagged
+#print axioms ParserEngine.LoweringDispatchSyntax.selector_eval
+#print axioms ParserEngine.LoweringDispatchSyntax.tag_not_recoverable
+#print axioms ParserEngine.LoweringDispatch.lower_selected
+#print axioms ParserEngine.LoweringDispatch.operand_selected
+#print axioms ParserEngine.LoweringDispatch.symbol_selected
+#print axioms ParserEngine.LoweringDispatch.lower_eval
+#print axioms ParserEngine.LoweringDispatch.operand_eval
+#print axioms ParserEngine.LoweringDispatch.symbol_eval
+#print axioms ParserEngine.LoweringDispatch.lower_unique
+#print axioms ParserEngine.LoweringSymbolEvaluation.terminal
+#print axioms ParserEngine.LoweringSymbolEvaluation.reference
+#print axioms ParserEngine.LoweringSymbolEvaluation.terminal_unique
+
+#print axioms ParserEngine.LoweringSymbolEvaluation.retained_terminal
+
+#print axioms ParserEngine.LoweringMapEvaluation.append
+#print axioms ParserEngine.LoweringMapEvaluation.length
+#print axioms ParserEngine.LoweringMapEvaluation.deterministic
+#print axioms ParserEngine.LoweringMapEvaluation.fast_eval
+#print axioms ParserEngine.LoweringMapEvaluation.complete_list
+
+#print axioms ParserEngine.SchemeTableEvaluation.Eval.no_definition
+#print axioms ParserEngine.LoweringEntryEvaluation.root_lookup
+#print axioms ParserEngine.LoweringEntryEvaluation.captures
+#print axioms ParserEngine.LoweringEntryEvaluation.body_eval
+#print axioms ParserEngine.LoweringEntryEvaluation.root_invoke
+
+#print axioms ParserEngine.SchemeTableEvaluation.Invoke.deterministic
+#print axioms ParserEngine.LoweringProductionEvaluation.source_constructor
+#print axioms ParserEngine.LoweringProductionEvaluation.invoke
+#print axioms ParserEngine.LoweringEmitterEvaluation.body_eval
+#print axioms ParserEngine.LoweringEmitterEvaluation.invoke
+#print axioms ParserEngine.LoweringEmitterEvaluation.committed_frame
+#print axioms ParserEngine.LoweringEmitClosure.caller_bound
+#print axioms ParserEngine.LoweringEmitClosure.invoke
+#print axioms ParserEngine.LoweringEmissionCalls.Calls.append
+#print axioms ParserEngine.LoweringEmissionCalls.record_ids
+#print axioms ParserEngine.LoweringEmissionCalls.records_append
+#print axioms ParserEngine.LoweringEmissionCalls.source_history
+#print axioms ParserEngine.LoweringEmissionCalls.every_return
+#print axioms ParserEngine.LoweringEmissionConstruction.retained_ids
+
+#print axioms ParserEngine.LoweringEmitterEvaluation.name_counter_preserved
+#print axioms ParserEngine.LoweringEmitterEvaluation.names_preserved
+#print axioms ParserEngine.LoweringEmitterEvaluation.allocation_emission_commute
+
+#print axioms ParserEngine.LoweringMixedEmission.Trace.append
+#print axioms ParserEngine.LoweringMixedEmission.publication
+#print axioms ParserEngine.LoweringMixedEmission.collector_owned
+#print axioms ParserEngine.LoweringMixedEmission.collector_root_frame
+#print axioms ParserEngine.LoweringEmissionConstruction.retained_trace_ids
+
+#print axioms ParserEngine.SignedSourceMetadata.roundtrip
+#print axioms ParserEngine.SignedSourceMetadata.injective
+#print axioms ParserEngine.SignedSourceMetadata.renderer_magnitude
+#print axioms ParserEngine.SignedSourceMetadata.constructor
+
+#print axioms ParserEngine.LoweringObserverEvaluation.Notification.evaluates
+#print axioms ParserEngine.LoweringObserverEvaluation.body_eval
+#print axioms ParserEngine.LoweringObserverEvaluation.counter_agreement_iff
+
+#print axioms ParserEngine.SchemeMutationTrace.eval_generated
+#print axioms ParserEngine.SchemeMutationTrace.Writes.frame
+#print axioms ParserEngine.SchemeMutationTrace.evaluation_frame
+
+#print axioms ParserEngine.LoweringObserverEvaluation.invoke
+#print axioms ParserEngine.SchemeMutationTrace.invoke_generated
+
+#print axioms ParserEngine.LoweringObservedClosure.Application.evaluates
+#print axioms ParserEngine.LoweringObservedClosure.caller_bound
+#print axioms ParserEngine.LoweringObservedClosure.invoke
+#print axioms ParserEngine.LoweringObservedClosure.effects
+
+#print axioms ParserEngine.PreparationScratch.read_prefix
+#print axioms ParserEngine.PreparationScratch.stream_digest
+#print axioms ParserEngine.PreparationScratch.stream_capacity
+#print axioms ParserEngine.PreparationScratch.batch_digests
+
+#print axioms ParserEngine.LoweringObserverEvaluation.Origin.evaluates
+
+#print axioms ParserEngine.SchemeTableEvaluation.parallel_let_unique
+
+#print axioms ParserEngine.LoweringObservationProfiles.helper_proof_only
+
+#print axioms ParserEngine.LoweringPrecedenceEvaluation.initializers
+#print axioms ParserEngine.LoweringPrecedenceEvaluation.branch

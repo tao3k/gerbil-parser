@@ -1,0 +1,32 @@
+;;; Shared production/development entries for independent language controls.
+(import
+        (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-language)
+        (only-in :gerbil-parser/languages/arithmetic/parser-test arithmetic-test-language)
+        (only-in :gerbil-parser/languages/bash/parser bash-language)
+        (only-in :gerbil-parser/languages/bash/parser-test bash-test-language)
+        (only-in :gerbil-parser/languages/cypher/parser opencypher-language)
+        (only-in :gerbil-parser/languages/cypher/parser-test opencypher-test-language)
+        (only-in :gerbil-parser/languages/fhirpath/parser fhirpath-language)
+        (only-in :gerbil-parser/languages/fhirpath/parser-test fhirpath-test-language)
+        (only-in :gerbil-parser/languages/gql/parser gql-language)
+        (only-in :gerbil-parser/languages/gql/parser-test gql-test-language)
+        (only-in :gerbil-parser/languages/hcl/parser hcl-language)
+        (only-in :gerbil-parser/languages/hcl/parser-test hcl-test-language)
+        (only-in :gerbil-parser/languages/hl7/parser hl7-language)
+        (only-in :gerbil-parser/languages/hl7/parser-test hl7-test-language)
+        (only-in :gerbil-parser/languages/tla-plus/parser
+                 tla-plus-core-language tla-plus-layout-language tla-plus-sany-candidate-language)
+        (only-in :gerbil-parser/languages/tla-plus/parser-test
+                 tla-plus-core-test-language tla-plus-layout-test-language tla-plus-sany-candidate-test-language))
+(export language-entry-pairs)
+(def language-entry-pairs
+  (list (list arithmetic-language arithmetic-test-language 2)
+        (list bash-language bash-test-language 2)
+        (list opencypher-language opencypher-test-language 5)
+        (list fhirpath-language fhirpath-test-language 4)
+        (list gql-language gql-test-language 15)
+        (list hcl-language hcl-test-language 15)
+        (list hl7-language hl7-test-language 2)
+        (list tla-plus-core-language tla-plus-core-test-language 6)
+        (list tla-plus-layout-language tla-plus-layout-test-language 2)
+        (list tla-plus-sany-candidate-language tla-plus-sany-candidate-test-language 2)))

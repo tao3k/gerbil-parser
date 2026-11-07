@@ -1,12 +1,16 @@
 ;;; Grammar object graph validation and deterministic normalization.
 
-(import (only-in ../modules/parser/objects
+(import (only-in ../schema +grammar-ir-schema+)
+        (only-in ../grammar/declaration-objects
                  grammar-composition grammar-name grammar-parents
                  grammar-role-name grammar-role-ref grammar-roles)
         (only-in ../runtime/identity sha256-text)
-        (only-in ../utilities/lists append-unique merge-keyed-row))
+        (only-in :std/list/list-builder with-list-builder)
+        (only-in ../utilities/lists append-unique))
 (export compile-grammar
         compile-grammar/receipt
+        compile-grammar/context normalized-grammar-ir normalized-grammar-receipt
+        normalized-grammar-source-map
         grammar-composition-receipt
         grammar-ir-ref
         grammar-ir-canonical)
@@ -15,69 +19,137 @@
   '(syntax-kinds terminals lexical-rules rules extras keywords
     parser-entrypoints recoveries))
 
-(def (section-row-key _section) car)
-
 ;; : (-> Grammar (List Grammar) (List GrammarRole))
 (def (collect-steps grammar (active '()))
-  (when (memq grammar active)
-    (error "grammar inheritance cycle" (grammar-name grammar)))
-  (let (next (cons grammar active))
-    (append
-     (apply append
-            (map (lambda (parent) (collect-steps parent next))
-                 (grammar-parents grammar)))
-     (map (lambda (role) (cons 'merge role)) (grammar-roles grammar))
-     (grammar-composition grammar))))
+  (with-list-builder (emit)
+    (def (visit grammar active)
+      (when (memq grammar active)
+        (error "grammar inheritance cycle" (grammar-name grammar)))
+      (let (next (cons grammar active))
+        (for-each (lambda (parent) (visit parent next)) (grammar-parents grammar))
+        (for-each (lambda (role) (emit (cons 'merge role))) (grammar-roles grammar))
+        (for-each emit (grammar-composition grammar))))
+    (visit grammar active)))
 
-(def (replace-keyed-row rows row section)
-  (let ((key ((section-row-key section) row))
-        (found? #f))
-    (let (result
-          (map (lambda (current)
-                 (if (equal? ((section-row-key section) current) key)
-                   (begin (set! found? #t) row)
-                   current))
-               rows))
-      (unless found?
-        (error "grammar override target does not exist" section key))
-      result)))
+;;; The index owns admission and the insertion spine owns publication order.
+;;; Removing a row retires its cell. Reappending creates a new position.
+(defstruct keyed-grammar-row (row selection))
+(defstruct effective-grammar-row (row step operation role source history))
+(defstruct normalized-grammar (ir receipt selections))
 
-(def (remove-keyed-row rows row section)
-  (let* ((key ((section-row-key section) row))
-         (remaining
-          (filter (lambda (current)
-                    (not (equal? ((section-row-key section) current) key)))
-                  rows)))
-    (when (= (length remaining) (length rows))
-      (error "grammar remove target does not exist" section key))
-    remaining))
+(def (select-effective-row previous row role index section operation source-at)
+  (def role-name (grammar-role-name role))
+  (def history
+    (cons (list index operation role-name)
+          (if previous (effective-grammar-row-history previous) '())))
+  (if (and previous (eq? operation 'merge))
+    ;; Equal merges keep the first declaration and extend its history.
+    (make-effective-grammar-row
+     (effective-grammar-row-row previous)
+     (effective-grammar-row-step previous)
+     (effective-grammar-row-operation previous)
+     (effective-grammar-row-role previous)
+     (effective-grammar-row-source previous)
+     history)
+    (let (source (and source-at (source-at role index section row)))
+      (unless (or (not source)
+                  (and (list? source)
+                       (every (lambda (entry)
+                                (and (pair? entry) (symbol? (car entry)))) source)))
+        (error "invalid grammar occurrence source" index section (car row) source))
+      (make-effective-grammar-row row index operation role-name source history))))
 
-(def (apply-keyed-operation rows row section operation)
-  (case operation
-    ((merge)
-     (merge-keyed-row
-      rows row (section-row-key section)
-      (lambda (key) (error "conflicting grammar role row" section key))))
-    ((append)
-     (let (key ((section-row-key section) row))
-       (when (find (lambda (current)
-                     (equal? ((section-row-key section) current) key))
-                   rows)
-         (error "grammar append target already exists" section key))
-       (append rows (list row))))
-    ((override) (replace-keyed-row rows row section))
-    ((remove) (remove-keyed-row rows row section))
-    (else (error "unknown grammar composition operation" operation))))
+(def (normalize-keyed-table steps section source-at capture?)
+  (def index (make-hash-table test: equal?))
+  (def ordered
+    (with-list-builder (emit)
+      (for-each
+       (lambda (step occurrence)
+         (let ((operation (car step)) (role (cdr step)))
+           (for-each
+            (lambda (row)
+              (def key (car row))
+              (def previous (hash-ref index key #f))
+              (case operation
+                ((merge)
+                 (when (and previous (not (equal? (keyed-grammar-row-row previous) row)))
+                   (error "conflicting grammar role row" section key)))
+                ((append)
+                 (when previous (error "grammar append target already exists" section key)))
+                ((override)
+                 (unless previous (error "grammar override target does not exist" section key)))
+                ((remove)
+                 (unless previous (error "grammar remove target does not exist" section key)))
+                (else (error "unknown grammar composition operation" operation)))
+              (cond
+               ((eq? operation 'remove)
+                (hash-remove! index key)
+                (keyed-grammar-row-row-set! previous #f)
+                (keyed-grammar-row-selection-set! previous #f))
+               (else
+                (def cell
+                  (or previous
+                      (let (new (make-keyed-grammar-row row #f))
+                        (hash-put! index key new)
+                        (emit new)
+                        new)))
+                (when (eq? operation 'override)
+                  (keyed-grammar-row-row-set! cell row))
+                (when capture?
+                  (keyed-grammar-row-selection-set!
+                   cell (select-effective-row (keyed-grammar-row-selection cell)
+                                              row role occurrence section operation source-at))))))
+            (grammar-role-ref role section))))
+       steps (iota (length steps)))))
+  (values
+   (filter-map keyed-grammar-row-row ordered)
+   (if capture?
+     (filter-map
+      (lambda (cell)
+        (let (selection (keyed-grammar-row-selection cell))
+          (and selection (cons (car (keyed-grammar-row-row cell)) selection))))
+      ordered)
+     '())))
 
-(def (normalize-keyed-table steps section)
-  (foldl (lambda (step rows)
-           (let ((operation (car step)) (role (cdr step)))
-             (foldl (lambda (row merged)
-                      (apply-keyed-operation merged row section operation))
-                    rows
-                    (grammar-role-ref role section))))
-         '()
-         steps))
+;;; Project only effective bindings. Removed declarations remain in the receipt,
+;;; while a remove/reappend starts a new effective declaration history.
+(def (normalized-grammar-source-map normalized origin)
+  (def selections (normalized-grammar-selections normalized))
+  (def (entries section)
+    (let (entry (assq section selections)) (if entry (cdr entry) '())))
+  (def (source selected)
+    (let* ((provided (or (effective-grammar-row-source selected) '()))
+           (facts
+            (list (cons 'componentOwner (effective-grammar-row-role selected))
+                  (cons 'compositionStep (effective-grammar-row-step selected))
+                  (cons 'compositionOperation (effective-grammar-row-operation selected))
+                  (cons 'contributionHistory (reverse (effective-grammar-row-history selected)))))
+           (coordinates
+            (filter-map (lambda (key) (and (not (assq key provided)) (cons key origin)))
+                        '(path location))))
+      ;; The selected role owns composition facts; supplied syntax owns reader
+      ;; coordinates and generated status. Unknown coordinates stay at origin.
+      (append coordinates
+              (filter (lambda (entry) (not (assq (car entry) facts))) provided)
+              facts)))
+  (append
+   (map (lambda (mapping)
+          (cons (cdr mapping)
+                (map (lambda (entry) (cons (car entry) (source (cdr entry))))
+                     (entries (car mapping)))))
+        '((syntax-kinds . syntax-kind) (terminals . terminal)
+          (lexical-rules . lexical-rule) (rules . rule)))
+   (list
+    (cons 'field
+          (with-list-builder (emit)
+            (for-each
+             (lambda (entry)
+               (let ((row (effective-grammar-row-row (cdr entry)))
+                     (selected-source (source (cdr entry))))
+                 (for-each
+                  (lambda (name) (emit (cons (list (car row) name) selected-source)))
+                  (caddr row))))
+             (entries 'syntax-kinds)))))))
 
 ;; : (-> List List List)
 (def (append-flow merged edge)
@@ -130,7 +202,7 @@
             (lambda (section)
               (let (rows (grammar-role-ref role section))
                 (and (pair? rows)
-                     (cons section (map (section-row-key section) rows)))))
+                     (cons section (map car rows)))))
             (append table-slots '(flow)))))))
 
 (def (grammar-composition-receipt grammar steps ir)
@@ -143,19 +215,22 @@
      (cons 'compositionDigest identity)
      (cons 'grammarIrDigest (sha256-text (canonical ir))))))
 
-(def (compile-grammar/receipt grammar)
+(def (normalize-grammar/context grammar source-at capture?)
   (if (and (list? grammar)
            (let (row (assq 'schema grammar))
-             (and row (equal? (cdr row) "gerbil-parser.grammar-ir.v1"))))
-    (values grammar #f)
+             (and row (equal? (cdr row) +grammar-ir-schema+))))
+    (make-normalized-grammar grammar #f '())
     (let* ((steps (collect-steps grammar))
-         (tables
+         (normalized-tables
           (map (lambda (section)
-                 (cons section (normalize-keyed-table steps section)))
+                 (let-values (((rows selections)
+                               (normalize-keyed-table steps section source-at capture?)))
+                   (list section rows selections)))
                table-slots))
+         (tables (map (lambda (entry) (cons (car entry) (cadr entry))) normalized-tables))
          (body
           (append
-           (list (cons 'schema "gerbil-parser.grammar-ir.v1")
+           (list (cons 'schema +grammar-ir-schema+)
                  (cons 'grammar (grammar-name grammar)))
            tables
            (list (cons 'flow (normalize-flow steps)))))
@@ -165,7 +240,21 @@
                   (list (cons 'compositionDigest
                               (cdr (assq 'compositionDigest receipt))))
                   (drop body 2))))
-      (values ir receipt))))
+      (make-normalized-grammar
+       ir receipt (if capture?
+                    (map (lambda (entry) (cons (car entry) (caddr entry))) normalized-tables)
+                    '())))))
+
+;;; Existing callers do not request occurrence/source capture.
+(def (compile-grammar/receipt grammar)
+  (let (normalized (normalize-grammar/context grammar #f #f))
+    (values (normalized-grammar-ir normalized) (normalized-grammar-receipt normalized))))
+
+;;; The callback supplies source metadata for the actual accepted occurrence;
+;;; it is optional because some POO values have no reader syntax association.
+(def (compile-grammar/context grammar (source-at #f))
+  (normalize-grammar/context grammar source-at #t))
+
 
 (def (compile-grammar grammar)
   (let-values (((ir _receipt) (compile-grammar/receipt grammar))) ir))

@@ -1,97 +1,25 @@
 ;;; -*- Gerbil -*-
 ;;; A deliberately bounded pure Scheme subset lowered to Rust function syntax.
 
-(import (only-in :std/string/misc string-trim)
-        (only-in ../utilities/strings string-index-from)
+(import (only-in :gerbil-parser/text-support string-before ascii-ci=? string-after
+                 string-first-word string-rest-after-first-word string-last-word
+                 string-before-last-word string-trim-start string-replace string-lowercase
+                 string-prefix? string-suffix? string-words string-in?
+                 string-single-ascii-uppercase? string-unsigned-at-most?)
         (only-in ./rust-syntax
                  rust-function-value rust-block rust-let rust-method
                  rust-call
                  rust-string rust-identifier rust-before rust-first-word
                  rust-tuple-index
                  rust-after rust-words rust-any rust-fold rust-number rust-empty
-                 rust-string-in rust-if rust-binary))
+                 rust-string-in rust-single-ascii-uppercase
+                 rust-unsigned-at-most rust-if rust-binary))
 (export define-rust-pure scheme-pure->rust string-before ascii-ci=?
         string-after string-first-word string-rest-after-first-word
-        string-last-word string-before-last-word
-        string-prefix? string-suffix? string-words string-in?)
-
-(def (string-before value delimiter)
-  (let (index (string-index-from value delimiter))
-    (if (fixnum? index) (substring value 0 index) value)))
-
-(def (string-after value delimiter)
-  (let (index (string-index-from value delimiter))
-    (if (fixnum? index)
-      (substring value (+ index (string-length delimiter))
-                 (string-length value))
-      "")))
-
-(def (ascii-fold char)
-  (let (code (char->integer char))
-    (if (and (<= 65 code) (<= code 90))
-      (integer->char (+ code 32))
-      char)))
-
-(def (ascii-ci=? left right)
-  (and (= (string-length left) (string-length right))
-       (let loop ((index 0))
-         (or (= index (string-length left))
-             (and (char=? (ascii-fold (string-ref left index))
-                          (ascii-fold (string-ref right index)))
-                  (loop (+ index 1)))))))
-
-(def (string-first-word value)
-  (let* ((text (string-trim value)) (size (string-length text)))
-    (let loop ((index 0))
-      (if (or (= index size)
-              (char-whitespace? (string-ref text index)))
-        (substring text 0 index)
-        (loop (+ index 1))))))
-
-(def (string-rest-after-first-word value)
-  (let* ((text (string-trim value)) (size (string-length text)))
-    (let loop ((index 0))
-      (cond
-       ((= index size) "")
-       ((char-whitespace? (string-ref text index))
-        (string-trim (substring text (+ index 1) size)))
-       (else (loop (+ index 1)))))))
-
-(def (string-last-word value)
-  (let (words (string-words value))
-    (if (null? words) "" (car (reverse words)))))
-
-(def (string-before-last-word value)
-  (let* ((text (string-trim value)) (size (string-length text)))
-    (let loop ((index (- size 1)))
-      (cond
-       ((< index 0) "")
-       ((char-whitespace? (string-ref text index))
-        (string-trim (substring text 0 index)))
-       (else (loop (- index 1)))))))
-
-(def (string-prefix? value prefix)
-  (and (<= (string-length prefix) (string-length value))
-       (equal? prefix (substring value 0 (string-length prefix)))))
-
-(def (string-suffix? value suffix)
-  (let ((value-size (string-length value))
-        (suffix-size (string-length suffix)))
-    (and (<= suffix-size value-size)
-         (equal? suffix (substring value (- value-size suffix-size) value-size)))))
-
-(def (string-words value)
-  (let (size (string-length value))
-    (let loop ((index 0) (start #f) (words '()))
-      (if (= index size)
-        (reverse (if start (cons (substring value start size) words) words))
-        (if (char-whitespace? (string-ref value index))
-          (loop (+ index 1) #f
-                (if start (cons (substring value start index) words) words))
-          (loop (+ index 1) (or start index) words))))))
-
-(def (string-in? value collection)
-  (if (member value collection) #t #f))
+        string-last-word string-before-last-word string-trim-start
+        string-replace string-lowercase
+        string-prefix? string-suffix? string-words string-in?
+        string-single-ascii-uppercase? string-unsigned-at-most?)
 
 (def (rust-name-text name)
   (apply string-append
@@ -134,6 +62,15 @@
        (map (lambda (argument type)
               (compile-pure-expression argument variables type))
             arguments argument-types))))
+   ((and (pair? expression) (eq? (car expression) 'string-trim-start)
+         (= (length expression) 2))
+    (let (trimmed
+          (rust-method
+           (compile-pure-expression (cadr expression) variables "&str")
+           'trim_start '()))
+      (if (equal? result-type "&str")
+        trimmed
+        (rust-method trimmed 'to_owned '()))))
    ((and (pair? expression) (eq? (car expression) 'string-trim)
          (= (length expression) 2))
     (let (trimmed
@@ -154,6 +91,40 @@
     (rust-after
      (compile-pure-expression (cadr expression) variables "&str")
      (compile-pure-expression (caddr expression) variables "&str")))
+   ((and (pair? expression) (eq? (car expression) 'string-replace)
+         (= (length expression) 4))
+    (rust-method
+     (compile-pure-expression (cadr expression) variables "&str")
+     'replace
+     (list (compile-pure-expression (caddr expression) variables "&str")
+           (compile-pure-expression (cadddr expression) variables "&str"))))
+   ((and (pair? expression) (eq? (car expression) 'string-lowercase)
+         (= (length expression) 2))
+    (rust-method
+     (compile-pure-expression (cadr expression) variables "&str")
+     'to_lowercase '()))
+   ((and (pair? expression) (eq? (car expression) 'string-join)
+         (= (length expression) 3)
+         (pair? (cadr expression))
+         (eq? (caadr expression) 'string-words)
+         (= (length (cadr expression)) 2)
+         (string? (caddr expression)))
+    (rust-method
+     (rust-call
+      (rust-identifier 'Vec::from_iter)
+      (list (compile-pure-expression (cadr expression) variables "iterator")))
+     'join (list (rust-string (caddr expression)))))
+   ((and (pair? expression) (eq? (car expression) 'string-join)
+         (= (length expression) 3)
+         (pair? (cadr expression))
+         (eq? (caadr expression) 'list)
+         (= (length (cadr expression)) 3)
+         (equal? (caddr expression) ""))
+    (rust-binary "+"
+                 (rust-method
+                  (compile-pure-expression (cadadr expression) variables "&str")
+                  'to_owned '())
+                 (compile-pure-expression (caddr (cadr expression)) variables "&str")))
    ((and (pair? expression) (eq? (car expression) 'ascii-ci=?)
          (= (length expression) 3))
     (rust-method
@@ -251,6 +222,25 @@
                                 (cons (cons (caadr abstraction) "&str")
                                       variables) "bool")
        slice?)))
+   ((and (pair? expression) (eq? (car expression) 'map)
+         (= (length expression) 3))
+    (let* ((function (cadr expression))
+           (collection (caddr expression))
+           (signature (and (symbol? function)
+                           (assq function (current-pure-calls)))))
+      (unless (and (equal? result-type "Vec<String>")
+                   signature
+                   (equal? (cdr signature) '("&str"))
+                   (pair? collection)
+                   (eq? (car collection) 'string-words)
+                   (= (length collection) 2))
+        (error "pure AOT map requires a named &str function over words"
+               expression))
+      (rust-method
+       (rust-method
+        (compile-pure-expression collection variables "iterator")
+        'map (list (rust-identifier (rust-name-text function))))
+       'collect '())))
    ((and (pair? expression) (eq? (car expression) 'foldl)
          (= (length expression) 4))
     (let* ((abstraction (cadr expression))
@@ -290,6 +280,17 @@
     (rust-string-in
      (compile-pure-expression (cadr expression) variables "&str")
      (compile-pure-expression (caddr expression) variables "&[&str]")))
+   ((and (pair? expression) (eq? (car expression) 'string-single-ascii-uppercase?)
+         (= (length expression) 2))
+    (rust-single-ascii-uppercase
+     (compile-pure-expression (cadr expression) variables "&str")))
+   ((and (pair? expression) (eq? (car expression) 'string-unsigned-at-most?)
+         (= (length expression) 3)
+         (integer? (caddr expression)) (exact? (caddr expression))
+         (<= 0 (caddr expression)))
+    (rust-unsigned-at-most
+     (compile-pure-expression (cadr expression) variables "&str")
+     (caddr expression)))
    ((and (pair? expression) (eq? (car expression) 'if)
          (= (length expression) 4))
     (rust-if

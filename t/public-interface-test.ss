@@ -41,10 +41,10 @@
       (scope ((output
         (output-of '(begin
                       (import (only-in :gerbil-parser/compiler-build-support
-                                       initialize-compiler-build! run-build-tool)
+                                       run-build-tool)
                               (only-in :gerbil-parser/event-fold-build-support
                                        event-fold-scheme-module-sources compile-event-fold-scheme-units))
-                      (unless (and (procedure? initialize-compiler-build!)
+                      (unless (and
                                    (procedure? run-build-tool)
                                    (procedure? event-fold-scheme-module-sources)
                                    (procedure? compile-event-fold-scheme-units))

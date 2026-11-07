@@ -1,10 +1,9 @@
 (import :gerbil-parser/language-test-support
-        (only-in :gerbil-parser/t/fixtures/event-walk-source source-procedure read-source-definition))
+        (only-in :gerbil-parser/t/support/qualification/build qualification-build-spec))
 
-(deflanguage-parser-tests static-object-policy-test "owned static compiler host policy"
+(deflanguage-parser-tests static-object-policy-test "qualification build ownership"
   (engine)
-  (scenario "dependencies and test objects share the same per-procedure GCC policy"
-    (scope ((options (source-procedure "src/build-support/compiler-profile.ss" 'compiler-c-options '())))
-      (equal (options "-O1 -fwrapv") "-O1 -fwrapv -U___SINGLE_HOST -D___MULTIPLE_HOSTS")
-      (equal (options "-O2 -Iinclude") "-O2 -Iinclude -U___SINGLE_HOST -D___MULTIPLE_HOSTS")))
-)
+  (scenario "the native owner declares the executable in the standard build format"
+    (equal (take (car (qualification-build-spec)) 4)
+           '(exe: "t/support/qualification/process-child"
+                  bin: "gerbil-parser-process-child"))))

@@ -14,8 +14,7 @@
         (only-in "./t/fixtures/ffi/build.ss" ffi-build-spec ffi-test-command)
         (rename-in (only-in "./src/ffi/build.ss" Build) (Build ffi-library-build))
         (only-in :yuanxu/observability/testing-script TestingScript.)
-        (only-in :yuanxu/observability/testing-fixture call-with-yuanxu-fixture)
-        (only-in "./src/build-support/compiler-profile.ss" initialize-compiler-build!))
+        (only-in :yuanxu/observability/testing-fixture call-with-yuanxu-fixture))
 (import (only-in :clan/poo/object .o .cc .get .call)
         (only-in "./init.ss" gerbil-parser.init.exports))
 (extern namespace: gerbil/tools/gxtest collect-files)
@@ -48,7 +47,7 @@
     (.call tests .for-files
       files
       (list (this-source-file)
-            (path-expand "src/build-support/compiler-profile.ss"
+            (path-expand "compiler-build-support.ss"
                          (path-directory (this-source-file)))
             (path-expand "t/fixtures/ffi/build.ss" (path-directory (this-source-file)))
             (path-expand "src/ffi/build.ss" (path-directory (this-source-file))))
@@ -83,8 +82,6 @@
       (def command (ffi-test-command (.get script command) (.get script runtime-options)))
       (display (.get (.call (.cc script command: command) .run) output)))))
 
-(parameterize ((current-output-port (current-error-port)))
-  (initialize-compiler-build!))
 ;; Yuanxu automatically dispatches executable test targets. This support
 ;; package contains library targets, so request issuance on the projection
 ;; explicitly and let the standard build script compile into its output.

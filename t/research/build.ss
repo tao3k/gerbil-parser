@@ -11,7 +11,6 @@
         (only-in :clan/poo/object .get)
         (only-in "../fixtures/ffi/build.ss" ffi-build-spec)
         (only-in :yuanxu/module-system/building/source-closure package-library-spec)
-        (only-in "../../src/build-support/compiler-profile.ss" compiler-build-spec)
         (only-in "../../init.ss" gerbil-parser.init.exports))
 (export conformance-build-spec)
 
@@ -45,13 +44,12 @@
   (def owned
     (append ((.get gerbil-parser.init.exports std-make-spec) '())
             (ffi-build-spec) research-executable-spec))
-  (compiler-build-spec
-    (map (lambda (source)
+  (map (lambda (source)
            `(gxc: ,source "-cc-options"
                   ,(string-append "-I" (path-expand "include" package-root)
                                   " -I" package-root)))
       (package-library-spec package-root 'gerbil-parser
                             research-entry-sources
-                            exclude: (map (lambda (target) (if (string? target) target (cadr target))) owned)))))
+                            exclude: (map (lambda (target) (if (string? target) target (cadr target))) owned))))
 (def (conformance-build-spec)
-  (append (research-build-spec) (compiler-build-spec research-executable-spec)))
+  (append (research-build-spec) research-executable-spec))

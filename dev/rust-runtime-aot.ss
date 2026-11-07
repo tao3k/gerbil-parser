@@ -38,7 +38,7 @@
  (modules
   (append rust-runtime-aot-runtime-modules
           '("src/ffi/rust-runtime-aot-main.ss")))
- (role 'build-support)
+ (role 'ffi)
  (product-entry-modules '("src/ffi/rust-runtime-aot-main.ss"))
  (native-capabilities '(tls))
  (pkg-config-libs '("openssl"))

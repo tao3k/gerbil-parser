@@ -1,5 +1,5 @@
 ;;; SDK compiler owns static closure and job execution; no generated C rewriting.
-(import (only-in "../../build-support/compiler-profile.ss" initialize-compiler-build! call-with-compiler-import-progress)
+(import (only-in "../../../compiler-build-support.ss" call-with-compiler-import-progress)
         (only-in :gerbil/compiler compile-module compile-exe execute-pending-compile-jobs!)
         (only-in :std/make pkg-config-libs)
         (only-in :std/os/fcntl __fcntl1 __fcntl2 F_GETFL F_SETFL O_NONBLOCK)
@@ -21,7 +21,6 @@
         (and (not (fxnegative? flags)) (fxzero? (fxand flags O_NONBLOCK)))))
     '(1 2)))
 (def (build-shared-library! source output cc-options ld-options)
-  (initialize-compiler-build!)
   (displayln "COMPILER-STREAMS before-blocking=" (standard-streams-blocking?))
   (unless (zero? (blocking-standard-streams!)) (error "cannot establish blocking compiler streams"))
   (displayln "COMPILER-STREAMS after-blocking=" (standard-streams-blocking?))

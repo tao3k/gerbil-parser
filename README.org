@@ -41,8 +41,9 @@ packages to manufacture Parser input ownership. Conformance preparation invokes
 the existing declared module and link owners; source-only test classification
 belongs to =scripts/test-plan.ss=. That script does not manage a cache.
 
-=src/build-support= retains compiler options and the necessary native-object
-link adapter. The shared byte/text output pump is owned by existing Core Ops;
+=compiler-build-support.ss= owns build-time process output and compiler progress
+observations. The FFI fixtures own their selected native-object link
+adapter. These capabilities are outside the domain Scope catalog. The shared byte/text output pump is owned by existing Core Ops;
 Gerbil =run-process= retains process execution and failure propagation. No
 Gerbil/compiler source or installed toolchain is modified.
 
@@ -107,7 +108,6 @@ to a nominal alias to conceal a weak signature.
 | graph/types.ss graph-query-view? | Candidate only | Row/Id/Kind parameters are explicit; a malformed candidate still returns false |
 | testing/types.ss parser-test-form-admitted? | Inspected reader/form data | Syntax inspection does not evaluate the supplied datum; name lists are List Symbol |
 | graph/graph-query-types.ss GraphQueryPredicateOf | Result only | Scheme true values include strings/member tails; Row input remains checked |
-| build-support/types.ss BuildSpecification | Native option/metadata tail | Source names are String; std/make owns nested option/submodule payload semantics |
 
 The emitted Rust =Guard::Any= string in rust-scanner.ss is an enum variant, not a
 POO Type. SourceScannerStepOf, Graph accessors and GrammarIR contain no Any.
@@ -698,8 +698,9 @@ POO Records still define the actual field/method Types, and Core still admits
 and retains the normalized Scope. Empty requires/features declarations are Core
 publication shape, not a second selection mechanism.
 
-Build host initialization is invoked directly by =build.ss=. It is not a Scope
-method or a Config effect. Pure compiler-option/link services remain typed.
+Build scripts pass module-owned product declarations to Gerbil. The caller
+environment selects the toolchain. FFI owners declare their own include and
+link options.
 FFI Scope versions must match the values in =src/schema.ss=; another unsigned
 integer is insufficient to represent that publication.
 

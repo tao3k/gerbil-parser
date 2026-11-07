@@ -157,7 +157,7 @@ The top-level command entries delegate product declarations to their modules.
 =t/research/build.ss= owns the standalone conformance executable and its closure.
 =src/ffi/shared-library/build.ss= uses public Gerbil compile-module and compile-exe
 to produce the C-hosted shared library with its runtime shim and linker options.
-compiler-profile.ss retains host compiler options and process-output forwarding,
+=compiler-build-support.ss= retains process-output forwarding and compiler observation,
 not target discovery or a second scheduler. The shared setup/restore GitHub
 composites are step reuse only. failed-products.sh is diagnostics only.
 
@@ -327,7 +327,7 @@ remain owned by the adapter.
 Removing the preload reached adapter main in roughly2s but did not close the
 idle gate: compile-module then imported the real closure without observable C
 artifacts for30s. That second failure is retained independently. The adapter
-now uses the existing compiler-profile completed-import/evaluation reporting
+now uses the existing completed-import/evaluation reporting
 inside its native compile call. No new driver, heartbeat or importer is added;
 original import errors/results and the90s/30s controls remain authoritative.
 

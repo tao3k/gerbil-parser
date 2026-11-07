@@ -82,7 +82,7 @@ releases its C allocation. Explicit shutdown closes admission and releases the
 language before normal SDK cleanup; dropping all clients drains the queue.
 
 This is an async downstream ownership interface, not evidence of concurrent
-Scheme execution or an incremental CPU speedup. The existing =qualify.ss host=
+Scheme execution or an incremental CPU speedup. The existing =t/support/qualification/qualify.ss host=
 entry now includes a real Tokio consumer in a separate one-shot VM process:
 32 concurrent requests, alternating ASCII/Unicode, 64 records per request,
 642 events, syntax rejection, closed admission, and views retained after cleanup.
@@ -145,7 +145,7 @@ sums; it does not relax any acceptance threshold.
 
 ** Reproduction and scope
 
-Set =GERBIL_PARSER_RUST_CPU_PROOF=1= and run =gerbil env gxi qualify.ss host=.
+Set =GERBIL_PARSER_RUST_CPU_PROOF=1= and run =gerbil env gxi t/support/qualification/qualify.ss host=.
 The existing producer owner builds one Scheme library and one release Rust
 consumer, then reuses the same linked host for lifecycle and both CPU processes.
 Build/link and execution retain their existing 90-second limits; execution
@@ -310,10 +310,10 @@ Every timed request checks the complete 15,488-byte snapshot, 642 events and
 ** CI preparation dependency repair
 
 The =8805047= Ubuntu producer failed before library-object qualification:
-=qualify.ss= imported the uncompiled qualification process module. Moving the
+=t/support/qualification/qualify.ss= imported the uncompiled qualification process module. Moving the
 process-contract tests into a consumer had removed their earlier implicit
-build prerequisite. Preparation now explicitly compiles =build-qualification.ss=
-before its first =qualify.ss= call. This restores build ownership and leaves the
+build prerequisite. Preparation now explicitly compiles =t/support/qualification/build.ss=
+before its first =t/support/qualification/qualify.ss= call. This restores build ownership and leaves the
 independent consumer job structure and existing deadlines intact.
 
 

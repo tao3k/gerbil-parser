@@ -7,7 +7,7 @@ Language suites own assertions, examples, and benchmark algorithms. The compiled
 fences. The source Suite runner owns worker scheduling, affinity, ownership
 checks, and its five-second silence fence.
 
-=test-processes.ss= owns the observable contract at a process boundary. Its
+=t/research/test-processes.ss= owns the observable contract at a process boundary. Its
 three profiles declare commands, expected normal exits, required diagnostics,
 and deadlines. Expected negative controls are data in that declaration; they
 are not interpreted by a shell pipeline. Every case writes its combined output

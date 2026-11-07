@@ -245,7 +245,7 @@ through its existing owner, then use the same production optimization setting:
 
 #+begin_src sh
 gerbil env gxc -O t/benchmarks/lr-request-stack/constructors.ss
-gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
+gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --idle-timeout 5 \
   --log .cache/constructor-case.log --require LR-CONSTRUCTOR-CASE-OK \
   -- gxi -e '(import :gerbil-parser/t/benchmarks/lr-request-stack/constructors)' \
   -e '(benchmark-lr-constructor-case (quote gql-return) 64) (exit 0)'

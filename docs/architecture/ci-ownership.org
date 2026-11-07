@@ -11,10 +11,10 @@ GitHub Actions owns job dependencies and artifact transport.
 | Product | Native entry | Ownership |
 |---------+--------------+-----------|
 | Library | build.ss | Existing init-selected normalized production spec |
-| FFI fixtures | build-ffi-tests.ss | Existing C headers, actual objects, link options and ordered producer phases |
-| Research programs | build-language-conformance.ss | Declare actual program/library roots; Core package-library-spec discovers imports; Gerbil compiles and links normal products |
+| FFI fixtures | t/fixtures/ffi/build.ss | Existing C headers, actual objects, link options and ordered producer phases |
+| Research programs | t/research/build.ss | Declare actual program/library roots; Core package-library-spec discovers imports; Gerbil compiles and links normal products |
 | Rust ABI program | t/fixtures/rust-language-abi/build.ss and Cargo build.rs | Official C ABI package operations; upstream graph/archive builder and affine VM lifecycle |
-| Test support | build-test-support.ss | Core for-directory/for-files discovers full native Suite support; exact std-make-spec value enters Core building/script for compilation, artifact admission and subset publication |
+| Test support | t/support/qualification/build-test-support.ss | Core for-directory/for-files discovers full native Suite support; exact std-make-spec value enters Core building/script for compilation, artifact admission and subset publication |
 
 Research products and signed test-lib publications have different output and
 admission domains. Each has one native build entry. Combining them as a single
@@ -199,7 +199,7 @@ introduced. FFI still owns its normal compile/clean/spec/meta protocol.
 Native research compilation and a new process running provenance completed with
 15 real checks. Earlier waits are not evidence of a Parser deadlock on the
 qualified CI baseline. The complete test entry and restored consumers remain
-separate gates. The model observation input now names build-language-conformance.ss
+separate gates. The model observation input now names t/research/build.ss
 instead of the deleted linker; all six existing input controls passed, including
 missing-source rejection.
 

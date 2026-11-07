@@ -48,7 +48,7 @@ gerbil env gxi t/benchmarks/poo-grammar-objects/construction.ss
 
 The original [[file:../../t/core-observability-test.ss][observability Suite]]
 imports the benchmark as a source leaf. The existing
-[[file:../../build-test-support.ss][test support Build entry]] obtains its
+[[file:../../t/support/qualification/build-test-support.ss][test support Build entry]] obtains its
 compilation closure from =gerbil-parser.init.exports.tests= and consumes the
 issued =std-make-spec=. The benchmark leaf declares its actual imports; it does
 not register another source root or maintain a second build inventory.

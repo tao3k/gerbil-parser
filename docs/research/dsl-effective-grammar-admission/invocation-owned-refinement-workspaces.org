@@ -84,21 +84,21 @@ receipts, and are not references readers can reproduce from Git.
 - [[file:../../../t/benchmarks/lr1-partition/construction.ss][Complete TLA+ construction benchmark]]
 - [[file:../../../build-conformance.ss][Compiled conformance preparation owner]]
 - [[file:../../../scripts/preparation-cache.ss][Content admission and actual copy progress]]
-- [[file:../../../test-processes.ss][Compiled semantic and research process owner]]
+- [[file:../../../t/research/test-processes.ss][Compiled semantic and research process owner]]
 
 From the repository root with its configured Gerbil environment and compiled
 interfaces prepared, use the existing owners:
 
 #+begin_src sh
 mkdir -p .gerbil
-gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+gerbil env gxi t/support/qualification/qualify.ss run --timeout 120 --idle-timeout 5 \
   --log .gerbil/lr-controls.log --require TEST-SUITE-OK --require '^OK$' -- \
   gxi t/fixtures/tla-sany-differential/test-suite.ss \
   t/resolved-grammar-test.ss t/canonical-lr1-reference-test.ss
 GERBIL_PARSER_LR_TRACE=1 gerbil env gxi \
   t/benchmarks/lr1-partition/construction.ss 8 follow-partition-lr1
 gerbil env gxi build-conformance.ss
-gerbil env gxi test-processes.ss research .gerbil/research-results
+gerbil env gxi t/research/test-processes.ss research .gerbil/research-results
 #+end_src
 
 The construction owner retains its reference artifact to check every sample.

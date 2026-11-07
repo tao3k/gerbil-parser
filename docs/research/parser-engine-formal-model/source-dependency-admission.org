@@ -386,7 +386,7 @@ completion wait, after the real target-ready acknowledgement. Its four-second
 readiness, six-second completion, 0.8-second child idle fence and 1.2-second
 intentional consumer pause remain unchanged.
 
-The source audit identified another phase crossing: =qualify.ss= imported
+The source audit identified another phase crossing: =t/support/qualification/qualify.ss= imported
 runtime-only services through expander interfaces. The CLI now obtains only the
 selected runtime service through the existing shared module loader. That adapter
 continues to delegate cache/error ownership to the SDK and handles source-only

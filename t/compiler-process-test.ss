@@ -218,7 +218,7 @@
                  '(parameterize
                     ((gx#current-expander-module-import
                        (lambda args (error "runtime CLI requested a compiler interface"))))
-                    (load "qualify.ss")
+                    (load "t/support/qualification/qualify.ss")
                     (unless (and
                       (procedure? (eval 'run-observed-process))
                       (procedure? ((eval 'profile-value)

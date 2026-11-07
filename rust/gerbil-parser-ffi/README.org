@@ -49,7 +49,7 @@ that history. See the [[file:../../docs/research/scheme-source-edit-sessions.org
 
 Verification uses a real Rust static consumer in
 =t/fixtures/rust-language-abi=, linked into the compiled Gerbil probe.
-Run the repository's =qualify.ss local --suite ffi= or its Scheme
+Run the repository's =t/support/qualification/qualify.ss local --suite ffi= or its Scheme
 Ubuntu CI. Compile-fail doctests verify the thread and borrow restrictions.
 
 * Rust ABI qualification build
@@ -73,8 +73,8 @@ Build the parser package and language pack with their normal Gerbil build owner,
 then compile the language module into one native runtime library:
 
 #+begin_src shell
-gerbil env gxi build-qualification.ss compile
-gerbil env gxi qualify.ss shared-library --language-module my-language/abi \
+gerbil env gxi t/support/qualification/build.ss compile
+gerbil env gxi t/support/qualification/qualify.ss shared-library --language-module my-language/abi \
   --output /absolute/path/libmy_language.so
 #+end_src
 
@@ -118,7 +118,7 @@ it after its borrowers end; =close= permits reporting cleanup errors explicitly.
 Independently retained C resources must also be released before dropping it.
 The default feature set remains suitable for hosts that already own the VM.
 
-=qualify.ss host= builds independent C and Rust process hosts and
+=t/support/qualification/qualify.ss host= builds independent C and Rust process hosts and
 requires normal cleanup, live-resource barriers, foreign-thread rejection and
 closed-runtime rejection. Builds retain 90/30 second total/inactivity limits;
 execution retains 90/5 seconds. Build progress reports actual preprocessed, IR,
@@ -152,6 +152,6 @@ results have independent lifetimes. A shutdown request stops every clone; later
 requests return =OwnerStopped=. Dropping all clients drains pending requests and
 performs cleanup. The VM is one-shot and cannot be restarted in the same process.
 
-=qualify.ss host= exercises 32 concurrent complete 64-record requests, Unicode,
+=t/support/qualification/qualify.ss host= exercises 32 concurrent complete 64-record requests, Unicode,
 syntax rejection and views retained after shutdown. Async ownership support
 alone does not establish lower parser CPU or parallel Scheme execution.

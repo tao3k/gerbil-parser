@@ -21,14 +21,14 @@
   (engine)
   (matrix "each owner expands without earlier CLI imports"
     (setup)
-    ((owner '("build-gparse.ss" "build-qualification.ss" "build-rust-runtime-aot.ss"
-              "build-test-driver.ss" "build-test-support.ss" "build-ffi-tests.ss"
-              "build-language-conformance.ss" "build-shared-library.ss")))
+    ((owner '("build-gparse.ss" "t/support/qualification/build.ss" "build-rust-runtime-aot.ss"
+              "t/support/qualification/build-test-driver.ss" "t/support/qualification/build-test-support.ss" "t/fixtures/ffi/build.ss"
+              "t/research/build.ss" "build-shared-library.ss")))
     (bindings)
     (equal (build-owner-main? owner) #t))
   (property "phased FFI construction retains one official metadata response"
     (bindings)
-    (equal (build-owner-metadata "build-ffi-tests.ss") '(("spec" "compile" "clean"))))
+    (equal (build-owner-metadata "t/fixtures/ffi/build.ss") '(("spec" "compile" "clean"))))
 (scenario "Rust program declarations use the official package lifecycle"
   (scope ((owner "t/fixtures/rust-language-abi/build.ss"))
     (equal (build-owner-main? owner) #t)

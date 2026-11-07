@@ -236,10 +236,10 @@ contracts. The Bash corpus and implementation live in =languages/bash=;
 there is no document-side parser audit, snapshot format or analysis pipeline.
 
 #+begin_src sh
-gerbil env gxi build-test-driver.ss compile
+gerbil env gxi t/support/qualification/build-test-driver.ss compile
 GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
   GAMBOPT=max-heap=1G,debug=q \
-  gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 --log .gerbil/parser-bash-source.log \
+  gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --idle-timeout 5 --log .gerbil/parser-bash-source.log \
   --require 'TEST-SUITE-OK modules=1' --require '^OK$' \
   -- gxi t/fixtures/tla-sany-differential/test-suite.ss languages/bash/parser-test.ss
 #+end_src
@@ -868,7 +868,7 @@ interface cleanup remains necessary for shared fixture imports, while fully cove
 modules are no longer prepared or executed as direct source test owners.
 
 =gxi scripts/tests/test-plan-test.ss= validates owner and Suite coverage, including
-omission and repetition controls. =gxi test-processes.ss conformance= exercises
+omission and repetition controls. =gxi t/research/test-processes.ss conformance= exercises
 the actual production runner functions for caller thread ownership, duplicate Suite
 objects, assertion failure and completion timeout. Diagnostic runtimes use the same
 3 GiB heap budget as the shared source test runtime.

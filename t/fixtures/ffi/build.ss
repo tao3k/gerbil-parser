@@ -1,7 +1,8 @@
 ;;; Test FFI targets and their native options belong to the fixture module.
-(import (only-in :std/source this-source-file)
+(import (only-in :std/build-script defbuild-script)
+        (only-in :std/source this-source-file)
         (only-in "./native-links.ss" native-module-link-options))
-(export ffi-build-spec ffi-build-phases ffi-test-command)
+(export ffi-build-spec ffi-build-phases ffi-test-command main)
 (def fixture-root (path-normalize (path-expand "../../.." (path-directory (this-source-file)))))
 (def current-ffi-linking? (make-parameter #f))
 (def (compiled-spec module (objects '()))
@@ -94,3 +95,19 @@
                  (lambda () (set-load-path! paths))))
              (main ,@arguments))))))
    (else command)))
+
+(def (run-ffi-phase spec arguments)
+  (def (this-source-file)
+    (path-expand "build.ss" fixture-root))
+  (defbuild-script (spec))
+  (apply main arguments))
+
+(def (main . arguments)
+  (cond
+   ((or (null? arguments) (equal? (car arguments) "compile"))
+    (for-each (lambda (spec)
+                (run-ffi-phase spec arguments))
+              (ffi-build-phases)))
+   (else
+    (run-ffi-phase (lambda () (ffi-build-spec (equal? (car arguments) "spec")))
+                   arguments))))

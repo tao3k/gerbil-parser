@@ -156,7 +156,7 @@ also completed default LALR, 390 states and full-reference equality, exit 0 in
 A reproducible expensive-workload command uses one sample plus reference:
 
 #+begin_src sh
-GERBIL_PARSER_LR_TRACE=1 gerbil env gxi qualify.ss run \
+GERBIL_PARSER_LR_TRACE=1 gerbil env gxi t/support/qualification/qualify.ss run \
   --timeout 90 --idle-timeout 5 \
   --log .data/tla-follow-construction.log \
   --require 'summary workload tla-layout construction follow-partition-lr1' -- \

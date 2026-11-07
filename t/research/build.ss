@@ -1,5 +1,6 @@
 ;;; Standalone research products consume the actual native package import graph.
-(import (for-syntax
+(import (only-in :std/build-script defbuild-script)
+        (for-syntax
           (only-in :std/source this-source-file)
           (only-in :yuanxu/module-system/building/source-package register-module-build-source!)))
 (begin-syntax
@@ -12,7 +13,7 @@
         (only-in "../fixtures/ffi/build.ss" ffi-build-spec)
         (only-in :yuanxu/module-system/building/source-closure package-library-spec)
         (only-in "../../init.ss" gerbil-parser.init.exports))
-(export conformance-build-spec)
+(export conformance-build-spec main)
 
 (def package-root
   (path-directory (path-normalize (path-expand "../../gerbil.pkg"
@@ -53,3 +54,11 @@
                             exclude: (map (lambda (target) (if (string? target) target (cadr target))) owned))))
 (def (conformance-build-spec)
   (append (research-build-spec) research-executable-spec))
+
+(def package-build-source
+  (path-expand "../../build.ss" (path-directory (this-source-file))))
+
+(def (main . arguments)
+  (def (this-source-file) package-build-source)
+  (defbuild-script (conformance-build-spec) optimize: #t)
+  (apply main arguments))

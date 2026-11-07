@@ -32,7 +32,7 @@ def engine_inputs(root):
 
 def supervised(claim, name, command, inputs, markers=(), build=False):
     budget, idle = (240, 30) if build else (120, 5)
-    argv = ("gerbil", "env", "gxi", "qualify.ss", "run", "--timeout", str(budget),
+    argv = ("gerbil", "env", "gxi", "t/support/qualification/qualify.ss", "run", "--timeout", str(budget),
             "--idle-timeout", str(idle), "--log", f".data/parser-evidence/{name}.log")
     for marker in markers:
         argv += ("--require", marker)
@@ -102,15 +102,15 @@ def collect(root, record_study=None):
         execute(check)
     builds = (
         ("source-build", ("gxi", "build.ss", "compile")),
-        ("test-driver-build", ("gxi", "build-test-driver.ss", "compile")),
-        ("ffi-build", ("gxi", "build-ffi-tests.ss", "compile")),
+        ("test-driver-build", ("gxi", "t/support/qualification/build-test-driver.ss", "compile")),
+        ("ffi-build", ("gxi", "t/fixtures/ffi/build.ss", "compile")),
         ("request-build", ("gxi", "t/benchmarks/build.ss", "compile")),
         # Static conformance preparation can leave source-only test interfaces.
         # Reuse CI's std/make owner before source Suite admission.
         ("gxtest-source-prepare", ("gxi", "-e",
             '(load "t/fixtures/module-loading/observations.ss") ',
             "-e", '(call-with-compiled-interface-trace (lambda () '
-            '(load "build-language-conformance.ss") (eval (quote (prepare-gxtest!))))) (exit 0)')),
+            '(load "t/research/build.ss") (eval (quote (prepare-gxtest!))))) (exit 0)')),
     )
     prepared = []
     for name, command in builds:

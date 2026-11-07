@@ -33,7 +33,7 @@ native build configuration and platform checks are defined in
 existing Scheme qualification entry:
 
 #+begin_src sh
-gerbil env gxi qualify.ss local --suite gql-profile --gerbil-path .gerbil
+gerbil env gxi t/support/qualification/qualify.ss local --suite gql-profile --gerbil-path .gerbil
 #+end_src
 
 Workloads, semantic controls, batch counts and measurement admission belong to

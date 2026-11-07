@@ -32,7 +32,7 @@
  (let (modules (diagnostic-modules suites))
   (append
    (if (and (not prepared?) (ormap (lambda (suite) (member suite '("gql" "gql-profile" "gql-actors" "ffi"))) suites))
-    [(qualification-stage "test-driver-build" '("gxi" "build-test-driver.ss" "compile") 240 30 '())] '())
+    [(qualification-stage "test-driver-build" '("gxi" "t/support/qualification/build-test-driver.ss" "compile") 240 30 '())] '())
    (if (and (not prepared?) (pair? modules))
     [(qualification-stage "gql-support-build"
       (append '("gxc" "-V" "t/benchmarks/parser-stage-cost/benchmark.ss")
@@ -82,7 +82,7 @@
       (when (equal? suite "ffi")
        (run "ffi-header" [(getenv "CC" "cc") "-std=c11" "-Wall" "-Wextra" "-Werror" "-Wno-unused-command-line-argument"
                           "-fsyntax-only" "-Iinclude" "t/ffi-header-smoke.c"])
-       (run "ffi-abi-build" '("gxi" "build-ffi-tests.ss" "compile") #t)
+       (run "ffi-abi-build" '("gxi" "t/fixtures/ffi/build.ss" "compile") #t)
        (run "ffi-abi" (compiled-main "gerbil-parser/t/fixtures/ffi/abi-probe" "(main)") #f
                      '("NATIVE-ABI-OK" "ABI-RUNTIME-GENERATED-MATCH calls=3"))
        (run "language-abi" (compiled-main "gerbil-parser/t/fixtures/ffi/language-probe" "(main)") #f

@@ -95,14 +95,16 @@
 (defsyntax (defgrammar-compose stx)
   (syntax-case stx (supers compose)
     ((_ binding (supers parent ...) (compose (operator role) ...))
-     (and (identifier? #'binding)
-          (andmap (lambda (value)
-                    (memq value '(append override remove)))
-                  (syntax->datum #'(operator ...))))
-     #'(def binding
-         (make-grammar
-          'binding
-          (list parent ...)
-          '()
-          (list (cons 'operator role) ...))))
+     (identifier? #'binding)
+     (begin
+       (for-each (lambda (operator)
+                   (unless (memq (syntax->datum operator) '(append override remove))
+                     (raise-syntax-error #f "unknown grammar composition operator" stx operator)))
+                 (syntax->list #'(operator ...)))
+       #'(def binding
+           (make-grammar
+            'binding
+            (list parent ...)
+            '()
+            (list (cons 'operator role) ...)))))
     (_ (raise-syntax-error #f "invalid explicit grammar composition" stx))))

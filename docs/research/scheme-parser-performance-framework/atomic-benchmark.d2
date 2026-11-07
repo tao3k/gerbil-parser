@@ -1,0 +1,18 @@
+direction: right
+vars: {
+  d2-config: {
+    theme-id: 3
+    pad: 24
+  }
+}
+
+workload: "One workload\nInputs and expected result"
+state: "Prepare its own state\nCold or warm"
+operation: "Measure one operation\nRetain all samples"
+receipt: "One case receipt\nResult checks and budget"
+sampler: "Shared Scheme primitives\nSampling and statistics"
+
+workload -> state -> operation -> receipt
+sampler -> operation: supplies {
+  style.stroke-dash: 4
+}

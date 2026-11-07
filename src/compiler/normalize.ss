@@ -6,7 +6,7 @@
                  grammar-role-name grammar-role-ref grammar-roles)
         (only-in ../runtime/identity sha256-text)
         (only-in :std/list/list-builder with-list-builder)
-        (only-in ../utilities/lists append-unique merge-keyed-row))
+        (only-in ../utilities/lists append-unique))
 (export compile-grammar
         compile-grammar/receipt
         compile-grammar/context normalized-grammar-ir normalized-grammar-receipt
@@ -18,8 +18,6 @@
 (def table-slots
   '(syntax-kinds terminals lexical-rules rules extras keywords
     parser-entrypoints recoveries))
-
-(def (section-row-key _section) car)
 
 ;; : (-> Grammar (List Grammar) (List GrammarRole))
 (def (collect-steps grammar (active '()))
@@ -33,96 +31,85 @@
         (for-each emit (grammar-composition grammar))))
     (visit grammar active)))
 
-(def (replace-keyed-row rows row section)
-  (let ((key ((section-row-key section) row))
-        (found? #f))
-    (let (result
-          (map (lambda (current)
-                 (if (equal? ((section-row-key section) current) key)
-                   (begin (set! found? #t) row)
-                   current))
-               rows))
-      (unless found?
-        (error "grammar override target does not exist" section key))
-      result)))
-
-(def (remove-keyed-row rows row section)
-  (let* ((key ((section-row-key section) row))
-         (remaining
-          (filter (lambda (current)
-                    (not (equal? ((section-row-key section) current) key)))
-                  rows)))
-    (when (= (length remaining) (length rows))
-      (error "grammar remove target does not exist" section key))
-    remaining))
-
-(def (apply-keyed-operation rows row section operation)
-  (case operation
-    ((merge)
-     (merge-keyed-row
-      rows row (section-row-key section)
-      (lambda (key) (error "conflicting grammar role row" section key))))
-    ((append)
-     (let (key ((section-row-key section) row))
-       (when (find (lambda (current)
-                     (equal? ((section-row-key section) current) key))
-                   rows)
-         (error "grammar append target already exists" section key))
-       (append rows (list row))))
-    ((override) (replace-keyed-row rows row section))
-    ((remove) (remove-keyed-row rows row section))
-    (else (error "unknown grammar composition operation" operation))))
-
-;;; Context is captured by the same fold that admits effective grammar rows.
-;;; Occurrence indices distinguish equal role names and repeated role objects.
+;;; The index owns admission and the insertion spine owns publication order.
+;;; Removing a row retires its cell. Reappending creates a new position.
+(defstruct keyed-grammar-row (row selection))
 (defstruct effective-grammar-row (row step operation role source history))
 (defstruct normalized-grammar (ir receipt selections))
 
+(def (select-effective-row previous row role index section operation source-at)
+  (def role-name (grammar-role-name role))
+  (def history
+    (cons (list index operation role-name)
+          (if previous (effective-grammar-row-history previous) '())))
+  (if (and previous (eq? operation 'merge))
+    ;; Equal merges keep the first declaration and extend its history.
+    (make-effective-grammar-row
+     (effective-grammar-row-row previous)
+     (effective-grammar-row-step previous)
+     (effective-grammar-row-operation previous)
+     (effective-grammar-row-role previous)
+     (effective-grammar-row-source previous)
+     history)
+    (let (source (and source-at (source-at role index section row)))
+      (unless (or (not source)
+                  (and (list? source)
+                       (every (lambda (entry)
+                                (and (pair? entry) (symbol? (car entry)))) source)))
+        (error "invalid grammar occurrence source" index section (car row) source))
+      (make-effective-grammar-row row index operation role-name source history))))
+
 (def (normalize-keyed-table steps section source-at capture?)
-  (def rows '())
-  (def selections '())
-  (for-each
-   (lambda (step index)
-     (let ((operation (car step)) (role (cdr step)))
-       (for-each
-        (lambda (row)
-          ;; This remains the sole authority for conflicts and row ordering.
-          ;; Source callbacks cannot admit an invalid composition operation.
-          (set! rows (apply-keyed-operation rows row section operation))
-          (when capture?
-            (let* ((key ((section-row-key section) row))
-                   (previous (assoc key selections))
-                   (history-entry (list index operation (grammar-role-name role))))
+  (def index (make-hash-table test: equal?))
+  (def ordered
+    (with-list-builder (emit)
+      (for-each
+       (lambda (step occurrence)
+         (let ((operation (car step)) (role (cdr step)))
+           (for-each
+            (lambda (row)
+              (def key (car row))
+              (def previous (hash-ref index key #f))
               (case operation
+                ((merge)
+                 (when (and previous (not (equal? (keyed-grammar-row-row previous) row)))
+                   (error "conflicting grammar role row" section key)))
+                ((append)
+                 (when previous (error "grammar append target already exists" section key)))
+                ((override)
+                 (unless previous (error "grammar override target does not exist" section key)))
                 ((remove)
-                 (set! selections (filter (lambda (entry) (not (equal? (car entry) key))) selections)))
-                (else
-                 (let* ((old (and previous (cdr previous)))
-                        (history (append (if old (effective-grammar-row-history old) '())
-                                         (list history-entry)))
-                        (selected
-                         (if (and old (eq? operation 'merge))
-                           ;; An admitted equal duplicate retains the first owner.
-                           (make-effective-grammar-row
-                            (effective-grammar-row-row old) (effective-grammar-row-step old)
-                            (effective-grammar-row-operation old) (effective-grammar-row-role old)
-                            (effective-grammar-row-source old) history)
-                           (let (source (and source-at (source-at role index section row)))
-                             (unless (or (not source)
-                                         (and (list? source)
-                                              (every (lambda (entry)
-                                                       (and (pair? entry) (symbol? (car entry)))) source)))
-                               (error "invalid grammar occurrence source" index section key source))
-                             (make-effective-grammar-row row index operation
-                                                         (grammar-role-name role) source history)))))
-                   (set! selections
-                     (if previous
-                       (map (lambda (entry) (if (equal? (car entry) key) (cons key selected) entry))
-                            selections)
-                       (append selections (list (cons key selected)))))))))))
-        (grammar-role-ref role section))))
-   steps (iota (length steps)))
-  (values rows selections))
+                 (unless previous (error "grammar remove target does not exist" section key)))
+                (else (error "unknown grammar composition operation" operation)))
+              (cond
+               ((eq? operation 'remove)
+                (hash-remove! index key)
+                (keyed-grammar-row-row-set! previous #f)
+                (keyed-grammar-row-selection-set! previous #f))
+               (else
+                (def cell
+                  (or previous
+                      (let (new (make-keyed-grammar-row row #f))
+                        (hash-put! index key new)
+                        (emit new)
+                        new)))
+                (when (eq? operation 'override)
+                  (keyed-grammar-row-row-set! cell row))
+                (when capture?
+                  (keyed-grammar-row-selection-set!
+                   cell (select-effective-row (keyed-grammar-row-selection cell)
+                                              row role occurrence section operation source-at))))))
+            (grammar-role-ref role section))))
+       steps (iota (length steps)))))
+  (values
+   (filter-map keyed-grammar-row-row ordered)
+   (if capture?
+     (filter-map
+      (lambda (cell)
+        (let (selection (keyed-grammar-row-selection cell))
+          (and selection (cons (car (keyed-grammar-row-row cell)) selection))))
+      ordered)
+     '())))
 
 ;;; Project only effective bindings. Removed declarations remain in the receipt,
 ;;; while a remove/reappend starts a new effective declaration history.
@@ -136,7 +123,7 @@
             (list (cons 'componentOwner (effective-grammar-row-role selected))
                   (cons 'compositionStep (effective-grammar-row-step selected))
                   (cons 'compositionOperation (effective-grammar-row-operation selected))
-                  (cons 'contributionHistory (effective-grammar-row-history selected))))
+                  (cons 'contributionHistory (reverse (effective-grammar-row-history selected)))))
            (coordinates
             (filter-map (lambda (key) (and (not (assq key provided)) (cons key origin)))
                         '(path location))))
@@ -215,7 +202,7 @@
             (lambda (section)
               (let (rows (grammar-role-ref role section))
                 (and (pair? rows)
-                     (cons section (map (section-row-key section) rows)))))
+                     (cons section (map car rows)))))
             (append table-slots '(flow)))))))
 
 (def (grammar-composition-receipt grammar steps ir)

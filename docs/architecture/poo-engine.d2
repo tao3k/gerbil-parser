@@ -34,6 +34,8 @@ selection_result: "prepare-lr-semantics(backend)\nretained factories + capabilit
 prepare -> selection_result -> state
 
 declarations: "Grammar declarations\nlexically captured values\nreceiver-bound behavior"
-admission: "Current Contract admission\nnormalize the actual receiver\nrecheck roles and parents"
-declarations -> admission -> selection
+syntax: "Grammar syntax\nhygienic expansion and source locations"
+admission: "Checked Grammar values\nroles, parents and composition"
+normalization: "Grammar normalization\nordered rows and source provenance"
+syntax -> declarations -> admission -> normalization -> selection
 lifecycle -> admission

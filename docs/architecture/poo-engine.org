@@ -78,6 +78,40 @@ fresh contextual obligations. A focused comparison cannot replace the full
 Scheme suite or its unchanged twenty-sample, 100 ms gate. Parser adaptation
 and exact-head CI precede Orgize; ASCENT follows Orgize.
 
+* Grammar syntax and ordered normalization
+
+Gerbil's markup change separates byte scanning, typed nodes and output. Its
+TAL compiler reports malformed syntax at the source location. Its HTML
+scanner uses byte classification tables and bounded name probes with a tree
+fallback. The benchmark program selects an operation and input size for each
+invocation. [[https://git.cons.io/mighty-gerbils/gerbil/pulls/1515][Gerbil PR 1515]]
+
+Parser's grammar macros retain syntax objects through expansion and lower to
+checked Grammar and GrammarRole constructors. An invalid composition operator
+now identifies the offending token. The compiler owns declaration order,
+conflict detection and provenance. Runtime preparation consumes the resulting
+Grammar IR and binds execution kernels to the selected backend.
+
+Normalization uses an index for membership and a separate insertion spine for
+publication order. Equal merges retain the first owner. Override updates the
+existing position. Remove retires that position and a later append creates a
+new one. Contribution history accumulates in reverse and is emitted in
+occurrence order. The index belongs to the current normalization call. Expected
+work in the keyed table fold scales with the number of contributions, subject
+to key hashing and equality costs. The flow fold and receipt encoding keep
+their existing ownership.
+
+The independent scale workload prepares the grammar outside timing and runs
+one rule count per process. On this host the 8,000-rule case with twenty
+samples moved from 1,178.85 ms to 9.37 ms wall P50 and from 2,244.60 ms to
+10.57 ms wall P95. Rule order, content and composition digest matched. These
+observations cover grammar normalization. The checked object construction
+budget and the complete Scheme and Rust gates have their own evidence.
+
+#+begin_src sh
+gerbil env gxi t/benchmarks/grammar-normalization/scale.ss 8000
+#+end_src
+
 * First engine slice: semantic family preparation
 
 RecognitionSemantics. and EventSemantics. inherit LRSemanticBackend. using native

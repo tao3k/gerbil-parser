@@ -50,7 +50,8 @@
                 (set! samples
                   (cons (map (lambda (key) (assq key stats))
                              '(user-time sys-time real-time gc-real-time
-                               gc-user-time gc-sys-time nb-gcs bytes-allocated))
+                               gc-user-time gc-sys-time nb-gcs bytes-allocated
+                               minflt majflt))
                         samples))
                 ;; The receipt consumes timing and counters. This batch has
                 ;; completed checked construction, so its objects need not

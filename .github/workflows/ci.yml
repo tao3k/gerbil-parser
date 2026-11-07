@@ -33,6 +33,21 @@ jobs:
     steps:
       - name: Checkout gerbil-parser
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - name: Fetch locked LeanPoo revision
+        if: matrix.lane == 'contracts'
+        shell: sh
+        run: |
+          set -eu
+          manifest=formal/lake-manifest.json
+          package_dir=$(jq -er '.packagesDir' "$manifest")
+          url=$(jq -er '.packages[] | select(.name == "LeanPoo" and .type == "git") | .url' "$manifest")
+          revision=$(jq -er '.packages[] | select(.name == "LeanPoo" and .type == "git") | .rev' "$manifest")
+          checkout="formal/$package_dir/LeanPoo"
+          git init "$checkout"
+          git -C "$checkout" remote add origin "$url"
+          git -C "$checkout" fetch --no-tags --depth=1 origin "$revision"
+          git -C "$checkout" checkout --detach FETCH_HEAD
+          test "$(git -C "$checkout" rev-parse HEAD)" = "$revision"
       - name: Verify parser semantics and operation costs
         if: matrix.lane == 'contracts'
         uses: leanprover/lean-action@f061402b660e0c34644504b324e830f2991d4865 # v1

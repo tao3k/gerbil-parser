@@ -48,37 +48,23 @@
 (def Grammar. (.ref GrammarContract 'proto))
 
 ;; : (-> Symbol List List List List List List List List List List GrammarRole)
-(def (make-grammar-role name-value syntax-kinds-value terminals-value
-                        lexical-rules-value rules-value extras-value
-                        keywords-value parser-entrypoints-value
-                        recoveries-value flow-value)
+(def (make-grammar-role name syntax-kinds terminals lexical-rules rules extras
+                        keywords parser-entrypoints recoveries flow)
   (validate
    GrammarRoleContract
-   (.o (:: @ GrammarRole.)
-       kind: +grammar-role-kind+
-       name: name-value
-       syntax-kinds: syntax-kinds-value
-       terminals: terminals-value
-       lexical-rules: lexical-rules-value
-       rules: rules-value
-       extras: extras-value
-       keywords: keywords-value
-       parser-entrypoints: parser-entrypoints-value
-       recoveries: recoveries-value
-       flow: flow-value)))
+   ;; Native lexical slots capture existing values once. Receiver formulas are
+   ;; reserved for fields that actually depend on the effective receiver.
+   (let (kind +grammar-role-kind+)
+     (.o (:: @ GrammarRole.)
+         (kind) (name) (syntax-kinds) (terminals) (lexical-rules) (rules)
+         (extras) (keywords) (parser-entrypoints) (recoveries) (flow)))))
 
 ;; : (-> Symbol (List Grammar) (List GrammarRole) Grammar)
-(def (make-grammar name-value parent-values role-values
-                   (composition-values '()))
+(def (make-grammar name parents roles (composition '()))
   (validate
    GrammarContract
-   (.o (:: @ Grammar.)
-       kind: +grammar-kind+
-       schema: +grammar-schema+
-       name: name-value
-       parents: parent-values
-       roles: role-values
-       composition: composition-values)))
+   (let ((kind +grammar-kind+) (schema +grammar-schema+))
+     (.o (:: @ Grammar.) (kind) (schema) (name) (parents) (roles) (composition)))))
 
 (defpoo-object-family
   (accessors

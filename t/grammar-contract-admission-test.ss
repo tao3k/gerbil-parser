@@ -69,6 +69,32 @@
         (equal (element? GrammarRoleContract role)  #f)
         (equal (element? GrammarRoleContract role)  (evidence-member? GrammarRoleContract role))
         (equal (rejects? (lambda () (validate GrammarRoleContract role)))  #t)))
+    (scenario "grammar construction rechecks a previously admitted role"
+      (sequential ((rules (list 'rule)) (role (empty-role rules)))
+        (equal (grammar? (make-grammar 'before '() (list role))) #t)
+        (act (set-cdr! rules 'improper-tail))
+        (equal (rejects? (lambda () (make-grammar 'after '() (list role)))) #t)))
+    (scenario "lexical value capture preserves references and receiver behavior"
+      (sequential ((rules (list 'rule)) (role (empty-role rules))
+                   (derived (.cc role 'name 'derived))
+                   (roles (list role)) (grammar (make-grammar 'grammar '() roles)))
+        (equal (eq? (grammar-role-ref role 'rules) rules) #t)
+        (equal (eq? (grammar-roles grammar) roles) #t)
+        (equal (grammar-role-ref derived 'name) 'derived)
+        (equal (grammar-role-ref role 'name) 'role)))
+    (scenario "constructor admission observes changed role obligations"
+      (sequential ((role (empty-role))
+                   (saved (.ref GrammarRoleContract '.obligations)))
+        (act (dynamic-wind void
+          (lambda ()
+            (.set! GrammarRoleContract .obligations
+              (lambda (_candidate _context) '(changed-role-obligation)))
+            (unless (and
+                     (rejects? (lambda () (empty-role)))
+                     (rejects? (lambda () (make-grammar 'after '() (list role)))))
+              (error "constructor reused an obsolete role admission")))
+          (lambda () (.set! GrammarRoleContract .obligations saved))))
+        (equal (grammar? (make-grammar 'restored '() (list role))) #t)))
     (scenario "composition obligations reject foreign roles and parents"
       (sequential ((role (empty-role)) (grammar (make-grammar 'grammar '() (list role))))
         (each (invalid) ((list (.cc grammar 'parents (list (.o)))

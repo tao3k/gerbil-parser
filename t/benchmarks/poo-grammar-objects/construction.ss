@@ -52,7 +52,10 @@
                              '(user-time sys-time real-time gc-real-time
                                gc-user-time gc-sys-time nb-gcs bytes-allocated))
                         samples))
-                (cdr (assq 'result stats)))))))
+                ;; The receipt consumes timing and counters. This batch has
+                ;; completed checked construction, so its objects need not
+                ;; remain live throughout the entire series.
+                (void))))))
     (for-each
       (lambda (sample)
         (write (cons 'CONSTRUCTION-DIAGNOSTIC sample))

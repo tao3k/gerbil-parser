@@ -89,6 +89,21 @@ and computes its UTF-8 length. Keep the current lexical result and byte offset
 contracts as the oracle. Character classes, name interning and specialized
 buffers require a measured cost at that boundary before adoption.
 
+The range-based UTF-8 count retained the same token allocation on ASCII,
+mixed Unicode and long tokens. Its CPU results showed no repeatable
+improvement. Keep the existing token emission path.
+
+The line event strategy can use Gerbil's =string-prefix?= directly. The
+predicate preserves the existing character comparison and removes the
+temporary prefix substring. Optimized local comparisons used 20 samples
+of 100,000 calls per process, with an A/A control and both A/B orders.
+Across the paired legs, CPU P50 was 2.315–2.323 ms before and
+1.761–1.774 ms after for ASCII, and 2.324–2.346 ms before and
+1.774–1.781 ms after for Unicode. The attributable allocation dropped by
+32 bytes per call in both cases. These measurements cover prefix
+comparison. The event strategy tests cover empty and multibyte prefixes,
+line byte offsets and generated Rust strategy structure.
+
 For each performance comparison, record the source and compiler identities,
 artifact mode, input digest, warmup and actual concurrency. Run an A/A control
 to measure variation, then compare the two compiled variants in both orders.

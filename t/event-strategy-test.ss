@@ -7,7 +7,7 @@
         (only-in "event-strategy-fixture.ss"
                  event-lines-language-grammar parse-event-lines parse_event_lines)
         (only-in :gerbil-parser/src/compiler/event-strategy-aot
-                 compile-line-event-parser generate-line-event-module)
+                 compile-line-event-parser generate-line-event-module line-starts-with?)
         (only-in :gerbil-parser/src/compiler/rust-syntax
                  rust-line-event-function-form-digest)
         (only-in "rust-aot-test-syntax.ss" check-rust-event-strategy))
@@ -15,6 +15,12 @@
 
 (deflanguage-parser-tests event-strategy-test "Scheme parser event strategy AOT"
   (engine)
+    (property "line prefix comparison handles empty and multibyte boundaries"
+      (bindings)
+      (equal (line-starts-with? "" "") #t)
+      (equal (line-starts-with? "猫😀 rest" "猫😀") #t)
+      (equal (line-starts-with? "猫" "猫😀") #f)
+      (equal (line-starts-with? "猫😀" "猫β") #f))
     (property "one Scheme body owns headings and UTF-8 source byte ranges"
       (bindings)
       (equal (parse-event-lines "* α\r\nbody\n")

@@ -1,3 +1,3 @@
 (package: gerbil-parser
  prelude: :tao3k/parser/prelude
- depend: ("github.com/tao3k/gebril-yuanxu@4d6c68116859bbe2dede00f2eed2375f1ac1ea2c"))
+ depend: ("github.com/tao3k/gebril-yuanxu@27a666ea3ed35cce583e553268a36cdc276eafce"))

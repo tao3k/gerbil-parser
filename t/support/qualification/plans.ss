@@ -16,14 +16,13 @@
   (error "unknown local qualification suite" suites))
  (when (and prepared? (ormap (lambda (suite) (not (member suite '("gql-profile" "gql-actors")))) suites))
   (error "prepared diagnostics only admit profile and actor suites" suites))
- (let (modules (diagnostic-modules suites))
-  (append
-   (if (and (not prepared?) (ormap (lambda (suite) (member suite '("gql" "gql-profile" "gql-actors" "ffi"))) suites))
-    [(qualification-stage "test-driver-build" '("gxi" "t/support/qualification/build-test-driver.ss" "compile") 240 30 '())] '())
-   (if (and (not prepared?) (pair? modules))
-    [(qualification-stage "gql-support-build"
-      (append '("gxc" "-V" "t/benchmarks/parser-stage-cost/benchmark.ss")
-              (map (lambda (module) (string-append "t/benchmarks/gql/runtime/" module ".ss")) modules)) 240 30 '())] '()))))
+ ;; Diagnostic programs are prepared by the native research writer, not by
+ ;; rebuilding an independent helper list inside the runtime qualifier.
+ (if (and (not prepared?)
+          (ormap (lambda (suite) (member suite '("gql" "ffi"))) suites))
+   [(qualification-stage "test-driver-build"
+      '("gxi" "t/support/qualification/build-test-driver.ss" "compile") 240 30 '())]
+   '()))
 (def (qualify-local! suites prepared? compiled-root logs jobs)
  (let ((compiled-root (path-expand compiled-root)) (logs (path-expand logs)))
   (def (run name command (build? #f) (receipts '()) (budget #f))

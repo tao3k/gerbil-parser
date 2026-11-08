@@ -2,13 +2,10 @@
 (import :std/misc/process :std/io/tempfile :std/text/pregexp ./ownership)
 (export #t)
 (def qualification-library-root (path-expand "lib" (gerbil-path)))
-;;; Load native runtime objects, not .ssi import metadata and macro dependencies.
-;;; The SDK writer quotes argv as data; shell syntax is never evaluated.
+;;; The declared native entry owns POSIX session setup. Pass argv as data;
+;;; no source loader or shell evaluates child arguments.
 (def (process-child-arguments witness loadpath command)
-  ["-e" "(load-module \"gerbil-parser/t/support/qualification/process-child\")"
-   "-e" (object->string
-         `(apply gerbil-parser/t/support/qualification/process-child#main
-                 (quote (,witness ,loadpath ,@command))))])
+  (cons witness (cons loadpath command)))
 (defstruct process-result (status reason output elapsed phase) transparent: #t)
 (defstruct process-interruption (reason) transparent: #t)
 (def (normal-exit-status raw)
@@ -84,7 +81,7 @@
            (started (##current-time-point)) (last-output started)
            (coordinator (current-thread)) (capture (open-output-u8vector))
            (output (open-output-file log))
-           (process (open-process [path: "gxi"
+           (process (open-process [path: (path-expand "bin/gerbil-parser-process-child" (gerbil-path))
                      arguments: (process-child-arguments witness (getenv "GERBIL_LOADPATH" "") command)
                      environment: (map (lambda (entry) (string-append (car entry) "="
                         (if (equal? (car entry) "GERBIL_LOADPATH")

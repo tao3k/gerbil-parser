@@ -1,9 +1,15 @@
-;;; Product language imports neither grammar compilation nor the Module System.
+;;; Product language keeps common declaration syntax independent of semantic engines.
 (.def Value port: 5440)
 (unless (= (.get Value port) 5440) (error "Parser lost common POO bindings"))
 (when (ormap (lambda (row)
-               (or (string-prefix? "gerbil-parser/src/" (car row))
-                   (string-prefix? "yuanxu/module-system/" (car row))))
+               (let (name (car row))
+                 (or (string-prefix? "gerbil-parser/src/" name)
+                     ;; Core's public declaration stub is ordinary syntax.
+                     ;; Its implementation and all semantic owners stay inert.
+                     (and (string-prefix? "yuanxu/module-system/" name)
+                          (not (member name
+                            '("yuanxu/module-system/selection/init-syntax"
+                              "yuanxu/module-system/selection/init-syntax~0")))))))
              (list-modules))
   (error "Parser prelude eagerly loaded an engine"))
 (begin-syntax

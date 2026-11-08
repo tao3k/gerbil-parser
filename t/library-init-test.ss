@@ -42,7 +42,7 @@
           (let (paths (load-path))
             (dynamic-wind
               (lambda () (register-module-build-source! parser-source-root 'gerbil-parser))
-              (lambda () (.get (.ref (.get gerbil-parser.init.exports Components) name) scope))
+              (lambda () (.ref (.get gerbil-parser.init.exports Components) name))
               (lambda () (set-load-path! paths)))))))))
 
 ;; A concrete consumer owns its struct representation and passes its POO Type.

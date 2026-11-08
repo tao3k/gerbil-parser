@@ -1,6 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Real callbacks cross native Function boundaries, including nested results.
 (import :gerbil-parser/language-test-support
+        (rename-in (only-in :gerbil/tools/gxtest main) (main native-gxtest-main))
         (only-in :clan/poo/object .o .cc .ref .get .call)
         (only-in "../init.ss" gerbil-parser.init.exports)
         (only-in :clan/poo/mop validate TypeError? define-type Type. element?)
@@ -12,6 +13,7 @@
                  make-source-scanner source-scanner-initial-state source-scanner-step source-scan-state-with-context)
         (only-in :gerbil-parser/src/runtime/function-types ActionSelectorFactory)
         (only-in :gerbil-parser/src/runtime/token make-token token-kind))
+(extern namespace: gerbil/tools/gxtest collect-files)
 (defstruct scanner-context (label) transparent: #t)
 (define-type (ScannerContext @ Type.)
   .element?: (lambda (v) (and (scanner-context? v) (element? String (scanner-context-label v)))))
@@ -125,5 +127,6 @@
         (raises ((validate ActionSelectorFactory (lambda _ 42)) '#() '#() #f #f)
                 TypeError?)))
     (property "native conformance selection retains the boundary Suite"
-      (bindings (covered (.get (.call (.get gerbil-parser.init.exports tests) .for-directory "t") spec)))
+      (bindings (covered (.get (.call (.get gerbil-parser.init.exports tests)
+                                   .for-files (collect-files '("t/..."))) spec)))
       (equal (and (member (path-expand "t/native-function-boundary-test.ss") covered) #t) #t)))

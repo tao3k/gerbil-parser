@@ -5,7 +5,11 @@
         (only-in :std/misc/ports read-all-as-string))
 (def (output-of code)
   (run-process (list "gxi" "-:max-heap=2G,debug=q" "-e" (object->string code))
-    stdout-redirection: #t coprocess: read-all-as-string))
+    stdout-redirection: #t stderr-redirection: #t
+    coprocess: (lambda (process)
+                 (let (output (read-all-as-string process))
+                   (display output) (force-output)
+                   output))))
 (def (fixture file)
   (path-expand (string-append "fixtures/parser-prelude/" file)
                (path-directory (this-source-file))))

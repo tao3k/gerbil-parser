@@ -2,13 +2,14 @@
 (import :gerbil-parser/language-test-support
         (only-in :std/source this-source-file)
         (only-in :std/misc/process run-process)
-        (only-in :std/misc/ports read-all-as-string))
+        (only-in :std/misc/ports read-all-as-string)
+        (only-in :gerbil-parser/t/fixtures/progress report-test-progress!))
 (def (output-of code)
   (run-process (list "gxi" "-:max-heap=2G,debug=q" "-e" (object->string code))
     stdout-redirection: #t stderr-redirection: #t
     coprocess: (lambda (process)
                  (let (output (read-all-as-string process))
-                   (display output) (force-output)
+                   (report-test-progress! "PUBLIC-INTERFACE-CHILD " output)
                    output))))
 (def (fixture file)
   (path-expand (string-append "fixtures/parser-prelude/" file)

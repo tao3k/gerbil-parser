@@ -16,22 +16,26 @@ GitHub Actions owns job dependencies and artifact transport.
 | Rust ABI program | t/fixtures/rust-language-abi/build.ss and Cargo build.rs | Official C ABI package operations; upstream graph/archive builder and affine VM lifecycle |
 | Test support | build-test-support.ss | Core for-directory/for-files discovers full native Suite support; exact std-make-spec value enters Core building/script for compilation, artifact admission and subset publication |
 
-Research products and signed test-lib publications have different output and
-admission domains. Each has one native build entry. Combining them as a single
-superset would lose those distinctions. Both use the existing compiler host
-initializer; support does not rewrite Core's returned spec. Its own build and
-compiler-policy source files are observed inputs. No builder, signer or import
-walker is implemented in Parser.
+| Test support | build-test-support.ss | Core discovers Suite import closure; std/build-script and std/make compile ordinary helper products in the native prefix |
 
-Development and CI consume signed support through Core TestingScript, which
-checks source, outputs and approvals before invoking native gerbil test. The
-shared test-native command never compiles; test-all prepares its prerequisites.
-The complete test profile retains3GiB/900s. No test file starts a build or another
-test harness.
+Each product has one existing native build entry. Core's existing build slot projects the demanded helper imports with their
+native options. The raw test-selection spec contains Suite roots and is not
+a helper build plan; it is not passed through another package closure walker.
+No Parser importer, evaluator cache, signature authority or runtime handoff is
+introduced. Native source/currentness protocols remain with Core where required
+by the product; ordinary test helper loading uses Gerbil's native prefix.
 
-FFI precedes support consumption. Research declares entry sources once, not
-transitive fixture names. Normal package import discovery covers research-only
-helpers such as provenance-language even if no native Suite imports them.
+The shared test-native command never compiles; test-all prepares prerequisites.
+It invokes gerbil test directly with recursive t/..., languages/... and
+scripts/tests/... selection, retaining3GiB/900s. Test files only declare Suites,
+Cases and Fixtures. Native process status is authoritative after the formal
+Gerbil tool-entry fix; Parser does not parse Harness output to invent a status.
+This command migration requires the rebuilt published compiler capability.
+
+FFI precedes support consumption. Research declares actual entry sources;
+package-library-spec discovers their imports. The conformance executable itself
+publishes its program names via --list; CI invokes each native product with its
+existing10-second bound. The extra Scheme test-process scheduler is removed.
 
 * CI consolidation
 Six consumers share one native composite action: existing compiler activation,
@@ -44,8 +48,8 @@ Case or Fixture was removed. The retired custom-loader CPU item was removed;
 native load/reload/error/observation controls remain in the full Suite entry.
 Source witness freshness, isolated macro phases, deliberate failure, process
 ownership, Rust claim selection, platform corpus and manual research have distinct
-purposes and remain. Test-lib is included in the existing complete-prefix snapshot;
-failed-product custody also retains it, without granting recovery admission.
+purposes and remain. The existing complete-prefix snapshot transports ordinary
+native helper products; transport alone does not grant product admission.
 
 * Failure controls and source epochs
 The cold package prefix failure was a HOME/configured-prefix mismatch; correct
@@ -479,3 +483,334 @@ OK. Its unchanged Grammar construction gate reports20samples and P95=46.114ms
 against100ms. That local observation does not erase the retained Darwin failure
 or establish a construction optimization; the new exact-head CI must test both
 platforms again.
+
+* Native tool-entry correction and pending consolidation
+Gerbil distribution PR58 restores upstream unified tool aliases and makes
+failed Suites exit42 while preserving help0. Focused source controls pass:
+success0, failure42, help0, missing input70. Installed Linux/macOS controls and
+an immutable published capability remain required before current-head acceptance.
+https://github.com/tao3k/gerbil-bazel/pull/58
+
+Parser79012241 CI40539494920 passed Linux preparation, FFI, corpus and Rust.
+Darwin preparation refused empty TAGS; Linux generation and semantics refused
+module lookup inside observations.ss. The consolidation removes that wrapper,
+its implementation-mirroring tests and redundant private evaluator tests.
+Actual parser source/reload/failed-load recovery tests and FFI ownership probes
+remain. The earlier182-module run's p95 timing refusal remains open and unchanged.
+Local command/reader/spec checks are not complete Harness or restored acceptance.
+
+The first ordinary-helper experiment incorrectly fed raw Suite demand through
+package-library-spec. It attempted to compile t/antlr4-source-test and exhausted
+the unchanged2GiB heap. That failed experiment is retained, not retried unchanged.
+The corrected entry reads Core's already-projected build.spec, eliminating that
+second closure walker and production-target enumeration. Compiler stream zero/
+multiple values, exceptions and actual module recovery controls remain required.
+
+The superseded main-based PR58 carrier's Linux full build failed before Gerbil,
+at Gambit7c490c3 _num.c generation: define-prim cannot inline ##fxzero?. The
+same error occurs on unmodified distribution main9b5900d CI38038915449.
+This is an independent source baseline blocker; no compiler/Gambit algorithm
+change or revision fallback is included in the tool-entry authorization.
+The new immutable compiler capability and Parser native negative exit gate
+therefore remain open. Focused source-entry checks are not called release CI.
+
+The Core-projected ordinary-helper compile exits0 with two workers/2GiB.
+Three focused native Suites pass: module-loading, compiler-process and
+qualification-plans, with complete native Harness success and no errors.
+An earlier compiler-profile Case used unconfigured default gcc and failed;
+explicit GERBIL_GCC=/opt/homebrew/bin/gcc-16 aligns the real CI provider.
+Both logs are retained. No source assertion, heap, duration or negative control
+was relaxed. This is focused current-source evidence, not full or restored CI.
+
+* Current maintenance cohort and native entry cleanup
+The user selected the original validated compiler cohort. PR58 now targets
+release/v0.19-2591dcd based on the original published distributione5296bf8.
+Corrected producer7e1ddc4 keeps Gerbil2591dcd and native Gambitdcd677c,
+original platform flags/runtime patches and the original self-build memory policy.
+It fixes capacity at two workers, removes extra AOT tool construction and
+propagates the native test result from the getopt execution callback. Parser
+package compilation remains2GiB and complete tests remain3GiB. The original
+publication workflow validates installed and relocated commands before publishing.
+Linux40559760040 passed the full source build, six upstream runtime modules,
+native entry controls and relocated controls. Downloaded immutable archive bytes
+verify SHA25688d08d3d10e297164191a9b31ee309d215a01727877c9e1c19b0d7dc737a5744;
+the delivered receipt confirms the original compiler/VM and configure arguments.
+Darwin40559766825 also passed installed/relocated controls and immutable
+publication. Downloaded Darwin bytes verify SHA256
+c53d62f26ff382f8956576963edc3eb9193098dc48de78d44b8a3df63636bd18.
+Both platform compiler publications passed; Parser cold/restored qualification
+remains required. Earlier7c490 failures describe the
+superseded repair carrier, not this cohort.
+The older distribution consumer CI fails because its f0badc7 release and bottle
+URLs return404; that configuration must select the verified maintenance assets.
+
+Parser activates the published package's own activate file and reads the real
+C_COMPILER from Gambit's configure dump. It does not scan installed GCC names
+or reconstruct compiler runtime options. OpenSSL3 is explicit; no Ghostscript
+unlink, default-OpenSSL fallback or ambient LIBRARY_PATH override remains.
+Existing std/make owners supply link inputs. Native gerbil build independently
+returns0 for a real valid module and70 for syntax failure. An initial nonexecutable
+fixture refusal is preserved; the successful control fixed only that fixture's
+required executable mode, not the compiler or build policy.
+
+The formal evidence collector no longer wraps package construction in a240s
+qualifier. Only scheme-build preparation may omit deadline/markers; it records
+native exit and unchanged inputs without claiming semantics. Runtime, model and
+performance checks retain their deadlines/markers. Four host observation controls,
+six input-discovery controls and source/product drift controls pass. Full native
+qualification still requires the maintenance compiler and current-source CI.
+
+The first maintenance publisher candidatefb265 incorrectly applied the Parser
+heap ceiling to Gerbil self-build. Linux passed Gambit/bootstrap/stage1 then
+failed stdlib; logs and source ZIP are retained. Corrected7e1ddc4 removes that
+extra source/build-option patch and restores the original producer policy.
+Parser compilation2GiB, tests3GiB and two workers remain unchanged. Darwin's
+wrong-scope run was cancelled before publication. The corrected producer passed both platform publications; no old result is
+borrowed as current Parser qualification.
+
+* Remaining project adapters and their boundary
+| Retained owner | Project-specific reason | Framework responsibility |
+|----------------+-------------------------+--------------------------|
+| compiler-profile | Native host options and forwarding actual compiler work diagnostics | Gerbil compiles; Core drains process streams; no importer or preloader is recreated |
+| FFI build phases | C/ABI producers must exist before entry and consumer compilation; the cold missing-header failure is preserved | Each phase uses std/build-script/std/make; no parallel target catalog or test executor |
+| runtime qualification | Actual runtime/FFI failure, idle and ownership controls | Native process tools and existing protocol deadlines; ordinary Suite/build commands are not supervised here |
+| failed-products.sh | Requested custody of failed project objects and context | Native tar and hashes; admission=none; no compiler environment or identity credential |
+| CI composite actions | Reuse compiler activation and transport the current run's exact products | Delivered activate/configure dump and native tar; Core independently admits products |
+
+The hardcoded macOS SDK mapping baseline and sdk-load-diagnostics.sh are removed.
+They checked one old module, added a separate signature gate, and referenced the
+obsolete gerbil-sdk.tar.gz name. Gerbil/the OS own actual loading and its failure;
+archive checksums, native logs and failed-product custody remain. Compiler digest
+metadata is named GERBIL_COMPILER_SHA256 and is displayed only, not minted as a
+project identity. No replacement preflight, status parser or loader is introduced.
+
+The optional source-performance executor is also retired. Its recursive custom
+source digest, temporary namespace symlink, test catalog and parsed Harness
+approval duplicated existing source/native responsibilities. The development
+recipe selects the same8 unchanged performance Suite files and invokes native
+gerbil test with the original1GiB/120s per-Suite envelope and source-parent path.
+No Suite, numeric performance assertion or runtime/FFI negative control is removed.
+There is no synthetic PERFORMANCE-SOURCE-OK verdict. Protocol probes retain idle
+checks; ordinary Suite calls in local plans and the evidence collector now use
+the native tool directly. Core continues to own demanded source/currentness.
+
+* First published-byte consumer failures
+Candidate2d57caf9 passed Linux cold preparation and all Rust lanes. Its restored
+programs exposed missing benchmark-qos, GQL actor and ranked-literal benchmark
+objects. The preserved archive confirms the UTF8 runtime closure reaches the
+missing ranked-literal/benchmark library. Runtime-selected program inputs are
+now declared by the existing research build owner; Core discovers their static
+closure while respecting already-owned package/FFI products. Ordinary Suite
+support discovery remains limited to actual Suite imports; it is not a source
+of implicit benchmark preparation. No alternative loader or helper roster is added.
+
+The native complete Suite command also rejected a stale literal ASP revision
+expectation. Like the root dependency test, the development ownership assertion
+now checks its sole immutable public owner, leaving revision selection with
+its actual gerbil.pkg declaration. The installed native tool now reports this
+failure instead of returning success. POO construction itself passed unchanged
+100ms admission at87.36ms p95. TLA source startup and Tokio workload idle failures
+are retained separately; they are not closed by the declaration correction.
+
+Restoration no longer re-adds the package directory: the transported native
+prefix already contains pkg/directory-list. Extraction does not mutate native
+package configuration. Fresh dependency installation retains its normal setup.
+
+TLA SANY/corpus consumers now use their actual program entries compiled by the
+existing research writer, rather than re-expanding source imports inside each
+bounded runtime process. The SANY driver publishes main instead of running the
+entire oracle comparison as a module-initialization side effect. Source ownership,
+jar/corpus pins,1GiB runtime cap,600s total and5s idle controls remain unchanged.
+A local source-import diagnostic took68.23s (6.58s user CPU); preserved sampling
+shows macOS dynamic-object validation dominated wall time. That observation does
+not prove the Linux idle failure or qualify a new executable; actual CI still
+must verify the native entry with the original limits and negative cases.
+
+Tokio CPU output previously reported each warmup batch but only a complete
+8-leg group during measurements. It now reports each actually completed leg,
+outside that leg's existing CPU interval. This supplies workload progress, not a
+heartbeat: no timer, synthetic work or extra executor is introduced. Requests,
+clients, groups, reference/candidate order, all measured costs and90s/5s gates
+are unchanged. The first failed raw log and input remain retained; this diagnostic
+change is not accepted as a runtime repair until the same controls complete.
+
+Both2d57caf9 cold preparations and both independent C/Rust FFI lifecycle jobs
+passed. macOS source consumers additionally hit5s startup fences before actual
+work. The existing research spec declares the actual SANY/corpus, capture, edit,
+GQL, LR-matrix and four Suite-backed generation program entries. Standard native
+executables avoid repeating source expansion inside the measured runtime phase;
+no new dispatcher or source loader is introduced. GQL diagnostics no longer
+compile a second helper inventory or approve unrelated .o1 presence. Native
+program execution rejects missing products without a build fallback.
+
+The same writer completes its library/macro phase before its executable phase,
+using std/build-script for both and retaining its single native meta/spec/clean
+protocol. A local failed declaration (missing Corpus main export) left partial
+macro interfaces; that failure and subsequent refusal are preserved. Missing
+objects are not treated as recovery success. Local preflight can explicitly
+recompile affected sources through native gerbil compile; it does not establish
+that std/make repairs every abandoned partial output. Exact-current-run artifact
+restoration and corrupted-product refusal remain independent CI controls.
+
+Generation subprocess logs now live under .data, the existing uploaded log
+location, rather than uncollected /tmp paths. Source-generated products and all
+byte comparisons remain unchanged. The added CLI exports carry the same methods,
+counts and limits; runtime/CI acceptance is still required.
+
+Local candidatec3e4cfea exposed a concrete static-link input omission: the edit
+program's native closure includes language-abi.c and abi-call.c, both requiring
+gerbil-parser/language.h. Program declarations now carry the same project include
+roots as their library producer, and resolve the existing OpenSSL link input once
+for the declaration set. The failed compiler log is preserved. Neither extra
+ambient library paths nor compiler/stdlib upgrades are used to resolve it.
+
+The firstc3 macOS preparation failed earlier in gparse linking: this independent
+program owner omitted OpenSSL pkg-config link options. The runner exposes
+OpenSSL3.6.5 while the archived Gambit default references Cellar3.5.9. Gparse now
+passes std/make.pkg-config-libs at its final executable declaration. This is an
+explicit product input correction, not a compiler upgrade, ambient search-path
+override or a claim that earlier green image conditions guaranteed portability.
+The failed native products and raw job log are preserved.
+
+Native gparse linking passed locally with LIBRARY_PATH/LDFLAGS unset. Focused
+native Suites then correctly exited42 for an obsolete textual assertion requiring
+an exact closing parenthesis after the executable name. That format mirror is
+removed; actual native compile/CLI integration validates construction, while
+production/development ownership and dependency boundaries remain tested.
+
+Published-byte native preflight now passes the focused ownership/plan Suites,
+SANY's complete acceptance/structure/rejection/oracle-boundary comparison at the
+original1GiB/600s/5s envelope, and invalid-jar refusal70 within5s. A first local
+relative jar argument failed because Java runs in the fixture directory; the
+positive uses the same absolute-input convention as CI, with both logs retained.
+Header generation passes90s/5s and both Rust products remain byte-identical after
+rustfmt. No input, negative case, numeric threshold or deadline was relaxed.
+These local controls do not substitute for current full Linux/macOS CI.
+
+The freshdb275120 Linux artifact exposed two additional runtime-selected ranked
+proof libraries (parser-cpu and lexical-cpu), which are now declared beside the
+other actual runtime roots. Core supplies their transitive closure; the workload
+selector and all benchmark semantics remain unchanged. The historical
+selector/capture reference preparation also correctly refuses a mismatching
+historical gerbil.pkg before comparison. It remains a research-control cohort
+gap, not evidence of a candidate speedup or permission to rewrite the reference.
+
+Freshdb275120 Linux preparation, FFI, corpus and generation consumers pass; its
+complete native182-module entry fails only the remaining source-format mirror,
+without the local abandoned-prefix macro errors. The corrected focused Suites
+pass locally. This separates valid fresh/current-run restoration from local
+partial-output custody rather than weakening macro admission.
+
+Research rejection is reported separately: the module-generation candidate
+observed a0.0268 P90 cost ratio, but the after-phase reference control P10 was
+0.7138 outside its unchanged0.90..1.10 stability band, so speedup is not admitted.
+Other full comparisons hit original total budgets or reject a different historical
+package declaration. No unchanged retry, reduced workload or widened threshold
+establishes a research result. The complete-research timing policy remains open.
+
+The next macOS generation failure is the same source-startup boundary in result
+projection generation. All remaining bounded generation methods are therefore
+explicit entries in the same existing native program declaration: result,
+ordered result, Command, Word, region, binding, source witness and Bash scanner.
+Their existing main procedures are exported; no algorithms, method arguments,
+output bytes, numeric criteria or90s/5s controls change. The declaration is the
+single root inventory from which Core projects each actual import closure.
+
+Fresh macOS receipts confirm the remaining callback and ABI failures occur before
+their first workload output while re-expanding source imports. The existing edit
+program gains a native --verify-callback-gc entry mode calling the unchanged
+control. ABI/language probes are standard program products of their existing
+producer closure. The Rust staticlib consumer's existing build entry now emits
+its actual executable, removing the temporary dynamic-module linkage mode and
+its separate linker-object selection; Cargo still owns the archive and native
+std/build-script owns compilation/linking. Existing method counts, markers and
+lifecycle limits remain unchanged. No runtime test recursively starts a Suite.
+
+The contextual-parser development command also imported gxtest before its own
+program. That unused preload is removed: this benchmark declares main and its
+actual imports, while test discovery remains exclusively owned by gerbil test.
+The unchanged16-request/5-sample paired protocol passed locally without gxtest,
+exit0 in9.59s under1GiB/120s/5s. This focused result does not qualify the full
+research matrix or supersede its rejected comparisons.
+
+At1c022d21, Linux cold preparation, restored generation/corpus and complete native
+semantics pass, including182 full-Suite modules, four isolated macro controls,
+intentional Suite refusal and CLI checks. The native ABI program instead enters
+main and rejects the grammar's only-in import. A standalone expander-only native
+program reproduces the same failure with a valid std/misc/ports import: exit70
+without initialization, exit0 with Gerbil's gerbil-load-expander!. Ordinary native
+executables initialize runtime; gxi additionally initializes expander.
+
+The language input owner now invokes that public idempotent API before dynamic
+imports. Rust AOT drops its independent grammar-support preload and redundant
+expander import; the grammar declares its own imports. The actual native ABI
+program then passes in3.80s at1GiB/120s/5s, including three generation comparisons
+and error/release controls; the existing module-loading Suite also passes.
+Fresh dual-platform qualification of this changed candidate remains required.
+
+The standard Rust consumer entry also passes locally: Cargo builds its actual
+archive; std/make links the executable in22.59s at2GiB/90s/30s, then the consumer
+passes in2.70s at3GiB/90s/5s, including100 calls, handles2/results113 ownership and
+Source-edit controls. An earlier manual invocation accidentally replaced the
+archive activation's GAMBOPT relocation options and tried the producer's old gsc
+path. That scene is retained; preserving the normal activation options fixes the
+command environment without a source change or increased resource budget.
+
+The1c022d21 macOS FFI failure is earlier than Linux: no main output before the
+unchanged5s idle fence. CI's bounded commands unnecessarily started gerbil env
+inside an already active gerbil env gxi qualify.ss. The native gxpkg env-exec
+calls setup-local-path! and invokes its child with inherited environment; the
+process qualifier preserves that PATH. CI now calls the declared program directly,
+removing eighteen redundant environment tool hops. No PATH inventory or launcher
+is added. Local actual Rust ownership/Source controls pass with this exact route
+in0.37s; this is functional evidence, not a cold-start comparative speedup claim.
+Remote unchanged-bound acceptance remains required. Local multi-suite diagnostics
+which deliberately establish a separate native toolchain environment retain their
+own necessary environment entry; they are not replaced by a manual bin search.
+
+Run1c022d21 completes with both cold producers and both generation consumers
+passing. Linux's full semantics/CLI pass; macOS executes all182 Suite modules
+but rejects the existing POO construction p95:168.422ms above100ms. Its3GiB
+process retains about1.719GB live at that measurement. These observations do not
+establish a GC cause or a repair, and the20 samples/50 object pairs/100ms gate
+remain unchanged. Source semantics and research acceptance remain distinct.
+
+Native CLI verification now precedes the complete Suite command, so its separate
+product result is observable even when a benchmark Case rejects. No Suite, Case
+or performance obligation is excluded; the complete native command remains fatal
+on any failure. The language ABI program additionally passes locally in0.90s at
+1GiB/120s/5s, including foreign-thread/UTF8/100-call/release controls.
+
+* Shared static C ownership across native executable targets
+Run40591297880 atd29c6598 fails in both native preparations. Linux's linker reads
+clan__poo__generalized-prototype.c while another executable regenerates that same
+static path: EOF at line110, with later diagnostic context already showing more
+lines. macOS similarly reports missing/invalid linking information for
+gerbil-parser__src__runtime__layout.c while another program writes the closure.
+Linux failure custody also reports file-changed-as-read; the archive is retained
+as a nonquiescent failed scene, not a coherent published product. Neither failure
+is a heap cutoff, timeout or new compiler/VM source defect.
+
+Pinned std/make orders targets by module imports; separate executable roots share
+generated C files outside that target dependency map. It has no implemented
+extra-dependency/order-only spec for this resource relationship. The existing
+package program phase therefore delegates one declared program at a time to its
+ordinary std/build-script invocation. Each invocation retains the configured two
+compiler workers and2GiB; native Make still owns freshness, queues, job completion
+and linking. No second scheduler, lock, stamp, dependency catalog or private
+output environment is introduced. Metadata/spec/clean remain one native response.
+
+The local same-prefix build passes without cleaning or replacing dependencies:
+all declarations are delegated and11 stale executable products are actually
+rebuilt. All five declared conformance programs pass their unchanged10s controls;
+the unknown-program negative exits70. This is incremental/recovery evidence,
+not dual-platform cold qualification. Both original failed preparations and
+products are preserved before selecting the corrected candidate.
+
+The existing build-owner import/metadata Suite passes with the CI's declared
+OpenSSL pkg-config provider. Its first local invocation omitted that provider and
+correctly refused the query; both logs are retained and no source fix is inferred
+from correcting command configuration. Native meta still returns exactly
+("spec" "compile" "clean"). Pinned Gerbil's compiler executor reads
+GERBIL_BUILD_CORES; each singleton standard invocation drains that existing pool
+before the next executable starts. The worker count was not changed to one.

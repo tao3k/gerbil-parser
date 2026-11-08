@@ -2,7 +2,6 @@
 ;;; Build-only C ABI for grammar.ss to immutable Rust source.
 
 (import (only-in ./schema +rust-aot-abi-version+ +rust-aot-error-schema+)
-        :gerbil/expander
         :std/encoding/json
         (only-in ../compiler/rust-runtime language-rust-runtime-module-source)
         (only-in ../language/module-input language-module-descriptor))
@@ -22,5 +21,4 @@
            (lambda (port) (display-exception exception port)))))))
 
 (def (rust-runtime-source grammar-path reload?: (reload? #f))
-  (import-module ':gerbil-parser/rust-runtime-grammar-support #f #t)
   (language-rust-runtime-module-source (language-module-descriptor grammar-path reload?: reload?)))

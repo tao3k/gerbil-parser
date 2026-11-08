@@ -1,15 +1,10 @@
 ;;; One prepared runtime per actual native image; no runtime binding replacement.
-(load "t/fixtures/module-loading/observations.ss")
+
 
 (def (main image (scope "selector-input"))
   (unless (member scope '("selector-input")) (error "unknown native experiment scope" scope))
   (unless (equal? image "candidate") (add-load-path! image))
   (parameterize ((current-output-port (current-error-port)))
-  (preload-module "gerbil-parser/t/support/qualification/benchmark-qos")
-  (preload-module "gerbil-parser/src/runtime/lr-parser/recognition")
-  (preload-module "gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/grammar")
-  (preload-module "gerbil-parser/src/runtime/incremental")
-  (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
   (eval '(import
     (only-in :gerbil-parser/t/fixtures/runtime-record-assignments/languages/records/grammar records-parser)
     (only-in :gerbil-parser/src/runtime/parser parse-source)

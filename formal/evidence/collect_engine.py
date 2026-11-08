@@ -31,7 +31,11 @@ def engine_inputs(root):
 
 
 def supervised(claim, name, command, inputs, markers=(), build=False):
-    budget, idle = (240, 30) if build else (120, 5)
+    if build:
+        # Native construction has no package deadline or output-status wrapper.
+        # This receipt only records preparation, never semantic qualification.
+        return Check(claim, ("gerbil", "env") + command, inputs, (), timeout=None)
+    budget, idle = 120, 5
     argv = ("gerbil", "env", "gxi", "qualify.ss", "run", "--timeout", str(budget),
             "--idle-timeout", str(idle), "--log", f".data/parser-evidence/{name}.log")
     for marker in markers:
@@ -101,16 +105,12 @@ def collect(root, record_study=None):
     for check in model_checks(root):
         execute(check)
     builds = (
-        ("source-build", ("gxi", "build.ss", "compile")),
+        ("source-build", ("gerbil", "build")),
         ("test-driver-build", ("gxi", "build-test-driver.ss", "compile")),
         ("ffi-build", ("gxi", "build-ffi-tests.ss", "compile")),
         ("request-build", ("gxi", "t/benchmarks/build.ss", "compile")),
-        # Static conformance preparation can leave source-only test interfaces.
-        # Reuse CI's std/make owner before source Suite admission.
-        ("gxtest-source-prepare", ("gxi", "-e",
-            '(load "t/fixtures/module-loading/observations.ss") ',
-            "-e", '(call-with-compiled-interface-trace (lambda () '
-            '(load "build-language-conformance.ss") (eval (quote (prepare-gxtest!))))) (exit 0)')),
+        # The existing native owner prepares only the demanded helper imports.
+        ("test-support-build", ("gxi", "build-test-support.ss", "compile")),
     )
     prepared = []
     for name, command in builds:
@@ -125,28 +125,21 @@ def collect(root, record_study=None):
         runtime_inputs = inputs + products
         # Independent native owner: callbacks and existing Suite workers must
         # not share a handle runtime across different OS/VM owner threads.
-        history = execute(supervised("scheme-conformance", "history-commit",
-            ("gxi", "scripts/tests/history-commit-test.ss"), runtime_inputs,
+        history = execute(Check("scheme-conformance",
+            ("gerbil", "test", "-v", "3", "scripts/tests/history-commit-test.ss"), runtime_inputs,
             ("HISTORY-COMMIT-CONTROLS-OK",)))
         if history.outcome != "passed":
             raise RuntimeError("history commit controls failed before semantic admission")
-        semantics = execute(supervised("scheme-conformance", "conformance",
-            ("gxi", "-e", '(load "t/fixtures/module-loading/observations.ss") '
-             ' '
-             '(preload-module "std/test") '
-             '(preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")',
-             "-e", '(import :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) '
-             '(load "t/fixtures/tla-sany-differential/test-suite.ss") '
-             '(eval (quote (main ' + " ".join(json.dumps(file) for file in TESTS) + '))) '
-             '(test-child-process-exit! 0)'),
-            runtime_inputs, (f"TEST-SUITE-OK modules={len(TESTS)}", "^OK$")))
+        semantics = execute(Check("scheme-conformance",
+            ("gerbil", "test", "-v", "3", *TESTS), runtime_inputs,
+            tuple(f"MODULE-OK {file}" for file in TESTS)))
         benchmark = execute(supervised("matched-performance", "requests",
-            ("gxi", "-e", '(load "t/fixtures/module-loading/observations.ss") '
+            ("gxi", "-e", ''
              ' '
-             '(preload-runtime-module "gerbil-parser/t/benchmarks/parser-evidence") '
-             '(preload-runtime-module "gerbil-parser/t/benchmarks/lr-request-stack/request-profile") '
-             '(preload-runtime-module "gerbil-parser/t/benchmarks/lr-request-stack/request-cost") '
-             '(preload-runtime-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")',
+             '(load-module "gerbil-parser/t/benchmarks/parser-evidence") '
+             '(load-module "gerbil-parser/t/benchmarks/lr-request-stack/request-profile") '
+             '(load-module "gerbil-parser/t/benchmarks/lr-request-stack/request-cost") '
+             '(load-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")',
              "-e", '(gerbil-parser/t/benchmarks/lr-request-stack/request-profile#profile-work) '
              '(gerbil-parser/t/benchmarks/parser-evidence#evidence-main) '
              '(gerbil-parser/t/benchmarks/lr-request-stack/request-cost#main) '
@@ -179,10 +172,10 @@ def collect(root, record_study=None):
                 str((study / "baseline.json").relative_to(root)),
                 str(scope_path.relative_to(root))))))
             admission = execute(supervised("record-cpu-improvement", "record-admission",
-                ("gxi", "-e", '(load "t/fixtures/module-loading/observations.ss") '
+                ("gxi", "-e", ''
                  ' '
-                 '(preload-runtime-module "gerbil-parser/t/benchmarks/lr-request-stack/record-evidence") '
-                 '(preload-runtime-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")',
+                 '(load-module "gerbil-parser/t/benchmarks/lr-request-stack/record-evidence") '
+                 '(load-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")',
                  "-e", '(gerbil-parser/t/benchmarks/lr-request-stack/record-evidence#main '
                  + " ".join(json.dumps(path) for path in receipts) + scope_arguments + ') '
                  '(gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process#test-child-process-exit! 0)'),

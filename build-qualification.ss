@@ -13,5 +13,4 @@
    (gxc: "t/support/qualification/compiler-output")
    (gxc: "t/support/qualification/products")
    (gxc: "t/support/qualification/environment")
-   (gxc: "t/support/qualification/performance")
    (gxc: "t/support/qualification/plans"))))

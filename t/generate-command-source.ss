@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(export main)
 ;;; Recognition controls come from the actual Scheme Source engine, including fields and deferred links.
 (import (only-in :gerbil-parser/src/language/source declare-source-language)
         (only-in :gerbil-parser/src/ffi/language-artifact-codec bind-language-abi abi-descriptor-payload abi-parse-binary-payload)

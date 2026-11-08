@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(export main)
 ;;; Independent Rust recognition controls executed by the actual Scheme Word engine.
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
         (only-in :clan/poo/object .o .ref)

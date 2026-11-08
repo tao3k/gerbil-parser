@@ -2,7 +2,7 @@
 (import :gerbil-parser/language-test-support
         (only-in :std/io/tempfile make-temporary-file-name)
         (only-in :gerbil/runtime/loader __find-library-module)
-        (only-in :gerbil-parser/t/fixtures/ffi/native-links native-module-object)
+        (only-in :gerbil-parser/src/build-support/native-links native-module-object)
         (only-in ./fixtures/module-loading/runtime-files write-program write-datum))
 
 (def (with-native-link-root procedure)

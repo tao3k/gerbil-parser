@@ -19,19 +19,17 @@
                        "PIPE-PROGRESS λλ\nERROR failed" "\n*** ERROR" "\x00;ERROR\nOK")))
       (bindings)
       (equal (parser-check-result error-prefix-splits text) (void)))
-    (scenario "child receives the original argv without shell evaluation"
-      (equal (process-child-arguments "session" "" (quote ("fixture" "λ a;$(not-a-command)")))
-             (quote ("session" "" "fixture" "λ a;$(not-a-command)"))))
-    (property "diagnostic modules are unique and ordered"
+    (scenario "child argv is quoted data, without source imports"
+      (scope ((args (process-child-arguments "session" "" '("fixture" "λ a;$(not-a-command)"))))
+        (equal (car args)  "-e")
+        (equal (cadr args)
+           "(load-module \"gerbil-parser/t/support/qualification/process-child\")")
+        (equal (read (open-input-string (list-ref args 3)))
+           '(apply gerbil-parser/t/support/qualification/process-child#main
+                     (quote ("session" "" "fixture" "λ a;$(not-a-command)"))))))
+    (property "diagnostics do not create a second build plan"
       (bindings)
-      (equal (diagnostic-modules '("gql-profile" "gql-actors" "gql-profile"))
-         '("reduction-counts" "execution-counts" "matched-stages" "actors")))
-    (property "one driver and one diagnostic build"
-      (bindings (plan (local-diagnostic-plan '("gql-profile" "gql-actors") #f)))
-      (equal (length plan)  2)
-      (equal (length (qualification-stage-command (cadr plan)))  7)
-      (equal (list-ref (qualification-stage-command (cadr plan)) 2)
-           "t/benchmarks/parser-stage-cost/benchmark.ss"))
+      (equal (local-diagnostic-plan '("gql-profile" "gql-actors") #f) '()))
     (property "prepared diagnostics do not rebuild"
       (bindings)
       (equal (local-diagnostic-plan '("gql-profile" "gql-actors") #t)  '()))

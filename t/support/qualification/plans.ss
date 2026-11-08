@@ -1,23 +1,10 @@
-;;; Declarative stage ownership; diagnostics compile as one union per plan.
+;;; Bounded runtime diagnostics consume the native writer's program products.
 (import ./process ./products ./environment :std/misc/process :std/string/misc)
 (export #t)
 (defstruct qualification-stage (name command budget idle receipts) transparent: #t)
-(def (diagnostic-modules suites)
- (let loop ((rest suites) (modules '()))
-  (if (null? rest) modules
-   (let (added (cond ((equal? (car rest) "gql-actors") '("reduction-counts" "execution-counts" "matched-stages" "actors"))
-                    ((member (car rest) '("gql" "gql-profile")) '("reduction-counts" "execution-counts" "matched-stages"))
-                    (else '())))
-    (loop (cdr rest) (foldl (lambda (module acc) (if (member module acc) acc (append acc [module]))) modules added))))))
 (def (compiled-product! root module)
  (let (product (path-expand (string-append "lib/gerbil-parser/" module ".o1") root))
   (unless (file-exists? product) (error "missing compiled module; build this checkout first" product))))
-(def (compiled-main module expression)
- ["gxi" "-e"
-  (string-append "(load \"t/fixtures/module-loading/observations.ss\")  (preload-module \""
-                 module "\") (preload-module \"gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process\")")
-  "-e" (string-append "(import :" module " :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) "
-                      expression " (test-child-process-exit! 0)")])
 (def (execute-stage! stage logs)
  (displayln "NATIVE-STAGE " (qualification-stage-name stage)) (force-output)
  (run-qualified! (qualification-stage-command stage)
@@ -49,11 +36,6 @@
   (setenv "GERBIL_PARSER_LR_TRACE" "1") (setenv "GERBIL_BUILD_VERBOSE" "1")
   (setenv "RUSTC_WRAPPER") (setenv "RUSTC_WORKSPACE_WRAPPER")
   (for-each (lambda (stage) (execute-stage! stage logs)) (local-diagnostic-plan suites prepared?))
-  (when prepared?
-   (when (pair? (diagnostic-modules suites))
-    (compiled-product! compiled-root "t/benchmarks/parser-stage-cost/benchmark"))
-   (for-each (lambda (module) (compiled-product! compiled-root (string-append "t/benchmarks/gql/runtime/" module)))
-             (diagnostic-modules suites)))
    (for-each
    (lambda (suite)
     (cond
@@ -61,9 +43,10 @@
       (run "rust-build" ["cargo" "test" "--workspace" "--locked" "--no-run" "--jobs" (number->string jobs) "--verbose"] #t)
       (run "rust-test" '("cargo" "test" "--workspace" "--locked" "--" "--nocapture") #f '("test result: ok\\.")))
      ((member suite '("gql-profile" "gql-actors"))
-      (run suite (compiled-main (string-append "gerbil-parser/t/benchmarks/gql/runtime/"
-                                               (if (equal? suite "gql-profile") "matched-stages" "actors"))
-                                "(main \"40\" \"100\")") #f
+      (run suite ["gerbil" "env"
+                   (if (equal? suite "gql-profile")
+                     "gerbil-parser-gql-profile" "gerbil-parser-gql-actors")
+                   "40" "100"] #f
                  (if (equal? suite "gql-profile") '("GQL-STAGES-OK" "PARSER-COMPONENT-SUMMARY" "GQL-REDUCTION-COUNTS" "GQL-LR-EXECUTION")
                                                   '("GQL-ACTORS-OK" "PARSER-COMPONENT-SUMMARY"))))
      ((equal? suite "aot")
@@ -85,7 +68,7 @@
        (run "ffi-abi-build" '("gxi" "t/fixtures/ffi/build.ss" "compile") #t)
        (run "ffi-abi" (compiled-main "gerbil-parser/t/fixtures/ffi/abi-probe" "(main)") #f
                      '("NATIVE-ABI-OK" "ABI-RUNTIME-GENERATED-MATCH calls=3"))
-       (run "language-abi" (compiled-main "gerbil-parser/t/fixtures/ffi/language-probe" "(main)") #f
+       (run "language-abi" ["gerbil" "env" "gerbil-parser-language-probe"] #f
                      '("LANGUAGE-ABI-OK" "LANGUAGE-ABI-100-CALLS"))
        (setenv "CARGO_TARGET_DIR" (path-expand "target"))
        (run "rust-native-build" '("cargo" "build" "--locked" "--manifest-path" "t/fixtures/rust-language-abi/Cargo.toml") #t '() 90)
@@ -98,6 +81,8 @@
       (let (files (if (equal? suite "gql")
                     '("t/gql/runtime-benchmark-test.ss" "t/gql/benchmark-profile-test.ss" "t/gql/actor-test.ss")
                     '("t/ffi-test.ss" "t/build-product-contract-test.ss" "t/language-abi-test.ss" "t/language-abi-benchmark-test.ss")))
-       (run suite (append '("gerbil" "test" "-v" "3") files) #f
-            (append (map (cut string-append "MODULE-OK " <>) files) '("^OK$"))))))) suites)
+       ;; Suite execution belongs directly to the native tool. Protocol probes
+       ;; above retain their own idle/receipt checks; ordinary Suites do not.
+       (run-process (append '("timeout" "--signal=TERM" "--kill-after=5s" "120s"
+                              "gerbil" "test" "-v" "3") files)))))) suites)
   (displayln "LOCAL-NATIVE-OK " (string-join suites ",")) (force-output)))

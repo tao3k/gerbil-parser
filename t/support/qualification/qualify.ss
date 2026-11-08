@@ -61,28 +61,9 @@
             (else (loop (cddr rest) suites prepared? root logs (string->number value))))))
     (else (error "unknown local option" (car rest)))))))
 
-(def (performance-cli arguments)
- (let loop ((rest arguments) (selected '()) (budget 120) (logs ".data/performance-source") (continue? #f) (list? #f))
-  (if (null? rest)
-   (let* ((catalog (profile-value "gerbil-parser/t/support/qualification/performance" 'gerbil-parser/t/support/qualification/performance#performance-suites))
-          (names (if (null? selected) (map car catalog) (reverse selected))))
-    (if list? (for-each (lambda (name) (displayln name ": " (cdr (or (assoc name catalog) (error "unknown suite" name))))) names)
-     ((profile-value "gerbil-parser/t/support/qualification/performance" 'gerbil-parser/t/support/qualification/performance#qualify-performance!) names budget logs continue?)))
-   (cond
-    ((equal? (car rest) "--continue-on-failure") (loop (cdr rest) selected budget logs #t list?))
-    ((equal? (car rest) "--list") (loop (cdr rest) selected budget logs continue? #t))
-    ((member (car rest) '("--suite" "--timeout" "--log-dir"))
-     (unless (pair? (cdr rest)) (error "missing performance option value" (car rest)))
-     (let (value (cadr rest))
-      (cond ((equal? (car rest) "--suite") (loop (cddr rest) (cons value selected) budget logs continue? list?))
-            ((equal? (car rest) "--timeout") (loop (cddr rest) selected (string->number value) logs continue? list?))
-            (else (loop (cddr rest) selected budget value continue? list?)))))
-    (else (error "unknown performance option" (car rest)))))))
-
 (def (main mode . arguments)
  (cond
   ((equal? mode "run") (run-process-cli arguments))
-  ((equal? mode "performance") (performance-cli arguments))
   ((equal? mode "local") (local-cli arguments))
   ((equal? mode "host") (unless (null? arguments) (error "host takes no arguments")) ((profile-value "gerbil-parser/t/support/qualification/products" 'gerbil-parser/t/support/qualification/products#qualify-runtime-host!)))
   ((equal? mode "shared-library")

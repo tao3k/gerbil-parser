@@ -843,9 +843,10 @@ These are separate deployment products with the same Scheme-owned IR authority.
 The workspace Rust test command owns =asp-rust-gate= together with the other
 integration tests. A separate invocation in the same CI job repeats its execution.
 
-GQL diagnostics prepare the union of their support modules once. CI uses
-=--prepared-diagnostics= after its explicit support compilation; missing loadable
-products fail before either diagnostic runs. This option is restricted to
+GQL diagnostic programs are compiled by the existing native research writer.
+CI uses =--prepared-diagnostics= and invokes those binaries; it does not rebuild
+a private helper catalog or require an unrelated loadable module as approval.
+Missing binaries fail through the native command entry. This option is restricted to
 =gql-profile= and =gql-actors=. Both diagnostic executions and their existing
 completion and idle budgets remain mandatory.
 

@@ -5,13 +5,14 @@
         (only-in :gerbil/expander current-expander-module-import current-expander-module-eval)
         (only-in :std/sync/channel make-channel channel-put channel-get)
         (only-in :std/text/pregexp pregexp-match)
-        (only-in :gerbil-parser/compiler-build-support run-build-tool call-with-compiler-import-progress))
+        (only-in :gerbil-parser/src/build-support/compiler-profile run-build-tool compiler-host-options compiler-gsc-options initialize-compiler-build! call-with-compiler-import-progress))
 
 (def (with-compiler-probe procedure)
   (let* ((root (make-temporary-file-name "parser-compiler-pipes-"))
          (probe (path-expand "probe" root)))
     (create-directory* root)
     (try
+      (initialize-compiler-build!)
       (run-build-tool (list (getenv "GERBIL_GCC" "gcc")
                            "t/fixtures/compiler-pipe.c" "-o" probe) text?: #t)
       (procedure probe)
@@ -158,6 +159,19 @@
   (scenario "text diagnostics decode UTF-8 split across child writes"
     (using (with-compiler-probe) (probe)
       (equal (capture-build-text (list probe "--utf8-fragment")) "λ")))
+  (scenario "the configured GCC profile overrides a later Gerbil host define without changing optimization"
+    (scope ((flags (compiler-host-options "-O2 -pipe")))
+      (equal (string-prefix? "-O2 -pipe " flags) #t)
+      (equal (compiler-host-options flags) flags)
+      (equal (member "-v" (string-split flags #\space)) #f)
+      (equal (member "-Q" (string-split flags #\space)) #f)
+      (equal (member "-verbose" (compiler-gsc-options)) #f)
+      (scope ((macros (capture-build-text
+                        (append (list (getenv "GERBIL_GCC" "gcc"))
+                                (string-split flags #\space)
+                                '("-D___SINGLE_HOST" "-x" "c" "-E" "-dM" "/dev/null")))))
+        (equal (and (string-contains macros "#define ___MULTIPLE_HOSTS 1") #t) #t)
+        (equal (string-contains macros "#define ___SINGLE_HOST") #f))))
   (scenario "compiler evaluation diagnostics preserve zero and multiple values"
     (each (expected) ('(() (first second)))
       (scope ((actual #f))
@@ -232,6 +246,7 @@
            (object->string (path-expand "~~bin"))))
   (scenario "Gerbil compilation without per-job C options loads and executes its native result"
     (using (with-compiler-directory) (root)
+      (act (initialize-compiler-build!))
       (scope ((output (path-expand "compiler-host.o1" root)))
         (act (run-build-tool (list (getenv "GERBIL_GSC" (path-expand "bin/gsc" (gerbil-home))) "-verbose" "-o" output
                                   "t/fixtures/compiler-host.scm") text?: #t))

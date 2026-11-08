@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(export main)
 ;;; Real production BindingProfile names lower through the shared TextProfile IR.
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
         (only-in :gerbil-parser/t/fixtures/bash-products bash-parts)

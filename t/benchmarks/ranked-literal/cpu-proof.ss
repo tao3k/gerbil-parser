@@ -2,12 +2,10 @@
 ;;; CPU assertions use compiled benchmark owners and one isolated Scheme VM.
 (port-settings-set! (current-output-port) '(buffering: #f))
 (displayln "CPU-PROOF-BOOTSTRAP") (force-output)
-(load "t/fixtures/module-loading/observations.ss")
 
-(call-with-compiled-interface-trace
- (lambda ()
-   (preload-runtime-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
-   (preload-runtime-module "gerbil-parser/t/benchmarks/ranked-literal/benchmark")))
+
+(begin (load-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
+   (load-module "gerbil-parser/t/benchmarks/ranked-literal/benchmark"))
 (def leave (eval 'gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process#test-child-process-exit!))
 (def (positive-exact-count text)
   (let (count (string->number text))
@@ -23,10 +21,9 @@
       (when (and (equal? workload "lexical") (not scenario))
         (set! scenario "keyword"))
       (when (member workload '("parser" "lexical"))
-        (call-with-compiled-interface-trace
-         (lambda () (preload-runtime-module
+        (begin (load-module
                       (string-append "gerbil-parser/t/benchmarks/ranked-literal/"
-                                     (if (equal? workload "parser") "parser-cpu" "lexical-cpu"))))))
+                                     (if (equal? workload "parser") "parser-cpu" "lexical-cpu")))))
       (let (entry
         (cond ((equal? workload "bounded")
                'gerbil-parser/t/benchmarks/ranked-literal/benchmark#qualify-literal-edge-cpu)

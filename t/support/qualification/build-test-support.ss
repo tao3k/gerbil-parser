@@ -45,7 +45,9 @@
 
 (def (test-support-source)
   (let* ((tests (.get gerbil-parser.init.exports tests))
-         (files (collect-files ["t/..." "languages/..."])))
+         (files (append (.get (.call tests .for-directory "t") spec)
+                        (.get (.call tests .for-directory "languages") spec)
+                        (.get (.call tests .for-directory "scripts/tests") spec))))
     (.call tests .for-files
       files
       (list (this-source-file)

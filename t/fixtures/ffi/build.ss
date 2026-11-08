@@ -1,7 +1,8 @@
 ;;; Test FFI targets and their native options belong to the fixture module.
-(import (only-in :std/build-script defbuild-script)
+(import (only-in "../../../src/build-support/compiler-profile.ss" compiler-build-spec)
+        (only-in :std/build-script defbuild-script)
         (only-in :std/source this-source-file)
-        (only-in "./native-links.ss" native-module-link-options))
+        (only-in "../../../src/build-support/native-links.ss" native-module-link-options))
 (export ffi-build-spec ffi-build-phases ffi-test-command main)
 (def fixture-root (path-normalize (path-expand "../../.." (path-directory (this-source-file)))))
 (def current-ffi-linking? (make-parameter #f))
@@ -64,12 +65,12 @@
 (def (ffi-build-phases)
   (map (lambda (spec)
          (lambda ()
-           (parameterize ((current-ffi-linking? #t)) (spec))))
+           (parameterize ((current-ffi-linking? #t)) (compiler-build-spec (spec)))))
        (list producer-spec entry-spec consumer-spec)))
 ;; Keep the SDK's single metadata/spec/clean protocol as well as its builder.
 (def (ffi-build-spec (link? #f))
   (parameterize ((current-ffi-linking? link?))
-    (append (producer-spec) (entry-spec) (consumer-spec))))
+    (compiler-build-spec (append (producer-spec) (entry-spec) (consumer-spec)))))
 
 (def (ffi-test-command command runtime-options)
   (cond-expand

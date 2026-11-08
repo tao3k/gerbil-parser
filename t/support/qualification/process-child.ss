@@ -1,5 +1,4 @@
 ;;; A fresh POSIX session contains the compiler/test child and its descendants.
-prelude: :gerbil/core
 (import :std/ffi)
 (export main)
 (C-ffi-macrology)

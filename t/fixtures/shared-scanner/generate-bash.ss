@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(export main)
 ;;; Rust controls come from execution of the admitted production Scheme profile.
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
         "bash"

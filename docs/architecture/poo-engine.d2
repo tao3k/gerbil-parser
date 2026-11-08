@@ -1,19 +1,4 @@
-direction: down
-vars: {
-  d2-config: {
-    theme-id: 3
-    pad: 32
-  }
-}
-classes: {
-  boundary: {
-    style: {
-      border-radius: 12
-      font-size: 18
-    }
-  }
-}
-*: {class: boundary}
+direction: right
 library: "Library\nprototypes + methods + data language"
 selection: "Profile / Scenario target\ncanonical backend + grammar + inputs"
 prepare: "POO / Core preparation\nnative precedence + method selection\nretain actual kernels"
@@ -26,16 +11,9 @@ state -> execute
 request -> execute
 prepare -> proof
 execute -> proof
-lifecycle: "Yuanxu lifecycle\nContext + normalized Scope + source authority"
+lifecycle: "Core / Flow lifecycle\nContext + normalized Scope + source authority"
 lifecycle -> prepare
 lifecycle -> state
 
 selection_result: "prepare-lr-semantics(backend)\nretained factories + capability reducers\nexplicit new selection after contribution"
 prepare -> selection_result -> state
-
-declarations: "Grammar declarations\nlexically captured values\nreceiver-bound behavior"
-syntax: "Grammar syntax\nhygienic expansion and source locations"
-admission: "Checked Grammar values\nroles, parents and composition"
-normalization: "Grammar normalization\nordered rows and source provenance"
-syntax -> declarations -> admission -> normalization -> selection
-lifecycle -> admission

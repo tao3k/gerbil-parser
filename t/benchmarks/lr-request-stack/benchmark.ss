@@ -431,3 +431,14 @@
       (newline) (force-output)
       (displayln "LR-REQUEST-BACKENDS-OK") (force-output)
       summaries)))
+
+;; Native CLI entry for the unchanged complete-request matrix.
+(export main)
+(def (main (sample-text "20") (iteration-text "20"))
+  (let ((samples (string->number sample-text))
+        (iterations (string->number iteration-text)))
+    (unless (and (exact-integer? samples) (positive? samples)
+                 (exact-integer? iterations) (positive? iterations))
+      (error "expected positive sample and iteration counts"))
+    (benchmark-lr-request-stack samples iterations)
+    (void)))

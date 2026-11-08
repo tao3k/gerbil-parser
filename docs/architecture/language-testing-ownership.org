@@ -2,11 +2,10 @@
 #+LANGUAGE: en
 
 * Source baseline and removed duplication
-The sole direct dependency in gerbil.pkg selects Yuanxu PR19 revision
-9b9f0abbbc4bdd4325f556c9c965726dd3a0aad7, inheriting POO revision
-e281ad2e33784cfb9951c684b6be78bd2f4b7fca. These are observed source revisions,
-not document-managed versions. Dependency installation and published native
-interfaces, rather than an inspection snapshot, are the execution sources.
+The sole direct dependency is read from gerbil.pkg. Yuanxu owns the inherited
+POO selection; published package interfaces and the actual dependency checkout
+are the execution sources. Earlier measured revisions remain attached to their
+historical receipts, not copied here as another version authority.
 
 The former module-loader.ss was introduced by Parser commit855982b on October18;
 commit098629e relocated it from src/modules into testing. It was project code,
@@ -31,16 +30,15 @@ not Yuanxu infrastructure. It is deleted, without a forwarding alias.
 | source-observations | Remember last attempted canonical source bytes to request native reload on edits | No descriptors, contexts, exceptions, loaded flags or admission verdicts retained |
 | Core source/admission | Fresh reads and pre/post currentness across initializer effects | Outer pure-read caches cannot approve changed content |
 | src/testing/language-product.ss | Check a requested optional test-product export is a procedure | load-module owns runtime state and errors |
-| t/fixtures/module-loading/observations.ss | Scoped native importer/evaluator completion logs | Delegates unchanged; no path probes, import walking, state table or approval |
+| Native imports and load-module/reload-module! | Gerbil source/runtime loading | observations.ss and its self-mirroring tests are removed; Parser adds no importer/evaluator trace layer |
 | t/fixtures/event-walk-source.ss | Complete AST/interface/dependency witness for actual Parser algorithms | Not module loading or source approval; native load-module resolves its execution service |
 | Research physical-object linking | Bind native chosen C/static products and required host options | Not a source/compiled resolver; unchanged in this slice |
 
 Source and runtime failure semantics differ. import-module owns source promises
 and retry behavior; load-module retains failed runtime exceptions until explicit
-reload. Parser must not invent a common exception cache. Diagnostic dynamic
-bindings restore the previous importer/evaluator and preserve zero/multiple values
-and exceptions. Synthetic context setters only construct test-owned fixtures;
-no production or imported-context promise is replaced.
+reload. Parser must not invent a common exception cache. The former diagnostic importer/evaluator bindings and private promise mirrors
+are removed. Parser loading/recovery Cases call the real native APIs. Compiler
+stream zero/multiple-value and exception controls remain with their actual owner.
 
 * Controls and failure custody
 Positive controls cover descriptor selection, same-size edits, Core post-effect

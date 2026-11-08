@@ -49,7 +49,16 @@ and110, even after standard Suite compilation. Those refusals are retained;
 no heartbeat/preloader is restored. Native total deadlines and explicit final
 OK/error admission apply at CI/development entry boundaries.
 
-* Acceptance and current gaps
+* Current native exit ownership
+The formal Gerbil distribution PR58 corrects failure propagation at the tool
+entry. Parser uses native gerbil test directly, including its deliberate-failure
+control requiring42. The retired final-OK/error-text status workaround and
+Core .run delegation are not the current ordinary Suite execution path.
+Build-test-support uses Core discovery and std/make for ordinary native helpers;
+there is no second signed test-lib image. Installed distribution and complete
+cold/restored checks remain open until the published capability is available.
+
+* Historical acceptance and gaps
 
 The fresh native policy Suite passes2 Cases in4.99s at2GiB through the existing
 90-second qualification entry. A prior native negative run returned process0

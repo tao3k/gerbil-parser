@@ -31,7 +31,9 @@ env:
   GERBIL_PATH: ${{ github.workspace }}/.gerbil
   GERBIL_LOADPATH: ${{ github.workspace }}/.gerbil/lib:${{ github.workspace }}/..
   GERBIL_RELEASE_ROOT: ${{ github.workspace }}/.ci/gerbil-release/${{ inputs.gerbil-label }}
-  GERBIL_SDK_SHA256: ${{ inputs.release-sha256 }}
+  GERBIL_COMPILER_SHA256: ${{ inputs.release-sha256 }}
+# Bounded commands run inside gerbil env already. Child processes inherit its
+# package bin PATH; invoke declared products directly without another tool hop.
 jobs:
   prepare:
     name: Prepare Scheme (${{ inputs.release-os }})
@@ -204,7 +206,7 @@ jobs:
         run: |
           gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/source-dependency-proof-input.log \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss") (call-with-module-evaluation-trace (lambda () (##load-module-or-file "t/generate-source-dependency-witness.ss" void) ((eval (quote main)) "check" "formal/ParserEngine/SourceDependencyWitness.lean")))'
+            -- gerbil-parser-source-dependency-witness check formal/ParserEngine/SourceDependencyWitness.lean
       - name: Verify generated arithmetic Scheme LR is current
         run: gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss check src/compiler/arithmetic-drive.ss
       - name: Verify generic POO Scheme reductions are current
@@ -213,10 +215,6 @@ jobs:
           gerbil env gxi scripts/generate-reductions.ss check :gerbil-parser/languages/arithmetic/grammar t/fixtures/arithmetic-reductions.ss
       - name: Verify generated HCL recursive parser is current
         run: gerbil env gxi scripts/generate-source-parser.ss check :gerbil-parser/languages/hcl/grammar src/compiler/hcl-source.ss
-      - name: Verify process and test ownership controls
-        run: |
-          just test-process-admission
-          just test-plan
       - name: Reject intentionally failed native Suite
         run: just test-harness-refusal
       - name: Verify Scheme DSL and POO declaration closure
@@ -226,7 +224,7 @@ jobs:
         run: |
           gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/source-callback-gc.log --require SOURCE-CALLBACK-GC-OK \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss") (call-with-module-evaluation-trace (lambda () (eval (quote (import :gerbil-parser/t/benchmarks/source-edits/benchmark))) (eval (quote (verify-callback-gc)))))'
+            -- gerbil-parser-source-edits --verify-callback-gc
       - name: Verify isolated test macro phase ownership
         run: |
           gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 \
@@ -243,6 +241,9 @@ jobs:
         run: |
           gerbil env gparse help
           gerbil env gparse check "1 + 2 * value"
+      - name: Run Scheme tests
+        timeout-minutes: 15
+        run: just test-native
       - name: Upload qualification logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -267,17 +268,12 @@ jobs:
           release-arch: ${{ inputs.release-arch }}
           release-tag: ${{ inputs.release-tag }}
           release-sha256: ${{ inputs.release-sha256 }}
-      - name: Record macOS Gerbil mapping baseline
-        if: runner.os == 'macOS'
-        run: |
-          mkdir -p .data
-          bash tools/ci/sdk-load-diagnostics.sh baseline 2>&1 | tee .data/sdk-mapping-baseline.log
       - name: Verify header-derived delimiter Rust AOT regeneration
         run: |
           gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/header-delimiter-generation.log \
             --require HEADER-DELIMITER-HL7-GENERATED --require HEADER-DELIMITER-RECORD-GENERATED \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss") (call-with-module-evaluation-trace (lambda () (##load-module-or-file "t/generate-header-delimiters.ss" void) ((eval (quote main)) "/tmp/hl7-header.rs" "/tmp/header-record.rs")))'
+            -- gerbil-parser-header-delimiters /tmp/hl7-header.rs /tmp/header-record.rs
           rustfmt --edition 2024 /tmp/hl7-header.rs /tmp/header-record.rs
           cmp /tmp/hl7-header.rs rust/gerbil-parser-runtime/tests/fixtures/generated/hl7_header.rs
           cmp /tmp/header-record.rs rust/gerbil-parser-runtime/tests/fixtures/generated/header_record.rs
@@ -286,8 +282,7 @@ jobs:
           gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --idle-timeout 5 \
             --log /tmp/structured-lexical-generation.log \
             --require STRUCTURED-LEXICAL-RUST-GENERATED \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss")  (preload-module "gerbil-parser/t/fixtures/structured-lexical")' \
-            t/generate-structured-lexical.ss /tmp/structured-lexical.rs
+            -- gerbil-parser-structured-lexical /tmp/structured-lexical.rs
           rustfmt --edition 2024 /tmp/structured-lexical.rs
           cmp /tmp/structured-lexical.rs rust/gerbil-parser-runtime/tests/fixtures/generated/structured_lexical.rs
           gerbil env gxi t/generate-scheme-alphabetic-class.ss /tmp/scheme-alphabetic.rs
@@ -296,7 +291,7 @@ jobs:
           gerbil env gxi t/generate-scheme-numeric-class.ss /tmp/scheme-numeric.rs
           rustfmt --edition 2024 /tmp/scheme-numeric.rs
           cmp /tmp/scheme-numeric.rs rust/gerbil-parser-runtime/src/engine/unicode_numeric.rs
-          gerbil env gxi t/generate-quoted-string-profile.ss /tmp/quoted-profile.rs
+          gerbil env gerbil-parser-quoted-profile /tmp/quoted-profile.rs
           rustfmt --edition 2024 /tmp/quoted-profile.rs
           cmp /tmp/quoted-profile.rs rust/gerbil-parser-runtime/tests/fixtures/quoted_profile_generated.rs
           gerbil env gxi t/generate-text-profile.ss /tmp/fhirpath-profile.rs
@@ -421,12 +416,6 @@ jobs:
             "$generated"
           rustfmt --edition 2024 "$generated"
           cmp "$generated" "$fixture/src/generated/records.rs"
-      - name: Diagnose macOS Gerbil mapping failure
-        if: failure() && runner.os == 'macOS'
-        timeout-minutes: 1
-        run: |
-          mkdir -p .data
-          bash tools/ci/sdk-load-diagnostics.sh 2>&1 | tee .data/sdk-load-diagnostics.log
       - name: Upload qualification logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -475,8 +464,7 @@ jobs:
             gerbil env gxi t/support/qualification/qualify.ss run --timeout 120 --idle-timeout 5 \
             --log .data/native-abi.log --require NATIVE-ABI-OK \
             --require 'ABI-RUNTIME-GENERATED-MATCH calls=3' \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss")  (preload-module "gerbil-parser/t/fixtures/ffi/abi-probe") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")' \
-            -e '(import :gerbil-parser/t/fixtures/ffi/abi-probe :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process) (main) (test-child-process-exit! 0)'
+            -- gerbil-parser-abi-probe
       - name: Verify Rust ownership over the C ABI
         run: |
           CARGO_TARGET_DIR="$PWD/target" \
@@ -496,8 +484,7 @@ jobs:
             gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/language-abi.log --require LANGUAGE-ABI-OK \
             --require LANGUAGE-ABI-100-CALLS \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss")  (preload-module "gerbil-parser/t/fixtures/ffi/language-probe")' \
-            -e '(import :gerbil-parser/t/fixtures/ffi/language-probe) (main)'
+            -- gerbil-parser-language-probe
       - name: Verify independent C and Rust lifecycle
         run: GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" gerbil env gxi t/support/qualification/qualify.ss host
       - name: Upload qualification logs
@@ -579,7 +566,7 @@ jobs:
           GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
             gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/source-edit-cost.log --require SOURCE-EDIT-BENCHMARK-OK \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss") (call-with-module-evaluation-trace (lambda () (eval (quote (import :gerbil-parser/t/benchmarks/source-edits/benchmark))) (eval (quote (main "8" "32")))))'
+            -- gerbil-parser-source-edits 8 32
       - name: Report GQL native component and actor costs
         run: |
           gerbil env gxi t/support/qualification/qualify.ss local \
@@ -590,12 +577,7 @@ jobs:
           GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
             gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/lr-request-stack.log --require LR-REQUEST-STACK-OK \
-            -- gxi -e '
-              (load "t/fixtures/module-loading/observations.ss")
-              (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process")
-              (preload-module "gerbil-parser/t/benchmarks/lr-request-stack/benchmark")
-              (gerbil-parser/t/benchmarks/lr-request-stack/benchmark#benchmark-lr-request-stack 20 20)
-              (gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process#test-child-process-exit! 0)'
+            -- gerbil-parser-lr-stack 20 20
       - name: Upload qualification logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

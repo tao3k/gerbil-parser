@@ -7,11 +7,36 @@
 (import :std/test
         (only-in :clan/poo/object .ref)
         (only-in :std/misc/ports read-all-as-string)
-        (only-in :asp-gerbil-scheme/src/benchmark/framework benchmark-contract-receipt-pass?)
+        :asp-gerbil-scheme/src/benchmark/framework
         :yuanxu/observability/debug
-        (only-in "./benchmarks/poo-grammar-objects/construction.ss"
-                 make-observed-grammar-batch observed-grammar-batch-valid?
-                 run-grammar-construction-benchmark))
+        :gerbil-parser/src/declarations
+        (only-in :gerbil-parser/t/fixtures/progress report-test-progress!))
+
+(def benchmark-path "t/benchmarks/poo-grammar-objects/benchmark.ss")
+
+(def (make-observed-role)
+  (make-grammar-role
+   'observability-role '() '() '() '() '() '() '() '() '()))
+
+(def (make-observed-grammar)
+  (let (role (make-observed-role))
+    (make-grammar 'observability-grammar '() (list role))))
+
+(def (make-observed-grammar-batch)
+  (let loop ((remaining 50) (grammars '()))
+    (if (zero? remaining)
+      (begin (report-test-progress! "OBJECT-BATCH-OK grammars=50") grammars)
+      (loop (- remaining 1)
+            (cons (make-observed-grammar) grammars)))))
+
+(def (observed-grammar-batch-valid? grammars)
+  (and (= (length grammars) 50)
+       (andmap
+        (lambda (grammar)
+          (and (grammar? grammar)
+               (= (length (grammar-roles grammar)) 1)
+               (grammar-role? (car (grammar-roles grammar)))))
+        grammars)))
 
 (deflanguage-parser-tests core-observability-tests "Core observability for parser grammar objects"
   (engine)
@@ -43,7 +68,14 @@
             (equal (car (yuanxu-debug-memory-receipt-sexp receipt))
                     'debug-memory-observation))))
     (scenario "checked object construction satisfies the ASP benchmark gate"
-      (scope ((receipt (run-grammar-construction-benchmark)))
+      (equal (benchmark-contract-valid? benchmark-path)  #t)
+      (equal (observed-grammar-batch-valid?
+              (make-observed-grammar-batch))
+              #t)
+      (act (##gc))
+      (scope ((receipt
+            (benchmark-contract-run benchmark-path
+                                    make-observed-grammar-batch)))
         (receipt receipt)
         (equal (benchmark-contract-receipt-pass? receipt)  #t))))
 

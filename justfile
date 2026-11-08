@@ -682,15 +682,6 @@ test-fold-call-environment output load_path:
     rg '^CASE-OK |^HARNESS-OK|^OK$' "{{output}}/fold-call-environment-test.log"
     rg --quiet '^OK$' "{{output}}/fold-call-environment-test.log"
 
-# Materialize the exact manifest pin from existing objects; no Gerbil/network build.
-prepare-locked-lean-dependency source:
-    test ! -e formal/.lake/packages/LeanPoo
-    git -C "{{source}}" cat-file -e "$(jq -r '.packages[] | select(.name == "LeanPoo") | .rev' formal/lake-manifest.json)^{commit}"
-    git clone --no-hardlinks --no-checkout "{{source}}" formal/.lake/packages/LeanPoo
-    git -C formal/.lake/packages/LeanPoo remote set-url origin https://github.com/tao3k/lean-poo.git
-    git -C formal/.lake/packages/LeanPoo checkout --detach "$(jq -r '.packages[] | select(.name == "LeanPoo") | .rev' formal/lake-manifest.json)"
-    test "$(git -C formal/.lake/packages/LeanPoo rev-parse HEAD)" = "$(jq -r '.packages[] | select(.name == "LeanPoo") | .rev' formal/lake-manifest.json)"
-
 formal-run-plan:
     quint test formal/quint/RunPlan.qnt --backend typescript --seed 1 --max-samples 1
     quint run formal/quint/RunPlan.qnt --backend typescript --seed 1 --max-samples 1000 --max-steps 20 --invariant RunSafety

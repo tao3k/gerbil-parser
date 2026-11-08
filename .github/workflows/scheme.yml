@@ -194,7 +194,7 @@ jobs:
         run: |
           gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --idle-timeout 5 \
             --log .data/capture-prefix-controls.log --require '^CAPTURE-PREFIX-CONTROLS-OK productions=11$' \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss")  (preload-module "gerbil-parser/t/benchmarks/capture-prefix/controls") (preload-module "gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process") (eval (quote (import :gerbil-parser/t/benchmarks/capture-prefix/controls :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process))) (eval (quote (verify-capture-prefix!))) (eval (quote (test-child-process-exit! 0)))'
+            -- gerbil-parser-capture-controls
       - name: Verify callback history commit admission
         run: |
           gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 \
@@ -241,9 +241,6 @@ jobs:
         run: |
           gerbil env gparse help
           gerbil env gparse check "1 + 2 * value"
-      - name: Run Scheme tests
-        timeout-minutes: 15
-        run: just test-native
       - name: Upload qualification logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

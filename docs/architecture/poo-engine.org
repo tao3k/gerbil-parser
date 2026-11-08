@@ -35,6 +35,83 @@ representation selected by the object protocol. Replacing every vector/bitset
 with a generic collection or redispatching on every character would not establish
 better engine organization or a performance improvement.
 
+* Construction optimization boundary
+
+The installed POO source matches the current v0.1.3 release. Comparing the
+locked Yuanxu source with the inspected PR head changes source observations,
+not object-family or Contract construction. A revision update alone therefore
+does not establish a construction improvement.
+
+The fifty-pair construction workload includes admission of each GrammarRole
+and admission of its enclosing Grammar. The latter rechecks the supplied role
+against the current value Type and contextual Contract. Instrumenting the
+public value-Type boundary records 100 role validations, 50 role membership
+checks and 50 grammar validations for fifty pairs. These are call counts from
+an instrumented diagnostic, not a substitute for the original timing gate.
+Its nested CPU measurements are inclusive and must not be summed as exclusive
+phase costs.
+
+Previously admitted values can become invalid through mutable declaration
+lists or changed descriptor obligations. Construction must reject both cases;
+an unversioned success cache is invalid. The existing Contract admission suite
+now exercises those changes at the constructor boundary, including restoration
+of the original descriptor after the negative control.
+
+Compiled ABBA experiments compare the original constructors with two public
+POO API alternatives: inherited constant-field prototypes and constant-slot
+construction retaining the original super. Neither experiment establishes a
+stable end-to-end improvement. They remain local research evidence; neither
+alternative is selected for production. Preserve every sample and separate
+CPU, elapsed time, collection time and allocation counter interpretation.
+
+The maintained constructors instead use POO's native lexical slot shorthand
+for already evaluated arguments. This lowers to constant specifications in the
+same compact construction layout, retaining the original super and full
+validation. Receiver-dependent behavior, including the role section method,
+remains a receiver formula. This removes unnecessary formula declarations; the
+compiled ABBA comparison does not establish an end-to-end speedup, so that is
+not claimed as a resolution of the performance gate.
+
+The next optimization must reduce measured repeated preparation, receiver
+rebinding or allocation while retaining native inheritance, normalization and
+fresh contextual obligations. A focused comparison cannot replace the full
+Scheme suite or its unchanged twenty-sample, 100 ms gate. Parser adaptation
+and exact-head CI precede Orgize; ASCENT follows Orgize.
+
+* Grammar syntax and ordered normalization
+
+Gerbil's markup change separates byte scanning, typed nodes and output. Its
+TAL compiler reports malformed syntax at the source location. Its HTML
+scanner uses byte classification tables and bounded name probes with a tree
+fallback. The benchmark program selects an operation and input size for each
+invocation. [[https://git.cons.io/mighty-gerbils/gerbil/pulls/1515][Gerbil PR 1515]]
+
+Parser's grammar macros retain syntax objects through expansion and lower to
+checked Grammar and GrammarRole constructors. An invalid composition operator
+now identifies the offending token. The compiler owns declaration order,
+conflict detection and provenance. Runtime preparation consumes the resulting
+Grammar IR and binds execution kernels to the selected backend.
+
+Normalization uses an index for membership and a separate insertion spine for
+publication order. Equal merges retain the first owner. Override updates the
+existing position. Remove retires that position and a later append creates a
+new one. Contribution history accumulates in reverse and is emitted in
+occurrence order. The index belongs to the current normalization call. Expected
+work in the keyed table fold scales with the number of contributions, subject
+to key hashing and equality costs. The flow fold and receipt encoding keep
+their existing ownership.
+
+The independent scale workload prepares the grammar outside timing and runs
+one rule count per process. On this host the 8,000-rule case with twenty
+samples moved from 1,178.85 ms to 9.37 ms wall P50 and from 2,244.60 ms to
+10.57 ms wall P95. Rule order, content and composition digest matched. These
+observations cover grammar normalization. The checked object construction
+budget and the complete Scheme and Rust gates have their own evidence.
+
+#+begin_src sh
+gerbil env gxi t/benchmarks/grammar-normalization/scale.ss 8000
+#+end_src
+
 * First engine slice: semantic family preparation
 
 RecognitionSemantics. and EventSemantics. inherit LRSemanticBackend. using native
@@ -110,6 +187,9 @@ interval must be examined independently. A new Lean pin, engine slice or retry
 cannot retroactively explain the missing native stack or qualify that failure.
 
 See [[file:poo-engine.d2][engine organization diagram]].
+
+#+CAPTION: Native declaration admission, preparation and execution ownership.
+[[file:poo-engine.svg]]
 
 The first engine model now builds278 targets with latest LeanPoo. It reuses
 composeContinuations_foldr and proves ordered kernel application and fresh request

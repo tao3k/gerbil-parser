@@ -66,7 +66,7 @@
        (run "ffi-header" [(getenv "CC" "cc") "-std=c11" "-Wall" "-Wextra" "-Werror" "-Wno-unused-command-line-argument"
                           "-fsyntax-only" "-Iinclude" "t/ffi-header-smoke.c"])
        (run "ffi-abi-build" '("gxi" "t/fixtures/ffi/build.ss" "compile") #t)
-       (run "ffi-abi" (compiled-main "gerbil-parser/t/fixtures/ffi/abi-probe" "(main)") #f
+       (run "ffi-abi" ["gerbil" "env" "gerbil-parser-abi-probe"] #f
                      '("NATIVE-ABI-OK" "ABI-RUNTIME-GENERATED-MATCH calls=3"))
        (run "language-abi" ["gerbil" "env" "gerbil-parser-language-probe"] #f
                      '("LANGUAGE-ABI-OK" "LANGUAGE-ABI-100-CALLS"))

@@ -183,6 +183,18 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           fetch-depth: 0
+      - name: Fetch the historical runtime source fixture
+        run: |
+          baseline=f57d2aa6502bd39b62119cdd2e5a95469ef6fd9f
+          fixture_ready() {
+            for module in lr-parser incremental scan; do
+              git cat-file -e "$baseline:src/runtime/$module.ss" 2>/dev/null || return 1
+            done
+          }
+          if ! fixture_ready; then
+            git fetch --no-tags --depth=1 origin "$baseline"
+          fi
+          fixture_ready
       - name: Restore Gerbil build products
         uses: ./.github/actions/gerbil-restore
         with:

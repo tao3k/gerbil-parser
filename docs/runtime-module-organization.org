@@ -47,9 +47,10 @@ Local monitoring output is not a retained evidence reference.
 
 * Exact-head CI input and cold-loading corrections
 
-The semantics job fetches repository history so the named source-form baseline
-is available in the CI clone. A shallow checkout failed all three controls;
-missing baseline input is not a reason to skip the comparisons.
+The semantics job checks the three source blobs used by the runtime
+correspondence test. When any blob is missing it fetches the exact
+baseline commit and checks all three again. A squash checkout can omit
+the historical sources even when the default branch was fetched in full.
 
 Module-loading controls initialize their existing preloader before importing
 the two public compiler boundaries. The preloader reports real native module

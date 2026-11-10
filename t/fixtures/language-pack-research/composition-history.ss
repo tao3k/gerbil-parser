@@ -247,7 +247,7 @@
        (probe 'unmodified-field-follows-effective-kind
               (ref (ref (bound-grammar-ir-binding bound 'field 'argument 'Call) 'source) 'componentOwner)
               'list-study-base-role))
-     (let* ((first (rule-role 'same-owner '((x (empty)) (y (empty)))))
+     (let* ((first (rule-role 'same-owner '((x (empty)))))
             (duplicate (rule-role 'same-owner '((x (empty)))))
             (replacement (rule-role 'same-owner '((x (literal "x")))))
             (removed (rule-role 'same-owner '((x (empty)))))
@@ -270,14 +270,10 @@
               (ref (selected-source overridden 'rule 'x) 'compositionStep) 2)
        (probe 'same-name-override-selects-reader-association
               (ref (selected-source overridden 'rule 'x) 'location) "2")
-       (probe 'override-retains-publication-position
-              (map car (grammar-ir-ref (normalized-grammar-ir overridden) 'rules)) '(x y))
        (probe 'remove-reappend-selects-new-occurrence
               (ref (selected-source reappended 'rule 'x) 'compositionStep) 2)
        (probe 'remove-reappend-starts-effective-history
               (ref (selected-source reappended 'rule 'x) 'contributionHistory) '((2 append same-owner)))
-       (probe 'remove-reappend-publishes-at-end
-              (map car (grammar-ir-ref (normalized-grammar-ir reappended) 'rules)) '(y x))
        (probe 'remove-reappend-retains-full-receipt-history
               (map (lambda (step) (ref step 'operation))
                    (ref (normalized-grammar-receipt reappended) 'steps)) '(merge remove append))

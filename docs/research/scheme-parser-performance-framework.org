@@ -46,17 +46,105 @@ with the Parser and development dependencies available:
 gerbil env gxi t/benchmarks/poo-grammar-objects/construction.ss
 #+end_src
 
-The original [[file:../../t/core-observability-test.ss][observability Suite]]
-imports the benchmark as a source leaf. The existing
-[[file:../../build-test-support.ss][test support Build entry]] obtains its
+Pass =role= or =assembly= as the final argument to run a separate diagnostic.
+=role= constructs fifty checked roles. =assembly= prepares fifty distinct
+roles before timing and constructs fifty checked grammars around them.
+Each process emits twenty indexed samples with wall time, CPU, GC,
+allocation and page faults. Result checks, module load and progress output
+are outside the measured interval. Both phases run the checked constructors.
+The no-argument invocation and the Suite retain the 100 ms pair gate.
+
+The [[file:../../t/core-observability-test.ss][observability Suite]] imports
+the construction workload for its memory-policy scenario. The independent
+[[file:../../t/benchmarks/poo-grammar-objects/contract.ss][construction Suite]]
+runs the timing contract through =gerbil test=. The existing
+[[file:../../t/support/qualification/build-test-support.ss][test support Build entry]] obtains its
 compilation closure from =gerbil-parser.init.exports.tests= and consumes the
 issued =std-make-spec=. The benchmark leaf declares its actual imports; it does
 not register another source root or maintain a second build inventory.
-The standalone case and the Suite consume the same Scheme workload and
+The standalone case and the construction Suite consume the same Scheme workload and
 [[file:../../t/benchmarks/poo-grammar-objects/benchmark.ss][ASP contract]].
 The standalone process emits the original receipt before reporting success or
 failure, and exits naturally. It does not run module startup, parser execution,
 or the Suite's separate memory-policy case inside the construction interval.
+
+* CI preparation and benchmark lifetime
+
+The dependency cache contains only package installation outputs. An exact hit
+reuses the installation keyed by platform, compiler archive, C compiler, system
+library versions, both dependency declarations and compiler setup. A miss runs the ordinary =gerbil deps --install=
+entries. Package TAGS, development policy, production build and test publication
+checks still run after restoration. Save dependency outputs before building
+Parser so a cache entry cannot carry approval for a previous Parser source tree.
+
+Cargo owns incremental ABI program compilation. Its cache includes the Rust
+toolchain, Gerbil compiler digest and source/dependency inputs. The preparation
+job still invokes Cargo and publishes the resulting program. The FFI consumer
+runs the same twenty alignment cases against the restored products, without
+repeating the three helper builds already completed by preparation. The public
+=test-language-abi-alignment= task retains those prerequisites for local use.
+
+The construction Suite imports the independent construction benchmark. ASP
+retains each callback result until the full sample series is complete. Returning
+fifty Grammar objects per callback therefore retains every earlier object graph.
+The shared callback completes checked construction and returns =void=, retaining
+only its diagnostic counters. Its progress output is outside the timed interval.
+Warmup and the separate memory-policy scenario still validate the returned
+objects. The gate still measures fifty fresh Role/Grammar pairs in each of twenty
+samples, including constructor validation, allocation and any GC during the call.
+
+The previous Darwin preparation on run 42502655698 took 34 minutes 18 seconds.
+It spent 8 minutes 50 seconds reinstalling dependencies despite an exact cache
+hit. Its semantic gate rejected 118.522 ms P95. These are the baseline receipts.
+Cache savings require a subsequent exact hit. A local benchmark pass alone does
+not establish that the remote tail is fixed. Retain all samples and the original
+100 ms gate on both platforms.
+
+Local checks used the locked Darwin compiler and the baseline run's published
+products. First dynamic loads encountered a 120-second timeout. A process sample
+showed Darwin =dlopen= blocked in code-signature mapping. The failed logs remain
+separate from the subsequent passing tests. Grammar admission, observability and
+test style passed through =gerbil test=. An initial pairing omitted the signed
+test library, so its baseline could not import the progress fixture. With the
+same prepared test library on both arms, the baseline/candidate/candidate/baseline
+sequence passed all four runs. Each retained the twenty-sample ASP gate. P95 was
+80.845, 73.334, 74.837 and 79.982 ms. This local comparison supports the lifetime
+change, subject to remote confirmation. The prepared FFI task passed all twenty
+alignment cases within its existing 180-second budget.
+
+** Independent process and complete coverage
+
+Run 42746145965 passed Ubuntu's 185 modules and twenty construction samples
+at 69.038046 ms P95. Darwin still rejected 180.398 ms. Its P95 callback had
+no GC and used 99.205 ms user CPU and 76.472 ms system CPU with 2121 minor
+faults. The separate maximum callback included 3784.864 ms elapsed GC.
+This failure remains evidence that callback lifetime alone is insufficient.
+
+Gerbil's =src/tools/gxtest.ss= prepares every module in =prepare-harness=
+before =test-run!= executes any Suite. The complete roster therefore keeps
+unrelated module initializers and fixture graphs in the same heap as the
+construction gate. A pre-measurement GC cannot remove registered module data.
+The contract now runs as one explicit official =gerbil test= invocation in a
+fresh VM, using the published Parser library. Its own =build.ss= supplies the
+ordinary build entry; the conformance build prepares the same source closure
+for CI. The file is named =contract.ss= so recursive discovery does not run
+the timing contract a second time inside the large roster.
+
+=just test-all= requires both the complete ordinary roster and this explicit
+construction Suite. CI runs both within the existing 15-minute test step.
+The dedicated child retains the full Suite's 3 GiB heap, and has a 120-second
+process deadline. It must emit the module success marker, the final sample
+diagnostic and =OK=. The ASP receipt still enforces fifty fresh checked pairs,
+twenty samples and the original 100 ms P95. Semantic memory, mutation,
+normalization and inheritance checks remain in the ordinary roster.
+
+The workload imports its Grammar object owner directly rather than the broad
+declaration facade. The first local independent-Suite run still failed at
+342.263 ms P95; process isolation alone is not a performance guarantee. After
+the import change the complete original twenty-sample contract passed at
+75.736 ms P95 and exited naturally in 4.879 seconds. Both transcripts remain
+in the persistent local cache. These sequential observations are not a paired
+estimate of the import change's benefit; exact-head CI remains a separate gate.
 
 * Qualification plan from Gerbil's typed markup implementation
 
@@ -134,6 +222,30 @@ require separate attribution. A local complete diagnostic had a 70.900 ms
 P95 callback with zero collections and a 710.070 ms maximum callback with
 644.908 ms spent in GC. Those local samples establish the distinction
 between the two effects. The failed remote job lacks equivalent counters.
+
+An isolated dependency candidate failed the same gate at 832.655 ms P95.
+The callback reported 832.643 ms wall time, 117.816 ms user CPU, 3.609 ms
+system CPU and 237.776 ms elapsed GC. GC CPU overlaps process CPU.
+These counters cannot assign the remaining time to scheduling or I/O.
+A source-mode comparison that removed per-batch progress output reported
+292.949, 308.007, 75.388 and 70.655 ms P95 in baseline, candidate, candidate,
+baseline order. A dependency build was active on the host. This comparison
+shows variation and provides no evidence of a constructor speedup.
+
+The first stage runs used the locked Darwin toolchain and separate
+processes. The table uses the nearest-rank median and P95 from twenty
+samples per stage. The dependency build overlapped these observations.
+
+| Stage | Wall P50 (ms) | Wall P95 (ms) | Process CPU P50 (ms) | Process CPU P95 (ms) |
+|-------+---------------+---------------+----------------------+----------------------|
+| Role construction | 15.244 | 42.713 | 15.241 | 42.711 |
+| Grammar assembly with prepared roles | 26.306 | 55.248 | 26.294 | 55.245 |
+
+Grammar assembly checks the existing roles as a composition obligation.
+The larger assembly cost directs profiling toward those checks and
+record normalization. Any refactor must preserve validation of externally
+provided and extended roles. These phase percentiles cannot be added to
+predict the pair gate.
 
 * Scope and navigation
 

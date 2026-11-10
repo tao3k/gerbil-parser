@@ -4,22 +4,22 @@
           (only-in :std/source this-source-file)
           (only-in :yuanxu/module-system/building/source-package register-module-build-source!)))
 (begin-syntax
-  (register-module-build-source! (path-directory (this-source-file)) 'gerbil-parser))
+  (register-module-build-source! (path-expand "../../../" (path-directory (this-source-file))) 'gerbil-parser))
 (import (rename-in (only-in :gerbil/tools/gxtest main) (main gxtest-main))
         (only-in :std/build-script defbuild-script)
         (only-in :yuanxu/module-system/building/source-package
                  call-with-build-input-path register-module-build-source!)
         (only-in :std/source this-source-file)
         (only-in :std/list/list delete-duplicates/hash)
-        (only-in "./t/fixtures/ffi/build.ss" ffi-build-spec ffi-test-command)
-        (rename-in (only-in "./src/ffi/build.ss" Build) (Build ffi-library-build))
+        (only-in "../../fixtures/ffi/build.ss" ffi-build-spec ffi-test-command)
+        (rename-in (only-in "../../../src/ffi/build.ss" Build) (Build ffi-library-build))
         (only-in :yuanxu/observability/testing-script TestingScript.)
         (only-in :yuanxu/observability/testing-fixture call-with-yuanxu-fixture))
 (import (only-in :clan/poo/object .o .cc .get .call)
-        (only-in "./init.ss" gerbil-parser.init.exports))
+        (only-in "../../../init.ss" gerbil-parser.init.exports))
 (extern namespace: gerbil/tools/gxtest collect-files)
 (export run-native-tests main)
-(register-module-build-source! (path-directory (this-source-file)) 'gerbil-parser)
+(register-module-build-source! (path-expand "../../../" (path-directory (this-source-file))) 'gerbil-parser)
 
 (def (test-support-targets files)
   (def (qualify-ffi-target target)
@@ -41,16 +41,18 @@
 
 ;; GxTest discovers the complete roster. Init binds those files to the
 ;; native import closure and source currentness.
+(def package-source-file (path-expand "../../../build.ss" (path-directory (this-source-file))))
+
 (def (test-support-source)
   (let* ((tests (.get gerbil-parser.init.exports tests))
-         (files (collect-files ["t/..." "languages/..."])))
+         (files (collect-files '("t/..." "languages/..." "scripts/tests/..."))))
     (.call tests .for-files
       files
       (list (this-source-file)
             (path-expand "compiler-build-support.ss"
-                         (path-directory (this-source-file)))
-            (path-expand "t/fixtures/ffi/build.ss" (path-directory (this-source-file)))
-            (path-expand "src/ffi/build.ss" (path-directory (this-source-file))))
+                         (path-directory package-source-file))
+            (path-expand "t/fixtures/ffi/build.ss" (path-directory package-source-file))
+            (path-expand "src/ffi/build.ss" (path-directory package-source-file)))
       ;; The test projection recompiles reached libraries into its own output.
       ;; Retain the owning build declarations, including native FFI options.
       (test-support-targets files))))
@@ -81,6 +83,7 @@
 ;; package contains library targets, so request issuance on the projection
 ;; explicitly and let the standard build script compile into its output.
 (def (build-support-spec spec output arguments)
+  (def (this-source-file) package-source-file)
   (defbuild-script spec optimize: #t libdir: output)
   (apply main arguments))
 

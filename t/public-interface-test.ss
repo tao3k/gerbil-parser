@@ -2,10 +2,15 @@
 (import :gerbil-parser/language-test-support
         (only-in :std/source this-source-file)
         (only-in :std/misc/process run-process)
-        (only-in :std/misc/ports read-all-as-string))
+        (only-in :std/misc/ports read-all-as-string)
+        (only-in :gerbil-parser/t/fixtures/progress report-test-progress!))
 (def (output-of code)
   (run-process (list "gxi" "-:max-heap=2G,debug=q" "-e" (object->string code))
-    stdout-redirection: #t coprocess: read-all-as-string))
+    stdout-redirection: #t stderr-redirection: #t
+    coprocess: (lambda (process)
+                 (let (output (read-all-as-string process))
+                   (report-test-progress! "PUBLIC-INTERFACE-CHILD " output)
+                   output))))
 (def (fixture file)
   (path-expand (string-append "fixtures/parser-prelude/" file)
                (path-directory (this-source-file))))
@@ -41,10 +46,10 @@
       (scope ((output
         (output-of '(begin
                       (import (only-in :gerbil-parser/compiler-build-support
-                                       run-build-tool)
+                                       initialize-compiler-build! run-build-tool)
                               (only-in :gerbil-parser/event-fold-build-support
                                        event-fold-scheme-module-sources compile-event-fold-scheme-units))
-                      (unless (and
+                      (unless (and (procedure? initialize-compiler-build!)
                                    (procedure? run-build-tool)
                                    (procedure? event-fold-scheme-module-sources)
                                    (procedure? compile-event-fold-scheme-units))

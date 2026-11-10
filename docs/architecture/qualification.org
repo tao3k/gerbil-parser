@@ -19,7 +19,7 @@ integrity alone does not establish source currentness or semantic correctness.
 
 * One process contract
 
-=qualify.ss= is a Scheme source entry. =build-qualification.ss= compiles the
+=t/support/qualification/qualify.ss= is a Scheme source entry. =t/support/qualification/build.ss= compiles the
 process support modules with the standard Gerbil scheduler; it declares no
 executable. Alignment is owned by =t/language-abi-alignment-test.ss= and runs
 through =gerbil test= in the same Scheme runtime as fixture generation.
@@ -61,16 +61,15 @@ log; the C fixture checks blocking compiler descriptors.
 
 Scheme owns qualification and product declarations. Gerbil and Gambit own
 module closure and native compilation.
-The =build-shared-library.ss= entry delegates to =src/ffi/shared-library/build.ss=.
-That module uses =:std/os/fcntl= to clear inherited nonblocking descriptor flags
-before compiling the shared library.
+The production =build-shared-library.ss= entry uses =:std/os/fcntl= directly
+to clear inherited nonblocking descriptor flags; it imports no test support.
 Cargo owns Rust compiler invocation and its jobserver.
 A Scheme replacement for a rustc proxy would risk closing
 Cargo's inherited jobserver descriptors through Gambit's process launcher;
 the product owner therefore invokes Cargo directly without that proxy.
 
 Rust compilation can publish metadata and object files while Cargo emits no
-text. =qualify.ss run --compiler-outputs target/debug= observes changed nonempty
+text. =t/support/qualification/qualify.ss run --compiler-outputs target/debug= observes changed nonempty
 =.rmeta=, =.rlib=, =.o= and =.a= products in that explicitly selected directory.
 The observer records an initial baseline by device/inode and rejects unchanged
 cached files, renamed or hard-linked cached objects, empty files and unrelated

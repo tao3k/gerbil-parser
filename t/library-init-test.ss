@@ -64,14 +64,13 @@
   (scenario "domain modules are selected directly without a modules container"
     (sequential ((components (.get gerbil-parser.init.exports Components))
                  (graph (selected-test-scope 'graph)))
-      (each (name) ('(compiler ffi grammar graph language runtime testing utilities))
+      (each (name) ('(build-support compiler ffi grammar graph language runtime testing utilities))
         (equal (.slot? components name) #t))
       (equal (.slot? components 'modules) #f)
-      (each (name) ('(compiler ffi grammar graph language runtime testing utilities))
+      (each (name) ('(build-support compiler ffi grammar graph language runtime testing utilities))
         (equal (call-with-input-file
                  (path-expand (string-append "src/" (symbol->string name) "/config.ss")
                               parser-source-root) read-all) '((export))))
-      (equal (.slot? components 'build-support) #f)
       (each (path) ('("src/compiler/machine.ss" "src/compiler/lexical-expression.ss"
                      "src/compiler/lexical-lexer.ss"))
         (equal (file-exists? (path-expand path parser-source-root)) #f))
@@ -111,6 +110,7 @@
        (typed (cdr selection))
        (runtime (selected-test-scope 'runtime))
        (testing (selected-test-scope 'testing))
+       (build (selected-test-scope 'build-support))
        (graph (selected-test-scope 'graph))
        (compiler (selected-test-scope 'compiler))
        (calls 0))
@@ -138,6 +138,9 @@
       (equal (type-rejected? (lambda ()
         ((.get (validate UtilitiesScope
                 (.cc raw text-lines: (lambda (_) '(42)))) text-lines) "x"))) #t)
+      (equal (.slot? build 'initialize-build!) #f)
+      (equal (type-rejected? (lambda () ((.get build native-module-link-options) '(42)))) #t)
+      (equal (type-rejected? (lambda () ((.get build compiler-build-spec) 42))) #t)
       (equal (type-rejected? (lambda () ((.get testing parser-test-form-admitted?) '(quote x) '(42)))) #t)
       (equal (type-rejected? (lambda () ((.get graph make-graph-query-context) String Symbol Symbol 42))) #t)
       (equal (type-rejected? (lambda () ((.get compiler compile-grammar) 42))) #t)
@@ -180,8 +183,9 @@
                   (make-scope-test-row 'key 42)))) #t)
       (equal (type-rejected? (lambda ()
         ((.get operations merge-keyed-row) (list first) second scope-test-row-value (lambda (_) '())))) #t)))
-  (scenario "IR sections reject opaque or malformed values"
-    (sequential ()
+  (scenario "IR sections and native source names reject opaque or malformed values"
+    (sequential ((compiler (selected-test-scope 'compiler))
+                 (build (selected-test-scope 'build-support)))
       (equal (element? GrammarIR arithmetic-grammar) #t)
       (each (row) ((list (cons 'rules (lambda () '()))
                         (cons 'rules '((start (unknown-expression))))
@@ -189,7 +193,11 @@
                         (cons 'extras '(word))
                         (cons 'unexpected '())))
         (equal (element? GrammarIR (cons row (filter (lambda (old) (not (eq? (car old) (car row)))) arithmetic-grammar))) #f))
-      (equal (element? GrammarIR (cons (car arithmetic-grammar) arithmetic-grammar)) #f)))
+      (equal (element? GrammarIR (cons (car arithmetic-grammar) arithmetic-grammar)) #f)
+      (equal (type-rejected? (lambda () ((.get build compiler-build-spec) '((gxc: 42))))) #t)
+      (equal (type-rejected? (lambda () ((.get build compiler-build-spec) '((gxc:))))) #t)
+      (equal ((.get build compiler-build-spec) '((ssi: "entry" (submodules: ("child")))))
+             '((ssi: "entry" (submodules: ("child")))))))
   (scenario "compiled products interoperate through structural Scopes"
     (equal (eq? Grammar. (.get GrammarContract proto)) #t)
     (equal (eq? Grammar. (.get (.cc GrammarContract) proto)) #t)

@@ -19,19 +19,12 @@
                        "PIPE-PROGRESS λλ\nERROR failed" "\n*** ERROR" "\x00;ERROR\nOK")))
       (bindings)
       (equal (parser-check-result error-prefix-splits text) (void)))
-    (scenario "child receives the original argv without shell evaluation"
-      (equal (process-child-arguments "session" "" (quote ("fixture" "λ a;$(not-a-command)")))
-             (quote ("session" "" "fixture" "λ a;$(not-a-command)"))))
-    (property "diagnostic modules are unique and ordered"
+    (scenario "child argv is literal data for the native session entry"
+      (equal (process-child-arguments "session" "" '("fixture" "λ a;$(not-a-command)"))
+             '("session" "" "fixture" "λ a;$(not-a-command)")))
+    (property "diagnostics do not create a second build plan"
       (bindings)
-      (equal (diagnostic-modules '("gql-profile" "gql-actors" "gql-profile"))
-         '("reduction-counts" "execution-counts" "matched-stages" "actors")))
-    (property "one driver and one diagnostic build"
-      (bindings (plan (local-diagnostic-plan '("gql-profile" "gql-actors") #f)))
-      (equal (length plan)  2)
-      (equal (length (qualification-stage-command (cadr plan)))  7)
-      (equal (list-ref (qualification-stage-command (cadr plan)) 2)
-           "t/benchmarks/parser-stage-cost/benchmark.ss"))
+      (equal (local-diagnostic-plan '("gql-profile" "gql-actors") #f) '()))
     (property "prepared diagnostics do not rebuild"
       (bindings)
       (equal (local-diagnostic-plan '("gql-profile" "gql-actors") #t)  '()))

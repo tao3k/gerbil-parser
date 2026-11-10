@@ -148,6 +148,11 @@ async fn phase(
                 left += cost;
             }
             costs[leg] = cost;
+            // Completed request batches are genuine progress. Report after the
+            // CPU interval; preserve all eight measured legs and group ratios.
+            println!(
+                "RUST-TOKIO-CPU-LEG phase={name} group={group} leg={leg} calls=256 reference={reference} cpu={cost:.9}"
+            );
         }
         println!(
             "RUST-TOKIO-CPU-GROUP phase={name} group={group} cpu={costs:?} ratio={:.9}",

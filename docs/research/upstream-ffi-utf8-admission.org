@@ -108,7 +108,7 @@ CPU contribution of UTF-8 admission visible when parsing/publication dominates.
 
 * Reproduction and remote closure
 
-Use the normal package dependency/build owners followed by =build-ffi-tests.ss=.
+Use the normal package dependency/build owners followed by =t/fixtures/ffi/build.ss=.
 The compiled entry and its source proof runner are part of that existing owner.
 
 #+begin_src sh
@@ -188,7 +188,7 @@ Reproduce the independent complete-request proof after the normal builds:
 
 #+begin_src sh
 for unicode in false true; do
-  gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+  gerbil env gxi t/support/qualification/qualify.ss run --timeout 120 --idle-timeout 5 \
     --log ".data/ffi-event-records-${unicode}-cpu.log" \
     --require ABI-EVENT-CPU-PROOF-OK \
     -- gxi t/benchmarks/language-abi/utf8-proof.ss \

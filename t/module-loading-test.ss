@@ -7,7 +7,6 @@
         (only-in :gerbil-parser/src/ffi/rust-runtime-aot rust-runtime-source)
         (only-in :yuanxu/module-system/source/admission
                  call-with-module-source-read-cache module-source-read))
-(include "fixtures/module-loading/observations.ss")
 
 (def write-grammar
   (parser-test-datum-writer
@@ -102,14 +101,14 @@
     (using (with-runtime-file) (file name)
       (act (write-program file write-datum '(error "runtime initializer failed")))
       (each (_attempt) ('(first retry))
-        (raises (preload-runtime-module name)
+        (raises (load-module name)
                 (lambda (condition) (equal? (error-message condition) "runtime initializer failed"))))
       (act (write-program file write-datum '(define parser-loader-recovered (cons 'loaded '()))))
-      (raises (preload-runtime-module name)
+      (raises (load-module name)
               (lambda (condition) (equal? (error-message condition) "runtime initializer failed")))
       (act (reload-module! name))
       (scope ((loaded (eval 'parser-loader-recovered)))
-        (act (preload-runtime-module name))
+        (act (load-module name))
         (act (load-module name))
         (equal (eq? loaded (eval 'parser-loader-recovered)) #t))))
   (scenario "source-only namespace imports traverse dependencies and retry failures"

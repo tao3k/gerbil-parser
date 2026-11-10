@@ -144,9 +144,9 @@ on both Scheme platforms; existing FFI jobs own the real host assertions.
 To reproduce the separate cold-host check after normal library/fixture builds:
 
 #+begin_src sh
-gerbil env gxi build-qualification.ss compile
-gerbil env gxi build-ffi-tests.ss compile
-gerbil env gxi qualify.ss run --timeout 90 --idle-timeout 5 \
+gerbil env gxi t/support/qualification/build.ss compile
+gerbil env gxi t/fixtures/ffi/build.ss compile
+gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --idle-timeout 5 \
   --log .data/module-cold-host.log --require MODULE-COLD-HOST-OK \
   -- gxi t/benchmarks/module-loading/cold-host.ss
 #+end_src

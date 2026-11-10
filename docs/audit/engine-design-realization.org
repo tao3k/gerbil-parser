@@ -31,7 +31,7 @@ The [[file:../research/lr-table-admission.org::*Checked accumulation closure][qu
 
 CI at =11df5d0= rejected standalone library preparation on both platforms:
 =records-abi.ssi= imported =t/fixtures/shared-scanner/records=, whose producer
-was absent from =build-ffi-tests.ss=. The native build declaration now includes
+was absent from =t/fixtures/ffi/build.ss=. The native build declaration now includes
 that producer before its ABI consumers. This preserves the same standalone
 library gate and does not add a workflow-specific compilation wrapper.
 

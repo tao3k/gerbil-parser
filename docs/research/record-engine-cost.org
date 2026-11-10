@@ -85,12 +85,12 @@ the combined result is not a claim that each component meets the benefit gate.
 
 The fixture is =t/fixtures/contextual-result-selection.ss=. The complete-request
 sampler is =t/benchmarks/language-abi/utf8-cpu.ss= and the strict entrypoint is
-=t/benchmarks/language-abi/engine-proof.ss=. =build-ffi-tests.ss= owns fixture
+=t/benchmarks/language-abi/engine-proof.ss=. =t/fixtures/ffi/build.ss= owns fixture
 and sampler compilation. From a prepared repository environment:
 
 #+begin_src sh
 for unicode in false true; do
-  gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+  gerbil env gxi t/support/qualification/qualify.ss run --timeout 120 --idle-timeout 5 \
     --log ".data/record-engine-${unicode}-cpu.log" \
     --require ENGINE-CPU-PROOF-OK \
     -- gxi t/benchmarks/language-abi/engine-proof.ss combined "$unicode"

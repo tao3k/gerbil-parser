@@ -65,7 +65,8 @@
     (error "native fold bounds split UTF-8 source" from until)))
 
 (def (line-starts-with? line prefix)
-  (string-prefix? prefix line))
+  (and (<= (string-length prefix) (string-length line))
+       (string=? (substring line 0 (string-length prefix)) prefix)))
 
 (def (fold-source-lines source initial visit)
   (let (size (string-length source))

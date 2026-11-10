@@ -138,7 +138,7 @@
                        ["-e" "(write-string (make-string 65536 #\\p)) (newline) (force-output)"] '()))
             (pipe (open-process [path: "gxi" arguments:
                     (append prelude
-                     ["qualify.ss" "run" "--timeout" "6" "--idle-timeout" "0.8"
+                     ["t/support/qualification/qualify.ss" "run" "--timeout" "6" "--idle-timeout" "0.8"
                       "--log" log "--require" "^OK$" "--" fixture "flood" ready])
                     stderr-redirection: #t])))
       (close-output-port pipe)

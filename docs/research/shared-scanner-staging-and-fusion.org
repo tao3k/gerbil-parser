@@ -559,7 +559,7 @@ qualified exit one in 9.811 seconds, confirming that successful bootstrap or
 logging cannot satisfy the performance proof.
 
 #+begin_src sh
-gerbil env gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+gerbil env gxi t/support/qualification/qualify.ss run --timeout 120 --idle-timeout 5 \
   --log .data/scanner-cpu-proof.log --require SCANNER-CPU-PROOF-OK \
   -- gxi t/benchmarks/ranked-literal/cpu-proof.ss bounded 20 2000000
 #+end_src
@@ -654,7 +654,7 @@ admitted performance claims. Receipt stem: =parser-ranked-lexical-fused=.
 Larger individually bounded scenarios retain the same admission rules:
 
 #+begin_src sh
-gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+gxi t/support/qualification/qualify.ss run --timeout 120 --idle-timeout 5 \
   --log .data/ranked-lexical-cpu.log --require SCANNER-CPU-PROOF-OK \
   -- gxi t/benchmarks/ranked-literal/cpu-proof.ss lexical 20 250000 keyword
 #+end_src
@@ -740,7 +740,7 @@ minimum resolved CPU, twenty groups and all admission thresholds are unchanged.
 The complete parser CLI additionally accepts a positive clause count:
 
 #+begin_src sh
-gxi qualify.ss run --timeout 120 --idle-timeout 5 \
+gxi t/support/qualification/qualify.ss run --timeout 120 --idle-timeout 5 \
   --log .data/ranked-parser-cpu.log --require SCANNER-CPU-PROOF-OK \
   -- gxi t/benchmarks/ranked-literal/cpu-proof.ss parser 20 384 layout 12
 #+end_src

@@ -3,17 +3,17 @@
 
 * Ownership
 
-=init.ss= selects eight =src/*= subsystem publications through one
+=init.ss= selects the nine real =src/*= subsystem publications through one
 Yuanxu =load-modules= window. Each has a typed service Scope, existing service
 prototype, Interface declaration selecting that prototype, and required Config role.
 Config is a binding-free =(export)= when no local settings exist; Core owns its optional binding. Root =build.ss= consumes
-the same init-owned =std-make-spec=. The Gerbil toolchain is selected in
-the caller environment. Optional targets use the standard =defbuild-script=
-parameters and retain only their product-specific include and link options. Gerbil =std/make= remains the
-compiler and job-scheduling owner; package builds use the executing host capacity.
+the same init-owned =std-make-spec= and invokes host initialization
+directly at the executable build boundary. Gerbil =std/make= remains the
+compiler and job-scheduling owner; parallelism remains capped at two workers.
 
 | Module | Published service / owned additional entries |
 |--------+----------------------------------------------|
+| build-support | Compiler-option and native-link functions; explicit host initialization |
 | compiler | Grammar normalization; generator/build public entries and dynamic Scheme emitter |
 | ffi | Original schema-owned ABI versions; three C leaves with include/link options |
 | grammar | Grammar/Role contracts, objects and syntax; contextual declarations and expression algebras |
@@ -25,11 +25,9 @@ compiler and job-scheduling owner; package builds use the executing host capacit
 
 * One build projection
 
-A selected module publishes the =Build= object from its own =build.ss= through
-its Interface =projections=. Yuanxu collects those declarations into the
-init-owned =std-make-spec= consumed by the root build script. FFI uses
-owner-relative =roots= to retain its C leaf options. Compiler uses
-package-relative =library-roots= to declare supported public entrypoints. Core's existing =package-library-spec= derives actual native imports
+Module =Build= declarations contribute owner-relative =roots= for additional
+native leaves and optional package-relative =library-roots= for supported public
+entrypoints. Core's existing =package-library-spec= derives actual native imports
 from those entrypoints without running their runtime initializers. Core checks
 package/source correspondence, confines regular sources, captures their current
 bytes and preserves explicit native compiler options. Build roles themselves are

@@ -1,4 +1,5 @@
 #!/usr/bin/env gxi
+(export main)
 ;;; Scheme owns tables and recognized captures; Rust independently executes the
 ;;; construction IR. These controls do not claim Rust Word recognition.
 (import (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)

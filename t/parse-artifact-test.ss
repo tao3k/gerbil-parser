@@ -25,6 +25,21 @@
 
 (deflanguage-parser-tests parse-artifact-tests "ParseArtifact contract"
   (engine)
+    (scenario "rejected artifacts require canonical diagnostic headers"
+      (sequential ((source "@")
+                   (base (parse-source arithmetic-parser source))
+                   (diagnostic (car (parse-artifact-ref base 'diagnostics))))
+        (equal (parse-artifact-success? base) #f)
+        (equal (parse-artifact-valid? base) #t)
+        (each (invalid) ((append (list 'invalid #f 17 '() '(not-an-entry))
+                          (map (lambda (row)
+                                 (artifact-replace diagnostic (car row) (cdr row)))
+                               '((schema . "wrong") (code . 17)
+                                 (reasonKind . accepted) (message . #f)))))
+          (scope ((corrupt (artifact-replace base 'diagnostics (list invalid))))
+            (equal (parse-artifact-valid? corrupt) #f)
+            (equal (parse-artifact-valid-for-source? corrupt source) #f)
+            (raises (parse-artifact-roundtrip corrupt) true)))))
     (scenario "source-bound admission proves lexemes and identity without roundtrip ownership"
       (each (source) ('("" "alpha + 2" "λ中文🙂@"))
         (scope ((artifact (parse-source arithmetic-parser source)))

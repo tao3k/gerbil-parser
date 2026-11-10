@@ -31,6 +31,28 @@ fixture. A missing helper module cannot satisfy that assertion-specific
 receipt. Full package preparation and the complete test closure remain
 separate acceptance gates; the focused result does not establish their pass.
 
+The complete Scheme closure exposed one previously hidden policy defect:
+an invalid validator result such as the symbol =invalid= could become the
+sole diagnostic of an otherwise valid rejected artifact. Canonical artifact
+validation now requires the diagnostic schema, string code, rejection reason
+and string message. Both source-bound validation and roundtrip validation use
+that same owner. The check runs only on the rejected branch; accepted parsing
+does not construct or traverse a diagnostic-check callback.
+
+The policy, artifact and style suites passed 37 cases in three suites against
+a fresh compiled owner. Regressions cover malformed containers and each
+required diagnostic header, retaining valid rejected artifacts. The prior
+complete-suite failure is preserved; the complete entry is rerunning and is
+not inferred from this focused pass.
+
+Fresh compiler outputs also separate correctness from loader state. During
+an incremental probe, an older higher-numbered Gambit object could mask a
+newer object with a lower suffix. Independently compiled old and fixed input
+owners reproduce the UTF-8 difference without those retained versions: all
+six malformed classes pass through the old helper and are rejected by the
+fixed helper. Use package-owned clean/build or fresh standard outputs for
+such comparisons; tests do not implement an artifact cleaner.
+
 * Source and ownership
 
 This change starts from PR 13 revision

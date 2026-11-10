@@ -771,7 +771,16 @@
            (error "accepted ParseArtifact requires one root" artifact)))
         ((rejected)
          (unless (and (= root-count 0) (= (length diagnostics) 1))
-           (error "rejected ParseArtifact exposes partial structure" artifact))))
+           (error "rejected ParseArtifact exposes partial structure" artifact))
+         (for-each
+          (lambda (diagnostic)
+            (unless (and (list? diagnostic) (andmap pair? diagnostic)
+                         (equal? (parse-artifact-ref diagnostic 'schema) +diagnostic-schema+)
+                         (string? (parse-artifact-ref diagnostic 'code))
+                         (eq? (parse-artifact-ref diagnostic 'reasonKind) 'parse-rejected)
+                         (string? (parse-artifact-ref diagnostic 'message)))
+              (error "invalid ParseArtifact diagnostic" diagnostic)))
+          diagnostics)))
       source)))
 
 (def (source-lexeme-at? source offset lexeme)

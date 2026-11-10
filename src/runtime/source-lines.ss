@@ -31,7 +31,13 @@
   (cond
    ((string? source) (string->utf8 source))
    ((u8vector? source)
-    (utf8->string source)
+    ;; Make decoder admission observable in optimized products: discarding
+    ;; its result permits the pure conversion to disappear. UTF-8 has at
+    ;; least one byte per decoded scalar; the check retains the official
+    ;; strict decoder without re-encoding or replacing the owned buffer.
+    (let (text (utf8->string source))
+      (unless (fx<= (string-length text) (u8vector-length source))
+        (error "decoded source exceeds UTF-8 byte storage")))
     source)
    (else (error "event Fold requires text or UTF-8 byte storage"))))
 

@@ -1,4 +1,35 @@
-#+title: Native runtime owner decomposition
+#+title: Runtime owner decomposition
+
+* Compiled input admission and exception assertions
+
+The public =fold-source-input-bytes= keeps the official UTF-8 decoder as
+the admission owner. A discarded conversion was insufficient in optimized
+compiled products: malformed byte vectors reached traversal even though a
+direct decoder call rejected them. The conversion now contributes an
+observable scalar-count bound before returning the original byte vector.
+Valid byte input retains its identity; no second encoder or decoder is added.
+The caller must keep the buffer unchanged during synchronous traversal.
+
+The existing =raises= clause also required correction. The locked Std Test
+=check-exception= can catch its own missing-exception failure when the supplied
+predicate accepts every raised value. Parser now captures only the subject's
+outcome through a typed higher-order predicate, then uses ordinary Std Test
+equality outside that catch. Normal zero or multiple return values cannot
+become incidental arity exceptions. A raised false value remains distinct
+from normal return, and the subject runs once.
+
+=t/source-input-test.ss= exercises the installed public input owner, including
+all invalid single-byte values and malformed multi-byte classes.
+=t/exception-assertion-test.ss= checks outcome separation and predicate
+matching. Together with the existing AST style suite, the focused compiled
+check passed 19 cases in three suites with natural exit and no error markers.
+These tests neither build their own runtime copy nor define another runner.
+
+The existing =test-harness-refusal= entry also runs a deliberate
+=raises 42 true= failure and requires =ERROR CHECK= from each negative
+fixture. A missing helper module cannot satisfy that assertion-specific
+receipt. Full package preparation and the complete test closure remain
+separate acceptance gates; the focused result does not establish their pass.
 
 * Source and ownership
 

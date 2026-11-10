@@ -45,6 +45,18 @@ required diagnostic header, retaining valid rejected artifacts. The prior
 complete-suite failure is preserved; the complete entry is rerunning and is
 not inferred from this focused pass.
 
+The next complete run correctly rejected old positive publication fixtures
+which supplied only a =message= field. Their source/event workloads were
+unchanged, but their diagnostic placeholders did not meet the canonical
+header. The existing shared publication fixture now constructs complete
+diagnostics before timed thunks; window publication, storage measurements
+and recovered-stage controls reuse it. Sample counts, source widths, event
+sharing assertions and measured publication operations are unchanged.
+Missing-header controls were added to artifact rejection tests. All 39 cases
+in the four publication/artifact/style suites passed with natural =OK= and
+no error markers. The previous complete failure remains preserved, and the
+full entry must pass again after fixture preparation.
+
 Fresh compiler outputs also separate correctness from loader state. During
 an incremental probe, an older higher-numbered Gambit object could mask a
 newer object with a lower suffix. Independently compiled old and fixed input

@@ -1,5 +1,5 @@
 ;;; Measure complete publication with unchanged source admission and digest work.
-(import (only-in ../../fixtures/artifact-window window-tokens window-artifact)
+(import (only-in ../../fixtures/artifact-window window-tokens window-artifact publication-diagnostic)
         (only-in ../parser-stage-cost/benchmark measure-parser-component)
         (only-in :gerbil-parser/src/runtime/artifact
                  make-certified-window-artifact make-failure-parse-artifact
@@ -10,7 +10,7 @@
   (let* ((source (make-string width #\a)) (tokens (window-tokens source))
          (base (window-artifact source tokens)) (assigned (map list tokens))
          (grammar (sha256-text "window-failure"))
-         (diagnostic '((message . "expected another token")))
+         (diagnostic (publication-diagnostic "expected another token"))
          (rejected (make-failure-parse-artifact grammar source tokens diagnostic)))
     (unless (and (parse-artifact-valid-for-source? base source)
                  (parse-artifact-valid-for-source? rejected source))

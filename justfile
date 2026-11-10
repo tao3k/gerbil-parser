@@ -426,12 +426,22 @@ test-build-product-contract output load_path:
 
 # Compiled Fixture/Suite helpers share the same native dependency graph. Rebuild
 # them before discovery so renamed source imports cannot replay old products.
-test-all: build-qualification build-test-support test-native
+test-all: build-qualification build-test-support test-native test-grammar-construction
 
 # The native Gerbil Harness owns recursive Suite discovery and process status.
 # Prerequisite builds belong to test-all; Suite files never launch another run.
 test-native:
     gerbil env gxi -:max-heap=2G,debug=q -e '(begin (import (only-in "./t/support/qualification/build-test-support.ss" run-native-tests)) (run-native-tests))'
+
+# GxTest imports its entire roster before running Suites. Keep the independent
+# 50-pair/20-sample gate in a fresh VM with the same 3 GiB test heap.
+build-grammar-construction:
+    gerbil env gxi t/benchmarks/poo-grammar-objects/build.ss compile
+
+test-grammar-construction: build-grammar-construction test-prepared-grammar-construction
+
+test-prepared-grammar-construction:
+    gerbil env gxi t/support/qualification/qualify.ss run --timeout 120 --log .data/grammar-construction.log --require '^OK$' --require '^MODULE-OK t/benchmarks/poo-grammar-objects/contract.ss$' --require '^\(CONSTRUCTION-DIAGNOSTIC \(attempt \. 20\)' -- gerbil -:max-heap=3G,debug=q test -v 3 t/benchmarks/poo-grammar-objects/contract.ss
 
 # All contracts execute from current source; every suite has a hard deadline.
 test-performance-before-compile: build-qualification

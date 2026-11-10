@@ -1,17 +1,15 @@
 #!/usr/bin/env gxi
 (import :gerbil-parser/language-test-support)
 ;;; -*- Gerbil -*-
-;;; Acceptance owner for parser Core memory and timing evidence.
+;;; Acceptance owner for parser Core memory evidence.
 ;;; Runtime observation remains an opt-in POO policy carried by LanguageGrammar.
 
 (import :std/test
         (only-in :clan/poo/object .ref)
         (only-in :std/misc/ports read-all-as-string)
-        (only-in :asp-gerbil-scheme/src/benchmark/framework benchmark-contract-receipt-pass?)
         :yuanxu/observability/debug
         (only-in "./benchmarks/poo-grammar-objects/construction.ss"
-                 make-observed-grammar-batch observed-grammar-batch-valid?
-                 run-grammar-construction-benchmark))
+                 make-observed-grammar-batch observed-grammar-batch-valid?))
 
 (deflanguage-parser-tests core-observability-tests "Core observability for parser grammar objects"
   (engine)
@@ -41,11 +39,7 @@
             (equal (.ref receipt 'accepted?)  #t)
             (equal (.ref receipt 'reason)  'within-budget)
             (equal (car (yuanxu-debug-memory-receipt-sexp receipt))
-                    'debug-memory-observation))))
-    (scenario "checked object construction satisfies the ASP benchmark gate"
-      (scope ((receipt (run-grammar-construction-benchmark)))
-        (receipt receipt)
-        (equal (benchmark-contract-receipt-pass? receipt)  #t))))
+                    'debug-memory-observation)))))
 
 
 ;; gxtest discovers only exported names ending in -test.

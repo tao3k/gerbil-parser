@@ -1,5 +1,5 @@
 ;;; One independent workload: checked construction of fresh GrammarRole/Grammar pairs.
-(import (only-in :gerbil-parser/src/declarations
+(import (only-in :gerbil-parser/src/grammar/declaration-objects
                  make-grammar-role make-grammar grammar? grammar-roles grammar-role?)
         (only-in :asp-gerbil-scheme/src/benchmark/framework
                  benchmark-contract-valid? benchmark-contract-run

@@ -54,7 +54,8 @@
 (def research-entry-sources
   (append
     (map (lambda (entry) (string-append (cadr entry) ".ss")) research-executable-spec)
-    '("t/benchmarks/versioned-languages/all-languages.ss"
+    '("t/benchmarks/poo-grammar-objects/contract.ss"
+      "t/benchmarks/versioned-languages/all-languages.ss"
       "t/fixtures/shared-scanner/records-engine-abi.ss"
       ;; The FFI writer owns this runtime root. Core discovers its other imports.
       "t/benchmarks/language-abi/utf8-cpu.ss"

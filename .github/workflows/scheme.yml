@@ -140,7 +140,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: parser-prepared-abi-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.release-sha256 }}-${{ steps.package-toolchain.outputs.fingerprint }}-${{ steps.abi-rust-version.outputs.version }}-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock', '**/*.rs', '**/*.ss', '**/gerbil.pkg') }}
+          key: parser-prepared-abi-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.release-sha256 }}-${{ steps.package-toolchain.outputs.fingerprint }}-${{ steps.abi-rust-version.outputs.version }}-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock', '**/*.rs', '**/*.ss', '**/gerbil.pkg', '!.gerbil/**', '!.ci/**', '!.cache/**', '!**/target/**') }}
       - name: Prepare Rust-owned Gerbil ABI program
         run: |
           export GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=2G,debug=q"
@@ -254,7 +254,7 @@ jobs:
               t/fixtures/test-macro-phase/author-controls.ss
       - name: Run Scheme tests
         timeout-minutes: 15
-        run: just test-native
+        run: just test-native test-prepared-grammar-construction
       - name: Verify native command
         run: |
           gerbil env gparse help

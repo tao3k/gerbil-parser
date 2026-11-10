@@ -54,13 +54,15 @@ allocation and page faults. Result checks, module load and progress output
 are outside the measured interval. Both phases run the checked constructors.
 The no-argument invocation and the Suite retain the 100 ms pair gate.
 
-The original [[file:../../t/core-observability-test.ss][observability Suite]]
-imports the benchmark as a source leaf. The existing
+The [[file:../../t/core-observability-test.ss][observability Suite]] imports
+the construction workload for its memory-policy scenario. The independent
+[[file:../../t/benchmarks/poo-grammar-objects/contract.ss][construction Suite]]
+runs the timing contract through =gerbil test=. The existing
 [[file:../../t/support/qualification/build-test-support.ss][test support Build entry]] obtains its
 compilation closure from =gerbil-parser.init.exports.tests= and consumes the
 issued =std-make-spec=. The benchmark leaf declares its actual imports; it does
 not register another source root or maintain a second build inventory.
-The standalone case and the Suite consume the same Scheme workload and
+The standalone case and the construction Suite consume the same Scheme workload and
 [[file:../../t/benchmarks/poo-grammar-objects/benchmark.ss][ASP contract]].
 The standalone process emits the original receipt before reporting success or
 failure, and exits naturally. It does not run module startup, parser execution,
@@ -82,7 +84,7 @@ runs the same twenty alignment cases against the restored products, without
 repeating the three helper builds already completed by preparation. The public
 =test-language-abi-alignment= task retains those prerequisites for local use.
 
-The observability Suite imports the independent construction benchmark. ASP
+The construction Suite imports the independent construction benchmark. ASP
 retains each callback result until the full sample series is complete. Returning
 fifty Grammar objects per callback therefore retains every earlier object graph.
 The shared callback completes checked construction and returns =void=, retaining
@@ -109,6 +111,40 @@ sequence passed all four runs. Each retained the twenty-sample ASP gate. P95 was
 80.845, 73.334, 74.837 and 79.982 ms. This local comparison supports the lifetime
 change, subject to remote confirmation. The prepared FFI task passed all twenty
 alignment cases within its existing 180-second budget.
+
+** Independent process and complete coverage
+
+Run 42746145965 passed Ubuntu's 185 modules and twenty construction samples
+at 69.038046 ms P95. Darwin still rejected 180.398 ms. Its P95 callback had
+no GC and used 99.205 ms user CPU and 76.472 ms system CPU with 2121 minor
+faults. The separate maximum callback included 3784.864 ms elapsed GC.
+This failure remains evidence that callback lifetime alone is insufficient.
+
+Gerbil's =src/tools/gxtest.ss= prepares every module in =prepare-harness=
+before =test-run!= executes any Suite. The complete roster therefore keeps
+unrelated module initializers and fixture graphs in the same heap as the
+construction gate. A pre-measurement GC cannot remove registered module data.
+The contract now runs as one explicit official =gerbil test= invocation in a
+fresh VM, using the published Parser library. Its own =build.ss= supplies the
+ordinary build entry; the conformance build prepares the same source closure
+for CI. The file is named =contract.ss= so recursive discovery does not run
+the timing contract a second time inside the large roster.
+
+=just test-all= requires both the complete ordinary roster and this explicit
+construction Suite. CI runs both within the existing 15-minute test step.
+The dedicated child retains the full Suite's 3 GiB heap, and has a 120-second
+process deadline. It must emit the module success marker, the final sample
+diagnostic and =OK=. The ASP receipt still enforces fifty fresh checked pairs,
+twenty samples and the original 100 ms P95. Semantic memory, mutation,
+normalization and inheritance checks remain in the ordinary roster.
+
+The workload imports its Grammar object owner directly rather than the broad
+declaration facade. The first local independent-Suite run still failed at
+342.263 ms P95; process isolation alone is not a performance guarantee. After
+the import change the complete original twenty-sample contract passed at
+75.736 ms P95 and exited naturally in 4.879 seconds. Both transcripts remain
+in the persistent local cache. These sequential observations are not a paired
+estimate of the import change's benefit; exact-head CI remains a separate gate.
 
 * Qualification plan from Gerbil's typed markup implementation
 

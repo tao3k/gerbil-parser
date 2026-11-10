@@ -49,6 +49,12 @@ jobs:
           release-arch: ${{ inputs.release-arch }}
           release-tag: ${{ inputs.release-tag }}
           release-sha256: ${{ inputs.release-sha256 }}
+      - name: Identify package compiler and system libraries
+        id: package-toolchain
+        run: |
+          set -euo pipefail
+          fingerprint=$({ "$GERBIL_GCC" --version; pkg-config --modversion openssl sqlite3 zlib; } | shasum -a 256 | cut -d' ' -f1)
+          echo "fingerprint=$fingerprint" >> "$GITHUB_OUTPUT"
       - name: Restore Gerbil package cache
         id: package-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
@@ -57,7 +63,7 @@ jobs:
             .gerbil/pkg
             .gerbil/lib
             .gerbil/bin
-          key: gerbil-parser-packages-v3-${{ runner.os }}-${{ runner.arch }}-${{ inputs.release-sha256 }}-${{ hashFiles('gerbil.pkg', 'dev/gerbil.pkg', '.github/actions/gerbil-setup/action.yml') }}
+          key: gerbil-parser-packages-v3-${{ runner.os }}-${{ runner.arch }}-${{ inputs.release-sha256 }}-${{ steps.package-toolchain.outputs.fingerprint }}-${{ hashFiles('gerbil.pkg', 'dev/gerbil.pkg', '.github/actions/gerbil-setup/action.yml') }}
       - name: Install declared package dependencies
         if: steps.package-cache.outputs.cache-hit != 'true'
         run: |
@@ -76,7 +82,7 @@ jobs:
             .gerbil/pkg
             .gerbil/lib
             .gerbil/bin
-          key: gerbil-parser-packages-v3-${{ runner.os }}-${{ runner.arch }}-${{ inputs.release-sha256 }}-${{ hashFiles('gerbil.pkg', 'dev/gerbil.pkg', '.github/actions/gerbil-setup/action.yml') }}
+          key: gerbil-parser-packages-v3-${{ runner.os }}-${{ runner.arch }}-${{ inputs.release-sha256 }}-${{ steps.package-toolchain.outputs.fingerprint }}-${{ hashFiles('gerbil.pkg', 'dev/gerbil.pkg', '.github/actions/gerbil-setup/action.yml') }}
       # Development compilation adds foreign namespace artifacts to the prefix.
       # Finish it before the base writer snapshots the complete dependency set.
       - name: Qualify development catalog and policy
@@ -134,7 +140,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: parser-prepared-abi-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.release-sha256 }}-${{ steps.abi-rust-version.outputs.version }}-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock', '**/*.rs', '**/*.ss', '**/gerbil.pkg') }}
+          key: parser-prepared-abi-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.release-sha256 }}-${{ steps.package-toolchain.outputs.fingerprint }}-${{ steps.abi-rust-version.outputs.version }}-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock', '**/*.rs', '**/*.ss', '**/gerbil.pkg') }}
       - name: Prepare Rust-owned Gerbil ABI program
         run: |
           export GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=2G,debug=q"

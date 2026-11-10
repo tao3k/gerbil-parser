@@ -69,8 +69,8 @@ or the Suite's separate memory-policy case inside the construction interval.
 * CI preparation and benchmark lifetime
 
 The dependency cache contains only package installation outputs. An exact hit
-reuses the installation keyed by platform, compiler archive, both dependency
-declarations and compiler setup. A miss runs the ordinary =gerbil deps --install=
+reuses the installation keyed by platform, compiler archive, C compiler, system
+library versions, both dependency declarations and compiler setup. A miss runs the ordinary =gerbil deps --install=
 entries. Package TAGS, development policy, production build and test publication
 checks still run after restoration. Save dependency outputs before building
 Parser so a cache entry cannot carry approval for a previous Parser source tree.
@@ -97,6 +97,18 @@ hit. Its semantic gate rejected 118.522 ms P95. These are the baseline receipts.
 Cache savings require a subsequent exact hit. A local benchmark pass alone does
 not establish that the remote tail is fixed. Retain all samples and the original
 100 ms gate on both platforms.
+
+Local checks used the locked Darwin compiler and the baseline run's published
+products. First dynamic loads encountered a 120-second timeout. A process sample
+showed Darwin =dlopen= blocked in code-signature mapping. The failed logs remain
+separate from the subsequent passing tests. Grammar admission, observability and
+test style passed through =gerbil test=. An initial pairing omitted the signed
+test library, so its baseline could not import the progress fixture. With the
+same prepared test library on both arms, the baseline/candidate/candidate/baseline
+sequence passed all four runs. Each retained the twenty-sample ASP gate. P95 was
+80.845, 73.334, 74.837 and 79.982 ms. This local comparison supports the lifetime
+change, subject to remote confirmation. The prepared FFI task passed all twenty
+alignment cases within its existing 180-second budget.
 
 * Qualification plan from Gerbil's typed markup implementation
 

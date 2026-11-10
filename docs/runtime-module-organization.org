@@ -239,3 +239,26 @@ research sources, but later fails to link =_Exit= on the installed older Darwin
 SDK. An earlier invocation lacked OpenSSL's pkg-config path and is also kept
 as a failure. Neither is counted as a complete conformance pass; the released
 Linux/macOS CI products still require their original gates.
+
+* Share tape transitions by effect
+
+The generated tape Fold owns one mutable writer per parse. Shared tape
+transitions update that writer in place, so the call site can discard the
+transition's result. Event-list transitions still return the next
+accumulator. A source-helper call can assign its returned writer to the
+local accumulator. These helpers are generated from the same statements,
+and the compiler rejects missing or cyclic helper edges. Starting at the
+leaf helpers, each tape operation preserves the writer identity, so every
+helper returns the writer it received. Select the lowering at the compiler's
+consumer boundary; grammar, frame logic, diagnostics and tape format stay
+the same.
+
+Generate both variants through the ordinary Org Fold producer and build
+each with its declared Gerbil package. Compare the complete ordered tapes,
+including invalid input and byte spans, before timing. The default
+generator reproduces the measured effect-only source; the manifest added
+by the subsequent package build is outside this source comparison.
+
+The clean production build, harness refusal checks and all 187 Scheme test
+modules passed on Darwin. The independent grammar construction gate passed
+with a 74.907 ms P95 across its 20 samples.

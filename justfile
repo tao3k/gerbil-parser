@@ -455,7 +455,10 @@ prepare-rust-abi:
     mkdir -p "${GERBIL_PATH:-.gerbil}/ci"
     install -m 755 target/debug/rust-language-abi-fixture "${GERBIL_PATH:-.gerbil}/ci/rust-language-abi-fixture"
 
-test-language-abi-alignment: build-qualification build-test-driver build-ffi-tests
+test-language-abi-alignment: build-qualification build-test-driver build-ffi-tests test-prepared-language-abi-alignment
+
+# CI restores these exact-head products from prepare; retain the same test body.
+test-prepared-language-abi-alignment:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p .data

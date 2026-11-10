@@ -66,6 +66,38 @@ The standalone process emits the original receipt before reporting success or
 failure, and exits naturally. It does not run module startup, parser execution,
 or the Suite's separate memory-policy case inside the construction interval.
 
+* CI preparation and benchmark lifetime
+
+The dependency cache contains only package installation outputs. An exact hit
+reuses the installation keyed by platform, compiler archive, both dependency
+declarations and compiler setup. A miss runs the ordinary =gerbil deps --install=
+entries. Package TAGS, development policy, production build and test publication
+checks still run after restoration. Save dependency outputs before building
+Parser so a cache entry cannot carry approval for a previous Parser source tree.
+
+Cargo owns incremental ABI program compilation. Its cache includes the Rust
+toolchain, Gerbil compiler digest and source/dependency inputs. The preparation
+job still invokes Cargo and publishes the resulting program. The FFI consumer
+runs the same twenty alignment cases against the restored products, without
+repeating the three helper builds already completed by preparation. The public
+=test-language-abi-alignment= task retains those prerequisites for local use.
+
+The observability Suite imports the independent construction benchmark. ASP
+retains each callback result until the full sample series is complete. Returning
+fifty Grammar objects per callback therefore retains every earlier object graph.
+The shared callback completes checked construction and returns =void=, retaining
+only its diagnostic counters. Its progress output is outside the timed interval.
+Warmup and the separate memory-policy scenario still validate the returned
+objects. The gate still measures fifty fresh Role/Grammar pairs in each of twenty
+samples, including constructor validation, allocation and any GC during the call.
+
+The previous Darwin preparation on run 42502655698 took 34 minutes 18 seconds.
+It spent 8 minutes 50 seconds reinstalling dependencies despite an exact cache
+hit. Its semantic gate rejected 118.522 ms P95. These are the baseline receipts.
+Cache savings require a subsequent exact hit. A local benchmark pass alone does
+not establish that the remote tail is fixed. Retain all samples and the original
+100 ms gate on both platforms.
+
 * Qualification plan from Gerbil's typed markup implementation
 
 The upstream TAL reader and compiler operate at expansion time. The reader

@@ -8,6 +8,10 @@ Historical experiments below remain receipts, rather than independent migration 
 
 * Independent Scheme benchmarks
 
+The current checked-object cost investigation, paper alignment and Lean
+refinement obligations are in [[file:checked-grammar-costs.org][Checked Grammar construction]]. The independent
+122.876 ms failure must not be described as a seconds-long LR construction.
+
 Coverage is a catalog of independent operations. Each benchmark owns one
 workload, one initial state, one measurement interval and one acceptance rule.
 The existing ASP contract and stage sampler supply shared measurement and

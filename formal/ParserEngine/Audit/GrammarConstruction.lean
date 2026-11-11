@@ -21,6 +21,16 @@ import ParserEngine.LoweringRootScope
 import ParserEngine.SchemeNameEncoding
 import ParserEngine.SourceInventory
 import ParserEngine.ConstructionDeclarationEncoding
+import ParserEngine.GrammarObjectCosts
+
+#print axioms ParserEngine.GrammarObjectCosts.fuse_plan
+#print axioms ParserEngine.GrammarObjectCosts.fused_failure
+#print axioms ParserEngine.GrammarObjectCosts.normalized_child
+#print axioms ParserEngine.GrammarObjectCosts.recipe_spine
+#print axioms ParserEngine.GrammarObjectCosts.administrative_saving
+#print axioms ParserEngine.GrammarObjectCosts.preparation_saving
+#print axioms ParserEngine.GrammarObjectCosts.identity_cache_counterexample
+#print axioms ParserEngine.GrammarObjectCosts.repeated_callback_counterexample
 
 #print axioms ParserEngine.TestPhase.generic_requests
 #print axioms ParserEngine.TestPhase.batch_independent

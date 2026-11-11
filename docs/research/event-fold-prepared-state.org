@@ -110,6 +110,132 @@ This full-entry success does not relabel the earlier 120-second focused
 cold-import timeout as a pass. Exact-head cross-platform CI is still required
 before downstream dependency promotion.
 
+The subsequent exact-head cross-platform workflow failed the independent
+Grammar construction gate on Linux: P95 135.512 ms against 100 ms. All twenty
+diagnostic intervals remain retained. Seven intervals contain GC, with wall
+times 129.787--140.189 ms and GC wall intervals about 40--44 ms. The thirteen
+without GC take 88.747--108.494 ms. This is evidence of both a narrow CPU margin
+and an allocation-sensitive tail, not evidence that host contention alone
+explains failure. Allocation counters across collection boundaries are not
+treated as reliable per-batch allocation totals. Darwin semantics and all
+other applicable Parser lanes passed; the complete workflow is still failed.
+No per-sample forced GC, extra heap, relaxed deadline or selective samples
+replace the original gate.
+
+* Shared source-line scanning candidate
+
+A diagnostic OS sample under the real =orgize_parse_events= call contains
+substantial observations in =event-fold-future=. Module-level observations
+do not identify exclusive function cost or prove an end-to-end speedup.
+Source review nevertheless finds a duplicate byte-by-byte Scheme loop in
+future-line queries. Ordinary source traversal already owns a dedicated
+scanner with the same CR, LF, CRLF and EOF rules.
+
+#+CAPTION: One synchronous byte scanner serves traversal and future-line queries.
+[[file:scheme-parser-performance-framework/shared-source-line-scan.svg]]
+
+The follow-up candidate removes that duplicate loop. A checked =source-line-end=
+entry admits byte storage and a fixnum offset within the complete buffer before
+calling the existing private scanner. The foreign pointer remains call-scoped.
+Ordinary traversal retains its admitted loop and ordered callbacks; future
+queries retain their original marker, parent-boundary and request-cache logic.
+No speculative line index, new scanner, retained pointer or cache is introduced.
+
+The existing source-input Suite compares every offset against an independent
+byte oracle, including EOF, the second byte of CRLF and offsets inside a Unicode
+scalar. It checks unmodified input and refuses wrong storage, negative,
+fractional, oversized and nonnumeric offsets before crossing the foreign boundary.
+The original complete entry and matched measurements remain separate
+requirements. This change does not close the independent Grammar or production
+ledger budget.
+
+** Matched scan component
+
+A source-only diagnostic invokes the installed compiled control procedure and
+the compiled checked shared procedure in independent ABBA processes. Both use
+the same 53,266-byte mixed-terminator/Unicode source and boundary checksum
+5,353,233. Each timed sample traverses the complete buffer twenty times; each
+process retains twenty samples. Buffer creation, loading and warmup remain
+outside the interval. No diagnostic executable is compiled. This is a component
+measurement, with no substituted end-to-end acceptance contract.
+
+| Order | Variant | Wall P50 ms | Wall P95 ms | User CPU P50 ms | User CPU P95 ms |
+|-------+---------+-------------+-------------+-----------------+-----------------|
+| 1 | Control | 15.873 | 16.360 | 15.818 | 15.835 |
+| 2 | Shared scan | 1.404 | 1.459 | 1.363 | 1.389 |
+| 3 | Shared scan | 1.380 | 1.399 | 1.361 | 1.362 |
+| 4 | Control | 16.375 | 20.405 | 16.284 | 19.592 |
+
+All four processes exited zero. The complete eighty samples have matching
+source dimensions, checksums and sample sequences; none contains GC. The
+machine exposes twelve logical CPUs. No local build/test was active during
+the pair; external host contention is not controlled. Do not project this
+component ratio onto complete Org parsing, metadata or the Rust-owner ledger.
+All raw samples, failures and source identities remain outside version control.
+
+The first complete source run with the candidate finished with four process
+cleanup errors: its sandbox refused =open-process= for =ps=. Its error report
+does not implicate the new source-input or EventFold cases, but the complete
+entry is failed. A process-enabled retry then correctly refused unissued
+=.o2= generations in the reused test output. The failed environments remain
+intact. The original full entry was then run in a fresh persistent test prefix
+with process inspection allowed. No deadline, pin or workload was changed.
+
+The fresh process-enabled entry subsequently completed all 187 source modules
+with final =OK=, including source-input and EventFold cases and all original
+process cleanup controls. Its independent Grammar workload still failed:
+twenty samples, P95 122.876 ms against 100 ms. The complete =just test-all=
+entry therefore remains failed. This is not a line-scan admission success
+for the unrelated constructor workload.
+
+** Actual ledger property query
+
+A second ABBA component test consumes the original Rust ledger scenario's
+2,000 retained Org files, totaling 557,572 bytes. It calls the actual compiled
+=fold-future-marker-before-boundary?= helper with the root property drawer's
+declared flags, constant =:END:= bytes and one new suffix cache per document.
+Each of twenty samples must match all 2,000 drawers. File loading and warmup
+are outside the interval; actual query, cache allocation and GC stay inside.
+All document and source hashes, eighty samples and four zero statuses remain
+retained. An initial diagnostic import error is retained separately.
+
+| Order | Variant | Wall P50 ms | Wall P95 ms | User CPU P50 ms | User CPU P95 ms |
+|-------+---------+-------------+-------------+-----------------+-----------------|
+| 1 | Control | 51.998 | 150.723 | 17.848 | 31.368 |
+| 2 | Shared scan | 15.352 | 247.109 | 9.222 | 23.960 |
+| 3 | Shared scan | 48.036 | 212.457 | 9.379 | 25.842 |
+| 4 | Control | 55.636 | 176.153 | 16.966 | 33.787 |
+
+The real short-line query retains a CPU reduction, substantially smaller than
+the long-line scanner ratio. Both candidate wall P95 values are worse in this
+uncontrolled-host pair. The CPU/wall gap is not proof of its cause; this data
+does not qualify wall latency or establish that the end-to-end ledger is fixed.
+Do not select the faster median or discard the slow samples. Complete consumer
+measurements and unchanged CI gates remain necessary before promotion.
+
+** Constructor representation control
+
+A separate POO lexical-shorthand experiment checked whether constant value
+slots would remove the constructor tail. It retained the original public
+prototype ancestry, all Contract calls and the frozen fifty-pair workload.
+An untimed origin check confirmed that the loaded candidate really used
+constant slots, while the control used receiver computations. A/A and ABBA
+retained all 120 samples, with unchanged workload hashes.
+
+| Order | Variant | Original P95 ms | User CPU P50 ms | GC count |
+|-------+---------+-----------------+-----------------+----------|
+| 1 | Control | 147.583 | 69.033 | 7 |
+| 2 | Control | 156.533 | 65.831 | 7 |
+| 3 | Control | 128.622 | 59.899 | 7 |
+| 4 | Lexical values | 166.501 | 72.579 | 7 |
+| 5 | Lexical values | 185.839 | 68.287 | 7 |
+| 6 | Control | 975.113 | 89.430 | 7 |
+
+All six original gates failed. The candidate showed no stable CPU or GC gain
+and was withdrawn; changing slot syntax does not close this workload. The
+outlier remains retained, not discarded. Constructor admission, normalization
+and evidence allocation still need attribution without weakening their checks.
+
 * Qualification and evidence limits
 
 The first native qualification used =8e98e830= plus this candidate, the existing

@@ -1,6 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Source-backed future-line queries for Scheme event folds.
-(import (only-in ./funcs.ss ascii-lower-byte
+(import (only-in ../runtime/source-lines source-line-end)
+        (only-in ./funcs.ss ascii-lower-byte
                  compiler-position-index-add!
                  compiler-position-index-freeze!
                  compiler-position-vector-next
@@ -14,17 +15,6 @@
 ;; Cache suffix answers for one parse request; dynamic parameters keep nested
 ;; and concurrent parses independent.
 (def current-future-scan-cache (make-parameter #f))
-
-(def (fold-future-line-end bytes start)
-  (let (size (u8vector-length bytes))
-    (let loop ((cursor start))
-      (if (or (= cursor size) (memv (u8vector-ref bytes cursor) '(10 13)))
-        (if (= cursor size) cursor
-          (if (and (= (u8vector-ref bytes cursor) 13)
-                   (< (+ cursor 1) size)
-                   (= (u8vector-ref bytes (+ cursor 1)) 10))
-            (+ cursor 2) (+ cursor 1)))
-        (loop (+ cursor 1))))))
 
 (def (fold-future-marker-line? bytes start end prefix indent?)
   (let* ((begin (if indent?
@@ -133,7 +123,7 @@
         (parent-prefix-bytes (and parent? (string->utf8 parent-prefix))))
     (let scan ((cursor 0))
       (when (< cursor (u8vector-length bytes))
-        (let* ((end (fold-future-line-end bytes cursor))
+        (let* ((end (source-line-end bytes cursor))
                (begin (if indent?
                         (let skip ((at cursor))
                           (if (and (< at end)
@@ -221,7 +211,7 @@
      ((hash-get cache cursor) =>
       (lambda (answer) (finish (= answer 1) visited)))
      (else
-      (let* ((end (fold-future-line-end bytes cursor))
+      (let* ((end (source-line-end bytes cursor))
              (decision (classify cursor end))
              (visited (cons cursor visited)))
         (case decision

@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Request source traversal has no grammar/compiler initialization dependency.
 (import (only-in :std/string/utf8 string-utf8-length utf8->string) :std/ffi)
-(export fold-source-lines fold-source-byte-lines fold-source-byte-spans
+(export source-line-end fold-source-lines fold-source-byte-lines fold-source-byte-spans
         fold-source-frame-boundaries! fold-source-input-bytes source-line-events line-starts-with?)
 
 ;; The visitor still runs once for each original line, in order. Scan only
@@ -21,6 +21,14 @@
      }
    }
    ___return(cursor);")
+
+;; Public callers may start inside a line, but must not pass an unchecked
+;; foreign offset. The byte buffer is borrowed only for this synchronous call.
+(def (source-line-end bytes start)
+  (unless (and (u8vector? bytes) (fixnum? start)
+               (fx<= 0 start (u8vector-length bytes)))
+    (error "source line start outside byte storage" start))
+  (source-next-line-end bytes start (u8vector-length bytes)))
 
 ;; A call-scoped UTF-8 buffer can drive the same byte Fold without an
 ;; encode/decode/encode round trip. Retain official decoder admission: do not

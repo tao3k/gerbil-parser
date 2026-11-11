@@ -1,0 +1,24 @@
+direction: right
+vars: {
+  d2-config: {
+    theme-id: 3
+    pad: 32
+  }
+}
+style.font-size: 18
+
+source: "Request-owned byte buffer"
+traversal: "Source traversal\nAdmitted loop bounds"
+future: "Future-line query\nChecked storage and offset"
+scan: "Shared line scanner\nSynchronous buffer borrow" {
+  style.border-radius: 8
+}
+boundary: "Line boundary\nCR, LF, CRLF or end of input"
+visit: "Original ordered visitor"
+answer: "Original marker and boundary predicates"
+
+source -> traversal -> scan
+source -> future -> scan
+scan -> boundary
+boundary -> visit
+boundary -> answer

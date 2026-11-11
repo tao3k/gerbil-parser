@@ -22,10 +22,98 @@ through a thin adapter. There is no downstream compilation cache or new process
 launcher. The dynamic =run-event-fold= entry prepares explicit caller data and
 uses the same executor; it is not a second parser.
 
+* Static name membership within a request
+
+The interpreted =line-bytes-in-set?= path previously called
+=fold-static-name-set= for every selected line and then searched the admitted
+list linearly. Admission visits every name and allocates character lists.
+The Org name-set workload has twenty physical lines and performs one hundred
+complete Folds in each sample, so this path repeats full table admission two
+thousand times per sample. A compiler-generated Fold already uses the shared
+byte-slice binary search. The interpreted path had not reused that primitive.
+
+#+CAPTION: Declaration ownership and shared name lookup across Fold execution paths.
+[[file:scheme-parser-performance-framework/request-static-name-index.svg]]
+
+The candidate admits a name list on its first evaluated use in the existing
+request-local byte-predicate owner and retains an ordinary vector index for
+that request. Further selected lines invoke =fold-line-name-set-contains?=,
+the same byte comparator and binary search as generated Scheme. Uniform byte
+vectors and ordinary name vectors are distinct cache witnesses: a name index
+must not admit malformed scalar byte operands, even when the byte span is empty.
+
+For N names and L selected lines, repeated full-table admission changes from
+L table traversals to one per reached list identity per request. Membership
+changes from a linear search to binary search. Program snapshotting and the
+remaining statement execution still occur. The unchanged end-to-end workload
+continues to perform all one hundred preparations inside its timed interval.
+It does not become a prepared-execution-only benchmark.
+
+The owner remains request-local, and initial admission remains lazy. A malformed
+name list in an unselected branch is not evaluated. The next request obtains
+a fresh owner and must admit current declarations again. Program preparation
+still snapshots caller pairs and strings. No process-wide memo or additional
+downstream parser is introduced. Compile-time admission remains the generated
+path's responsibility; shared lookup does not equate the two admission times.
+
+Validation must cover ASCII slices, near matches and UTF-8 source, malformed
+and unsorted names, shared name/byte operands, caller mutation after preparation,
+and mutation of exposed program data between requests. The normal package build,
+original full Scheme entry and frozen paired workload remain required.
+An earlier focused source-only test stopped at its original 120-second limit
+while generating the imported =event-lines-grammar= fixture, before Suite
+execution. That failed evidence is retained; the existing test-support Build
+owner must prepare the fixture before repeating the same test deadline.
+
+** Frozen paired workload
+
+The real Org table contains 392 names. On the original path, twenty selected
+lines therefore revisit 784,000 name entries for admission in each hundred-Fold
+sample, before the separate sortedness and membership comparisons. The
+candidate admits 39,200 entries per sample, retaining all hundred preparations.
+These are algorithmic visit counts from the workload and call placement,
+not measured CPU percentages.
+
+The first retained observation at Orgize =9a9f63d8= failed with P95 471.793 ms.
+The candidate then ran against the installed =e5fdd53= control in A/A and ABBA
+order. Each independent process retained all twenty original samples and the
+same source, 392-name table, expected events and 100 ms contract. The original
+whole-workload entry supplied sampling; no new benchmark runner was added.
+
+| Order | Variant | P50 ms | P95 ms | Maximum ms | Original gate |
+|-------+---------+--------+--------+------------+---------------|
+| 1 | Control | 413.137 | 635.369 | 878.599 | Fail |
+| 2 | Control | 120.193 | 386.632 | 398.621 | Fail |
+| 3 | Control | 105.648 | 133.019 | 139.601 | Fail |
+| 4 | Candidate | 22.835 | 60.997 | 67.673 | Pass |
+| 5 | Candidate | 16.368 | 48.649 | 51.293 | Pass |
+| 6 | Control | 278.617 | 674.587 | 705.368 | Fail |
+
+All 120 samples and every failure are retained outside version control.
+Four uses of the existing Scheme comparator passed full input, contract,
+event and sample-count equivalence. Whole-process user CPU was 6.36--9.51 s
+on controls and 4.52--4.54 s on candidates; these figures include startup and
+all twenty samples, not just the timed batch. Large A/A variation prevents
+a stable speedup ratio claim. No local compilation was active during the
+pairing. Host contention was not controlled; machine capacity was twelve
+logical CPUs. Both candidate P95 gates passed, while complete package tests
+and exact-head CI remain independent obligations. Production ledger failures
+in the Rust-owner lanes are not closed by this interpreted-name result.
+
+The subsequent original =just test-all= entry completed naturally with status
+zero. Its standard owner prepared the complete test-support import closure;
+all 187 source test modules passed, including the EventFold module containing
+the new ASCII, cross-kind and mutation controls. The independent fifty-pair
+Grammar workload retained twenty samples and passed at P95 83.378 ms against
+100 ms. Its source inputs remained admitted before and after execution.
+This full-entry success does not relabel the earlier 120-second focused
+cold-import timeout as a pass. Exact-head cross-platform CI is still required
+before downstream dependency promotion.
+
 * Qualification and evidence limits
 
 The first native qualification used =8e98e830= plus this candidate, the existing
-Gerbil SDK and the existing Just owners. All 61 EventFold cases passed, including
+Gerbil toolchain and the existing Just owners. All 61 EventFold cases passed, including
 five new controls for request isolation, temporary bindings, first declarations,
 source snapshots/UTF-8, helper parameters and malformed/cyclic input. The hard
 idle watchdog, assertion propagation and final =OK= requirement remain intact.

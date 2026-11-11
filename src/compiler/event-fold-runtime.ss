@@ -4,7 +4,8 @@
         (only-in ../runtime/event-fold-lines
                  current-fold-line-view fold-line-bytes fold-key-byte? fold-ascii-prefix?
                  line-starts-with-ascii-ci? fold-line-prefix-boundary? fold-line-blank?
-                 fold-line-has-key-after-prefix? fold-line-has-word-after-prefix?)
+                 fold-line-has-key-after-prefix? fold-line-has-word-after-prefix?
+                 fold-line-name-set-contains?)
         (only-in ./event-fold-byte-set.ss
                  current-fold-byte-set-cache fold-byte-set-for fold-marker-byte)
         (only-in ./event-fold-state-frame.ss
@@ -97,6 +98,17 @@
                           (loop (cdr rest))))))
     (error "event fold static name set must be sorted unique ASCII" values))
   values)
+
+(def (fold-name-set-index values)
+  ;; Snapshot-owned declarations cannot change during a closed Fold. Admit
+  ;; on first use, retaining lazy rejection and the existing request lifetime.
+  ;; Reuse the byte-predicate owner rather than a process-wide grammar memo.
+  (let* ((cache (current-fold-byte-set-cache))
+         (prepared (and cache (table-ref cache values #f))))
+    (or (and (vector? prepared) prepared)
+        (let (index (list->vector (fold-static-name-set values)))
+          (when cache (table-set! cache values index))
+          index))))
 
 (def (fold-unsigned? value)
   (and (exact-integer? value) (>= value 0)))
@@ -487,20 +499,13 @@
     ((line-bytes-in-set?)
      (unless (= (length expression) 4)
        (error "invalid event fold name-set predicate" expression))
-     (let* ((names (fold-static-name-set (cadddr expression)))
+     (let* ((names (fold-name-set-index (cadddr expression)))
             (from (fold-offset (cadr expression) line start end states indices))
             (until (fold-offset (caddr expression) line start end states indices))
             (bytes (fold-line-bytes line)))
        (unless (and (<= start from) (<= from until) (<= until end))
          (error "event fold name range outside source line" expression))
-       (ormap (lambda (name)
-                (and (= (- until from) (string-length name))
-                     (let loop ((index 0))
-                       (or (= index (string-length name))
-                           (and (= (u8vector-ref bytes (+ (- from start) index))
-                                   (char->integer (string-ref name index)))
-                                (loop (+ index 1)))))))
-              names)))
+       (fold-line-name-set-contains? bytes (- from start) (- until start) names)))
     ((source-slices-equal? source-slices-equal-ascii-ci?)
      (unless (= (length expression) 5)
        (error "invalid event fold source-slice comparison" expression))

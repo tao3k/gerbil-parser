@@ -1,0 +1,37 @@
+direction: right
+vars: {
+  d2-config: {
+    theme-id: 3
+    pad: 32
+  }
+}
+style: {
+  font-size: 18
+}
+
+declarations: "Closed Fold declarations"
+interpreted: "Interpreted Fold" {
+  direction: down
+  snapshot: "Owned declaration snapshot"
+  selected: "First selected use" {
+    shape: hexagon
+  }
+  index: "Request-local\nvalidated name vector"
+  snapshot -> selected -> index
+}
+compiled: "Compiled Fold" {
+  direction: down
+  admission: "Compile-time admission"
+  literal: "Read-only name vector"
+  admission -> literal
+}
+lookup: "Shared byte-slice\nbinary search" {
+  style.border-radius: 8
+}
+result: "Predicate result\nOriginal statement execution"
+
+declarations -> interpreted.snapshot
+declarations -> compiled.admission
+interpreted.index -> lookup
+compiled.literal -> lookup
+lookup -> result

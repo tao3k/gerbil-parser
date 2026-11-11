@@ -587,6 +587,52 @@
       (equal (hash-ref (hash-ref (vector-ref (hash-ref ir "line") 0)
                                    "condition") "kind")
                 "line_bytes_in_set"))
+    (scenario "interpreted name indices match every admitted ASCII byte slice"
+      (scope ((names (map (lambda (index) (string (integer->char (+ 32 index)))) (iota 95))))
+        (each (name) (names)
+          (equal
+           (run-event-fold (string-append "x" name "y\n") 'Document '()
+             `((if (line-bytes-in-set? (line-step start)
+                                      (line-step (line-step start)) ,names)
+                   ((token Match (line-step start) (line-step (line-step start))))
+                   ())) '())
+           '((start Document) (token Match 1 2) (finish))))))
+    (scenario "a name index cannot admit a malformed byte set on an empty span"
+      (scope ((names '("alpha" "beta")))
+        (raises
+         (run-event-fold "alpha\n" 'Document '()
+           `((if (line-bytes-in-set? start (line-content-end) ,names)
+                 ((token Match start end)) ())
+             (if (line-bytes-all-in? start start ,names) () ())) '())
+         true)))
+    (scenario "name-set admission stays lazy and does not survive request reuse"
+      (each (invalid) ('(() ("") ("beta" "alpha") ("alpha" "alpha") ("α") (65)))
+        (raises
+         (run-event-fold "alpha\n" 'Document '()
+           `((if (line-bytes-in-set? start (line-content-end) ,invalid) () ())) '())
+         true))
+      (equal
+       (run-event-fold "alpha\n" 'Document '()
+         '((if (bool #f)
+               ((if (line-bytes-in-set? start end ("beta" "alpha")) () ()))
+               ())) '())
+       '((start Document) (finish)))
+      (sequential
+          ((names (list (string-copy "alpha") (string-copy "beta")))
+           (forms `((if (line-bytes-in-set? start (line-content-end) ,names)
+                        ((token Match start end)) ())))
+           (program (prepare-event-fold-program 'Document '() forms '())))
+        (equal (run-event-fold-program program "alpha\n")
+               '((start Document) (token Match 0 6) (finish)))
+        (act (string-set! (car names) 0 #\z))
+        (equal (run-event-fold-program program "alpha\n")
+               '((start Document) (token Match 0 6) (finish)))
+        (raises (run-event-fold "alpha\n" 'Document '() forms '()) true)
+        (act
+         (match (event-fold-program-line-forms program)
+           ([['if ['line-bytes-in-set? _ _ owned-names] _ _]]
+            (string-set! (car owned-names) 0 #\z))))
+        (raises (run-event-fold-program program "alpha\n") true)))
     (property "saved source bounds scan one UTF-8 span across physical lines"
       (bindings (initial '((span-start 0) (span-end 0))) (line '((set-uint span-end (offset end)))) (finish
               '((with-source-bounds (state-offset span-start)

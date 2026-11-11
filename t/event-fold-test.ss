@@ -11,6 +11,8 @@
                  event-fold-ir-json run-event-fold)
         (only-in :gerbil-parser/src/compiler/event-fold-runtime
                  prepare-event-fold-program run-event-fold-program)
+        (only-in :gerbil-parser/src/compiler/event-fold-program
+                 event-fold-program-line-forms)
         (only-in :gerbil-parser/src/compiler/event-strategy-aot
                  fold-source-lines source-line-events)
         (only-in :gerbil-parser/src/compiler/event-fold-state-frame

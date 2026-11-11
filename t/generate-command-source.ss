@@ -5,7 +5,7 @@
         (only-in :gerbil-parser/src/ffi/language-artifact-codec bind-language-abi abi-descriptor-payload abi-parse-binary-payload)
         (only-in :gerbil-parser/t/fixtures/tla-sany-differential/exit-child-process test-child-process-exit!)
         (only-in :clan/poo/object .o .ref)
-        (only-in :gerbil-parser/t/fixtures/bash-products bash-results bash-parts bash-word-regions bash-commands bash-command-scanner)
+        (only-in :gerbil-parser/t/fixtures/bash-compiler-products bash-results bash-parts bash-word-regions bash-commands bash-command-scanner)
         (only-in :gerbil-parser/src/compiler/rust-scanner command-source-rust-module-source)
         (only-in :gerbil-parser/src/runtime/source-engines ShellSourceStrategy.)
         (only-in :gerbil-parser/src/compiler/rust-runtime result-profile-rust-source)

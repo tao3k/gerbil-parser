@@ -328,8 +328,7 @@ jobs:
         run: |
           gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --idle-timeout 5 \
             --log /tmp/module-source-generation.log --require MODULE-SOURCE-RUST-GENERATED \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss")  (preload-module "gerbil-parser/t/module-source-test")' \
-            t/generate-module-source.ss /tmp/module-source.rs
+            -- gxi -e '(load "t/fixtures/module-loading/observations.ss") (call-with-module-evaluation-trace (lambda () (##load-module-or-file "t/generate-module-source.ss" void) ((eval (quote main)) "/tmp/module-source.rs")))'
           rustfmt --edition 2024 /tmp/module-source.rs
           cmp /tmp/module-source.rs rust/gerbil-parser-runtime/tests/fixtures/generated/module_source.rs
           gerbil env gxi t/generate-scheme-whitespace-class.ss /tmp/scheme-whitespace.rs
@@ -376,8 +375,7 @@ jobs:
           gerbil env gxi t/fixtures/shared-scanner/generate.ss /tmp/shared-scanner.rs
           gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --idle-timeout 5 \
             --log /tmp/bash-scanner-generation.log --require BASH-SCANNER-RUST-GENERATED \
-            -- gxi -e '(load "t/fixtures/module-loading/observations.ss")  (preload-module "gerbil-parser/t/fixtures/shared-scanner/bash")' \
-            t/fixtures/shared-scanner/generate-bash.ss /tmp/bash-scanner.rs
+            -- gxi -e '(load "t/fixtures/module-loading/observations.ss") (call-with-module-evaluation-trace (lambda () (##load-module-or-file "t/fixtures/shared-scanner/generate-bash.ss" void) ((eval (quote main)) "/tmp/bash-scanner.rs")))'
           rustfmt --edition 2024 /tmp/bash-scanner.rs
           cmp /tmp/bash-scanner.rs rust/gerbil-parser-runtime/tests/fixtures/generated/bash_scanner.rs
           gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --idle-timeout 5 \

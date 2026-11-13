@@ -7,7 +7,7 @@
 (import :std/test
         (only-in :clan/poo/object .ref)
         (only-in :std/misc/ports read-all-as-string)
-        :yuanxu/observability/debug
+        :tao3k/yuanxu/observability/debug
         (only-in "./benchmarks/poo-grammar-objects/construction.ss"
                  make-observed-grammar-batch observed-grammar-batch-valid?))
 
@@ -20,7 +20,7 @@
       (equal
          (and (string-contains
                source
-               ":yuanxu/observability/debug")
+               ":tao3k/yuanxu/observability/debug")
               (not (string-contains
                     source
                     ":poo-flow/src/module-system/observability/interface")))

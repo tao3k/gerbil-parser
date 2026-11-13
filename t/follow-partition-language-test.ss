@@ -11,7 +11,7 @@
                  language-loader-fixtures language-loader-fixture-count)
         (only-in :gerbil-parser/language-support/entry language-parser-entry-ref)
         :std/test
-        (only-in :yuanxu/observability/testing-case yuanxu-test-case)
+        (only-in :tao3k/yuanxu/observability/testing-case yuanxu-test-case)
         (only-in :gerbil-parser/languages/arithmetic/grammar
                  arithmetic-grammar arithmetic-parser)
         (only-in :gerbil-parser/languages/hcl/grammar

@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Request source traversal has no grammar/compiler initialization dependency.
 (import (only-in :std/string/utf8 string-utf8-length utf8->string) :std/ffi)
-(export fold-source-lines fold-source-byte-lines fold-source-byte-spans
+(export source-line-end fold-source-lines fold-source-byte-lines fold-source-byte-spans
         fold-source-frame-boundaries! fold-source-input-bytes source-line-events line-starts-with?)
 
 ;; The visitor still runs once for each original line, in order. Scan only
@@ -22,6 +22,14 @@
    }
    ___return(cursor);")
 
+;; Public callers may start inside a line, but must not pass an unchecked
+;; foreign offset. The byte buffer is borrowed only for this synchronous call.
+(def (source-line-end bytes start)
+  (unless (and (u8vector? bytes) (fixnum? start)
+               (fx<= 0 start (u8vector-length bytes)))
+    (error "source line start outside byte storage" start))
+  (source-next-line-end bytes start (u8vector-length bytes)))
+
 ;; A call-scoped UTF-8 buffer can drive the same byte Fold without an
 ;; encode/decode/encode round trip. Retain official decoder admission: do not
 ;; reinterpret arbitrary bytes as valid text or weaken scalar checks.
@@ -31,7 +39,13 @@
   (cond
    ((string? source) (string->utf8 source))
    ((u8vector? source)
-    (utf8->string source)
+    ;; Make decoder admission observable in optimized products: discarding
+    ;; its result permits the pure conversion to disappear. UTF-8 has at
+    ;; least one byte per decoded scalar; the check retains the official
+    ;; strict decoder without re-encoding or replacing the owned buffer.
+    (let (text (utf8->string source))
+      (unless (fx<= (string-length text) (u8vector-length source))
+        (error "decoded source exceeds UTF-8 byte storage")))
     source)
    (else (error "event Fold requires text or UTF-8 byte storage"))))
 

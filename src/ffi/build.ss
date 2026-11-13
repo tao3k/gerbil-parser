@@ -1,6 +1,5 @@
 ;;; The ABI owner contributes its three C leaves and their native include/link options.
-(import (only-in :std/source this-source-file)
-        (only-in :clan/poo/object .o))
+(import (only-in :std/source this-source-file))
 (export Build)
 (def Build
   (let ((include-option
@@ -10,8 +9,6 @@
         (link-options (cond-expand
                         (darwin '("-ld-options" "-Wl,-undefined,dynamic_lookup"))
                         (else '()))))
-    (.o kind: 'module/build
-        library-roots: '("language-abi-support" "src/ffi/rust-runtime-aot" "src/ffi/schema")
-        roots: (map (lambda (module)
+    (append '("rust-runtime-aot" "schema") (map (lambda (module)
                       `(gxc: ,module "-cc-options" ,include-option ,@link-options))
                     '("language-abi" "language-abi-context" "rust-aot-abi")))))

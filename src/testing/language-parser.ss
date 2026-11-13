@@ -1,9 +1,20 @@
 ;;; Declarative test syntax; language execution dependencies belong to loader declarations.
 (import (for-syntax (only-in ./contracts parser-test-form-admitted?))
-        (only-in :std/test check check-exception test-case test-suite)
-        (only-in :yuanxu/observability/testing-case yuanxu-test-case)
+        (only-in :std/test check test-case test-suite)
+        (only-in :tao3k/yuanxu/observability/testing-case yuanxu-test-case)
         (only-in ./parser-ast check-parser-ast check-accepted-parse))
-(export deflanguage-parser-tests defparser-check parser-check parser-check-result parser-check-procedure parser-test-datum-writer)
+(export deflanguage-parser-tests defparser-check parser-check parser-check-result parser-check-procedure parser-test-datum-writer
+        parser-exception-matches?)
+
+;; Capture only the subject. A missing-exception assertion must not catch
+;; its own failure. Normal zero/multiple values are not arity exceptions.
+(def (parser-exception-matches? (produce : :procedure) (predicate : :procedure))
+  => :boolean
+  (let-values (((raised? failure)
+                (with-catch (lambda (failure) (values #t failure))
+                  (lambda ()
+                    (call-with-values produce (lambda ignored (values #f #f)))))))
+    (and raised? (not (not (predicate failure))))))
 
 ;;; Finite engine matrices use the same closed property/equality clauses as
 ;;; language fixtures. Empty axes are rejected rather than silently skipping.
@@ -47,7 +58,10 @@
     (case (stx-e (stx-car node))
       ((equal) (syntax-case node () ((_ actual expected) #'(check actual => expected))))
       ((matches) (syntax-case node () ((_ actual predicate) #'(check actual ? predicate))))
-      ((raises) (syntax-case node () ((_ expression predicate) #'(check-exception expression predicate))))
+      ((raises)
+       (syntax-case node ()
+         ((_ expression predicate)
+          #'(check (parser-exception-matches? (lambda () expression) predicate) => #t))))
       ((ast) (syntax-case node () ((_ artifact source pattern) #'(check-parser-ast artifact source pattern))))
       ((accepted-parse)
        (syntax-case node ()

@@ -2,19 +2,19 @@
 ;;; Standard currentness and scheduling for reusable Scheme test helpers.
 (import (for-syntax
           (only-in :std/source this-source-file)
-          (only-in :yuanxu/module-system/building/source-package register-module-build-source!)))
+          (only-in :tao3k/yuanxu/module-system/building/source-package register-module-build-source!)))
 (begin-syntax
   (register-module-build-source! (path-expand "../../../" (path-directory (this-source-file))) 'gerbil-parser))
 (import (rename-in (only-in :gerbil/tools/gxtest main) (main gxtest-main))
         (only-in :std/build-script defbuild-script)
-        (only-in :yuanxu/module-system/building/source-package
+        (only-in :tao3k/yuanxu/module-system/building/source-package
                  call-with-build-input-path register-module-build-source!)
         (only-in :std/source this-source-file)
         (only-in :std/list/list delete-duplicates/hash)
         (only-in "../../fixtures/ffi/build.ss" ffi-build-spec ffi-test-command)
         (rename-in (only-in "../../../src/ffi/build.ss" Build) (Build ffi-library-build))
-        (only-in :yuanxu/observability/testing-script TestingScript.)
-        (only-in :yuanxu/observability/testing-fixture call-with-yuanxu-fixture))
+        (only-in :tao3k/yuanxu/observability/testing-script TestingScript.)
+        (only-in :tao3k/yuanxu/observability/testing-fixture call-with-yuanxu-fixture))
 (import (only-in :clan/poo/object .o .cc .get .call)
         (only-in "../../../init.ss" gerbil-parser.init.exports))
 (extern namespace: gerbil/tools/gxtest collect-files)
@@ -35,7 +35,7 @@
     (not (member (string-append (cadr target) ".ss") files)))
   (delete-duplicates/hash
     (append (filter support-library? (ffi-build-spec #t))
-            (map qualify-ffi-target (.get ffi-library-build roots))
+            (map qualify-ffi-target (filter pair? ffi-library-build))
             (list timing))
     key: cadr))
 

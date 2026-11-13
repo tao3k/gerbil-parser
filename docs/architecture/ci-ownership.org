@@ -795,8 +795,8 @@ Pinned std/make orders targets by module imports; separate executable roots shar
 generated C files outside that target dependency map. It has no implemented
 extra-dependency/order-only spec for this resource relationship. The existing
 package program phase therefore delegates one declared program at a time to its
-ordinary std/build-script invocation. Each invocation retains the configured two
-compiler workers and2GiB; native Make still owns freshness, queues, job completion
+ordinary std/build-script invocation. Each invocation uses the detected host
+capacity through =GERBIL_BUILD_CORES= and the 2 GiB heap. Native Make owns freshness, queues, job completion
 and linking. No second scheduler, lock, stamp, dependency catalog or private
 output environment is introduced. Metadata/spec/clean remain one native response.
 
@@ -814,3 +814,38 @@ from correcting command configuration. Native meta still returns exactly
 ("spec" "compile" "clean"). Pinned Gerbil's compiler executor reads
 GERBIL_BUILD_CORES; each singleton standard invocation drains that existing pool
 before the next executable starts. The worker count was not changed to one.
+
+* Source generator ownership
+
+Eight generators run from Scheme source in the generation workflow. Their
+original output comparisons remain the acceptance boundary. Conformance
+preparation retains their ordered source roots and native import closure,
+while linking fourteen tools consumed as executables. The generation sources
+share the same program roster and require no additional build entry.
+
+The module-framing grammar lives in =t/fixtures/module-framing/grammar.ss=.
+Its test Suite and Rust generator import this one declaration. The test module
+retains its grammar export, and its TLA+ and parser checks remain in the Suite.
+The fixture imports the existing focused =language-support/grammar= frontend.
+
+=bash-compiler-products.ss= derives compiler products from the production Bash
+syntax once. Generators and scanner fixtures consume these products directly.
+=bash-products.ss= retains the existing parser descriptor and product exports
+for callers that need both. Both paths refer to the same product instances.
+
+Module Source and Bash source generation use the existing module-evaluation
+trace around the complete source load and main call. This covers actual import
+and module execution during the original 90-second total and 5-second idle
+limits. The same trace already owns the other source generation checks.
+
+Local validation runs the original six affected Scheme Suites and all seven
+affected generation steps, including the existing Rust formatting and byte
+comparisons. Generated files and failed watchdog transcripts stay in the
+local cache. Grammar construction retains its independent 100 ms P95 gate.
+
+The six Suites passed 72 cases. After preparing the existing ABI datum helper,
+all seven workflow steps passed and all fifteen compared outputs matched
+their tracked fixtures. Initial missing-helper and watchdog failures remain
+in the local cache. The ordinary conformance build completed with the fourteen
+retained executable roots and the eight source-only generator binaries absent.
+The complete =just test-all= entry remains a separate acceptance gate.

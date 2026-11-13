@@ -1,11 +1,19 @@
 ;;; Complete products for shared publication, independent of a language grammar.
 (import (only-in :std/list/list-builder with-list-builder)
         (only-in :gerbil-parser/src/runtime/artifact
-                 make-success-parse-artifact sha256-text)
+                 +diagnostic-schema+ make-success-parse-artifact sha256-text)
         (only-in :gerbil-parser/src/runtime/token make-token)
         (only-in :gerbil-parser/src/runtime/recognition
                  make-recognition-node make-recognition-child))
-(export window-tokens window-artifact)
+(export window-tokens window-artifact publication-diagnostic)
+
+;; Positive publication fixtures carry the same required diagnostic header
+;; as language producers. Construct once before any timed publication thunk.
+(def (publication-diagnostic message)
+  (list (cons 'schema +diagnostic-schema+)
+        (cons 'code "PUBLICATION-CONTROL")
+        (cons 'reasonKind 'parse-rejected)
+        (cons 'message message)))
 
 (def (window-tokens source)
   (with-list-builder (emit)

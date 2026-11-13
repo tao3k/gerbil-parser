@@ -13,7 +13,7 @@
                  validate-lr-tables layout-productions?)
         (only-in :std/vector/vector
                  vector-map/index)
-        (only-in :yuanxu/poo-clos/generic-syntax
+        (only-in :tao3k/yuanxu/poo-clos/generic-syntax
                  .defgeneric .defmethod)
         (only-in ../../compiler/lr
                  lr-spec-ref production-action validate-production-semantics production-precedence production-rhs production-table production-lhs)

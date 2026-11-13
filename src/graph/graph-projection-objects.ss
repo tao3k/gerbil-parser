@@ -2,10 +2,10 @@
 ;;; POO-native graph projection declarations; syntax belongs to language packs.
 
 (import (only-in :clan/poo/object .o .ref)
-        (only-in :yuanxu/object-types/contracts
+        (only-in :tao3k/yuanxu/object-types/contracts
                  yuanxu-contract-admit
                  yuanxu-validation-evidence-accepted?)
-        (only-in :yuanxu/object-family/interface
+        (only-in :tao3k/yuanxu/object-family/interface
                  defpoo-object-family)
         (only-in ./graph-projection-types
                  +graph-projection-kind+ +graph-node-kind+ +graph-field-kind+

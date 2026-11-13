@@ -5,7 +5,7 @@
         (only-in :std/misc/ports read-all-as-string)
         (only-in :std/build-script defbuild-script)
         (only-in :gerbil/expander core-read-module/sexp)
-        (only-in :yuanxu/module-system/building/source-package register-module-build-source!)
+        (only-in :tao3k/yuanxu/module-system/building/source-package register-module-build-source!)
         (only-in :asp-gerbil-scheme/src/build-api/policy-runner
                  asp-gerbil-scheme-run-selected-policy))
 (export main)

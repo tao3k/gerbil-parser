@@ -7,7 +7,7 @@
 ;;; LR(1)-but-not-LALR(1) grammar checks the state-splitting reference.
 
 (import :std/test
-        (only-in :yuanxu/observability/testing-case yuanxu-test-case)
+        (only-in :tao3k/yuanxu/observability/testing-case yuanxu-test-case)
         (only-in :gerbil-parser/src/compiler/funcs
                  compiler-index-set-difference compiler-index-set-union
                  compiler-index-set-for-each compiler-index-set-reachable

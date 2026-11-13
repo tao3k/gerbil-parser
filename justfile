@@ -97,11 +97,14 @@ test-compiler-policy: qualify-library build-qualification
 test-harness-refusal:
     #!/usr/bin/env bash
     set -euo pipefail
-    if gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --log .data/native-harness-failure.log --require "^OK$" -- gerbil test -v 3 t/fixtures/harness-failure.ss; then
-        echo 'native failed Suite was incorrectly accepted' >&2
-        exit 1
-    fi
-    grep -E 'ERROR (CHECK|CASE|HARNESS)' .data/native-harness-failure.log >/dev/null
+    for fixture in harness-failure exception-assertion-failure; do
+        log=".data/native-$fixture.log"
+        if gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --log "$log" --require "^OK$" -- gerbil test -v 3 "t/fixtures/$fixture.ss"; then
+            echo "failed Suite was incorrectly accepted: $fixture" >&2
+            exit 1
+        fi
+        grep -E 'ERROR CHECK ' "$log" >/dev/null
+    done
     echo 'GERBIL-HARNESS-REFUSAL-OK'
 
 # Compile the suite's own fixtures, not only its import declarations.

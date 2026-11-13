@@ -1,4 +1,69 @@
-#+title: Native runtime owner decomposition
+#+title: Runtime owner decomposition
+
+* Compiled input admission and exception assertions
+
+The public =fold-source-input-bytes= keeps the official UTF-8 decoder as
+the admission owner. A discarded conversion was insufficient in optimized
+compiled products: malformed byte vectors reached traversal even though a
+direct decoder call rejected them. The conversion now contributes an
+observable scalar-count bound before returning the original byte vector.
+Valid byte input retains its identity; no second encoder or decoder is added.
+The caller must keep the buffer unchanged during synchronous traversal.
+
+The existing =raises= clause also required correction. The locked Std Test
+=check-exception= can catch its own missing-exception failure when the supplied
+predicate accepts every raised value. Parser now captures only the subject's
+outcome through a typed higher-order predicate, then uses ordinary Std Test
+equality outside that catch. Normal zero or multiple return values cannot
+become incidental arity exceptions. A raised false value remains distinct
+from normal return, and the subject runs once.
+
+=t/source-input-test.ss= exercises the installed public input owner, including
+all invalid single-byte values and malformed multi-byte classes.
+=t/exception-assertion-test.ss= checks outcome separation and predicate
+matching. Together with the existing AST style suite, the focused compiled
+check passed 19 cases in three suites with natural exit and no error markers.
+These tests neither build their own runtime copy nor define another runner.
+
+The existing =test-harness-refusal= entry also runs a deliberate
+=raises 42 true= failure and requires =ERROR CHECK= from each negative
+fixture. A missing helper module cannot satisfy that assertion-specific
+receipt. Full package preparation and the complete test closure remain
+separate acceptance gates; the focused result does not establish their pass.
+
+The complete Scheme closure exposed one previously hidden policy defect:
+an invalid validator result such as the symbol =invalid= could become the
+sole diagnostic of an otherwise valid rejected artifact. Canonical artifact
+validation now requires the diagnostic schema, string code, rejection reason
+and string message. Both source-bound validation and roundtrip validation use
+that same owner. The check runs only on the rejected branch; accepted parsing
+does not construct or traverse a diagnostic-check callback.
+
+The policy, artifact and style suites passed 37 cases in three suites against
+a fresh compiled owner. Regressions cover malformed containers and each
+required diagnostic header, retaining valid rejected artifacts. The prior
+complete-suite failure is preserved; the complete entry is rerunning and is
+not inferred from this focused pass.
+
+The next complete run correctly rejected old positive publication fixtures
+which supplied only a =message= field. Their source/event workloads were
+unchanged, but their diagnostic placeholders did not meet the canonical
+header. The existing shared publication fixture now constructs complete
+diagnostics before timed thunks; window publication, storage measurements
+and recovered-stage controls reuse it. Sample counts, source widths, event
+sharing assertions and measured publication operations are unchanged.
+Missing-header controls were added to artifact rejection tests. All 39 cases
+in the four publication/artifact/style suites passed with natural =OK= and
+no error markers. The previous complete failure remains preserved, and the
+full entry must pass again after fixture preparation.
+
+Fresh compiler outputs also separate correctness from loader state. During
+an incremental probe, an older higher-numbered Gambit object could mask a
+newer object with a lower suffix. Independently compiled old and fixed input
+owners reproduce the UTF-8 difference without those retained versions: all
+six malformed classes pass through the old helper and are rejected by the
+fixed helper. Use package-owned clean/build or fresh standard outputs for
+such comparisons; tests do not implement an artifact cleaner.
 
 * Source and ownership
 
@@ -47,9 +112,10 @@ Local monitoring output is not a retained evidence reference.
 
 * Exact-head CI input and cold-loading corrections
 
-The semantics job fetches repository history so the named source-form baseline
-is available in the CI clone. A shallow checkout failed all three controls;
-missing baseline input is not a reason to skip the comparisons.
+The semantics job checks the three source blobs used by the runtime
+correspondence test. When any blob is missing it fetches the exact
+baseline commit and checks all three again. A squash checkout can omit
+the historical sources even when the default branch was fetched in full.
 
 Module-loading controls initialize their existing preloader before importing
 the two public compiler boundaries. The preloader reports real native module
@@ -173,3 +239,26 @@ research sources, but later fails to link =_Exit= on the installed older Darwin
 SDK. An earlier invocation lacked OpenSSL's pkg-config path and is also kept
 as a failure. Neither is counted as a complete conformance pass; the released
 Linux/macOS CI products still require their original gates.
+
+* Share tape transitions by effect
+
+The generated tape Fold owns one mutable writer per parse. Shared tape
+transitions update that writer in place, so the call site can discard the
+transition's result. Event-list transitions still return the next
+accumulator. A source-helper call can assign its returned writer to the
+local accumulator. These helpers are generated from the same statements,
+and the compiler rejects missing or cyclic helper edges. Starting at the
+leaf helpers, each tape operation preserves the writer identity, so every
+helper returns the writer it received. Select the lowering at the compiler's
+consumer boundary; grammar, frame logic, diagnostics and tape format stay
+the same.
+
+Generate both variants through the ordinary Org Fold producer and build
+each with its declared Gerbil package. Compare the complete ordered tapes,
+including invalid input and byte spans, before timing. The default
+generator reproduces the measured effect-only source; the manifest added
+by the subsequent package build is outside this source comparison.
+
+The clean production build, harness refusal checks and all 187 Scheme test
+modules passed on Darwin. The independent grammar construction gate passed
+with a 74.907 ms P95 across its 20 samples.

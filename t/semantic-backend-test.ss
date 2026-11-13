@@ -1,7 +1,7 @@
 ;;; Native prototypes extend the engine's actual preparation, not a wrapper API.
 (import :gerbil-parser/language-test-support
         (only-in :clan/poo/object .o)
-        (only-in :yuanxu/poo-clos/interface .defmethod)
+        (only-in :tao3k/yuanxu/poo-clos/interface .defmethod)
         (only-in :gerbil-parser/src/runtime/reduction-plan RecognitionSemantics. EventSemantics.
                  select-lr-action-factory select-lr-action-factory$poo-clos-generic
                  prepare-lr-reduction-plans reduce-lr-stack-plan)

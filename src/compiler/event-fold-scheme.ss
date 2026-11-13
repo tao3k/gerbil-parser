@@ -9,7 +9,7 @@
                  current-fold-scheme-prefix current-fold-scheme-expressions
                  current-fold-scheme-definitions
                  current-fold-scheme-diagnostics fold-scheme-observed
-                 current-fold-scheme-tape-kinds)
+                 current-fold-scheme-tape-kinds current-fold-scheme-effect-only)
         (only-in ./event-fold-scheme-statements
                  fold-scheme-statements fold-scheme-frame-statements fold-scheme-bindings fold-scheme-initial
                  current-fold-scheme-counter fold-scheme-fresh-name))
@@ -62,6 +62,11 @@
                  (current-fold-scheme-prefix name)
                  (current-fold-scheme-expressions (make-table test: equal?))
                  (current-fold-scheme-definitions '())
+                 ;; Tape statements mutate the same request-owned writer.
+                 ;; Sharing a statement cannot replace it, so its result
+                 ;; need not be assigned back into the caller's event slot.
+                 (current-fold-scheme-effect-only
+                  (or (current-fold-scheme-effect-only) (eq? consumer 'tape)))
                  (current-fold-scheme-tape-kinds
                   (and (eq? consumer 'tape)
                        (let loop ((kinds (cdr (assq 'syntax-kinds (language-grammar-ir grammar))))

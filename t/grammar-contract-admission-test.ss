@@ -4,7 +4,7 @@
         (only-in :clan/poo/object .o .cc .ref .all-slots .set!)
         (only-in :clan/poo/mop element? validate Type. TypeError? Fun)
         (only-in :clan/poo/type Record Symbol)
-        (only-in :yuanxu/object-types/contracts yuanxu-contract-admit
+        (only-in :tao3k/yuanxu/object-types/contracts yuanxu-contract-admit
                  yuanxu-validation-evidence-accepted?
                  yuanxu-classification-evidence)
         :gerbil-parser/src/declarations)

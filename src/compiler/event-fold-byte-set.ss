@@ -1,5 +1,5 @@
 ;;; -*- Gerbil -*-
-;;; Request-local preparation of immutable grammar byte sets.
+;;; Request-local preparation of admitted byte-predicate lookup indices.
 (export current-fold-byte-set-cache fold-byte-set-for fold-marker-byte)
 
 ;; Shared scalar admission must not import the interpreter/runtime closure.
@@ -14,7 +14,10 @@
 (def (fold-byte-set-for values expression)
   (let* ((cache (current-fold-byte-set-cache))
          (prepared (and cache (table-ref cache values #f))))
-    (or prepared
+    ;; The same request owner also holds ordinary vectors for ASCII name
+    ;; indices. A uniform byte vector is the scalar-byte admission witness;
+    ;; a name-index hit must never admit an invalid byte operand.
+    (or (and (u8vector? prepared) prepared)
         (begin
           (unless (list? values)
             (error "invalid event fold byte-set predicate" expression))

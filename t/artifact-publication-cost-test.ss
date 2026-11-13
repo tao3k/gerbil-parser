@@ -1,6 +1,7 @@
 (import :gerbil-parser/language-test-support)
 ;;; Publication observations describe real work and preserve canonical products.
 (import :std/test
+        (only-in ./fixtures/artifact-window publication-diagnostic)
         (only-in :gerbil-parser/src/runtime/artifact
                  make-success-parse-artifact make-success-parse-artifact/canonical-events
                  make-success-parse-artifact/raw-event-tape make-failure-parse-artifact
@@ -101,7 +102,7 @@
                         (map (lambda (token) (make-recognition-child 'value token)) tokens))))
            (each (artifact) ((list (make-success-parse-artifact +publication-test-grammar+ source tokens root never-trivia?)
                   (make-failure-parse-artifact +publication-test-grammar+ source tokens
-                    '((message . "expected another token")))))
+                    (publication-diagnostic "expected another token"))))
               (scope ((summary (parameterize ((current-output-port (open-output-string)))
                                (measure-artifact-event-storage artifact source 3))))
                 (equal (cdr (assq 'samples summary))  3)
@@ -153,7 +154,7 @@
           (equal (map car rows)  '(artifact-source-identity)))))
     (scenario "rejected artifact publication remains complete and lossless"
       (sequential ((source "α") (tokens (list (make-token 'invalid source 0 2)))
-             (diagnostic '((message . "expected word")))
+             (diagnostic (publication-diagnostic "expected word"))
              (publish (lambda () (make-failure-parse-artifact +publication-test-grammar+ source tokens diagnostic)))
              (reference (publish)))
         (scope-values (((artifact rows) (observe-publication publish)))
@@ -177,7 +178,7 @@
         (equal (current-parser-cost-observer)  #f))))
     (scenario "stage summaries distinguish failed intervals from complete requests"
       (sequential ((reference (make-failure-parse-artifact +publication-test-grammar+ "" '()
-                           '((message . "recovered publication failure"))))
+                           (publication-diagnostic "recovered publication failure")))
              (parse (lambda (source)
                       (with-catch (lambda (condition) reference)
                         (lambda () (with-parser-cost-stage 'recoverable-publication

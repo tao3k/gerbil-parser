@@ -1,7 +1,7 @@
 ;;; Compiler execution and host policy shared by library and static owners.
 (import (only-in :std/misc/process run-process)
         (only-in :std/misc/ports read-all-as-string)
-        (only-in :yuanxu/ops/progress copy-process-output))
+        (only-in :tao3k/yuanxu/ops/progress copy-process-output))
 (export compiler-progress-expression compiler-c-options compiler-gsc-options compiler-build-spec run-build-tool compiler-host-options call-with-compiler-import-progress initialize-compiler-build!)
 
 ;; Keep real compiler/GC progress; GCC -Q dumps every generated function and

@@ -3,7 +3,7 @@
 
 (import (only-in :clan/poo/object .o .ref)
         (only-in :clan/poo/mop validate element?)
-        (only-in :yuanxu/object-family/interface defpoo-object-family)
+        (only-in :tao3k/yuanxu/object-family/interface defpoo-object-family)
         (only-in ./graph-query-types
                  +graph-query-context-kind+
                  GraphQueryContextContract GraphQueryViewContract))

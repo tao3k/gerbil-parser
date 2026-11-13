@@ -5,7 +5,7 @@
         (only-in :gerbil-parser/src/language/module-input language-module-descriptor)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-language)
         (only-in :gerbil-parser/src/ffi/rust-runtime-aot rust-runtime-source)
-        (only-in :yuanxu/module-system/source/admission
+        (only-in :tao3k/yuanxu/module-system/source/admission
                  call-with-module-source-read-cache module-source-read))
 
 (def write-grammar

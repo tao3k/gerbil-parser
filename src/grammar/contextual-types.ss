@@ -4,7 +4,7 @@
 
 (import (only-in :clan/poo/object .o)
         (only-in :clan/poo/mop define-type)
-        (only-in :yuanxu/object-types/contracts YuanxuObjectContract.)
+        (only-in :tao3k/yuanxu/object-types/contracts YuanxuObjectContract.)
         (only-in ./declaration-types ParserSymbol ParserList))
 (export +contextual-role-kind+ ContextualRoleContract)
 

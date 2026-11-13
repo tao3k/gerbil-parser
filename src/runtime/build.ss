@@ -1,11 +1,10 @@
-;;; Supported public entries. Core projects their native imports without runtime execution.
-(import (only-in :clan/poo/object .o))
+;;; Public library roots owned by this Module.
 (export Build)
-(def Build (.o kind: 'module/build roots: '("fold-tape" "fold-cost")
-               library-roots: '("src/runtime/machine" "src/runtime/lexical-expression"
-                     "src/runtime/lexical-lexer" "artifact-support" "source-line-support"
-                     "text-support" "parser-actor-support"
-                     "rust-runtime-event-support"
-                     "src/runtime/incremental"
-                     "src/runtime/recovery"
-                     "src/runtime/source-engines")))
+(def Build '("fold-tape"
+             "fold-cost"
+             "machine"
+             "lexical-expression"
+             "lexical-lexer"
+             "incremental"
+             "recovery"
+             "source-engines"))

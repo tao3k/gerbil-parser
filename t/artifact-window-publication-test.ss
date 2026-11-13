@@ -1,6 +1,6 @@
 (import :gerbil-parser/language-test-support)
 (import :std/test
-        (only-in ./fixtures/artifact-window window-tokens window-artifact)
+        (only-in ./fixtures/artifact-window window-tokens window-artifact publication-diagnostic)
         (only-in :gerbil-parser/src/runtime/artifact
                  make-certified-window-artifact make-failure-parse-artifact
                  parse-artifact-events parse-artifact-valid-for-source? sha256-text))
@@ -50,7 +50,7 @@
           (equal (eq? (parse-artifact-events base) (parse-artifact-events product))  #f)))
       (sequential ((source (make-string 20000 #\a)) (tokens (window-tokens source))
              (product (make-failure-parse-artifact (sha256-text "window-failure") source tokens
-                        '((message . "expected another token")))))
+                        (publication-diagnostic "expected another token"))))
         (equal (parse-artifact-valid-for-source? product source)  #t)
         (equal (vector-ref (car (parse-artifact-events product)) 1)  0)
         (equal (vector-ref (list-ref (parse-artifact-events product) 19999) 1)  19999))))

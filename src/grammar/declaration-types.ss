@@ -7,7 +7,7 @@
         (only-in :clan/poo/object .ref .cc)
         (only-in :clan/poo/mop define-type element? Type.)
         (only-in :clan/poo/type Record Symbol Exactly)
-        (only-in :yuanxu/object-types/contracts
+        (only-in :tao3k/yuanxu/object-types/contracts
                  YuanxuObjectContract. yuanxu-predicate-contract))
 
 (export +grammar-role-kind+

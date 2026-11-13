@@ -5,7 +5,7 @@
 
 (import (only-in :clan/poo/object .o .ref)
         (only-in :clan/poo/mop .defgeneric element? validate)
-        (only-in :yuanxu/object-family/interface
+        (only-in :tao3k/yuanxu/object-family/interface
                  defpoo-object-family)
         (only-in ./declaration-types
                  +grammar-role-kind+

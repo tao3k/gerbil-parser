@@ -1,6 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Source-backed future-line queries for Scheme event folds.
-(import (only-in ./funcs.ss ascii-lower-byte
+(import (only-in ../runtime/source-lines source-line-end)
+        (only-in ./funcs.ss ascii-lower-byte
                  compiler-position-index-add!
                  compiler-position-index-freeze!
                  compiler-position-vector-next
@@ -15,17 +16,6 @@
 ;; and concurrent parses independent.
 (def current-future-scan-cache (make-parameter #f))
 
-(def (fold-future-line-end bytes start)
-  (let (size (u8vector-length bytes))
-    (let loop ((cursor start))
-      (if (or (= cursor size) (memv (u8vector-ref bytes cursor) '(10 13)))
-        (if (= cursor size) cursor
-          (if (and (= (u8vector-ref bytes cursor) 13)
-                   (< (+ cursor 1) size)
-                   (= (u8vector-ref bytes (+ cursor 1)) 10))
-            (+ cursor 2) (+ cursor 1)))
-        (loop (+ cursor 1))))))
-
 (def (fold-future-marker-line? bytes start end prefix indent?)
   (let* ((begin (if indent?
                   (let skip ((cursor start))
@@ -34,12 +24,7 @@
                       (skip (+ cursor 1)) cursor))
                   start))
          (prefix-end (+ begin (u8vector-length prefix))))
-    (and (<= prefix-end end)
-         (let match ((cursor begin) (index 0))
-           (or (= index (u8vector-length prefix))
-               (and (= (ascii-lower-byte (u8vector-ref bytes cursor))
-                       (ascii-lower-byte (u8vector-ref prefix index)))
-                    (match (+ cursor 1) (+ index 1)))))
+    (and (compiler-u8vector-prefix? bytes begin end prefix #t)
          (let tail ((cursor prefix-end))
            (or (= cursor end)
                (and (memv (u8vector-ref bytes cursor) '(9 10 13 32))
@@ -60,16 +45,7 @@
                     (loop (+ left 1) (+ right 1))))))))
 
 (def (fold-future-cache-for query)
-  (let* ((request-cache
-          (or (current-future-scan-cache)
-              (let (created (make-hash-table))
-                (current-future-scan-cache created)
-                created)))
-         (cached (hash-get request-cache query)))
-    (or cached
-        (let (created (make-hash-table))
-          (hash-put! request-cache query created)
-          created))))
+  (fold-future-index-for query make-hash-table))
 
 (def (fold-future-index-for query build)
   (let* ((request-cache
@@ -133,7 +109,7 @@
         (parent-prefix-bytes (and parent? (string->utf8 parent-prefix))))
     (let scan ((cursor 0))
       (when (< cursor (u8vector-length bytes))
-        (let* ((end (fold-future-line-end bytes cursor))
+        (let* ((end (source-line-end bytes cursor))
                (begin (if indent?
                         (let skip ((at cursor))
                           (if (and (< at end)
@@ -221,7 +197,7 @@
      ((hash-get cache cursor) =>
       (lambda (answer) (finish (= answer 1) visited)))
      (else
-      (let* ((end (fold-future-line-end bytes cursor))
+      (let* ((end (source-line-end bytes cursor))
              (decision (classify cursor end))
              (visited (cons cursor visited)))
         (case decision

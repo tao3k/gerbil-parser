@@ -3,7 +3,7 @@
 
 (import (only-in :clan/poo/object .o .ref)
         (only-in :clan/poo/mop define-type)
-        (only-in :yuanxu/object-types/contracts
+        (only-in :tao3k/yuanxu/object-types/contracts
                  YuanxuContract. YuanxuObjectContract.
                  yuanxu-contract-admit
                  yuanxu-validation-evidence-accepted?

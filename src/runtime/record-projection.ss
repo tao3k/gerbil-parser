@@ -1,7 +1,7 @@
 ;;; Closed record selectors and POO recipes; no language-specific projection code.
 (import (only-in :clan/poo/object .o .cc .ref .slot? object?)
         (only-in :clan/poo/mop define-type validate)
-        (only-in :yuanxu/object-types/contracts yuanxu-predicate-contract)
+        (only-in :tao3k/yuanxu/object-types/contracts yuanxu-predicate-contract)
         (only-in ../language/descriptor language-grammar? language-grammar-machine)
         (only-in ./machine parser-machine-grammar-digest)
         (only-in ./lexical-source scan-header-delimiter)

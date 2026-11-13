@@ -1,7 +1,7 @@
 ;;; Closed structured text scanners and proof policies shared by language recipes.
 (import (only-in :clan/poo/object .o .ref .slot? object?)
         (only-in :clan/poo/mop define-type validate)
-        (only-in :yuanxu/object-types/contracts yuanxu-predicate-contract)
+        (only-in :tao3k/yuanxu/object-types/contracts yuanxu-predicate-contract)
         :gerbil-parser/src/runtime/cst
         (only-in :gerbil-parser/src/runtime/token token? token-lexeme))
 (export StructuredProofPolicy. StructuredProofPolicyContract bind-structured-proof-policy)

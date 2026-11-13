@@ -1,6 +1,6 @@
 ;;; Native gxtest module Fixture. Resource policy stays in Core's Case object.
 (import (only-in :clan/poo/object .o)
-        (only-in :yuanxu/observability/testing-case
+        (only-in :tao3k/yuanxu/observability/testing-case
                  yuanxu-current-testing-case-profile))
 (export test-setup! test-cleanup!)
 

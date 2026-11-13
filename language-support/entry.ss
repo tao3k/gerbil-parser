@@ -6,7 +6,7 @@
         (only-in ../src/language/entry parse-language-source call-with-language-parser-policy)
         (only-in :clan/poo/object .o .ref .cc .slot? object?)
         (only-in :clan/poo/mop define-type validate)
-        (only-in :yuanxu/object-types/contracts yuanxu-predicate-contract)
+        (only-in :tao3k/yuanxu/object-types/contracts yuanxu-predicate-contract)
         (only-in ../src/runtime/machine parser-machine-grammar-digest install-parser-machine-backends!)
         (only-in ../src/language/descriptor
                  language-grammar? language-grammar-contract language-grammar-language

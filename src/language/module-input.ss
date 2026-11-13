@@ -1,7 +1,7 @@
 ;;; Build input selects one descriptor; multi-scope packs require an export name.
 (import :gerbil/expander
         (only-in ./descriptor language-grammar?)
-        (only-in :yuanxu/module-system/source/admission
+        (only-in :tao3k/yuanxu/module-system/source/admission
                  module-source-read module-source-admit-current!
                  call-with-module-source-fresh-reads))
 (export language-module-descriptor)

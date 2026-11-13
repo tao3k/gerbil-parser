@@ -3,17 +3,17 @@
         (only-in :std/list/list filter-map)
         (for-syntax
           (only-in :std/source this-source-file)
-          (only-in :yuanxu/module-system/building/source-package register-module-build-source!)))
+          (only-in :tao3k/yuanxu/module-system/building/source-package register-module-build-source!)))
 (begin-syntax
   (register-module-build-source!
     (path-normalize (path-expand "../.." (path-directory (this-source-file)))) 'gerbil-parser))
 (import (only-in "../../src/build-support/compiler-profile.ss" compiler-build-spec initialize-compiler-build!)
         (only-in :std/make pkg-config-libs)
         (only-in :std/source this-source-file)
-        (only-in :yuanxu/module-system/building/source-package register-module-build-source!)
+        (only-in :tao3k/yuanxu/module-system/building/source-package register-module-build-source!)
         (only-in :clan/poo/object .get)
         (only-in "../fixtures/ffi/build.ss" ffi-build-spec)
-        (only-in :yuanxu/module-system/building/source-closure package-library-spec)
+        (only-in :tao3k/yuanxu/module-system/building/source-closure package-library-spec)
         (only-in "../../init.ss" gerbil-parser.init.exports))
 (export conformance-build-spec main)
 
@@ -74,7 +74,7 @@
   ;; Consume the authoritative declarations; do not rebuild their ABI products
   ;; with generic options or maintain a second list of owned identities.
   (def owned
-    (append ((.get gerbil-parser.init.exports std-make-spec) '())
+    (append (.get gerbil-parser.init.exports std-make-spec)
             (ffi-build-spec) research-executable-spec))
   (compiler-build-spec
     (map (lambda (source)

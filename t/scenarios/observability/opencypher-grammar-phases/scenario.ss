@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Grammar-owned Core phase observation without global instrumentation.
 
-(import :yuanxu/observability/debug
+(import :tao3k/yuanxu/observability/debug
         (only-in :gerbil-parser/languages/cypher/parser
                  opencypher-language-grammar
                  parse-opencypher)

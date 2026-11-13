@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Grammar-owned adapter to the POO Flow observability framework.
 ;;; Delayed phase bodies execute directly when the policy is absent.
-(import (only-in :yuanxu/observability/debug call-with-yuanxu-debug-trace))
+(import (only-in :tao3k/yuanxu/observability/debug call-with-yuanxu-debug-trace))
 (export call-with-parser-observed-phase)
 
 (def (call-with-parser-observed-phase/procedure policy phase thunk)

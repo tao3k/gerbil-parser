@@ -1,7 +1,7 @@
 ;;; Declarative test syntax; language execution dependencies belong to loader declarations.
 (import (for-syntax (only-in ./contracts parser-test-form-admitted?))
         (only-in :std/test check test-case test-suite)
-        (only-in :yuanxu/observability/testing-case yuanxu-test-case)
+        (only-in :tao3k/yuanxu/observability/testing-case yuanxu-test-case)
         (only-in ./parser-ast check-parser-ast check-accepted-parse))
 (export deflanguage-parser-tests defparser-check parser-check parser-check-result parser-check-procedure parser-test-datum-writer
         parser-exception-matches?)

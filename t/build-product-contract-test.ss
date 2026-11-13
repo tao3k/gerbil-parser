@@ -46,7 +46,7 @@
         ;; rather than duplicating a historical dependency pin in this test.
         (equal (map (lambda (dependency)
                       (let (match (pregexp-match
-                                    "^github\\.com/tao3k/(gebril-yuanxu)@[0-9a-f]{40}$"
+                                    "^github\\.com/tao3k/(gebril-yuanxu)@v[0-9]+\\.[0-9]+\\.[0-9]+$"
                                     dependency))
                         (and match (cadr match))))
                     (cadr (member 'depend: (call-with-input-string package-source read))))

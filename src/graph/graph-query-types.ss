@@ -3,7 +3,7 @@
         (only-in :clan/poo/mop Fun Any Type element? Type.)
         (only-in :clan/poo/type Record List Exactly OrFalse TypeValuePair)
         (only-in :clan/poo/number UInt)
-        (only-in :yuanxu/object-types/contracts YuanxuContract.))
+        (only-in :tao3k/yuanxu/object-types/contracts YuanxuContract.))
 (export +graph-query-context-kind+ GraphQueryAccessorOf GraphQueryPredicateOf
         GraphQueryViewContract GraphQueryContextContract
         graph-query-view? graph-query-context?)

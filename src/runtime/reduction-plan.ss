@@ -3,7 +3,7 @@
 ;; Semantic dispatch needs generic declarations only. Keep class lifecycle,
 ;; reflection and aggregate CLOS syntax outside the parser's native closure.
 (import (only-in :clan/poo/object .o .ref)
-        (only-in :yuanxu/poo-clos/generic-syntax .defgeneric .defmethod)
+        (only-in :tao3k/yuanxu/poo-clos/generic-syntax .defgeneric .defmethod)
         (only-in :std/vector/vector vector-map/index)
         (only-in ../compiler/lr production-rhs operand-actions)
         (only-in ./recognition make-recognition-fragment)

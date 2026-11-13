@@ -24,12 +24,7 @@
                       (skip (+ cursor 1)) cursor))
                   start))
          (prefix-end (+ begin (u8vector-length prefix))))
-    (and (<= prefix-end end)
-         (let match ((cursor begin) (index 0))
-           (or (= index (u8vector-length prefix))
-               (and (= (ascii-lower-byte (u8vector-ref bytes cursor))
-                       (ascii-lower-byte (u8vector-ref prefix index)))
-                    (match (+ cursor 1) (+ index 1)))))
+    (and (compiler-u8vector-prefix? bytes begin end prefix #t)
          (let tail ((cursor prefix-end))
            (or (= cursor end)
                (and (memv (u8vector-ref bytes cursor) '(9 10 13 32))
@@ -50,16 +45,7 @@
                     (loop (+ left 1) (+ right 1))))))))
 
 (def (fold-future-cache-for query)
-  (let* ((request-cache
-          (or (current-future-scan-cache)
-              (let (created (make-hash-table))
-                (current-future-scan-cache created)
-                created)))
-         (cached (hash-get request-cache query)))
-    (or cached
-        (let (created (make-hash-table))
-          (hash-put! request-cache query created)
-          created))))
+  (fold-future-index-for query make-hash-table))
 
 (def (fold-future-index-for query build)
   (let* ((request-cache

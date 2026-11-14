@@ -437,14 +437,15 @@ test-native:
     gerbil env gxi -:max-heap=2G,debug=q -e '(begin (import (only-in "./t/support/qualification/build-test-support.ss" run-native-tests)) (run-native-tests))'
 
 # GxTest imports its entire roster before running Suites. Keep the independent
-# 50-pair/20-sample gate in a fresh VM with the same 3 GiB test heap.
+# 50-pair/20-sample gate in a fresh VM. Start with a 1 GiB heap to
+# reduce growth during sampling and retain the 3 GiB ceiling.
 build-grammar-construction:
     gerbil env gxi t/benchmarks/poo-grammar-objects/build.ss compile
 
 test-grammar-construction: build-grammar-construction test-prepared-grammar-construction
 
 test-prepared-grammar-construction:
-    gerbil env gxi t/support/qualification/qualify.ss run --timeout 120 --log .data/grammar-construction.log --require '^OK$' --require '^MODULE-OK t/benchmarks/poo-grammar-objects/contract.ss$' --require '^\(CONSTRUCTION-DIAGNOSTIC \(attempt \. 20\)' -- gerbil -:max-heap=3G,debug=q test -v 3 t/benchmarks/poo-grammar-objects/contract.ss
+    gerbil env gxi t/support/qualification/qualify.ss run --timeout 120 --log .data/grammar-construction.log --require '^OK$' --require '^MODULE-OK t/benchmarks/poo-grammar-objects/contract.ss$' --require '^\(CONSTRUCTION-DIAGNOSTIC \(attempt \. 20\)' -- gerbil -:min-heap=1G,max-heap=3G,debug=q test -v 3 t/benchmarks/poo-grammar-objects/contract.ss
 
 # All contracts execute from current source; every suite has a hard deadline.
 test-performance-before-compile: build-qualification

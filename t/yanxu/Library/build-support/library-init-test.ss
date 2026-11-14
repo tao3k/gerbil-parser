@@ -17,14 +17,14 @@
         (only-in :gerbil-parser/src/graph/types GraphScopeContract)
         (only-in :gerbil-parser/src/ffi/types ForeignInterfaceScopeContract)
         (only-in :gerbil-parser/src/language/types LanguageScopeContract)
-        (only-in "../init.ss" gerbil-parser.init.exports)
+        (only-in "../../../../init.ss" gerbil-parser.init.exports)
         (only-in :gerbil-parser/languages/arithmetic/parser parse-arithmetic)
         (only-in :gerbil-parser/languages/arithmetic/grammar arithmetic-grammar)
         (only-in :gerbil-parser/src/grammar/declaration-objects make-grammar Grammar. GrammarRole.)
         (only-in :gerbil-parser/src/schema +language-grammar-schema+)
         (only-in :gerbil-parser/src/grammar/declaration-types GrammarContract GrammarRoleContract)
         (prefix-in (only-in :gerbil-parser/src/compiler/normalize compile-grammar) compiled.))
-(def parser-source-root (path-expand ".." (path-directory (this-source-file))))
+(def parser-source-root (path-normalize (path-expand "../../../.." (path-directory (this-source-file)))))
 ;; Actual native source operations advance Ops progress; no timer or heartbeat.
 (def (selected-test-scope name)
   (let ((prior (current-module-source-observer)) (completed 0))
@@ -42,7 +42,7 @@
           (let (paths (load-path))
             (dynamic-wind
               (lambda () (register-module-build-source! parser-source-root 'gerbil-parser))
-              (lambda () (.ref (.get gerbil-parser.init.exports Components) name))
+              (lambda () (.ref (.get gerbil-parser.init.exports Library) name))
               (lambda () (set-load-path! paths)))))))))
 
 ;; A concrete consumer owns its struct representation and passes its POO Type.
@@ -61,12 +61,26 @@
   ;; Role evaluation and native source registration use the process expander.
   ;; Retain two Workers; this owner declares its existing exclusive capability.
   (engine)
+  (scenario "init discovers qualification suites under their declared owners"
+    (equal (list-sort string<? (.get gerbil-parser.init.exports tests qualification spec))
+           (map (lambda (path) (path-expand path parser-source-root))
+             '("t/yanxu/Execution/incremental/recovery-incremental-test.ss"
+               "t/yanxu/Execution/lr-parser/lr-semantic-preparation-test.ss"
+               "t/yanxu/Execution/scan/lexical-line-test.ss"
+               "t/yanxu/Library/build-support/library-init-test.ss"
+               "t/yanxu/Library/ffi/build-product-contract-test.ss"
+               "t/yanxu/Library/language/module-loading-test.ss"))))
+  (scenario "runtime execution leaves publish their own scopes"
+    (scope ((execution (.get gerbil-parser.init.exports Execution)))
+      (equal ((.get execution scan scan-line) "one\ntwo" 0) 4)
+      (equal ((.get execution lr-parser lr-runtime?) #f) #f)
+      (equal ((.get execution incremental incremental-session?) #f) #f)))
   (scenario "domain modules are selected directly without a modules container"
-    (sequential ((components (.get gerbil-parser.init.exports Components))
+    (sequential ((library (.get gerbil-parser.init.exports Library))
                  (graph (selected-test-scope 'graph)))
       (each (name) ('(build-support compiler ffi grammar graph language runtime testing utilities))
-        (equal (.slot? components name) #t))
-      (equal (.slot? components 'modules) #f)
+        (equal (.slot? library name) #t))
+      (equal (.slot? library 'modules) #f)
       (each (name) ('(build-support compiler ffi grammar graph language runtime testing utilities))
         (equal (call-with-input-file
                  (path-expand (string-append "src/" (symbol->string name) "/config.ss")

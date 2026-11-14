@@ -143,7 +143,9 @@ A caller that uses an existing parser imports that parser directly:
 #+end_src
 
 The =init.ss= declaration imports =yuanxu!= from Yuanxu's selection module
-and selects the =Components= Loader rooted in =src/=, with tests under =t/=.
+and mounts subsystem scopes as =Library= from =src/=. The =Execution= Loader
+selects the scanner, LR parser and incremental leaves from =src/runtime/=.
+Init discovers their qualification suites under =t/yanxu/<mount>/<owner>/=.
 The package build reads =std-make-spec= from =gerbil-parser.init.exports=.
 Module-local compiler options belong in each Module's =build.ss=.
 

@@ -79,7 +79,7 @@
                 (if (equal? suite "gql") '("languages/gql/parser" "src/runtime/parser") '("src/ffi/rust-runtime-aot")))
       (let (files (if (equal? suite "gql")
                     '("t/gql/runtime-benchmark-test.ss" "t/gql/benchmark-profile-test.ss" "t/gql/actor-test.ss")
-                    '("t/ffi-test.ss" "t/build-product-contract-test.ss" "t/language-abi-test.ss" "t/language-abi-benchmark-test.ss")))
+                    '("t/ffi-test.ss" "t/yanxu/Library/ffi/build-product-contract-test.ss" "t/language-abi-test.ss" "t/language-abi-benchmark-test.ss")))
        ;; Suite execution belongs directly to the native tool. Protocol probes
        ;; above retain their own idle/receipt checks; ordinary Suites do not.
        (run-process (append '("timeout" "--signal=TERM" "--kill-after=5s" "120s"

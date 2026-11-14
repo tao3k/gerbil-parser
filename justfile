@@ -39,11 +39,11 @@ check-build-catalog:
 # Source contracts consume the installed library, without compiling unrelated
 # benchmark helpers. Keep the same pre-import heap and native harness checks.
 test-source-contracts:
-    timeout --signal=TERM --kill-after=5s 120s gerbil {{ gerbil_test_runtime_options }} test -v 3 t/build-product-contract-test.ss t/test-style-contract-test.ss t/library-init-test.ss
+    timeout --signal=TERM --kill-after=5s 120s gerbil {{ gerbil_test_runtime_options }} test -v 3 t/yanxu/Library/ffi/build-product-contract-test.ss t/test-style-contract-test.ss t/yanxu/Library/build-support/library-init-test.ss
 
 # Gerbil owns Suite discovery and execution; there is no linked test runner.
 test-runtime-organization:
-    gerbil test -v 3 t/runtime-module-organization-test.ss t/test-style-contract-test.ss t/benchmarks/parser-throughput/link-locks-test.ss t/lr-semantic-preparation-test.ss t/lr-stack-reduction-test.ss t/lr-action-preparation-test.ss t/lr-fragment-transfer-test.ss t/recovery-incremental-test.ss
+    gerbil test -v 3 t/runtime-module-organization-test.ss t/test-style-contract-test.ss t/benchmarks/parser-throughput/link-locks-test.ss t/yanxu/Execution/lr-parser/lr-semantic-preparation-test.ss t/lr-stack-reduction-test.ss t/lr-action-preparation-test.ss t/lr-fragment-transfer-test.ss t/yanxu/Execution/incremental/recovery-incremental-test.ss
 
 # Research fixture Suites use the same native test entry.
 test-research-suites:
@@ -425,7 +425,7 @@ test-lexical-mode:
 
 # Full qualification after the focused algorithm loop.
 test-build-product-contract output load_path:
-    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 3 t/build-product-contract-test.ss
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 3 t/yanxu/Library/ffi/build-product-contract-test.ss
 
 # Compiled Fixture/Suite helpers share the same native dependency graph. Rebuild
 # them before discovery so renamed source imports cannot replay old products.
@@ -679,7 +679,7 @@ formal-protocol:
 
 # Gerbil-owned module caching, source changes and initializer failure recovery.
 test-module-loading: build-qualification
-    gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --log .data/module-loading-controls.log --require '^OK$' -- gerbil test -v 3 t/module-loading-test.ss
+    gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --log .data/module-loading-controls.log --require '^OK$' -- gerbil test -v 3 t/yanxu/Library/language/module-loading-test.ss
 
 benchmark-module-loading mode="generation": build-qualification
     gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --idle-timeout 5 --log .data/module-loading-{{mode}}.log --require '^MODULE-LOADING-CPU-PROOF-OK {{mode}}$' -- gxi t/benchmarks/module-loading/benchmark.ss {{mode}}

@@ -3,7 +3,9 @@
 ;;; Source-form correspondence for the runtime split, with one admitted
 ;;; capture algorithm delta covered by the independent frozen semantic control.
 (import (only-in :std/test check test-case test-suite)
-        (only-in :std/misc/process run-process))
+        (only-in :std/misc/process run-process)
+        (only-in :tao3k/yuanxu/module-system/source/role-forms
+                 module-role-file yuanxu-module-allowed-entrypoint-roles))
 
 (def base "f57d2aa6502bd39b62119cdd2e5a95469ef6fd9f")
 (def (read-forms port)
@@ -156,9 +158,12 @@
          (original (run-process (list "git" "show" (string-append base ":" facade))
                                 coprocess: read-forms))
          (current (call-with-input-file facade read-forms))
+         (role-files (map module-role-file yuanxu-module-allowed-entrypoint-roles))
          (owners (map (lambda (name)
                         (call-with-input-file (path-expand name directory) read-forms))
-                      (filter (lambda (name) (equal? (path-extension name) ".ss"))
+                      (filter (lambda (name)
+                                (and (equal? (path-extension name) ".ss")
+                                     (not (member name role-files))))
                               (directory-files directory)))))
     (equal (behavior current)  '())
     (scope ((exports (filter (lambda (f) (eq? (car f) 'export)) current))

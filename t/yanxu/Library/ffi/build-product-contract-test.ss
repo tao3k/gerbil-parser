@@ -6,11 +6,11 @@
         (only-in :std/misc/ports read-all-as-string)
         (only-in :std/test check test-case test-suite)
         (only-in :std/text/pregexp pregexp-match)
-        (only-in "./fixtures/ffi/build.ss" ffi-build-spec)
+        (only-in "../../../fixtures/ffi/build.ss" ffi-build-spec)
         (only-in :asp-gerbil-scheme/building-api
                  asp-gerbil-scheme-package-native-capabilities
                  asp-gerbil-scheme-portable-native-profile)
-        (only-in "../dev/rust-runtime-aot"
+        (only-in "../../../../dev/rust-runtime-aot"
                  rust-runtime-aot-runtime-modules
                  rust-runtime-aot-package
                  rust-runtime-aot-build-spec))

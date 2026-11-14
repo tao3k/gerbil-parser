@@ -24,7 +24,7 @@
   (def (qualify-ffi-target target)
     (cons (car target) (cons (string-append "src/ffi/" (cadr target)) (cddr target))))
   (def ffi-library-build
-    (.get gerbil-parser.init.exports Components ffi __std-make-spec))
+    (.get gerbil-parser.init.exports Library ffi __std-make-spec))
   (def timing
     `(gxc: "t/benchmarks/gql/runtime/compiled-timing"
        ,@(cond-expand

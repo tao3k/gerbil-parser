@@ -12,7 +12,6 @@
         (only-in :std/source this-source-file)
         (only-in :std/list/list delete-duplicates/hash)
         (only-in "../../fixtures/ffi/build.ss" ffi-build-spec ffi-test-command)
-        (rename-in (only-in "../../../src/ffi/build.ss" Build) (Build ffi-library-build))
         (only-in :tao3k/yuanxu/observability/testing-script TestingScript.)
         (only-in :tao3k/yuanxu/observability/testing-fixture call-with-yuanxu-fixture))
 (import (only-in :clan/poo/object .o .cc .get .call)
@@ -24,6 +23,8 @@
 (def (test-support-targets files)
   (def (qualify-ffi-target target)
     (cons (car target) (cons (string-append "src/ffi/" (cadr target)) (cddr target))))
+  (def ffi-library-build
+    (.get gerbil-parser.init.exports Components ffi __std-make-spec))
   (def timing
     `(gxc: "t/benchmarks/gql/runtime/compiled-timing"
        ,@(cond-expand

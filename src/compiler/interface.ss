@@ -1,5 +1,6 @@
-(import (only-in :tao3k/yuanxu/module-system/source/declaration .def))
+(import (only-in :tao3k/yuanxu/module-system/source/declaration .def)
+        (only-in :clan/poo/object .o))
 (.def Compiler
   identity: 'compiler
-  core: (.o requires: (.o) scope-contract: CompilerScopeContract exports: Compiler. projections: (list Build))
+  core: (.o scope-contract: CompilerScopeContract exports: Compiler.)
   features: (.o))

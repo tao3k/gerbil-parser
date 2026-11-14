@@ -126,15 +126,26 @@ synthetic heartbeat or an initializer-failure exemption.
 
 * Public language and declaration entry
 
-The package selects its own =prelude: :tao3k/parser/prelude= in =gerbil.pkg=,
-whose base is =:tao3k/yuanxu/prelude=.
-=init.ss= invokes the public =yuanxu!= declaration supplied by that prelude;
-consumers do not import =module-system/selection/init-syntax= directly.
-The prelude provides the shared Gerbil/POO language and a deferred declaration
-entry, while Yuanxu retains selection, source admission and native build
-ownership. Importing the prelude alone does not load Parser subsystems or
-execute a generator. Parser runtime and grammar APIs keep their existing module
-identities; the prelude does not reexport the entire parsing engine.
+Parser selects =:tao3k/parser/prelude= in =gerbil.pkg=. The prelude extends
+Gerbil Core with Parser syntax. Modules import POO capabilities explicitly.
+Packages that author grammars can opt into the Parser prelude:
+
+#+begin_src scheme
+;; gerbil.pkg
+(package: example/grammars prelude: :tao3k/parser/prelude)
+#+end_src
+
+A caller that uses an existing parser imports that parser directly:
+
+#+begin_src scheme
+(import (only-in :gerbil-parser/languages/arithmetic/parser parse-arithmetic))
+(parse-arithmetic "1 + 2")
+#+end_src
+
+The =init.ss= declaration imports =yuanxu!= from Yuanxu's selection module
+and selects the =Components= Loader rooted in =src/=, with tests under =t/=.
+The package build reads =std-make-spec= from =gerbil-parser.init.exports=.
+Module-local compiler options belong in each Module's =build.ss=.
 
 The shared-prelude candidate completed native =gerbil build --optimized= with
 2 GiB/600 seconds on the installed macOS ARM64 SDK. Native runtime,
@@ -146,8 +157,7 @@ qualification remain separate gates.
 
 * Product language and reviewed downstream interfaces
 
-The Parser prelude owns the Parser language entry. It inherits Yuanxu's common
-Gerbil/POO/Module declaration surface and exposes =deflanguage=,
+The Parser prelude owns the Parser language entry and exposes =deflanguage=,
 =defgrammar-syntax= and =deftext-profile= through deferred native imports.
 Declaring a grammar keeps the caller's source and lexical context; ordinary
 prelude import initializes neither Parser engines nor the Module System.
@@ -207,7 +217,7 @@ and Language's Build retained that aggregate as a publication root. Delete
 both. The existing independent catalog now refuses the retired =src/api=
 target, retaining its complete source-discovery comparison and all ABI options.
 
-The Parser prelude remains the inherited language and lazy declaration entry.
+The Parser prelude remains the optional entry for Parser grammar declarations.
 Yuanxu owns Module loading and the domain interfaces own their capabilities.
 Runtime directly publishes its existing =artifact-support= and
 =source-line-support= entries, whose previous publication edge was the

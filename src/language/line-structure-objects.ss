@@ -2,10 +2,10 @@
 ;;; POO-native contextual parser declarations; no public alist DSL.
 
 (import (only-in :clan/poo/object .o .ref)
-        (only-in :tao3k/yuanxu/object-types/contracts
+        (only-in :tao3k/yuanxu/types/contracts
                  yuanxu-contract-admit
                  yuanxu-validation-evidence-accepted?)
-        (only-in :tao3k/yuanxu/object-family/interface
+        (only-in :tao3k/yuanxu/object/interface
                  defpoo-object-family)
         (only-in ./line-structure-types
                  +line-structure-schema+ +line-structure-kind+

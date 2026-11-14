@@ -1,8 +1,12 @@
-;;; Public Parser language; Yuanxu owns the common language and Module System.
-prelude: :tao3k/yuanxu/prelude
+;;; Public Parser language; native grammar syntax loads on use.
+prelude: :gerbil/core
 package: tao3k/parser
-(import :tao3k/yuanxu/prelude)
-(export (import: :tao3k/yuanxu/prelude)
+(import :gerbil/core
+        (phi: +1 :gerbil/core)
+        (phi: +2 :gerbil/core))
+(export (import: :gerbil/core)
+        (phi: +1 (import: :gerbil/core))
+        (phi: +2 (import: :gerbil/core))
         deflanguage defgrammar-syntax deftext-profile)
 
 ;; Native imports are introduced only when a declaration is used. Preserve

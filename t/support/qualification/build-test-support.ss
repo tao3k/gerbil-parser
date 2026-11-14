@@ -97,6 +97,7 @@
     (.call build .compile output
       (lambda ()
         (def destination ((.get build compile-output)))
+        (create-directory* destination)
         (call-with-build-input-path destination
           (lambda ()
             (build-support-spec spec destination arguments))

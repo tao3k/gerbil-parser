@@ -1,18 +1,22 @@
 ;;; A request-local preorder navigation index written by native Fold effects.
-(export make-fold-index fold-index-start! fold-index-token!
+(export fold-index-owner make-fold-index fold-index-start! fold-index-token!
         fold-index-finish! fold-index-publish! fold-index-position fold-index-open)
 
 (def absent #xffffffff)
 (def row-width 5)
-(defstruct fold-index-owner (digest size rows used parent cursor sealed? navigation?))
+(defstruct fold-index-owner
+  (digest (size :- :fixnum) rows (used :- :fixnum)
+   (parent :- :fixnum) (cursor :- :fixnum) sealed? navigation?)
+  final: #t)
 
 (def (make-fold-index bytes digest (navigation? #t))
+  => fold-index-owner
   (let (size (u8vector-length bytes))
     (unless (< size absent) (error "source exceeds u32 Fold index"))
     (make-fold-index-owner digest size (make-u32vector (if navigation? 160 40) 0)
                            0 absent 0 #f navigation?)))
 
-(def (storage-for-row! owner offset)
+(def (storage-for-row! (owner : fold-index-owner) offset)
   (let (rows (fold-index-owner-rows owner))
     (when (> (fx+ offset row-width) (u32vector-length rows))
       (let (grown (make-u32vector (fx* 2 (u32vector-length rows)) 0))
@@ -21,7 +25,7 @@
         (set! rows grown)))
     rows))
 
-(def (append-row! owner kind start end subtree-end)
+(def (append-row! (owner : fold-index-owner) kind start end subtree-end)
   (let (id (fold-index-owner-used owner))
     (when (>= id (- absent 1)) (error "Fold index exceeds u32 ordinals"))
     (def offset (fx* id row-width))
@@ -34,7 +38,7 @@
     (fold-index-owner-used-set! owner (fx+ id 1))
     id))
 
-(def (fold-index-start! owner kind)
+(def (fold-index-start! (owner : fold-index-owner) kind)
   (let ((parent (fold-index-owner-parent owner))
         (position (fold-index-owner-cursor owner)))
     (when (or (fold-index-owner-sealed? owner)
@@ -52,7 +56,7 @@
         (fold-index-owner-used-set! owner 1))))
   owner)
 
-(def (fold-index-token! owner kind start end)
+(def (fold-index-token! (owner : fold-index-owner) kind start end)
   (unless (and (< (fold-index-owner-parent owner) absent)
                (fixnum? start) (fixnum? end)
                (fx= start (fold-index-owner-cursor owner)) (fx< start end)
@@ -63,7 +67,7 @@
   (fold-index-owner-cursor-set! owner end)
   owner)
 
-(def (fold-index-finish! owner)
+(def (fold-index-finish! (owner : fold-index-owner))
   (let* ((id (fold-index-owner-parent owner)) (rows (fold-index-owner-rows owner)))
     (unless (< id absent) (error "Fold index finish lacks an owner"))
     (let (offset (fx* id row-width))
@@ -73,7 +77,7 @@
       (fold-index-owner-parent-set! owner (##u32vector-ref rows (+ offset 1)))))
   owner)
 
-(def (fold-index-publish! owner)
+(def (fold-index-publish! (owner : fold-index-owner))
   (unless (and (not (fold-index-owner-sealed? owner)) (> (fold-index-owner-used owner) 0)
                (= (fold-index-owner-parent owner) absent)
                (= (fold-index-owner-cursor owner) (fold-index-owner-size owner)))
@@ -86,8 +90,8 @@
     (when (< used (u32vector-length rows)) (u32vector-shrink! rows used))
     (vector (fold-index-owner-digest owner) rows)))
 
-(def (fold-index-position owner) (fold-index-owner-cursor owner))
-(def (fold-index-open owner)
+(def (fold-index-position (owner : fold-index-owner)) (fold-index-owner-cursor owner))
+(def (fold-index-open (owner : fold-index-owner))
   (let* ((id (fold-index-owner-parent owner))
          (rows (fold-index-owner-rows owner))
          (offset (fx* id row-width)))

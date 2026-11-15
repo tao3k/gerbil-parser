@@ -1,19 +1,27 @@
 ;;; An Element projection consumes the same effects as the navigation index.
-(import (only-in ./fold-index make-fold-index fold-index-start! fold-index-token!
+(import (only-in ./fold-index fold-index-owner make-fold-index fold-index-start! fold-index-token!
                  fold-index-finish! fold-index-publish! fold-index-position fold-index-open))
 (export make-fold-graph fold-graph-start! fold-graph-token!
         fold-graph-finish! fold-graph-publish!)
 
-(defstruct fold-element (id rule parent row first-fields))
-(defstruct fold-graph-state (index rules count active records select?))
+;; These private owners retain their types throughout one Fold. Let Gerbil
+;; prove field access once at entry instead of rechecking every state read.
+(defstruct fold-element
+  ((id :- :fixnum) (rule :- :vector) parent (row :- :vector) first-fields)
+  final: #t)
+(defstruct fold-graph-state
+  ((index :- fold-index-owner) (rules :- :vector) (count :- :fixnum)
+   active (records :- :list) select?)
+  final: #t)
 
-(def (make-fold-graph bytes digest rules (navigation? #t) (select? #f))
+(def (make-fold-graph bytes digest (rules : :vector) (navigation? #t) (select? #f))
+  => fold-graph-state
   (make-fold-graph-state (make-fold-index bytes digest navigation?) rules 0 #f '() select?))
 
 (def (active-id frame)
   (if (pair? frame) (car frame) (and frame (fold-element-id frame))))
 
-(def (fold-graph-start! sink kind)
+(def (fold-graph-start! (sink : fold-graph-state) kind)
   (let* ((index (fold-graph-state-index sink))
          (rule (vector-ref (fold-graph-state-rules sink) kind))
          (parent (fold-graph-state-active sink))
@@ -34,7 +42,7 @@
     (fold-index-start! index kind))
   sink)
 
-(def (capture! owner field start end)
+(def (capture! (owner : fold-element) field start end)
   (let* ((group (vector-ref field 1))
          (separate? (vector-ref field 2))
          (firsts (or (fold-element-first-fields owner)
@@ -49,19 +57,19 @@
         (unless first (vector-set! firsts group value))
         (vector-set! row 5 (cons value (vector-ref row 5)))))))
 
-(def (capture-kind! owner kind start end)
+(def (capture-kind! (owner : fold-element) kind start end)
   (let loop ((fields (vector-ref (vector-ref (fold-element-rule owner) 1) kind)))
     (unless (null? fields)
       (capture! owner (car fields) start end)
       (loop (cdr fields)))))
 
-(def (fold-graph-token! sink kind from until)
+(def (fold-graph-token! (sink : fold-graph-state) kind from until)
   (fold-index-token! (fold-graph-state-index sink) kind from until)
   (let (active (fold-graph-state-active sink))
     (when (fold-element? active) (capture-kind! active kind from until)))
   sink)
 
-(def (fold-graph-finish! sink)
+(def (fold-graph-finish! (sink : fold-graph-state))
   (let ((index (fold-graph-state-index sink)) (active (fold-graph-state-active sink)))
     (when active
       (let-values (((kind start) (fold-index-open index)))
@@ -88,7 +96,7 @@
     (fold-index-finish! index))
   sink)
 
-(def (fold-graph-publish! sink)
+(def (fold-graph-publish! (sink : fold-graph-state))
   (let* ((index (fold-index-publish! (fold-graph-state-index sink)))
          (records (reverse! (fold-graph-state-records sink))))
     (fold-graph-state-records-set! sink '())

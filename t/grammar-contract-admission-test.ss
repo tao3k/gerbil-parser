@@ -73,6 +73,16 @@
         (equal (rejects? (lambda () (validate GrammarRoleContract role))) #t)
         (equal (element? GrammarContract grammar) #f)
         (equal (rejects? (lambda () (make-grammar 'grammar '() (list role)))) #t)))
+    (scenario "instance assignments take precedence over direct Role slots"
+      (sequential ((role (empty-role))
+                   (grammar (make-grammar 'grammar '() (list role))))
+        (act (.set! role rules 0))
+        (equal (element? GrammarRoleContract role) #f)
+        (equal (evidence-member? GrammarRoleContract role) #f)
+        (equal (element? GrammarContract grammar) #f)
+        (act (.set! role rules (list 'updated-rule)))
+        (equal (eq? (validate GrammarRoleContract role) role) #t)
+        (equal (element? GrammarContract grammar) #t)))
     (scenario "composition obligations reject foreign roles and parents"
       (sequential ((role (empty-role)) (grammar (make-grammar 'grammar '() (list role))))
         (each (invalid) ((list (.cc grammar 'parents (list (.o)))

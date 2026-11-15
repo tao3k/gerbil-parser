@@ -5,10 +5,12 @@
 (import (only-in ../schema +grammar-schema+ +grammar-ir-schema+
                  +parser-ir-schema+ +parse-artifact-schema+ +diagnostic-schema+)
         (only-in :clan/poo/object .ref .cc .o .all-slots
-                 object? object-revision object-slots object-declarations
-                 object-protocol compute-precedence-list! $constant-slot-spec?)
+                 object? object-revision object-slots object-declarations .slot?
+                 object-protocol object-override-specifications compute-precedence-list!
+                 $constant-slot-spec? $constant-slot-spec-value)
         (only-in :clan/poo/slot-observation %slot-read-active?)
-        (only-in :clan/poo/mop define-type element? Slot Type.)
+        (only-in :clan/poo/mop define-type element? Class. Slot Type.)
+        (only-in :std/list/list delete-duplicates/hash)
         (only-in :clan/poo/type Record Symbol Exactly)
         (only-in :tao3k/yuanxu/types/contracts
                  YuanxuObjectContract. yuanxu-predicate-contract))
@@ -47,39 +49,56 @@
 ;; languages are checked by the normalizer, rather than pretending to know a
 ;; universal element Type (or introducing an Any parameter).
 (def DeclarationList (.cc Type. sexp: 'DeclarationList '.element? list?))
-;; These declaration Records have identity validators on every field. A
-;; plain receiver with direct value slots need not be rebound to normalize
-;; them. Use POO's own membership check on current data for every admission.
+;; These Records have identity validators and ordinary typed fields. Prepare
+;; their POO Type predicates once. Plain receivers already carry the complete
+;; field set, so both membership and validation can check current values directly.
 (def (declaration-record record)
   (def descriptor
     (.o (:: self record)
+      (.element? (inherited)
+        (lambda (candidate)
+          (cond ((and (eq? self descriptor) (plain-declaration-specs candidate))
+                 => fields-match?)
+                (else ((inherited) candidate)))))
       (.validate (inherited)
         (lambda (candidate)
-          (if (and (eq? self descriptor)
-                   (not (%slot-read-active?))
-                   (object? candidate)
-                   (stock-descriptors?)
-                   (let (chain (compute-precedence-list! candidate))
-                     (and (memq (.ref self 'proto) chain)
-                          (not (object-protocol candidate))
-                          (andmap (lambda (owner) (null? (object-declarations owner))) chain)))
-                   (let (specs (object-slots candidate))
-                     (and (andmap (lambda (entry) ($constant-slot-spec? (cdr entry))) specs)
-                          (andmap (cut assq <> specs) names)))
-                   (element? self candidate))
-            candidate
-            ((inherited) candidate))))))
+          (let (specs (and (eq? self descriptor) (plain-declaration-specs candidate)))
+            (if (and specs (fields-match? specs))
+              candidate
+              ((inherited) candidate)))))))
+  (def (plain-declaration-specs candidate)
+    (and (not (%slot-read-active?))
+         (object? candidate)
+         (stock-descriptors?)
+         (null? (object-override-specifications candidate))
+         (let (chain (compute-precedence-list! candidate))
+           (and (memq proto chain)
+                (not (object-protocol candidate))
+                (andmap (lambda (owner) (null? (object-declarations owner))) chain)))
+         (let (specs (object-slots candidate))
+           (and (andmap (lambda (entry) ($constant-slot-spec? (cdr entry))) specs)
+                (let (required (map (cut assq <> specs) names))
+                  (and (andmap pair? required) required))))))
+  (def (fields-match? specs)
+    (andmap (lambda (entry check) (check ($constant-slot-spec-value (cdr entry))))
+            specs checks))
+  (def proto (.ref descriptor 'proto))
   (def slots (.ref descriptor 'effective-slots))
   (def names (.all-slots slots))
   (def fields (map (cut .ref slots <>) names))
   (def types (map (cut .ref <> 'type) fields))
-  ;; Record, Slot and field Type overrides can install a normalizer. Keep the
-  ;; inherited validator live for changed or derived descriptors.
-  (def owners (cons* Type. Slot record descriptor slots (append fields types)))
-  (def revisions (map object-revision owners))
+  (def checks (map (cut .ref <> '.element?) types))
+  (def typed-fields?
+    (and (not (.ref descriptor 'sealed))
+         (andmap (lambda (field) (not (.slot? field 'constant))) fields)))
+  (def owners
+    (delete-duplicates/hash
+     (append (list Type. Class. Slot record descriptor slots) fields types)
+     table: (make-hash-table-eq)))
+  ;; Use inherited POO dispatch after any edit to a checker or descriptor.
   (def (stock-descriptors?)
-    (andmap (lambda (owner revision) (= (object-revision owner) revision))
-            owners revisions))
+    (and typed-fields?
+         (andmap (lambda (owner) (zero? (object-revision owner))) owners)))
   descriptor)
 
 (def GrammarRoleValue

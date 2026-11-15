@@ -29,6 +29,32 @@
       (fold-graph-finish! sink)
       (values (fold-graph-publish! sink) root number))))
 
+;; A selected descendant of omitted mapped nodes still belongs to the nearest
+;; selected ancestor. Omitted tokens must not leak into that ancestor's fields.
+(def (selected-expression-product projection navigation? (keep-root? #t))
+  (let-values (((_ rules) (graph-projection-ordinal-rules arithmetic-language-grammar projection)))
+    (let* ((root (caar rules)) (number (caar (cadddr (car rules))))
+           (sink (make-fold-graph (string->utf8 "1234567") "grammar"
+                                  (fold-graph-catalog arithmetic-language-grammar projection)
+                                  navigation? (lambda (_kind _parent start)
+                                                (or (and keep-root? (= start 0)) (= start 3))))))
+      (fold-graph-start! sink root)
+      (fold-graph-token! sink number 0 1)
+      (fold-graph-start! sink root)
+      (fold-graph-token! sink number 1 2)
+      (fold-graph-start! sink root)
+      (fold-graph-token! sink number 2 3)
+      (fold-graph-start! sink root)
+      (fold-graph-token! sink number 3 4)
+      (fold-graph-finish! sink)
+      (fold-graph-token! sink number 4 5)
+      (fold-graph-finish! sink)
+      (fold-graph-token! sink number 5 6)
+      (fold-graph-finish! sink)
+      (fold-graph-token! sink number 6 7)
+      (fold-graph-finish! sink)
+      (fold-graph-publish! sink))))
+
 (deflanguage-parser-tests graph-projection-aot-test "POO graph projection AOT"
   (engine)
     (property "typed graph rules bind to generated node and token kinds"
@@ -119,9 +145,30 @@
                 (= (u32vector-length (vector-ref sparse 1)) 0)
                 (equal? (vector-ref full 2) (vector-ref sparse 2))
                 (equal? (vector-ref full 2)
-                        '#(#(0 #f 0 3 1 ((0 (0 . 2)) (1 (0 . 2) (2 . 3))
+                        '#(#(0 #f 0 3 1 ((0 (0 . 2)) (1 (0 . 3))
                                          (0 (2 . 3)) (2 (0 . 3))))))))
          #t)))
+    (scenario "selected descendants restore omitted owners without leaking fields"
+      (scope ((projection
+               (make-graph-projection
+                (list (make-graph-node
+                       'Expression "document" "root"
+                       (list (make-graph-field 'Number "values")
+                             (make-graph-field 'Expression "source" 'node-text)))))))
+        (equal
+         (let ((full (selected-expression-product projection #t))
+               (sparse (selected-expression-product projection #f)))
+           (and (= (u32vector-length (vector-ref full 1)) 55)
+                (= (u32vector-length (vector-ref sparse 1)) 0)
+                (equal? (vector-ref full 2) (vector-ref sparse 2))
+                (equal? (vector-ref full 2)
+                        '#(#(0 #f 0 7 2 ((0 (0 . 1) (6 . 7)) (1 (0 . 7))))
+                           #(0 0 3 4 2 ((0 (3 . 4)) (1 (3 . 4))))))))
+         #t)
+        (each (navigation?) ('(#f #t))
+          (equal
+           (vector-ref (selected-expression-product projection navigation? #f) 2)
+           '#(#(0 #f 3 4 1 ((0 (3 . 4)) (1 (3 . 4)))))))))
     (property "duplicate graph node owners are rejected"
       (bindings)
       (equal

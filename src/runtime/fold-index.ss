@@ -2,8 +2,8 @@
 (export fold-index-owner make-fold-index fold-index-start! fold-index-token!
         fold-index-finish! fold-index-publish! fold-index-position fold-index-open)
 
-(def absent #xffffffff)
-(def row-width 5)
+(defconst absent #xffffffff)
+(defconst row-width 5)
 (defstruct fold-index-owner
   (digest (size :- :fixnum) rows (used :- :fixnum)
    (parent :- :fixnum) (cursor :- :fixnum) sealed? navigation?)
@@ -12,13 +12,13 @@
 (def (make-fold-index bytes digest (navigation? #t))
   => fold-index-owner
   (let (size (u8vector-length bytes))
-    (unless (< size absent) (error "source exceeds u32 Fold index"))
+    (unless (fx< size absent) (error "source exceeds u32 Fold index"))
     (make-fold-index-owner digest size (make-u32vector (if navigation? 160 40) 0)
                            0 absent 0 #f navigation?)))
 
 (def (storage-for-row! (owner : fold-index-owner) offset)
   (let (rows (fold-index-owner-rows owner))
-    (when (> (fx+ offset row-width) (u32vector-length rows))
+    (when (fx> (fx+ offset row-width) (u32vector-length rows))
       (let (grown (make-u32vector (fx* 2 (u32vector-length rows)) 0))
         (u32vector-copy! grown 0 rows 0 offset)
         (fold-index-owner-rows-set! owner grown)
@@ -27,7 +27,7 @@
 
 (def (append-row! (owner : fold-index-owner) kind start end subtree-end)
   (let (id (fold-index-owner-used owner))
-    (when (>= id (- absent 1)) (error "Fold index exceeds u32 ordinals"))
+    (when (fx>= id (fx- absent 1)) (error "Fold index exceeds u32 ordinals"))
     (def offset (fx* id row-width))
     (def rows (storage-for-row! owner offset))
     (u32vector-set! rows offset kind)
@@ -42,11 +42,11 @@
   (let ((parent (fold-index-owner-parent owner))
         (position (fold-index-owner-cursor owner)))
     (when (or (fold-index-owner-sealed? owner)
-              (and (= parent absent) (> (fold-index-owner-used owner) 0)))
+              (and (fx= parent absent) (fx> (fold-index-owner-used owner) 0)))
       (error "Fold index accepts one root"))
     (if (fold-index-owner-navigation? owner)
       (fold-index-owner-parent-set! owner (append-row! owner kind position 0 0))
-      (let* ((depth (if (= parent absent) 0 (fx+ parent 1)))
+      (let* ((depth (if (fx= parent absent) 0 (fx+ parent 1)))
              (offset (fx* depth row-width))
              (rows (storage-for-row! owner offset)))
         (u32vector-set! rows offset kind)
@@ -57,7 +57,7 @@
   owner)
 
 (def (fold-index-token! (owner : fold-index-owner) kind start end)
-  (unless (and (< (fold-index-owner-parent owner) absent)
+  (unless (and (fx< (fold-index-owner-parent owner) absent)
                (fixnum? start) (fixnum? end)
                (fx= start (fold-index-owner-cursor owner)) (fx< start end)
                (fx<= end (fold-index-owner-size owner)))
@@ -69,18 +69,18 @@
 
 (def (fold-index-finish! (owner : fold-index-owner))
   (let* ((id (fold-index-owner-parent owner)) (rows (fold-index-owner-rows owner)))
-    (unless (< id absent) (error "Fold index finish lacks an owner"))
+    (unless (fx< id absent) (error "Fold index finish lacks an owner"))
     (let (offset (fx* id row-width))
       (when (fold-index-owner-navigation? owner)
         (##u32vector-set! rows (fx+ offset 3) (fold-index-owner-cursor owner))
         (##u32vector-set! rows (fx+ offset 4) (fold-index-owner-used owner)))
-      (fold-index-owner-parent-set! owner (##u32vector-ref rows (+ offset 1)))))
+      (fold-index-owner-parent-set! owner (##u32vector-ref rows (fx+ offset 1)))))
   owner)
 
 (def (fold-index-publish! (owner : fold-index-owner))
-  (unless (and (not (fold-index-owner-sealed? owner)) (> (fold-index-owner-used owner) 0)
-               (= (fold-index-owner-parent owner) absent)
-               (= (fold-index-owner-cursor owner) (fold-index-owner-size owner)))
+  (unless (and (not (fold-index-owner-sealed? owner)) (fx> (fold-index-owner-used owner) 0)
+               (fx= (fold-index-owner-parent owner) absent)
+               (fx= (fold-index-owner-cursor owner) (fold-index-owner-size owner)))
     (error "incomplete Fold index"))
   (let ((rows (fold-index-owner-rows owner))
         (used (if (fold-index-owner-navigation? owner)
@@ -90,10 +90,14 @@
     (when (< used (u32vector-length rows)) (u32vector-shrink! rows used))
     (vector (fold-index-owner-digest owner) rows)))
 
-(def (fold-index-position (owner : fold-index-owner)) (fold-index-owner-cursor owner))
-(def (fold-index-open (owner : fold-index-owner))
+(definline (fold-index-position (owner : fold-index-owner))
+  => :fixnum
+  (fold-index-owner-cursor owner))
+;; A literal visitor is inlined with the reads. Returning multiple values here
+;; would allocate a tuple at every close, even after inlining the procedure.
+(definline (fold-index-open (owner : fold-index-owner) (visit : :procedure))
   (let* ((id (fold-index-owner-parent owner))
          (rows (fold-index-owner-rows owner))
          (offset (fx* id row-width)))
-    (unless (< id absent) (error "Fold index has no open node"))
-    (values (##u32vector-ref rows offset) (##u32vector-ref rows (+ offset 2)))))
+    (unless (fx< id absent) (error "Fold index has no open node"))
+    (visit (##u32vector-ref rows offset) (##u32vector-ref rows (fx+ offset 2)))))

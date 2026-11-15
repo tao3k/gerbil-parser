@@ -196,10 +196,11 @@
        ((call-source-helper)
         (let (helper (assq (cadr form) helpers))
           (unless helper (error "unknown native fold helper" form))
-          `(set! events
-              (,(cdr helper) source-bytes ,(offset (caddr form)) ,(offset (cadddr form))
-                            events ,@(map uint (if (= (length form) 5)
-                                               (list-ref form 4) '()))))))
+          (let (call
+                `(,(cdr helper) source-bytes ,(offset (caddr form)) ,(offset (cadddr form))
+                                events ,@(map uint (if (= (length form) 5)
+                                                   (list-ref form 4) '()))))
+            (if (current-fold-scheme-effect-only) call `(set! events ,call)))))
        ((scan-list-marker)
         `(let (marker (scan-event-list-marker-bytes source-bytes start end
                           ',(string->utf8 (cadr form)) ,(caddr form) ,(cadddr form)))

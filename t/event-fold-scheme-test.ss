@@ -4,7 +4,9 @@
 (import (only-in :std/test check check-exception test-case test-suite)
         (only-in ./event-strategy-fixture event-lines-language-grammar)
         (only-in ../src/compiler/event-fold-scheme event-fold-scheme-source)
-        (only-in ../src/compiler/event-fold-scheme-context current-fold-scheme-diagnostics)
+        (only-in ../src/compiler/event-fold-scheme-context current-fold-scheme-diagnostics
+                 current-fold-scheme-effect-only current-fold-scheme-expressions)
+        (only-in ../src/compiler/event-fold-scheme-statements fold-scheme-statements)
         (only-in ../src/compiler/event-fold-future fold-future-marker-before-boundary?
                  fold-future-named-index)
         (only-in ../src/compiler/event-fold-prefix-family fold-scheme-prefix-family)
@@ -24,7 +26,12 @@
     (scenario "native byte frames preserve Unicode CR LF CRLF and terminal bounds"
       (raises (fold-source-input-bytes 42) true)
       (each (invalid) ((list (u8vector 255) (u8vector 192 128) (u8vector 237 160 128)
-             (u8vector 244 144 128 128) (u8vector 226 130) (u8vector 128))) (raises (fold-source-input-bytes invalid) true))
+             (u8vector 244 144 128 128) (u8vector 226 130) (u8vector 128)))
+        (raises (fold-source-input-bytes invalid) true)
+        (raises (fold-source-input-bytes (u8vector-append #u8(65) invalid #u8(90))) true))
+      (scope ((ascii (list->u8vector (iota 128))))
+        (equal (eq? (fold-source-input-bytes ascii) ascii) #t)
+        (equal (utf8->string (fold-source-input-bytes ascii)) (utf8->string ascii)))
       (raises (fold-source-byte-lines "not bytes" '() void) true)
       (scope ((bytes (u8vector 99 32 9 97 98)))
         (equal (byte-span-skip bytes 1 5 (lambda (byte) (memv byte '(9 32))))  3)
@@ -176,6 +183,23 @@
       (equal (not (string-contains generated "subu8vector"))  #t)
       (equal (not (string-contains generated "utf8->string"))  #t)
       (equal (not (not (string-contains generated "fold-source-frame-boundaries!")))  #t))
+    (scenario "in-place helpers preserve the owner while list helpers thread results"
+      (each (effect-only?) ('(#f #t))
+        (scope ((statements
+                 (parameterize ((current-fold-scheme-effect-only effect-only?)
+                                (current-fold-scheme-expressions #f))
+                   (fold-scheme-statements '((call-source-helper child start end))
+                                          '() '() '((child . visit-child))))))
+          (equal
+           (eval `(let ((source-bytes #u8()) (start 0) (end 0) (events (vector 0)))
+                    (let (original events)
+                      (let ((visit-child (lambda (_source _start _end owner)
+                                           (vector-set! owner 0 1)
+                                           'replacement)))
+                        ,@statements
+                        (list (vector-ref original 0)
+                              ,(if effect-only? '(eq? events original) 'events))))))
+           (if effect-only? '(1 #t) '(1 replacement))))))
     (scenario "untyped slots unknown instructions and callbacks fail before generation"
       (raises (source '((flag #f)) '((set-uint flag (uint 1))) '()) true)
       (raises (source '() '((foreign-operation)) '()) true)

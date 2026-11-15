@@ -57,6 +57,38 @@
 
 (deflanguage-parser-tests graph-projection-aot-test "POO graph projection AOT"
   (engine)
+    (scenario "Fold owner boundaries reject unrelated values"
+      (each (owner) ('(#f () #() #(1 2 3)))
+        (raises (fold-graph-start! owner 0) true)
+        (raises (fold-graph-token! owner 0 0 1) true)
+        (raises (fold-graph-finish! owner) true)
+        (raises (fold-graph-publish! owner) true)))
+    (scenario "Nested Element rows preserve preorder and parents"
+      (each (navigation?) ('(#f #t))
+        (scope ((rows
+                 (let* ((projection (make-graph-projection
+                                     (list (make-graph-node 'Expression "document" "root"
+                                            (list (make-graph-field 'Number "value"))))))
+                        (catalog (fold-graph-catalog arithmetic-language-grammar projection))
+                        (root (let find ((index 0))
+                                (if (vector-ref catalog index) index (find (+ index 1)))))
+                        (inputs (vector-ref (vector-ref catalog root) 1))
+                        (number (let find ((index 0))
+                                  (if (pair? (vector-ref inputs index)) index (find (+ index 1)))))
+                        (sink (make-fold-graph (string->utf8 (make-string 33 #\x))
+                                              "grammar" catalog navigation?)))
+                   (fold-graph-start! sink root)
+                   (for-each (lambda (offset)
+                               (fold-graph-start! sink root)
+                               (fold-graph-token! sink number offset (+ offset 1))
+                               (fold-graph-finish! sink)) (iota 33))
+                   (fold-graph-finish! sink)
+                   (vector-ref (fold-graph-publish! sink) 2))))
+          (equal (vector-length rows) 34)
+          (equal (vector->list (subvector (vector-ref rows 0) 1 5)) '(#f 0 33 34))
+          (each (offset) ((iota 33))
+            (equal (vector->list (subvector (vector-ref rows (+ offset 1)) 1 5))
+                   (list 0 offset (+ offset 1) (+ offset 2)))))))
     (property "typed graph rules bind to generated node and token kinds"
       (bindings (projection
               (make-graph-projection

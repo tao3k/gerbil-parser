@@ -1,6 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Request source traversal has no grammar/compiler initialization dependency.
-(import (only-in :std/string/utf8 string-utf8-length utf8->string) :std/ffi)
+(import (only-in :std/string/utf8 string-utf8-length utf8->string)
+        (only-in ./byte-spans byte-span-all?) :std/ffi)
 (export source-line-end fold-source-lines fold-source-byte-lines fold-source-byte-spans
         fold-source-frame-boundaries! fold-source-input-bytes source-line-events line-starts-with?)
 
@@ -39,13 +40,13 @@
   (cond
    ((string? source) (string->utf8 source))
    ((u8vector? source)
-    ;; Make decoder admission observable in optimized products: discarding
-    ;; its result permits the pure conversion to disappear. UTF-8 has at
-    ;; least one byte per decoded scalar; the check retains the official
-    ;; strict decoder without re-encoding or replacing the owned buffer.
-    (let (text (utf8->string source))
-      (unless (fx<= (string-length text) (u8vector-length source))
-        (error "decoded source exceeds UTF-8 byte storage")))
+    ;; ASCII is already a sequence of valid scalars. Non-ASCII input still
+    ;; goes through the official strict decoder, including malformed tails.
+    (unless (byte-span-all? source 0 (u8vector-length source) (lambda (byte) (fx< byte 128)))
+      ;; Observe the decoded length so optimizer purity cannot erase admission.
+      (let (text (utf8->string source))
+        (unless (fx<= (string-length text) (u8vector-length source))
+          (error "decoded source exceeds UTF-8 byte storage"))))
     source)
    (else (error "event Fold requires text or UTF-8 byte storage"))))
 

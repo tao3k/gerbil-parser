@@ -1,7 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Public POO/AOT support for language-owned graph projections.
 
-(import (only-in ./src/graph/graph-projection-objects
+(import (only-in ./src/compiler/fold-graph-catalog fold-graph-catalog)
+        (only-in ./src/graph/graph-projection-objects
                  GraphProjection. GraphNode. GraphField.
                  make-graph-projection make-graph-node make-graph-field
                  graph-projection?)
@@ -12,7 +13,7 @@
         make-graph-projection make-graph-node make-graph-field
         graph-projection?
         graph-projection-digest
-        generate-graph-projection-runtime-module)
+        generate-graph-projection-runtime-module fold-graph-catalog)
 
 (import (only-in ./src/graph/graph-projection-objects
                  graph-projection-nodes graph-node-syntax-kind graph-node-category

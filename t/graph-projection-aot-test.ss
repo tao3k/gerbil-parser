@@ -7,10 +7,27 @@
                  arithmetic-language-grammar)
         (only-in :gerbil-parser/graph-projection-support
                  make-graph-projection make-graph-node make-graph-field
-                 graph-projection? graph-projection-digest))
+                 graph-projection? graph-projection-digest fold-graph-catalog))
 (import (only-in :gerbil-parser/src/compiler/graph-projection-runtime
-                 graph-projection-runtime-source))
+                 graph-projection-runtime-source graph-projection-ordinal-rules)
+        (only-in :gerbil-parser/event-fold-program-support
+                 make-fold-graph fold-graph-start! fold-graph-token!
+                 fold-graph-finish! fold-graph-publish!))
 
+
+(def (expression-product projection navigation?)
+  (let-values (((_ rules) (graph-projection-ordinal-rules arithmetic-language-grammar projection)))
+    (let* ((rule (car rules))
+           (root (car rule))
+           (number (caar (cadddr rule)))
+           (sink (make-fold-graph (string->utf8 "α3") "grammar"
+                                  (fold-graph-catalog arithmetic-language-grammar projection)
+                                  navigation?)))
+      (fold-graph-start! sink root)
+      (fold-graph-token! sink number 0 2)
+      (fold-graph-token! sink number 2 3)
+      (fold-graph-finish! sink)
+      (values (fold-graph-publish! sink) root number))))
 
 (deflanguage-parser-tests graph-projection-aot-test "POO graph projection AOT"
   (engine)
@@ -84,6 +101,27 @@
                     source "mode: GraphFieldMode::NodeText")
                  #t #f)
                 #t))
+    (scenario "Fold publishes the shared fields and byte intervals with optional navigation"
+      (scope ((projection
+               (make-graph-projection
+                (list (make-graph-node
+                       'Expression "document" "root"
+                       (list (make-graph-field 'Number "values" 'each)
+                             (make-graph-field 'Number "merged")
+                             (make-graph-field 'Expression "source" 'node-text)))))))
+        (equal
+         (let-values (((full root number) (expression-product projection #t))
+                      ((sparse _root _number) (expression-product projection #f)))
+           (and (equal? (vector-ref full 0) "grammar")
+                (equal? (u32vector->list (vector-ref full 1))
+                        (list root #xffffffff 0 3 3
+                              number 0 0 2 2 number 0 2 3 3))
+                (= (u32vector-length (vector-ref sparse 1)) 0)
+                (equal? (vector-ref full 2) (vector-ref sparse 2))
+                (equal? (vector-ref full 2)
+                        '#(#(0 #f 0 3 1 ((0 (0 . 2)) (1 (0 . 2) (2 . 3))
+                                         (0 (2 . 3)) (2 (0 . 3))))))))
+         #t)))
     (property "duplicate graph node owners are rejected"
       (bindings)
       (equal

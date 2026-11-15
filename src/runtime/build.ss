@@ -4,5 +4,5 @@
 (.def Build
   defbuild-script:
   (.o spec:
-    '("fold-tape" "fold-cost" "machine" "lexical-expression"
+    '("fold-tape" "fold-index" "fold-graph" "fold-cost" "machine" "lexical-expression"
       "lexical-lexer" "incremental" "recovery" "source-engines")))

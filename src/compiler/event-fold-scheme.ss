@@ -13,7 +13,33 @@
         (only-in ./event-fold-scheme-statements
                  fold-scheme-statements fold-scheme-frame-statements fold-scheme-bindings fold-scheme-initial
                  current-fold-scheme-counter fold-scheme-fresh-name))
-(export event-fold-scheme-source)
+(export event-fold-scheme-source make-event-fold-consumer)
+
+;; A declared consumer is resolved at generation. Fold effects still lower
+;; to direct calls to a single request-local writer.
+(defstruct fold-consumer (module names))
+
+(def (make-event-fold-consumer module make start token finish publish)
+  (def symbols (list make start token finish publish))
+  (unless (and (symbol? module) (> (string-length (symbol->string module)) 1)
+               (string-prefix? ":" (symbol->string module))
+               (andmap symbol? symbols)
+               (let distinct ((remaining symbols))
+                 (or (null? remaining)
+                     (and (not (memq (car remaining) (cdr remaining)))
+                          (distinct (cdr remaining))))))
+    (error "invalid native Fold consumer binding"))
+  (make-fold-consumer module symbols))
+
+(def fold-consumer-imports
+  '(make-fold-tape fold-tape-start! fold-tape-token! fold-tape-finish! fold-tape-publish!))
+
+(def (fold-consumer-import consumer)
+  (if (eq? consumer 'tape)
+    `(only-in :gerbil-parser/src/runtime/fold-tape ,@fold-consumer-imports)
+    (let (names (fold-consumer-names consumer))
+      `(rename-in (only-in ,(fold-consumer-module consumer) ,@names)
+          ,@(map list names fold-consumer-imports)))))
 
 (def (validate-helper-graph helpers line finish)
   (def visited (make-table test: eq?))
@@ -57,32 +83,35 @@
 
 (def (event-fold-scheme-source name grammar root initial line finish
                                (helpers '()) (parameters '()) (consumer 'events))
-  (unless (memq consumer '(events tape)) (error "invalid Fold consumer" consumer))
+  (unless (or (memq consumer '(events tape)) (fold-consumer? consumer))
+    (error "invalid Fold consumer" consumer))
   (parameterize ((current-fold-scheme-counter 0)
                  (current-fold-scheme-prefix name)
                  (current-fold-scheme-expressions (make-table test: equal?))
                  (current-fold-scheme-definitions '())
-                 ;; Tape statements mutate the same request-owned writer.
+                 ;; Consumer statements mutate the same request-owned writer.
                  ;; Sharing a statement cannot replace it, so its result
                  ;; need not be assigned back into the caller's event slot.
                  (current-fold-scheme-effect-only
-                  (or (current-fold-scheme-effect-only) (eq? consumer 'tape)))
+                  (or (current-fold-scheme-effect-only) (not (eq? consumer 'events))))
                  (current-fold-scheme-tape-kinds
-                  (and (eq? consumer 'tape)
+                  (and (not (eq? consumer 'events))
                        (let loop ((kinds (cdr (assq 'syntax-kinds (language-grammar-ir grammar))))
                                   (index 0))
                          (if (null? kinds) '()
                            (cons (list (caar kinds) index)
                                  (loop (cdr kinds) (+ index 1))))))))
-    (apply fold-scheme-source-owned grammar
+    (apply fold-scheme-source-owned grammar consumer
            (snapshot-fold-data (list name root initial line finish helpers parameters)))))
 
-(def (fold-scheme-source-owned grammar name root initial line finish helpers parameters)
+(def (fold-scheme-source-owned grammar consumer name root initial line finish helpers parameters)
   ;; Snapshot/cycle admission precedes the shared typed lowering. Both products
   ;; use the same grammar-kind checks, state types, helper arity and digest.
   (let* ((ir (event-fold-ir name grammar root initial line finish helpers parameters))
          (digest (hash-get ir "parser_digest"))
          (tape? (current-fold-scheme-tape-kinds))
+         (grammar-digest (and tape? (parser-machine-grammar-digest
+                                      (language-grammar-machine grammar))))
          (binder (string->symbol (string-append "bind-" (symbol->string name))))
          (bindings (fold-scheme-bindings initial))
          (names (map (lambda (helper) (cons (car helper) (fold-scheme-fresh-name 'helper))) helpers)))
@@ -94,9 +123,7 @@
         `((import (only-in :gerbil-parser/src/runtime/source-lines
                            fold-source-byte-spans fold-source-frame-boundaries! fold-source-input-bytes)
                   ,@(if tape?
-                      '((only-in :gerbil-parser/src/runtime/fold-tape
-                                 make-fold-tape fold-tape-start! fold-tape-token!
-                                 fold-tape-finish! fold-tape-publish!)) '())
+                      (list (fold-consumer-import consumer)) '())
                   (only-in :gerbil-parser/src/compiler/event-list-marker
                            event-byte-indent-column scan-event-list-marker-bytes)
                   (only-in :gerbil-parser/src/runtime/event-fold-lines
@@ -142,9 +169,10 @@
                         (fold-source-byte-spans source-bytes
                           ,(if tape?
                              `(fold-tape-start!
-                               (make-fold-tape ',(string->utf8
-                                  (string-append "OEV1" (parser-machine-grammar-digest
-                                                        (language-grammar-machine grammar)))))
+                               ,(if (eq? consumer 'tape)
+                                  `(make-fold-tape ',(string->utf8
+                                                      (string-append "OEV1" grammar-digest)))
+                                  `(make-fold-tape source-bytes ,grammar-digest overrides))
                                ,(cadr (assq root tape?)))
                              `(list '(start ,root)))
                           (lambda (start end events)

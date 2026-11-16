@@ -120,7 +120,7 @@
 ;;; Native backend execution controls own its behavior; all other forms still
 ;;; compare to the frozen split input. Unknown or duplicate owners stay visible.
 (def semantic-exports '(RecognitionSemantics. EventSemantics. select-lr-action-factory
-                       select-lr-action-factory$poo-clos-generic prepare-lr-semantics))
+                       select-lr-action-factory$clos-generic prepare-lr-semantics))
 (def semantic-owners '(lr-prepared-semantics capture-lr-reducers
                       prepare-lr-recognition-semantics prepare-lr-semantics
                       default-recognition-semantics default-event-reducers))

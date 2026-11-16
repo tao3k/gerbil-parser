@@ -13,7 +13,7 @@
                  validate-lr-tables layout-productions?)
         (only-in :std/vector/vector
                  vector-map/index)
-        (only-in :clan/poo/clos/generic-syntax
+        (only-in :clan/poo/mop
                  .defgeneric .defmethod)
         (only-in ../../compiler/lr
                  lr-spec-ref production-action validate-production-semantics production-precedence production-rhs production-table production-lhs)
@@ -31,7 +31,7 @@
                  reduce-value reduce-value/events))
 (export prepare-lr-semantics
         install-lr-runtime-direct-step!
-        select-lr-semantic-reducer select-lr-semantic-reducer$poo-clos-generic
+        select-lr-semantic-reducer select-lr-semantic-reducer$clos-generic
         lr-semantic-capability
         lr-runtime-event-program?
         install-lr-runtime-event-step!

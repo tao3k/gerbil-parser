@@ -2,7 +2,7 @@
 ;;; Two real output targets share one engine admission and Loader dispatch.
 (import :std/test
         (only-in :clan/poo/object .o .cc .ref .slot?)
-        (only-in :clan/poo/mop validate)
+        (only-in :clan/poo/type validate)
         (only-in :gerbil-parser/language-build-support
                  BuildStrategy. BuildStrategyContract RustRuntimeStrategy. FusedReductionStrategy.
                  make-bound-build-strategy make-fused-reduction-strategy make-rust-runtime-strategy

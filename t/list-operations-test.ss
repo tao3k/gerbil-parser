@@ -1,7 +1,6 @@
 (import :gerbil-parser/language-test-support
         (only-in :clan/poo/object .ref)
-        (only-in :clan/poo/mop Bool)
-        (only-in :clan/poo/type Symbol)
+        (only-in :clan/poo/type Bool Symbol)
         (only-in :gerbil-parser/src/utilities/lists append-unique make-list-operations)
         (only-in :gerbil-parser/src/compiler/lr union-values))
 

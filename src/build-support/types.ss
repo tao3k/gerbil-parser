@@ -1,7 +1,6 @@
 ;;; The native Record owns field types, inheritance, defaults and normalization.
 (import (only-in :clan/poo/object .cc)
-        (only-in :clan/poo/mop define-type Fun Any)
-        (only-in :clan/poo/type Record String List Or Pair Keyword))
+        (only-in :clan/poo/type define-type Fun Any Record String List Or Pair Keyword))
 (export BuildSupportScope BuildSupportScopeContract BuildSpecification)
 
 ;; std/make owns option/metadata semantics, including nested submodule specs.

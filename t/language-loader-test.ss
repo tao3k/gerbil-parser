@@ -4,7 +4,7 @@
         (only-in :gerbil-parser/language-support/entry deflanguage-parser-loader language-parser-source-receipt)
         (for-syntax (only-in :gerbil/expander core-expand))
         (only-in :clan/poo/object .o .ref .cc object?)
-        (only-in :clan/poo/mop define-type element? validate)
+        (only-in :clan/poo/type define-type element? validate)
         (only-in :tao3k/yuanxu/types/contracts YuanxuContract. yuanxu-classification-evidence)
         (only-in :gerbil-parser/language-support/development
                  deflanguage-development-loader LanguageDevelopmentLoader. LanguageDevelopmentLoaderContract

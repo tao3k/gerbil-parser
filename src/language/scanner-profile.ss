@@ -1,6 +1,6 @@
 ;;; POO scanner declarations compile to closed shared contextual IR.
 (import (only-in :clan/poo/object .o .ref object?)
-        (only-in :clan/poo/mop define-type validate)
+        (only-in :clan/poo/type define-type validate)
         (only-in :tao3k/yuanxu/types/contracts yuanxu-predicate-contract)
         (only-in ../grammar/contextual-objects make-contextual-role make-contextual-method make-contextual-scan-rule)
         (only-in ../compiler/contextual-dispatch compile-contextual-dispatch)

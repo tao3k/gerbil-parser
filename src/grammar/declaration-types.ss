@@ -9,9 +9,9 @@
                  object-protocol object-override-specifications compute-precedence-list!
                  $constant-slot-spec? $constant-slot-spec-value)
         (only-in :clan/poo/slot-observation %slot-read-active?)
-        (only-in :clan/poo/mop define-type element? Class. Slot Type.)
+        (only-in :clan/poo/mop Class. Slot)
         (only-in :std/list/list delete-duplicates/hash)
-        (only-in :clan/poo/type Record Symbol Exactly)
+        (only-in :clan/poo/type define-type element? Type. Record Symbol Exactly)
         (only-in :tao3k/yuanxu/types/contracts
                  YuanxuObjectContract. yuanxu-predicate-contract))
 

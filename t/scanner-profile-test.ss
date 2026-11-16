@@ -2,7 +2,7 @@
 ;;; Independent profiles exercise POO inheritance and closed scanner admission.
 (import :std/test
  (only-in :clan/poo/object .cc)
- (only-in :clan/poo/mop element?)
+ (only-in :clan/poo/type element?)
  (only-in :gerbil-parser/src/language/scanner-profile
   ScannerProfile. ScannerProfileContract defscanner-profile compile-scanner-profile)
  (only-in :gerbil-parser/src/runtime/source-scanner make-contextual-source-scanner

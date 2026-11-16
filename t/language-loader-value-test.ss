@@ -2,7 +2,7 @@
 ;;; Stable loader identity and ordinary POO value slots use the unreleased v2 contract.
 (import :std/test
         (only-in :clan/poo/object .o .ref .cc)
-        (only-in :clan/poo/mop element?)
+        (only-in :clan/poo/type element?)
         (only-in :gerbil-parser/language-support/development
                  deflanguage-development-loader LanguageDevelopmentLoader. LanguageDevelopmentLoaderContract
                  +language-parser-entry-schema+ run-language-test

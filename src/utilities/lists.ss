@@ -1,7 +1,7 @@
 ;;; Small general-purpose list primitives shared across compiler modules.
 
 (import (only-in :clan/poo/object .o)
-        (only-in :clan/poo/mop validate)
+        (only-in :clan/poo/type validate)
         (only-in ./types ListOperationsScopeOf))
 
 (export make-list-operations append-unique

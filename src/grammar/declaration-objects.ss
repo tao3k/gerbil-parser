@@ -4,7 +4,8 @@
 ;;; dispatches through a prototype method rather than a representation helper.
 
 (import (only-in :clan/poo/object .o .ref)
-        (only-in :clan/poo/mop .defgeneric element? validate)
+        (only-in :clan/poo/mop .defgeneric)
+        (only-in :clan/poo/type element? validate)
         (only-in :tao3k/yuanxu/object/interface
                  defpoo-object-family)
         (only-in ./declaration-types

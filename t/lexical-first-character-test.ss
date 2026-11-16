@@ -1,5 +1,5 @@
-(import (only-in :clan/poo/type False)
-        (only-in :clan/poo/mop TypeError?))
+(import (only-in :clan/poo/type TypeError? False)
+        )
 (import :gerbil-parser/language-test-support)
 (import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; Differential witness for admission filters on nonregular lexical rules.

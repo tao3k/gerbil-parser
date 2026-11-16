@@ -6,7 +6,7 @@
         :std/test
         (only-in :gerbil-parser/src/testing/language-strategy generate-language-test-sources check-language-strategies)
         (only-in :clan/poo/object .cc .o .ref)
-        (only-in :clan/poo/mop validate)
+        (only-in :clan/poo/type validate)
         (only-in :gerbil-parser/language-support/development LanguageDevelopmentLoaderContract)
 )
 

@@ -3,7 +3,7 @@
 ;;; only the role's normalized rows, never this object or its prototype.
 
 (import (only-in :clan/poo/object .o)
-        (only-in :clan/poo/mop define-type)
+        (only-in :clan/poo/type define-type)
         (only-in :tao3k/yuanxu/types/contracts YuanxuObjectContract.)
         (only-in ./declaration-types ParserSymbol ParserList))
 (export +contextual-role-kind+ ContextualRoleContract)

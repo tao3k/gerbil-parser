@@ -9,7 +9,7 @@
         (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release)
         (only-in :std/misc/ports read-all-as-string)
         (only-in :clan/poo/object .o .cc .ref)
-        (only-in :clan/poo/mop validate)
+        (only-in :clan/poo/type validate)
         (only-in :gerbil-parser/language-build-support
                  FusedReductionStrategy. FusedReductionStrategyContract
                  make-fused-reduction-strategy emit-build-strategy

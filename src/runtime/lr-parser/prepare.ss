@@ -4,7 +4,7 @@
 ;; Semantic dispatch needs generic declarations only. Keep class lifecycle,
 ;; reflection and aggregate CLOS syntax outside the parser's native closure.
 (import (only-in :clan/poo/object .o .ref)
-        (only-in :clan/poo/mop validate)
+        (only-in :clan/poo/type validate)
         (only-in ../function-types ActionSelectorFactory)
         (only-in ../reduction-plan
                  prepare-lr-reduction-plans prepare-lr-operand-semantics RecognitionSemantics. EventSemantics.

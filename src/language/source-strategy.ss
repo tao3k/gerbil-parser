@@ -2,7 +2,7 @@
 (import (only-in ../compiler/contextual-program contextual-program? contextual-program-ir contextual-program-results)
         (only-in ../runtime/contextual-ir contextual-ir-ref)
         (only-in :clan/poo/object .o .ref .slot? object?)
-        (only-in :clan/poo/mop define-type validate)
+        (only-in :clan/poo/type define-type validate)
         (only-in ./result-profile result-plan? result-plan-catalog)
         (only-in :tao3k/yuanxu/types/contracts yuanxu-predicate-contract))
 (export SourceStrategy. SourceStrategyContract bind-source-strategy

@@ -5,7 +5,7 @@
         (only-in :clan/poo/object .o .cc .ref)
         :gerbil-parser/language-support/projection
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-ref)
-        (only-in :clan/poo/mop validate)
+        (only-in :clan/poo/type validate)
         (only-in :gerbil-parser/language-support deflanguage deflanguage-parser-loader LanguageLoader. LanguageLoaderContract)
         (only-in :gerbil-parser/src/grammar/lexical-algebra lexical-expression?)
         (only-in :gerbil-parser/src/runtime/lexical-source scan-header-delimiter scan-header-data)

@@ -2,8 +2,7 @@
 ;;; Boolean admission must match Core's complete evidence protocol.
 (import :std/test
         (only-in :clan/poo/object .o .cc .get .ref .all-slots .set!)
-        (only-in :clan/poo/mop element? validate Type. TypeError? Fun)
-        (only-in :clan/poo/type Record Symbol)
+        (only-in :clan/poo/type element? validate Type. TypeError? Fun Record Symbol)
         (only-in :tao3k/yuanxu/types/contracts yuanxu-contract-admit
                  yuanxu-validation-evidence-accepted?
                  yuanxu-classification-evidence)

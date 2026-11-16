@@ -1,7 +1,7 @@
 ;;; Native source controls complement the unbounded Lean correspondence proofs.
 (import :gerbil-parser/language-test-support
         (prefix-in :std/struct/queue stdq-)
-        (only-in :clan/poo/mop element?)
+        (only-in :clan/poo/type element?)
         (only-in :clan/poo/number Integer)
         :std/io/tempfile
         (only-in :std/misc/ports read-all-as-string)

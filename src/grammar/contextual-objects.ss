@@ -2,7 +2,8 @@
 ;;; POO authoring objects for contextual method declarations.
 
 (import (only-in :clan/poo/object .o .ref)
-        (only-in :clan/poo/mop .defgeneric element? validate)
+        (only-in :clan/poo/mop .defgeneric)
+        (only-in :clan/poo/type element? validate)
         (only-in ./contextual-types
                  +contextual-role-kind+ ContextualRoleContract))
 (export ContextualRole.

@@ -2,7 +2,7 @@
 (import (only-in :std/test check check-exception test-case test-suite)
         (only-in :clan/poo/object .ref .cc)
         (only-in :tao3k/yuanxu/observability/testing-case yuanxu-test-case)
-        (only-in :clan/poo/mop validate)
+        (only-in :clan/poo/type validate)
         (only-in ../../language-support/entry LanguageLoaderContract)
         (only-in ../../language-support/development language-parser-entry-ref run-language-test language-loader-fixtures language-loader-fixture-count
                  +language-parser-entry-schema+)

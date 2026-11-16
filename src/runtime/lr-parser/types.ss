@@ -1,6 +1,5 @@
 (import (only-in :clan/poo/object .cc)
-        (only-in :clan/poo/mop define-type Fun Bool Any)
-        (only-in :clan/poo/type Record))
+        (only-in :clan/poo/type define-type Fun Bool Any Record))
 (export LrParserScopeContract)
 
 (define-type LrParserScope

@@ -1,6 +1,6 @@
 ;;; Admitted POO boundary queries and parent bindings; no raw form callbacks.
 (import (only-in :clan/poo/object .ref .slot? object?)
-        (only-in :clan/poo/mop define-type Type. element?)
+        (only-in :clan/poo/type define-type Type. element?)
         (only-in ./line-structure-objects heading-line? block-line?))
 (export SourceBoundaryQuery SourceBoundaryParent source-boundary-query? source-boundary-parent?)
 (def (ascii? text)

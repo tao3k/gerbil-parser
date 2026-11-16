@@ -2,7 +2,7 @@
 ;;; POO-native graph query context; language packs supply their own view.
 
 (import (only-in :clan/poo/object .o .ref)
-        (only-in :clan/poo/mop validate element?)
+        (only-in :clan/poo/type validate element?)
         (only-in :tao3k/yuanxu/object/interface defpoo-object-family)
         (only-in ./graph-query-types
                  +graph-query-context-kind+

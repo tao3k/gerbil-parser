@@ -44,8 +44,21 @@
                          (if ascii-ci? (ascii-lower-byte b) b)))
                     (loop (+ left 1) (+ right 1))))))))
 
+;; One answer is enough for a query used at only one source position. Delay
+;; allocating the existing suffix table until a second distinct start occurs.
+;; The uncached first scan is the only extra traversal; promotion retains its
+;; initial answer, then the original per-position publication bounds apply.
+(defstruct future-memo (from answer positions) final: #t)
+
 (def (fold-future-cache-for query)
-  (fold-future-index-for query make-hash-table))
+  (fold-future-index-for query (lambda () (make-future-memo #f #f #f))))
+
+(def (fold-future-memo-hit memo position)
+  (if (future-memo? memo)
+    (let (positions (future-memo-positions memo))
+      (if positions (hash-get positions position)
+        (and (eqv? position (future-memo-from memo)) (future-memo-answer memo))))
+    (hash-get memo position)))
 
 (def (fold-future-index-for query build)
   (let* ((request-cache
@@ -185,25 +198,45 @@
 
 ;; Each searched line receives the suffix result, so later queries start from
 ;; a known answer instead of scanning the same suffix again.
-(def (fold-future-line-search bytes from cache classify)
-  (def (finish result visited)
-    (for-each (lambda (position)
-                (hash-put! cache position (if result 1 2)))
-              visited)
-    result)
-  (let search ((cursor from) (visited '()))
+(def (fold-future-line-search bytes from memo classify)
+  (let* ((size (u8vector-length bytes))
+         (single? (future-memo? memo))
+         (hit (and (< from size) (fold-future-memo-hit memo from))))
     (cond
-     ((>= cursor (u8vector-length bytes)) (finish #f visited))
-     ((hash-get cache cursor) =>
-      (lambda (answer) (finish (= answer 1) visited)))
+     ((>= from size) #f)
+     (hit (= hit 1))
      (else
-      (let* ((end (source-line-end bytes cursor))
-             (decision (classify cursor end))
-             (visited (cons cursor visited)))
-        (case decision
-          ((match) (finish #t visited))
-          ((stop) (finish #f visited))
-          (else (search end visited))))))))
+      (let (positions
+            (if single?
+              (or (future-memo-positions memo)
+                  (and (future-memo-answer memo)
+                       (let (positions (make-hash-table))
+                         (hash-put! positions (future-memo-from memo) (future-memo-answer memo))
+                         (future-memo-positions-set! memo positions)
+                         positions)))
+              memo))
+        (def (finish result visited)
+          (let (answer (if result 1 2))
+            (if positions
+              (for-each (lambda (position) (hash-put! positions position answer)) visited)
+              (begin
+                (future-memo-from-set! memo from)
+                (future-memo-answer-set! memo answer))))
+          result)
+        ;; The start was already checked above. Only successor positions need
+        ;; a suffix lookup, and the first scan needs no path cells at all.
+        (let search ((cursor from) (visited '()))
+          (let* ((end (source-line-end bytes cursor))
+                 (decision (classify cursor end))
+                 (visited (if positions (cons cursor visited) visited)))
+            (case decision
+              ((match) (finish #t visited))
+              ((stop) (finish #f visited))
+              (else
+               (if (>= end size) (finish #f visited)
+                 (let (cached (and positions (hash-get positions end)))
+                   (if cached (finish (= cached 1) visited)
+                     (search end visited)))))))))))))
 
 (def (fold-future-heading? bytes start end marker separator)
   (let run ((cursor start))
@@ -291,7 +324,7 @@
   ;; answers and terminal positions allocate no marker buffers at all.
   (cond
    ((>= from (u8vector-length bytes)) #f)
-   ((hash-get cache from) => (lambda (answer) (= answer 1)))
+   ((fold-future-memo-hit cache from) => (lambda (answer) (= answer 1)))
    (else
     ;; Generated products pass private constant byte literals; dynamic callers
     ;; retain the checked text route. No request buffer or cache is shared.

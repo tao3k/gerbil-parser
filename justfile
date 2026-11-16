@@ -441,7 +441,7 @@ test-native:
 build-grammar-construction:
     gerbil env gxi t/benchmarks/poo-grammar-objects/build.ss compile
 
-test-grammar-construction: build-grammar-construction test-prepared-grammar-construction
+test-grammar-construction: build-qualification build-grammar-construction test-prepared-grammar-construction
 
 test-prepared-grammar-construction:
     gerbil env gxi t/support/qualification/qualify.ss run --timeout 120 --log .data/grammar-construction.log --require '^OK$' --require '^MODULE-OK t/benchmarks/poo-grammar-objects/contract.ss$' --require '^\(CONSTRUCTION-DIAGNOSTIC \(attempt \. 20\)' -- gerbil -:max-heap=3G,debug=q test -v 3 t/benchmarks/poo-grammar-objects/contract.ss

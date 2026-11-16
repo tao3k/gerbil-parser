@@ -7,8 +7,9 @@
         (only-in ../src/compiler/event-fold-scheme-context current-fold-scheme-diagnostics
                  current-fold-scheme-effect-only current-fold-scheme-expressions)
         (only-in ../src/compiler/event-fold-scheme-statements fold-scheme-statements)
+        (only-in ../src/compiler/event-fold-scheme-expressions fold-scheme-offset)
         (only-in ../src/compiler/event-fold-future fold-future-marker-before-boundary?
-                 fold-future-named-index)
+                 fold-future-named-index fold-future-cache-for current-future-scan-cache)
         (only-in ../src/compiler/event-fold-prefix-family fold-scheme-prefix-family)
         (only-in ../src/compiler/event-fold-scheme-modules event-fold-scheme-module-sources)
         (only-in ../src/runtime/event-fold-lines fold-line-name-set-contains?)
@@ -21,9 +22,117 @@
   (event-fold-scheme-source 'native-product event-lines-language-grammar 'Document
                             initial line finish helpers))
 
+;; Exercise the generated closed form against repeated saturated successors.
+;; Include values beyond the cap and beyond fixnum range; no unchecked machine
+;; arithmetic or representation-specific offset contract is introduced.
+(def (check-saturated-steps)
+  (def (reference end position count)
+    (if (zero? count) position
+      (reference end (min end (+ position 1)) (- count 1))))
+  (for-each
+    (lambda (count)
+      (let* ((expression
+               (let loop ((remaining count) (value '(state-offset position)))
+                 (if (zero? remaining) value
+                   (loop (- remaining 1) (list 'line-step value)))))
+             (code (parameterize ((current-fold-scheme-expressions #f))
+                     (fold-scheme-offset expression '((position . position)) '()))))
+        ;; A lost rewrite can preserve values while restoring repeated work.
+        (check code => `(min end (+ ,count position)))
+        (let (run (eval `(lambda (end position) ,code)))
+          (for-each
+            (lambda (end)
+              (for-each
+                (lambda (position)
+                  (check (run end position) => (reference end position count)))
+                '(0 1 2 3 8 17 18 1000000000000000000000000000000000000)))
+            '(0 1 2 8 17 1000000000000000000000000000000000000)))))
+    '(1 2 3 4 8 16 64)))
+
+;; Independent line-classification oracle for the suffix-cache model's byte
+;; adapter. Query order includes backward jumps, repeated hits and EOF; no
+;; production line scanner or cache algorithm is used to compute the answers.
+(def (check-future-suffix-traces (demand? #f))
+  (def alphabet
+    '((":K: value\n" . next) ("\t:中: 值\r\n" . next)
+      ("END\n" . accept) ("STOP\r\n" . stop) ("ordinary\n" . stop)))
+  (def (reference rows)
+    (and (pair? rows)
+         (case (cdar rows)
+           ((next) (reference (cdr rows)))
+           ((accept) #t)
+           (else #f))))
+  (def (exercise rows)
+    (let* ((bytes (string->utf8 (apply string-append (map car rows))))
+           (cache (if demand? (fold-future-cache-for (gensym))
+                    (make-hash-table-eqv)))
+           (queries
+            (let loop ((rest rows) (offset 0) (out '()))
+              (if (null? rest) (reverse (cons (cons offset rest) out))
+                (loop (cdr rest) (+ offset (u8vector-length (string->utf8 (caar rest))))
+                      (cons (cons offset rest) out))))))
+      (for-each
+        (lambda (query)
+          (check (fold-future-marker-before-boundary?
+                  bytes (car query) "END" "STOP" 42 32 #t #f 58 cache)
+                 => (reference (cdr query)))
+          ;; Inspect every retained answer, including positions traversed by a
+          ;; preceding query rather than requested directly. Encodings 1/2
+          ;; belong to the existing cache contract; EOF must not be published.
+          (unless demand?
+            (for-each
+              (lambda (position)
+                (let (cached (hash-get cache (car position)))
+                  (when cached
+                    (check cached => (if (reference (cdr position)) 1 2)))))
+              queries)
+            (check (hash-get cache (u8vector-length bytes)) => #f)))
+        ;; The cold forward query exercises multi-position delayed publication;
+        ;; backward/repeated starts subsequently exercise hits and new suffixes.
+        (append queries (reverse queries) queries))
+      ;; Bounds retained cache positions, not classifications or elapsed time.
+      (unless demand? (check (<= (hash-length cache) (length rows)) => #t))))
+  (let enumerate ((rows '()) (remaining 3))
+    (exercise rows)
+    (unless (zero? remaining)
+      (for-each (lambda (row) (enumerate (cons row rows) (- remaining 1))) alphabet))))
+
+;; A negative control for the fixed-boundary premise, using the general API.
+;; Distinct in-line starts populate distinct cursor keys in one physical line.
+(def (check-future-inline-starts)
+  (let ((bytes (string->utf8 "ordinary body\n")) (cache (make-hash-table-eqv)))
+    (for-each
+      (lambda (offset)
+        (check (fold-future-marker-before-boundary?
+                bytes offset "END" #f 42 32 #f #f #f cache) => #f))
+      (iota (u8vector-length bytes)))
+    (check (hash-length cache) => (u8vector-length bytes))))
+
+;; A retained result for one byte offset must not answer another start in
+;; the same physical line. An EOF probe does not overwrite the first answer.
+(def (check-future-demand-promotion)
+  (parameterize ((current-future-scan-cache #f))
+    (check-future-suffix-traces #t)
+    (let ((bytes (string->utf8 "xEND\r\n")) (memo (fold-future-cache-for 'stable)))
+      (def (query offset target)
+        (fold-future-marker-before-boundary?
+         bytes offset target #f 42 32 #f #f #f memo))
+      (check (query 0 "END") => #f)
+      (check (query (u8vector-length bytes) #f) => #f)
+      ;; Unusable marker on a hit checks that it does not classify again.
+      (check (query 0 #f) => #f)
+      (check (query 1 "END") => #t)
+      (check (query 0 #f) => #f)
+      (check (query 1 #f) => #t)))
+  (parameterize ((current-future-scan-cache #f))
+    (check (fold-future-marker-before-boundary?
+             (string->utf8 "END") 0 "END" #f 42 32 #f #f #f
+             (fold-future-cache-for 'stable)) => #t)))
+
 (deflanguage-parser-tests event-fold-scheme-test "Native EventFold source admission"
   (engine)
     (scenario "native byte frames preserve Unicode CR LF CRLF and terminal bounds"
+      (act (check-saturated-steps))
       (raises (fold-source-input-bytes 42) true)
       (each (invalid) ((list (u8vector 255) (u8vector 192 128) (u8vector 237 160 128)
              (u8vector 244 144 128 128) (u8vector 226 130) (u8vector 128)))
@@ -64,12 +173,15 @@
                      (fold-source-frame-boundaries! bytes (car bounds) (cadr bounds)) true))
         (each (bounds) ('((0 9) (0 2) (2 5) (5 9) (1 1) (9 9)))
                     (act (fold-source-frame-boundaries! bytes (car bounds) (cadr bounds))))))
-    (scenario "runtime marker encoding preserves boundaries and cache fast paths"
+    (scenario "runtime marker queries preserve suffix answers and boundary-specific cache bounds"
 (locals ((query (lambda ( text target stop indent? heading?)
         (fold-future-marker-before-boundary?
          (string->utf8 text) 0 target stop 42 32 indent? heading? #f
          (make-hash-table-eqv)))))
 
+      (act (check-future-suffix-traces))
+      (act (check-future-demand-promotion))
+      (act (check-future-inline-starts))
       (equal (query "x\n  EnD \r\n" "END" #f #t #f)  #t)
       (equal (query "x\n  EnD \r\n" "END" #f #f #f)  #f)
       (equal (query "stop\nEND\n" "END" "STOP" #f #f)  #f)

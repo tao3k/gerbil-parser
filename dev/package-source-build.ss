@@ -39,7 +39,7 @@
               ;; library catalog. Keep the boundary declarative so PackageSpec still performs
               ;; the single source discovery pass.
               (def gerbil-parser-exclude-modules
-                '("init.ss"
+                '("init.ss" "package-spec.ss"
                   ;; Core Build roles are phase-bound inputs, never runtime roots.
                   "src/compiler/build.ss" "src/ffi/build.ss" "src/grammar/build.ss" "src/graph/build.ss"
                   "src/language/build.ss"

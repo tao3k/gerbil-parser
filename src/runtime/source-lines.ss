@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Request source traversal has no grammar/compiler initialization dependency.
 (import (only-in :std/string/utf8 string-utf8-length utf8->string)
-        (only-in ./byte-spans byte-span-all?) :std/ffi)
+        :std/ffi)
 (export source-line-end fold-source-lines fold-source-byte-lines fold-source-byte-spans
         fold-source-frame-boundaries! fold-source-input-bytes source-line-events line-starts-with?)
 
@@ -10,6 +10,7 @@
 ;; callback and no retained foreign pointer or new line-index allocation.
 (C-ffi-macrology)
 (C-include "<stdint.h>")
+(C-include "<string.h>")
 (def-C-lambda source-next-line-end (scheme-object unsigned-int64 unsigned-int64) unsigned-int64
   "const uint8_t *bytes = U8_DATA(___arg1);
    uint64_t cursor = ___arg2, size = ___arg3;
@@ -22,6 +23,19 @@
      }
    }
    ___return(cursor);")
+
+;; Read complete machine words with the same synchronous byte-buffer rules
+;; as the line scanner. A non-ASCII byte still uses Gerbil's UTF-8 decoder.
+(def-C-lambda source-ascii? (scheme-object unsigned-int64) bool
+  "const uint8_t *bytes = U8_DATA(___arg1);
+   const uint64_t high = UINT64_C(0x8080808080808080);
+   uint64_t cursor = 0, size = ___arg2, word = 0;
+   while (size - cursor >= sizeof(word) && !(word & high)) {
+     memcpy(&word, bytes + cursor, sizeof(word));
+     cursor += sizeof(word);
+   }
+   while (cursor < size && !(word & high)) word = bytes[cursor++];
+   ___return((word & high) == 0);")
 
 ;; Public callers may start inside a line, but must not pass an unchecked
 ;; foreign offset. The byte buffer is borrowed only for this synchronous call.
@@ -42,7 +56,7 @@
    ((u8vector? source)
     ;; ASCII is already a sequence of valid scalars. Non-ASCII input still
     ;; goes through the official strict decoder, including malformed tails.
-    (unless (byte-span-all? source 0 (u8vector-length source) (lambda (byte) (fx< byte 128)))
+    (unless (source-ascii? source (u8vector-length source))
       ;; Observe the decoded length so optimizer purity cannot erase admission.
       (let (text (utf8->string source))
         (unless (fx<= (string-length text) (u8vector-length source))

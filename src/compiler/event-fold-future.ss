@@ -60,16 +60,43 @@
         (and (eqv? position (future-memo-from memo)) (future-memo-answer memo))))
     (hash-get memo position)))
 
+;; A single future query does not need a hash table. Promote the request's
+;; index only when another query is inserted.
+(defstruct future-query-index (entries) final: #t)
+
+(def (future-query-ref cache query)
+  (if (future-query-index? cache)
+    (let (entries (future-query-index-entries cache))
+      (cond
+       ((not entries) #f)
+       ((pair? entries) (and (equal? query (car entries)) (cdr entries)))
+       (else (hash-get entries query))))
+    (hash-get cache query)))
+
+(def (future-query-put! cache query value)
+  (if (future-query-index? cache)
+    (let (entries (future-query-index-entries cache))
+      (cond
+       ((not entries) (future-query-index-entries-set! cache (cons query value)))
+       ((pair? entries)
+        (if (equal? query (car entries))
+          (set-cdr! entries value)
+          (let (table (make-hash-table))
+            (hash-put! table (car entries) (cdr entries))
+            (hash-put! table query value)
+            (future-query-index-entries-set! cache table))))
+       (else (hash-put! entries query value))))
+    (hash-put! cache query value)))
+
 (def (fold-future-index-for query build)
-  (let* ((request-cache
-          (or (current-future-scan-cache)
-              (let (created (make-hash-table))
-                (current-future-scan-cache created)
-                created)))
-         (cached (hash-get request-cache query)))
-    (or cached
+  (let (request-index
+         (or (current-future-scan-cache)
+             (let (created (make-future-query-index #f))
+               (current-future-scan-cache created)
+               created)))
+    (or (future-query-ref request-index query)
         (let (index (build))
-          (hash-put! request-cache query index)
+          (future-query-put! request-index query index)
           index))))
 
 (def (fold-normalize-marker bytes from until indent? ascii-ci?)

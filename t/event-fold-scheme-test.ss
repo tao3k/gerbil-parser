@@ -199,6 +199,14 @@
       (equal (fold-future-marker-before-boundary?
               (string->utf8 "ordinary body\nEND\n") 0 "END" #f
               42 32 #f #f 58 (make-hash-table-eqv))  #f)
+      (each (control) ('((":KEY: value\n" . #t) ("\t:KEY:\r\n" . #t)
+                         (":a:b: value\n" . #t) (" :键: value\n" . #t)
+                         (":: value\n" . #f) (":a b: value\n" . #f)
+                         (":key:attached\n" . #f) (":key\n" . #f)))
+        (equal (fold-future-marker-before-boundary?
+                (string->utf8 (string-append (car control) "END\n"))
+                0 "END" #f 42 32 #t #f 58 (make-hash-table-eqv))
+               (cdr control)))
       (scope ((bytes (string->utf8 "END\n")) (cache (make-hash-table-eqv)))
         (act (hash-put! cache 0 1))
         ;; Invalid marker values deliberately prove that these paths never

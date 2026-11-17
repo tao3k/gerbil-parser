@@ -1,6 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Source-backed future-line queries for Scheme event folds.
-(import (only-in ../runtime/source-lines source-line-end)
+(import :std/ffi
+        (only-in ../runtime/source-lines source-line-end)
         (only-in ./funcs.ss ascii-lower-byte
                  compiler-position-index-add!
                  compiler-position-index-freeze!
@@ -325,23 +326,38 @@
                      (memv character '(#\newline #\return)))
                    (string->list (list-ref expression 4))))))
 
-(def (fold-future-key-value-line? bytes start end marker)
-  (let skip ((cursor start))
-    (if (and (< cursor end) (memv (u8vector-ref bytes cursor) '(9 32)))
-      (skip (+ cursor 1))
-      (and (< cursor end) (= (u8vector-ref bytes cursor) marker)
-           (let key ((cursor (+ cursor 1)) (key-start (+ cursor 1)))
-             (and (< cursor end)
-                  (let (byte (u8vector-ref bytes cursor))
-                    (cond
-                     ((= byte marker)
-                      (if (or (= (+ cursor 1) end)
-                              (memv (u8vector-ref bytes (+ cursor 1))
-                                    '(9 10 13 32)))
-                        (> cursor key-start)
-                        (key (+ cursor 1) key-start)))
-                     ((memv byte '(9 10 13 32)) #f)
-                     (else (key (+ cursor 1) key-start))))))))))
+;; source-line-end bounds the borrowed buffer. The grammar supplies the
+;; delimiter admitted by fold-marker-byte.
+(C-ffi-macrology)
+(C-include "<stdint.h>" "<stdbool.h>")
+(C-declare #<<end-c
+static inline bool fold_key_space(uint8_t byte) {
+  return byte == 9 || byte == 10 || byte == 13 || byte == 32;
+}
+end-c
+)
+(def-C-lambda fold-future-key-value-line?
+  (scheme-object unsigned-int64 unsigned-int64 unsigned-int8) bool
+  "const uint8_t *bytes = U8_DATA(___arg1);
+   uint64_t cursor = ___arg2, end = ___arg3;
+   uint8_t marker = ___arg4;
+   while (cursor < end && (bytes[cursor] == 9 || bytes[cursor] == 32)) ++cursor;
+   bool found = false;
+   if (cursor < end && bytes[cursor++] == marker) {
+     uint64_t key_start = cursor;
+     for (; cursor < end; ++cursor) {
+       uint8_t byte = bytes[cursor];
+       if (byte == marker) {
+         if (cursor + 1 == end || fold_key_space(bytes[cursor + 1])) {
+           found = cursor > key_start;
+           break;
+         }
+       } else if (fold_key_space(byte)) {
+         break;
+       }
+     }
+   }
+   ___return(found);")
 
 (def (fold-future-marker-before-boundary? bytes from target stop
                                            heading-marker heading-separator

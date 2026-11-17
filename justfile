@@ -347,7 +347,7 @@ test-fold-source-controls output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/event-strategy-fixture.ss t/event-fold-scheme-test.ss
     GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/event-fold-scheme-test.ss > "{{output}}/fold-source-controls.log" 2>&1
     rg '^CASE-OK |^OK$' "{{output}}/fold-source-controls.log"
-    test "$(rg --count '^CASE-OK ' '{{output}}/fold-source-controls.log')" = 6
+    test "$(rg --count '^CASE-OK ' '{{output}}/fold-source-controls.log')" = 7
 
 build-engine-controls output load_path:
     mkdir -p "{{output}}"

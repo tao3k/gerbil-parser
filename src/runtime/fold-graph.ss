@@ -7,6 +7,8 @@
 ;; An unpublished row is its own open frame: #(rule parent start id firsts fields).
 ;; Closing replaces the private slots with the public Element layout. Selectors
 ;; receive only kind, parent kind and position; no open row escapes.
+;; Only these owned, fixed-width rows use unchecked slot access. Rules and
+;; field indices supplied by a projection still use the checked operations.
 (defstruct fold-graph-state
   ((index :- fold-index-owner) (rules :- :vector) (count :- :fixnum)
    active (records :- :list) select?)
@@ -17,7 +19,7 @@
   (make-fold-graph-state (make-fold-index bytes digest navigation?) rules 0 #f '() select?))
 
 (def (active-id frame)
-  (if (pair? frame) (car frame) (and frame (vector-ref frame 3))))
+  (if (pair? frame) (car frame) (and frame (##vector-ref frame 3))))
 
 (def (fold-graph-start! (sink : fold-graph-state) kind)
   (let* ((index (fold-graph-state-index sink))
@@ -27,7 +29,7 @@
     (when rule
       (if (or (not select?)
               (select? (vector-ref rule 0)
-                       (and (vector? parent) (vector-ref (vector-ref parent 0) 0))
+                       (and (vector? parent) (vector-ref (##vector-ref parent 0) 0))
                        (fold-index-position index)))
         (let* ((id (fold-graph-state-count sink))
                (row (vector rule parent (fold-index-position index) id #f '())))
@@ -42,9 +44,9 @@
 (def (capture! (owner : :vector) field start end)
   (let* ((group (vector-ref field 1))
          (separate? (vector-ref field 2))
-         (firsts (or (vector-ref owner 4)
-                     (let (storage (make-vector (vector-ref (vector-ref owner 0) 3) #f))
-                       (vector-set! owner 4 storage)
+         (firsts (or (##vector-ref owner 4)
+                     (let (storage (make-vector (vector-ref (##vector-ref owner 0) 3) #f))
+                       (##vector-set! owner 4 storage)
                        storage)))
          (first (vector-ref firsts group)))
     (if (and first (not separate?))
@@ -56,10 +58,10 @@
           (set-cdr! first (cons (cons start end) (cdr first)))))
       (let (value (cons (vector-ref field 0) (list (cons start end))))
         (unless first (vector-set! firsts group value))
-        (vector-set! owner 5 (cons value (vector-ref owner 5)))))))
+        (##vector-set! owner 5 (cons value (##vector-ref owner 5)))))))
 
 (def (capture-kind! (owner : :vector) kind start end)
-  (let loop ((fields (vector-ref (vector-ref (vector-ref owner 0) 1) kind)))
+  (let loop ((fields (vector-ref (vector-ref (##vector-ref owner 0) 1) kind)))
     (unless (null? fields)
       (capture! owner (car fields) start end)
       (loop (cdr fields)))))
@@ -81,21 +83,21 @@
               (begin
                 (capture-kind! active kind start end)
                 (when mapped?
-                  (let loop ((fields (vector-ref (vector-ref active 0) 2)))
+                  (let loop ((fields (vector-ref (##vector-ref active 0) 2)))
                     (unless (null? fields)
-                      (let ((firsts (vector-ref active 4)) (field (car fields)))
+                      (let ((firsts (##vector-ref active 4)) (field (car fields)))
                         (unless (and firsts (vector-ref firsts (vector-ref field 1)))
                           (capture! active field end end)))
                       (loop (cdr fields))))
-                  (let* ((rule (vector-ref active 0))
-                         (parent (vector-ref active 1))
-                         (fields (reverse! (vector-ref active 5))))
+                  (let* ((rule (##vector-ref active 0))
+                         (parent (##vector-ref active 1))
+                         (fields (reverse! (##vector-ref active 5))))
                     (for-each (lambda (field) (set-cdr! field (reverse! (cdr field)))) fields)
-                    (vector-set! active 0 (vector-ref rule 0))
-                    (vector-set! active 1 (active-id parent))
-                    (vector-set! active 3 end)
-                    (vector-set! active 4 (fold-graph-state-count sink))
-                    (vector-set! active 5 fields)
+                    (##vector-set! active 0 (vector-ref rule 0))
+                    (##vector-set! active 1 (active-id parent))
+                    (##vector-set! active 3 end)
+                    (##vector-set! active 4 (fold-graph-state-count sink))
+                    (##vector-set! active 5 fields)
                     (fold-graph-state-active-set! sink parent))))
               (when mapped? (fold-graph-state-active-set! sink (cdr active))))))))
     (fold-index-finish! index))

@@ -99,16 +99,22 @@
          (rule-slot (.get value-type effective-slots rules))
          (rule-type (.ref rule-slot 'type))
          (original (.ref rule-type '.validate))
-         (normalized (list 'new-rule)))
+         (normalized (list 'new-rule))
+         (calls 0))
     (dynamic-wind
       (lambda ()
         (.set! rule-type .validate
           (lambda (value)
-            (if (eq? value rules) normalized (original value)))))
+            (if (eq? value rules)
+              (begin (set! calls (+ calls 1)) normalized)
+              (original value)))))
       (lambda ()
-        (let (checked (validate GrammarRoleContract role))
-          (and (eq? (.ref checked 'rules) normalized)
-               (eq? (.ref role 'rules) rules))))
+        (and (element? GrammarRoleContract role)
+             (= calls 1)
+             (let (checked (validate GrammarRoleContract role))
+               (and (= calls 2)
+                    (eq? (.ref checked 'rules) normalized)
+                    (eq? (.ref role 'rules) rules)))))
       (lambda () (.set! rule-type .validate original)))))
 
 (deflanguage-parser-tests grammar-contract-normalization-test "Core-owned grammar normalization and mutation"

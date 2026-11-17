@@ -1,5 +1,6 @@
-(import (only-in :tao3k/yuanxu/module-system/source/declaration .def)
-        (only-in :clan/poo/object .o))
+(import (only-in :clan/poo/object .def .o)
+        (only-in "./types.ss" ScannerScopeContract)
+        (only-in "./objects.ss" Scanner.))
 (.def Scanner
   identity: 'scan
   core: (.o scope-contract: ScannerScopeContract exports: Scanner.)

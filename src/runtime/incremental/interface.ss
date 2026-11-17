@@ -1,5 +1,6 @@
-(import (only-in :tao3k/yuanxu/module-system/source/declaration .def)
-        (only-in :clan/poo/object .o))
+(import (only-in :clan/poo/object .def .o)
+        (only-in "./types.ss" IncrementalScopeContract)
+        (only-in "./objects.ss" Incremental.))
 (.def Incremental
   identity: 'incremental
   core: (.o scope-contract: IncrementalScopeContract exports: Incremental.)

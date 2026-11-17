@@ -99,9 +99,13 @@
   (def (stock-descriptors?)
     (and typed-fields?
          (andmap (lambda (owner) (zero? (object-revision owner))) owners)))
-  descriptor)
+  (values descriptor
+    (lambda (value-type candidate)
+      (and (eq? value-type descriptor)
+           (let (specs (plain-declaration-specs candidate))
+             (and specs (fields-match? specs)))))))
 
-(def GrammarRoleValue
+(defvalues (GrammarRoleValue grammar-role-identity-member?)
   (declaration-record
    (Record kind: [(Exactly +grammar-role-kind+)] name: [Symbol]
            syntax-kinds: [DeclarationList] terminals: [DeclarationList]
@@ -109,7 +113,7 @@
            extras: [DeclarationList] keywords: [DeclarationList]
            parser-entrypoints: [DeclarationList] recoveries: [DeclarationList]
            flow: [DeclarationList])))
-(def GrammarValue
+(defvalues (GrammarValue _)
   (declaration-record
    (Record kind: [(Exactly +grammar-kind+)] schema: [(Exactly +grammar-schema+)]
            name: [Symbol] parents: [DeclarationList] roles: [DeclarationList]
@@ -120,7 +124,8 @@
 (define-type (GrammarRoleContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/grammar-role
   proto: (.ref GrammarRoleValue 'proto)
-  value-contract: GrammarRoleValue)
+  value-contract: GrammarRoleValue
+  .identity-member?: grammar-role-identity-member?)
 
 ;; : (-> Object Object [Object])
 (def (grammar-object-obligations candidate _context)

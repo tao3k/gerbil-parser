@@ -2,7 +2,6 @@
 (import (only-in :tao3k/yuanxu/module-system/selection/init-syntax yuanxu!))
 
 (yuanxu!
-  :test-dir "./t"
   :load-modules "./src" mode: explicit rename: Library
   (build-support) (compiler) (ffi) (grammar) (graph) (language)
   (runtime) (testing) (utilities)

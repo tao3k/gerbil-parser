@@ -1,4 +1,6 @@
 prelude: :gerbil/core
+;;; SPDX-FileCopyrightText: 2026 tao3k team and Contributors
+;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 (import (for-syntax
           (only-in :std/source this-source-file)
           (only-in :tao3k/yuanxu/module-system/building/source-package register-module-build-source!)))
@@ -8,7 +10,7 @@ prelude: :gerbil/core
 (import (only-in :std/source this-source-file)
         (only-in :clan/poo/object .get .o)
         (only-in :tao3k/yuanxu/module-system/building/source-package register-module-build-source!)
-        (only-in :tao3k/yuanxu/module-system/building/source-closure package-library-spec)
+        (only-in "./src/build-support/build.ss" Build)
         (only-in "./init.ss" gerbil-parser.init.exports))
 (export gerbil-parser.package.exports)
 
@@ -43,11 +45,7 @@ prelude: :gerbil/core
 
 (def gerbil-parser.package.exports
   (.o (:: @ gerbil-parser.init.exports)
-    std-make-spec:
-    (parameterize ((current-output-port (current-error-port)))
-      (def root (path-directory (this-source-file)))
-      (register-module-build-source! root 'gerbil-parser)
-      (def selected (.get gerbil-parser.init.exports std-make-spec))
-      (append selected
-        (package-library-spec root 'gerbil-parser public-entrypoints
-          exclude: (map (lambda (row) (if (string? row) row (cadr row))) selected))))))
+      __std-make-spec:
+      (cons '(gxc: "init" (extra-inputs: ("package-spec.ss")))
+            (map path-strip-extension public-entrypoints))
+      build-actions: Build))

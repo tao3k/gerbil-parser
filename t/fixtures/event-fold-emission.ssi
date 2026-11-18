@@ -59,6 +59,31 @@
                          '((outer () ((call-source-helper inner start end)))
                            (inner () ((call-source-helper outer start end)))))
          true)))
+    (scenario "final word bounds preserve UTF-8 frames and exclude title prefixes"
+      (each (prefix) ('("" "one " "中\t" "one: two "))
+        (each (word) ('("plain" ":agent:plan:" ":中:" ":bad::"))
+          (sequential ((source (string-append prefix word))
+                       (from (u8vector-length (string->utf8 prefix)))
+                       (until (u8vector-length (string->utf8 source))))
+            (equal
+             (run-event-fold source 'Document '()
+               '((token Line (line-last-word-start start end) end)) '())
+             (list '(start Document) (list 'token 'Line from until) '(finish))))))
+      (each (size) ('(16 1024 8192))
+        (sequential ((source (string-append (make-string size #\x) " :a:b:")))
+          (equal
+           (run-event-fold source 'Document '()
+             '((token Line (line-last-word-start start end) end)) '())
+           (list '(start Document) (list 'token 'Line (+ size 1) (+ size 6)) '(finish)))))
+      (equal (run-event-fold "x" 'Document '()
+               '((with-source-bounds end end
+                   ((token Line (line-last-word-start start end) end)))) '())
+             '((start Document) (finish)))
+      (raises (run-event-fold "x" 'Document '()
+                '((token Line (line-last-word-start end start) end)) '()) true)
+      (raises (event-fold-ir-json
+                'invalid_tail event-lines-language-grammar 'Document '()
+                '((token Line (line-last-word-start start) end)) '()) true))
     (property "future marker search stops at heading or parent boundary"
       (bindings (condition '(and (line-starts-with-ascii-ci "#+BEGIN_QUOTE")
                               (future-line-marker-before-boundary?

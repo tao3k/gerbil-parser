@@ -8,6 +8,11 @@
         (only-in :gerbil-parser/graph-projection-support
                  make-graph-projection make-graph-node make-graph-field
                  graph-projection? graph-projection-digest fold-graph-catalog))
+(import (rename-in
+         (only-in :gerbil-parser/graph-projection-support/values
+                  make-graph-projection graph-projection?)
+         (make-graph-projection make-projection-value)
+         (graph-projection? projection-value?)))
 (import (only-in :gerbil-parser/src/compiler/graph-projection-runtime
                  graph-projection-runtime-source graph-projection-ordinal-rules)
         (only-in :gerbil-parser/event-fold-program-support
@@ -98,6 +103,8 @@
                       arithmetic-language-grammar projection)) (digest (graph-projection-digest
                       arithmetic-language-grammar projection)))
       (equal (graph-projection? projection)  #t)
+      (equal (projection-value? projection) #t)
+      (equal (eq? make-graph-projection make-projection-value) #t)
       (equal (and (string-contains source "GraphProjectionSpec")
                     (string-contains source "projection_digest: \"sha256:")
                     (string-contains source "name: \"value\"")

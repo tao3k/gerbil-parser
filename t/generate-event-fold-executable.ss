@@ -60,7 +60,10 @@
     (line-skip-horizontal start) (line-scan-word start) (line-scan-key start)
     (line-scan-nonspace-until start ":") (line-scan-until start ":")
     (line-physical-end start) (line-step start) (line-trim-end)
-    (line-trim-end-from start) (line-content-end) (state-offset saved)))
+    (line-trim-end-from start) (line-content-end)
+    (line-last-word-start start (line-content-end))
+    (line-last-word-start (line-step start) (line-step start))
+    (state-offset saved)))
 
 (def initial '((ready #f) (count 0) (saved 0) (frames (uint-stack))))
 (def helpers

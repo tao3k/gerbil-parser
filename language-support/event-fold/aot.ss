@@ -1,8 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Public event-fold AOT surface; execution and IR lowering are separate modules.
-(import (only-in ./event-fold-runtime.ss
+(import (only-in ../../src/compiler/event-fold-runtime
                  run-event-fold prepare-event-fold-program run-event-fold-program)
-        (only-in ./event-fold-ir.ss event-fold-ir-json))
+        (only-in ../../src/compiler/event-fold-ir event-fold-ir-json))
 (export define-event-fold-parser run-event-fold event-fold-ir-json)
 
 (defrules define-event-fold-parser ()

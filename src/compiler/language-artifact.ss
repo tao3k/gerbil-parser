@@ -210,10 +210,12 @@
          locator
          'hit))
       (begin
-        (display "... generate parser artifact ")
-        (displayln (let (row (assq 'grammar grammar))
-                     (if row (cdr row) key)))
-        (force-output)
+        (let ((port (current-error-port))
+              (row (assq 'grammar grammar)))
+          (display "... generate parser artifact " port)
+          (display (if row (cdr row) key) port)
+          (newline port)
+          (force-output port))
         (let* ((value (parser-artifact-with-materialization (compile)))
                (locator
                 (materialize-compiled-language-artifact/output-dirs

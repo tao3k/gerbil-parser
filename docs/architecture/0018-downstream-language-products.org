@@ -18,7 +18,7 @@ expansion evaluation and alias execution are outside its parser contract.
 
 | Seam | Implemented at the audited head | Missing product behavior |
 |------+---------------------------------+--------------------------|
-| Authoring | Public =rust-runtime-grammar-support.ss= exports =deflanguage= | One downstream repository initializer/product declaration |
+| Authoring | Public =language-support/grammar.ss= exports =deflanguage= | One downstream repository initializer/product declaration |
 | Generation | =rust-runtime-source= takes a grammar module path with exactly one exported LanguageGrammar | Capability preflight and complete generated package products |
 | Rust runtime | =parse(&LANGUAGE, source)=, generated LR tables, operand fields, lossless Rust syntax events | Contextual/deferred scanner IR parity and generated typed node access |
 | Scanner | Scheme contextual dispatch, balanced-word and deferred FIFO scanner tests | A Bash grammar with structured word interiors and matching Rust execution |
@@ -246,7 +246,7 @@ GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
 
 * Shared scanner / contextual AOT / language C ABI implementation
 
-The public =rust-runtime-support= facade now exports
+The public =language-support/rust/emit= facade now exports
 =generate-rust-scanner-module= and
 =generate-contextual-language-rust-runtime-module=. The latter takes the existing
 LanguageGrammar descriptor and its Scheme-compiled contextual product. It

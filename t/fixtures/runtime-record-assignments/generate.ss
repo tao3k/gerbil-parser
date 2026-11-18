@@ -2,7 +2,7 @@
 ;;; -*- Gerbil -*-
 ;;; Record assignments AOT entry using only the public Rust generator facade.
 
-(import (only-in :gerbil-parser/rust-runtime-support
+(import (only-in :gerbil-parser/language-support/rust/emit
                  generate-language-rust-runtime-module)
         (only-in "languages/records/grammar.ss"
                  records-language-grammar))

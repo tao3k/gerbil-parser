@@ -20,27 +20,11 @@
 
 (deflanguage-parser-tests build-product-contract-tests "build product ownership"
   (engine)
-    (scenario "default package build excludes optional commands"
+    (scenario "production and development select their own dependencies"
       (sequential ((cargo-source (call-with-input-file "Cargo.toml" read-all-as-string))
              (bridge (pregexp-match "gerbil-scheme-rust-ir = [^\n]*rev = \"([0-9a-f]{40})\"" cargo-source))
-             (library-source
-             (call-with-input-file "dev/package-source-build.ss" read-all-as-string))
-            (package-source
-             (call-with-input-file "gerbil.pkg" read-all-as-string))
-            (command-source
-             (call-with-input-file "build-gparse.ss" read-all-as-string)))
-        (equal (and (string-contains library-source
-                                     "\"build-gparse.ss\"")
-                    (string-contains library-source
-                                     "\"build-rust-runtime-aot.ss\"")
-                    (string-contains library-source
-                                     ":asp-gerbil-scheme/building-api")
-                    (string-contains library-source
-                                     "\"src/cli.ss\"")
-                    (string-contains library-source
-                                     "\"src/ffi/rust-runtime-aot-main.ss\"")
-                    #t)
-                #t)
+             (package-source
+              (call-with-input-file "gerbil.pkg" read-all-as-string)))
         (equal (and bridge #t)  #t)
         ;; The package owns revision selection. Check immutable public owners,
         ;; rather than duplicating a historical dependency pin in this test.
@@ -61,22 +45,7 @@
                         (and match (cadr match))))
                     (cadr (member 'depend:
                            (call-with-input-file "dev/gerbil.pkg" read))))
-               '("asp-gerbil-scheme"))
-        (equal (string-contains library-source
-                                "(exe: \"src/main\"")
-                #f)
-        ;; A foreign context must be excluded from generic discovery and
-        ;; included in the explicit FFI specs that carry Darwin bundle flags.
-        (equal (and (string-contains library-source "\"src/ffi/language-abi-context.ss\"")
-                    (string-contains library-source "\"src/ffi/language-abi-context\"")
-                    (string-contains library-source "-Wl,-undefined,dynamic_lookup")
-                    #t)
-                #t)
-        ;; The native compiler/CLI integration verifies executable construction.
-        ;; Do not freeze a textual spelling that rejects additional link inputs.
-        (equal (string-contains command-source
-                                "asp-gerbil-scheme-package-spec!")
-                #f)))
+               '("asp-gerbil-scheme"))))
     (scenario "generic preparation leaves the Rust archive probe to its dedicated owner"
       (scope ((names (map cadr (filter (lambda (item) (native-item-kind? 'gxc: item))
                                       (ffi-build-spec)))))

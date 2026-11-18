@@ -32,10 +32,6 @@ qualify-library:
     fi
     exit "$status"
 
-# Read both owners' actual specs without compiling or changing installed products.
-check-build-catalog:
-    {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} dev/build.ss check-catalog
-
 # Source contracts consume the installed library, without compiling unrelated
 # benchmark helpers. Keep the same pre-import heap and native harness checks.
 test-source-contracts:
@@ -409,7 +405,7 @@ test-event-fold-controls output load_path:
 
 build-event-fold-compiled output load_path:
     mkdir -p "{{output}}"
-    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/byte-spans.ss src/runtime/source-lines.ss src/runtime/event-fold-lines.ss src/compiler/event-strategy-aot.ss src/compiler/event-fold-state-frame.ss src/compiler/event-fold-program.ss src/compiler/event-fold-runtime.ss src/compiler/event-fold-aot.ss rust-runtime-event-support.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/byte-spans.ss src/runtime/source-lines.ss src/runtime/event-fold-lines.ss src/compiler/event-strategy-aot.ss src/compiler/event-fold-state-frame.ss src/compiler/event-fold-program.ss src/compiler/event-fold-runtime.ss language-support/event-fold/aot.ss language-support/event-fold/run.ss
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/compiler/event-fold-ir.ss src/compiler/event-fold-analysis.ss src/compiler/event-fold-byte-dispatch.ss src/compiler/event-fold-zero-state.ss src/compiler/event-fold-consumer-state.ss src/compiler/event-fold-ordinary-run.ss src/compiler/event-fold-shared-probes.ss src/compiler/event-fold-scheme-context.ss src/compiler/event-fold-call-plan.ss src/compiler/event-fold-prefix-family.ss src/compiler/event-fold-scheme-expressions.ss src/compiler/event-fold-scheme-runs.ss src/compiler/event-fold-scheme-statements.ss src/compiler/event-fold-scheme.ss src/compiler/event-fold-scheme-modules.ss t/event-strategy-fixture.ss t/event-fold-fixture.ss t/event-fold-test.ss t/event-fold-scheme-test.ss
 
 test-event-fold-compiled output load_path: build-qualification
@@ -429,7 +425,10 @@ test-build-product-contract output load_path:
 
 # Compiled Fixture/Suite helpers share the same native dependency graph. Rebuild
 # them before discovery so renamed source imports cannot replay old products.
-test-all: build-qualification build-test-support test-native test-grammar-construction
+build-languages:
+    {{ gerbil_test_launcher }} languages-build.ss compile
+
+test-all: build-languages build-qualification build-test-support test-native test-grammar-construction
 
 # The native Gerbil Harness owns recursive Suite discovery and process status.
 # Prerequisite builds belong to test-all; Suite files never launch another run.
@@ -716,4 +715,4 @@ prepare-dev:
     cd dev && GERBIL_PATH="${GERBIL_PATH:-$PWD/../.gerbil}" gerbil deps --install
 
 check-policy:
-    timeout 240 gerbil env gxi dev/build.ss compile
+    timeout 240 gerbil test -v 3 dev/asp-policy-test.ss

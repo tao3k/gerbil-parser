@@ -636,14 +636,14 @@ scanner trivia at the same recognition boundaries as Scheme, validates source
 order and publishes complete syntax events. Languages supply data; the internal
 cursor/VM bridge is private and requires no downstream callbacks.
 
-The public =rust-runtime-support= facade exports
+The public =language-support/rust/emit= facade exports
 =generate-command-source-rust-module=. Its input is one admitted POO
 =ShellSourceStrategy.= value, including inherited slots; its output is one
 immutable =CommandSourceSpec= combining scanner, regions, parts, commands and
 results. The Rust host prepares the product once and reuses it:
 
 #+begin_src scheme
-(import :gerbil-parser/rust-runtime-support)
+(import :gerbil-parser/language-support/rust/emit)
 (generate-command-source-rust-module my-source-strategy "src/generated.rs")
 #+end_src
 

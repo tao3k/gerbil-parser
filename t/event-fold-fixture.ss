@@ -2,7 +2,7 @@
 ;;; One source-owned stateful parser algorithm for Scheme and Rust verification.
 
 (import (only-in "event-strategy-fixture.ss" event-lines-language-grammar)
-        (only-in :gerbil-parser/rust-runtime-event-support
+        (only-in :gerbil-parser/language-support/event-fold/aot
                  define-event-fold-parser))
 (export parse-fold-lines parse_fold_lines parse-outline-lines parse_outline_lines)
 

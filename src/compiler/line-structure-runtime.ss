@@ -5,7 +5,7 @@
                  language-grammar-ir language-grammar-machine)
         (only-in ../runtime/identity sha256-text)
         (only-in ../runtime/machine parser-machine-grammar-digest)
-        (only-in ./rust-syntax
+        (only-in ../../language-support/rust/syntax
                  rust-struct rust-static rust-array rust-some rust-none
                  rust-number rust-string rust-identifier rust-module rust-render)
         (only-in ../language/line-structure-objects

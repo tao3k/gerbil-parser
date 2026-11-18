@@ -6,7 +6,7 @@
         (only-in ../language/descriptor language-grammar-ir language-grammar-machine)
         (only-in ../runtime/identity sha256-text)
         (only-in ../runtime/machine parser-machine-grammar-digest)
-        (only-in ./rust-syntax
+        (only-in ../../language-support/rust/syntax
                  rust-line-event-function rust-event-node rust-event-token
                  rust-event-if rust-method rust-identifier rust-string
                  rust-module write-rust-module))

@@ -1,25 +1,19 @@
-;;; -*- Gerbil -*-
-;;; Public Scheme-owned event algorithm boundary for Rust AOT.
-
-(import (only-in ./src/compiler/event-fold-aot
-                 define-event-fold-parser run-event-fold
-                 event-fold-ir-json)
-        (only-in ./src/language/source-pattern-funs
+(import (only-in :clan/poo/object .def .get) "./types.ss")
+(import (only-in ../../src/language/source-pattern-funs
                  source-offset-after source-pattern-end source-pattern-at?
                  source-ascii-ci-pattern-at?)
-        (only-in ./src/language/source-fragment-objects
+        (only-in ../../src/language/source-fragment-objects
                  make-source-delimited-fragment make-source-first-split
                  make-source-reference-scan)
-        (only-in ./src/language/source-fragment-types
+        (only-in ../../src/language/source-fragment-types
                  source-delimited-fragment? source-first-split?
                  source-reference-scan?)
-        (only-in ./src/language/source-fragment-funs
+        (only-in ../../src/language/source-fragment-funs
                  source-delimited-fragment-initial
                  source-delimited-fragment-forms
                  source-first-split-initial source-first-split-forms
                  source-reference-scan-initial source-reference-scan-forms))
-(export define-event-fold-parser run-event-fold event-fold-ir-json
-        source-offset-after source-pattern-end source-pattern-at?
+(export SourceFragments. source-offset-after source-pattern-end source-pattern-at?
         source-ascii-ci-pattern-at?
         make-source-delimited-fragment source-delimited-fragment?
         source-delimited-fragment-initial source-delimited-fragment-forms
@@ -27,3 +21,8 @@
         source-first-split-initial source-first-split-forms
         make-source-reference-scan source-reference-scan?
         source-reference-scan-initial source-reference-scan-forms)
+
+(.def (SourceFragments. @ (.get SourceFragmentsScopeContract proto))
+  delimited-fragment: make-source-delimited-fragment
+  first-split: make-source-first-split
+  reference-scan: make-source-reference-scan)

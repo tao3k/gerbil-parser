@@ -17,7 +17,7 @@
         (only-in :gerbil-parser/src/runtime/machine
                  parser-machine-grammar-digest)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-prepare)
-        (only-in :gerbil-parser/rust-runtime-support
+        (only-in :gerbil-parser/language-support/rust/emit
                  generate-language-rust-runtime-module)
         (only-in :gerbil-parser/src/compiler/rust-runtime
                  rust-runtime-module-source generate-rust-runtime-module))

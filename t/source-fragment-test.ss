@@ -15,8 +15,8 @@
                  source-delimited-fragment-initial source-delimited-fragment-forms
                  source-first-split-initial source-first-split-forms
                  source-reference-scan-initial source-reference-scan-forms)
-        (only-in :gerbil-parser/rust-runtime-event-support
-                 run-event-fold event-fold-ir-json))
+        (only-in :gerbil-parser/language-support/event-fold/run run-event-fold)
+        (only-in :gerbil-parser/language-support/event-fold/aot event-fold-ir-json))
 
 
 (def fragment (make-source-delimited-fragment "::" 'Line 'source-item 'Line))

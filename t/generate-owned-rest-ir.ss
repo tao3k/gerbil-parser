@@ -2,7 +2,7 @@
 ;;; -*- Gerbil -*-
 ;;; Write the typed Scheme function IR consumed by gerbil-scheme-rust-ir.
 
-(import (only-in :gerbil-parser/src/compiler/rust-syntax
+(import (only-in :gerbil-parser/language-support/rust/syntax
                  write-rust-function-ir)
         (only-in "pure-function-fixture.ss"
                  owned_rest_after_first_word_rust))

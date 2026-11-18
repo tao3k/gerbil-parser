@@ -168,7 +168,7 @@ Runtime products are imported through =artifact-support=, =text-support=,
 =source-line-support=, =graph-projection-support= and =graph-query-support=.
 The immutable Fold program protocol uses =event-fold-program-support=;
 generation and compilation use =language-build-support= and
-=rust-syntax-support=. Tests use =language-test-support=. =only-in= still
+=language-support/rust/syntax=. Tests use =language-test-support=. =only-in= still
 selects the required names. Downstream code does not depend on =src/= paths.
 
 Pure text functions now have one implementation in =text-support.ss=.

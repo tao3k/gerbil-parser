@@ -3,13 +3,12 @@
 
 * Ownership
 
-=init.ss= selects the nine real =src/*= subsystem publications through one
-Yuanxu =load-modules= window. Each has a typed service Scope, existing service
-prototype, Interface declaration selecting that prototype, and required Config role.
-Config is a binding-free =(export)= when no local settings exist; Core owns its optional binding. Root =build.ss= consumes
-the same init-owned =std-make-spec= and invokes host initialization
-directly at the executable build boundary. Gerbil =std/make= remains the
-compiler and job-scheduling owner; parallelism remains capped at two workers.
+=init.ss= selects the nine =src/*= subsystem publications through a Yuanxu
+=load-modules= window. Each Module Interface publishes a typed service Scope
+using its Objects role. Parser's library, execution and language Modules omit
+=config.ss= because they declare no local settings. Root =build.ss= supplies
+the init-owned =std-make-spec= to the official =defbuild-script=. Gerbil
+=std/make= owns compilation and job scheduling.
 
 | Module | Published service / owned additional entries |
 |--------+----------------------------------------------|
@@ -25,21 +24,24 @@ compiler and job-scheduling owner; parallelism remains capped at two workers.
 
 * One build projection
 
-Module =Build= declarations contribute owner-relative =roots= for additional
-native leaves and optional package-relative =library-roots= for supported public
-entrypoints. Core's existing =package-library-spec= derives actual native imports
-from those entrypoints without running their runtime initializers. Core checks
-package/source correspondence, confines regular sources, captures their current
-bytes and preserves explicit native compiler options. Build roles themselves are
-phase-bound inputs and are not installed as runtime modules.
+Module =Build= declarations contribute native targets and special compiler
+options. The package's =:build-roots= declaration supplies the public
+library entrypoints to the same projector. Gerbil imports determine their
+dependencies. Top-level =build.ss= consumes only =init.exports.std-make-spec=.
 
-This replaces =build-modules.ss= and the former =modules/parser= catalog-forwarding
-publication. Public entry declarations are not copies of every private file.
-The independent development PackageSpec audit compares its native source
-inventory with the selected projection, excluding the eight phase-only Build
-roles. Its legacy =check-catalog= command/marker remains compatible with callers;
-it no longer imports or maintains a production source catalog. Development
-policy consumes the verified projection rather than another membership list.
+The exported =LanguagesSource= window has no default selection. =build-hcl.ss=
+reads the HCL leaf's implicit =__std-make-spec= slot. =languages-build.ss=
+reads the same slot on the whole window. Both use the official =defbuild-script=. The development ASP suite maps the same
+=std-make-spec= used by the production =build.ss= to source paths.
+
+* Language support
+The =LanguageSupport= window selects the =rust=, =event-fold= and
+=source-fragments= Modules. Runtime clients can demand their Scope values
+with =.get=. The Fold Scope prepares an admitted Program. Native
+execution uses =:gerbil-parser/language-support/event-fold/run=, which owns
+the compiled source-line dependency. Rust generation uses
+=:gerbil-parser/language-support/rust/emit=, and syntax values live under
+=rust/syntax=. Grammar macros come from =:gerbil-parser/language-support/grammar=.
 
 * Execution and compatibility
 

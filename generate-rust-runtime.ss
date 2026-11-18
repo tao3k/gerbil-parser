@@ -4,7 +4,7 @@
 
 (import (only-in :gerbil-parser/languages/arithmetic/parser
                  arithmetic-language-grammar)
-        (only-in :gerbil-parser/src/compiler/rust-runtime
+        (only-in :gerbil-parser/language-support/rust/emit
                  generate-language-rust-runtime-module))
 
 (def arguments (command-line))

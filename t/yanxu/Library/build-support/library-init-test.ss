@@ -4,13 +4,14 @@
 (import :gerbil-parser/language-test-support
         (only-in :clan/poo/object .o .cc .get .ref .slot?)
         (only-in :std/source this-source-file)
-        (only-in :std/misc/ports read-all)
         (only-in :clan/poo/type element? validate TypeError? define-type Type. String Symbol TypeValuePair Record OrFalse)
         (only-in :tao3k/yuanxu/module-system/source/admission current-module-source-observer)
         (only-in :tao3k/yuanxu/module-system/building/source-package register-module-build-source!)
         (only-in :tao3k/yuanxu/ops/progress call-with-execution-progress execution-progress!)
         (only-in :clan/poo/number Integer UInt)
         (only-in :gerbil-parser/src/compiler/types GrammarIR)
+        (only-in :gerbil-parser/event-fold-program-support event-fold-program?)
+        (only-in :gerbil-parser/language-support/rust/syntax rust-module rust-static rust-number rust-render)
         (only-in :gerbil-parser/src/utilities/types UtilitiesScopeContract UtilitiesScope)
         (only-in :gerbil-parser/src/grammar/types GrammarScopeContract)
         (only-in :gerbil-parser/src/graph/types GraphScopeContract)
@@ -80,10 +81,6 @@
       (each (name) ('(build-support compiler ffi grammar graph language runtime testing utilities))
         (equal (.slot? library name) #t))
       (equal (.slot? library 'modules) #f)
-      (each (name) ('(build-support compiler ffi grammar graph language runtime testing utilities))
-        (equal (call-with-input-file
-                 (path-expand (string-append "src/" (symbol->string name) "/config.ss")
-                              parser-source-root) read-all) '((export))))
       (each (path) ('("src/compiler/machine.ss" "src/compiler/lexical-expression.ss"
                      "src/compiler/lexical-lexer.ss"))
         (equal (file-exists? (path-expand path parser-source-root)) #f))
@@ -105,6 +102,16 @@
       (equal (element? GraphScopeContract graph) #t)
       (equal (element? GraphScopeContract (.o)) #f)
       (equal (element? GraphScopeContract (.cc graph make-graph-query-context: 42)) #f)))
+  (scenario "language support publishes independent compiler capabilities"
+    (sequential ((support (.get gerbil-parser.init.exports LanguageSupport))
+                 (prepare (.get support event-fold prepare))
+                 (render (.get support rust render-module))
+                 (module (rust-module '() (rust-static PROBE u8 (rust-number 1)) "scope-test")))
+      (equal (render module) (rust-render module))
+      (equal (type-rejected? (lambda () (render 1))) #t)
+      (equal (event-fold-program? (prepare 'Document '() '() '())) #t)
+      (equal (type-rejected? (lambda () (prepare "Document" '() '() '()))) #t)
+      (equal (procedure? (.get support source-fragments first-split)) #t)))
   (scenario "actual service Scopes validate and reject malformed values"
     (sequential
       ((utilities (selected-test-scope 'utilities))

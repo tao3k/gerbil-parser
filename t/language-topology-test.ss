@@ -1,6 +1,8 @@
 (import :gerbil-parser/language-test-support)
 ;;; Repository authoring contract; no implementation or generated products in packs.
-(import :std/test)
+(import :std/test
+        (only-in :tao3k/yuanxu/module-system/source/role-forms
+                 yuanxu-module-allowed-entrypoint-roles module-role-file))
 
 (def (scheme-files root)
  (apply append
@@ -111,7 +113,11 @@
              (files (scheme-files root))
              (interfaces (map (lambda (name) (path-expand name root))
                           '("grammar.ss" "parser.ss" "fixtures.ss" "parser-test.ss")))
-             (private (filter (lambda (file) (not (member file interfaces))) files)))
+             (module-role-files
+              (map (lambda (role) (path-expand (module-role-file role) root))
+                   yuanxu-module-allowed-entrypoint-roles))
+             (root-files (append interfaces module-role-files))
+             (private (filter (lambda (file) (not (member file root-files))) files)))
        (equal (andmap (lambda (file) (string-prefix? (path-expand "syntax/" root) file)) private)  #t)
        (each (file) (private)
          (equal (andmap (lambda (form)

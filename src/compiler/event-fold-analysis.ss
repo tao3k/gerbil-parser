@@ -101,8 +101,6 @@
           line-scan-nonspace-until line-trim-end-from line-physical-end)
          (if (safe-offset? (cadr value)) children
            (merge (list children (summary '() '() '(range-error))))))
-        ((line-last-word-start)
-         (merge (list children (summary '() '() '(range-error)))))
         ((line-byte-equal?)
          (if (safe-offset? (cadr value)) children
            (merge (list children (summary '() '() '(range-error))))))

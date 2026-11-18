@@ -1,6 +1,8 @@
 (import :gerbil-parser/language-test-support)
 (import :std/test ../src/compiler/event-fold-ordinary-run
         (only-in ../src/compiler/event-fold-scheme-runs fold-scheme-run-loop)
+        (only-in ../src/compiler/event-fold-scheme-statements fold-scheme-statements)
+        (only-in ../src/compiler/event-fold-scheme-context current-fold-scheme-expressions)
         (only-in ../src/compiler/event-fold-analysis fold-zero-support-preserved?)
         (only-in ../src/compiler/event-fold-zero-state fold-zero-state-plan))
 
@@ -14,6 +16,49 @@
                   ((set-uint count (uint 0)))))
 (deflanguage-parser-tests fold-run-test "Overwrite-only ordinary runs"
   (engine)
+    (scenario "last-match planning excludes observable intermediate work"
+      (scope
+       ((test '(line-bytes-any-in? (line-index cursor)
+                   (line-step (line-index cursor)) (9 32)))
+        (update '(set-uint tail (offset (line-step (line-index cursor))))))
+        (equal (fold-last-match-plan (list (list 'if test (list update) '())) 'cursor)
+               '#(tail (9 32)))
+        (each (body) ((list
+                       (list update '(token Text start end))
+                       (list '(set-uint tail (uint-add (state tail) (uint 1))))
+                       (list '(set-uint tail (offset (line-index other)))) ))
+          (equal (fold-last-match-plan (list (list 'if test body '())) 'cursor) #f))
+        (equal (fold-last-match-plan
+                 (list (list 'if test (list update) (list '(set-uint tail (uint 0)))))
+                 'cursor) #f)
+        (equal (fold-last-match-plan
+                 (list (list 'if '(state flag) (list update) '())) 'cursor) #f)))
+    (scenario "last overwrite reads only the suffix and preserves a no-hit state"
+      (parameters ((current-fold-scheme-expressions #f))
+        (scope ((code
+                 (fold-scheme-statements
+                  '((for-line-bytes cursor start end
+                      ((if (line-bytes-any-in? (line-index cursor)
+                               (line-step (line-index cursor)) (9 32))
+                           ((set-uint tail (offset (line-step (line-index cursor))))) ()))))
+                  '((tail vector-ref slots 0)) '() '())))
+          (each (control) ((append
+                             (map (lambda (width)
+                                    (list (string-append (make-string width #\x) " :a:b:")
+                                          (+ width 1) 6))
+                                  '(16 1024 8192))
+                             '(("abc" 99 3) ("" 99 0))))
+            (equal
+             (eval `(let* ((source-bytes ',(string->utf8 (car control)))
+                           (start 0) (end (u8vector-length source-bytes))
+                           (slots (vector 99)) (events '()) (reads 0))
+                      (let ((u8vector-ref
+                             (lambda (bytes offset)
+                               (when (eq? bytes source-bytes) (set! reads (+ reads 1)))
+                               (##u8vector-ref bytes offset))))
+                        ,@code
+                        (list (vector-ref slots 0) reads))))
+             (cdr control))))))
     (property "ordered consumer invariant admits only zero preserving writes"
       (bindings)
       (equal (fold-zero-support-preserved?

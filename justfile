@@ -140,7 +140,7 @@ inspect-fold-runs program load_path:
 test-fold-runs output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/fold-run-test.ss
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/fold-run-test.ss > "{{output}}/fold-run-test.log" 2>&1
-    test "$(rg --count '^CASE-OK ' '{{output}}/fold-run-test.log')" = 13
+    test "$(rg --count '^CASE-OK ' '{{output}}/fold-run-test.log')" = 15
 
 test-fold-statement-scans output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/fold-statement-scans-test.ss

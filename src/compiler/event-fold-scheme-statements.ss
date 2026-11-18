@@ -6,7 +6,8 @@
                  current-fold-scheme-effect-only)
         (only-in ./event-fold-zero-state fold-zero-state-plan fold-ordinary-state-plan fold-consumer-state-body)
         (only-in ./event-fold-consumer-state fold-consumer-selector-body)
-        (only-in ./event-fold-ordinary-run fold-ordinary-run-plan)
+        (only-in ./event-fold-ordinary-run fold-ordinary-run-plan fold-last-match-plan)
+        (only-in ./event-fold-byte-set fold-byte-set-for)
         (only-in ./event-fold-scheme-runs fold-scheme-run-loop)
         (only-in ./event-fold-scheme-expressions
                  fold-scheme-offset fold-scheme-uint fold-scheme-predicate fold-scheme-condition)
@@ -148,13 +149,27 @@
                          (list (fold-consumer-selector-body (fold-consumer-state-body (list-ref form 4))))) form))
                (cursor (fold-scheme-fresh-name 'cursor)) (limit (fold-scheme-fresh-name 'limit))
                (byte (fold-scheme-fresh-name 'byte))
+               (last-match (fold-last-match-plan (list-ref form 4) (cadr form)))
                (run (and (current-fold-scheme-tape-kinds)
                          (eq? (current-fold-scheme-idle-plan) 'ordinary-run)
                          (fold-ordinary-run-plan (list-ref form 4) (cadr form)))))
-          (if run
+          (cond
+           (last-match
+            (let (members (fold-byte-set-for (vector-ref last-match 1) form))
+              `(let ((from ,(offset (caddr form))) (,limit ,(offset (cadddr form))))
+                 (unless (<= start from ,limit end)
+                   (error "native fold iteration outside source line"))
+                 (let scan ((,cursor ,limit))
+                   (when (fx> ,cursor from)
+                     (if (fx= 1 (u8vector-ref ',members
+                                  (u8vector-ref source-bytes (fx- ,cursor 1))))
+                       ,(assign (lvalue bindings (vector-ref last-match 0)) cursor)
+                       (scan (fx- ,cursor 1))))))))
+           (run
             (parameterize ((current-fold-scheme-idle-plan #f))
               (fold-scheme-run-loop form run (offset (caddr form)) (offset (cadddr form))
-                                    cursor limit byte bindings indices body))
+                                    cursor limit byte bindings indices body)))
+           (else
           `(let ((from ,(offset (caddr form))) (,limit ,(offset (cadddr form))))
              (unless (<= start from ,limit end)
                (error "native fold iteration outside source line"))
@@ -184,7 +199,7 @@
                                    (cons (cons '%shared-content-end limit) indices)
                                    indices)))))))))
                     (body (list-ref form 4) bindings (cons (cons (cadr form) cursor) indices)))
-                 (iterate (+ ,cursor 1))))))))
+                 (iterate (+ ,cursor 1)))))))))
        ((with-source-bounds)
         `(let ((from ,(offset (cadr form))) (until ,(offset (caddr form))))
            (fold-source-frame-boundaries! source-bytes from until)

@@ -3,7 +3,7 @@
 ;;; Compile with gxc -O before invoking main from gxi.
 
 (import (only-in :gerbil-parser/languages/hcl/parser hcl-parser)
-        (only-in :gerbil-parser/src/compiler/hcl-source
+        (only-in :gerbil-parser/languages/hcl/generated/source
                  direct-parse-hcl direct-lex-hcl)
         (only-in :gerbil-parser/src/runtime/lexer lex-source)
         (only-in :gerbil-parser/src/runtime/artifact

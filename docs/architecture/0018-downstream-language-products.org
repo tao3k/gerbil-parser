@@ -578,15 +578,15 @@ language-name dispatch. It validates every production ID and the closed
 =pass=/=concat= plus =field=/=alias= action algebra before producing any output.
 The same structured generator emits recognition and event program reductions.
 LR transition lookup, precedence, lexical modes and rejection remain owned by
-the existing runtime. The HCL generated product now lives at
-=src/compiler/hcl-reductions.ss=; the former language product and benchmark
-producer were removed. The generic =scripts/generate-reductions.ss= CLI accepts
+the existing runtime. The HCL generated product lives at
+=languages/hcl/generated/reductions.ss= and is built with the HCL module. The generic =scripts/generate-reductions.ss= CLI accepts
 any module exporting one language descriptor and verifies deterministic output.
 
 This capability produces Scheme fused LR reductions. It does not confer Rust
 or C portability, or generalize HCL's recursive lexical/source corridor.
-=src/compiler/recursive-source.ss= and =src/compiler/hcl-source.ss= belong to
-the engine; =RecursiveSourceStrategy.= admits the reviewed HCL corridor.
+The engine implements this capability in =src/compiler/recursive-source.ss=.
+=RecursiveSourceStrategy.= admits the reviewed HCL corridor and emits
+=languages/hcl/generated/source.ss= for the HCL module.
 
 ** Common POO build capability protocol
 

@@ -238,13 +238,13 @@ jobs:
             --log .data/source-dependency-proof-input.log \
             -- gerbil-parser-source-dependency-witness check formal/ParserEngine/SourceDependencyWitness.lean
       - name: Verify generated arithmetic Scheme LR is current
-        run: gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss check src/compiler/arithmetic-drive.ss
+        run: gerbil env gxi t/benchmarks/arithmetic-scale/generate-fused-lr.ss check languages/arithmetic/generated/drive.ss
       - name: Verify generic POO Scheme reductions are current
         run: |
-          gerbil env gxi scripts/generate-reductions.ss check :gerbil-parser/languages/hcl/grammar src/compiler/hcl-reductions.ss
+          gerbil env gxi scripts/generate-reductions.ss check :gerbil-parser/languages/hcl/grammar languages/hcl/generated/reductions.ss
           gerbil env gxi scripts/generate-reductions.ss check :gerbil-parser/languages/arithmetic/grammar t/fixtures/arithmetic-reductions.ss
       - name: Verify generated HCL recursive parser is current
-        run: gerbil env gxi scripts/generate-source-parser.ss check :gerbil-parser/languages/hcl/grammar src/compiler/hcl-source.ss
+        run: gerbil env gxi scripts/generate-source-parser.ss check :gerbil-parser/languages/hcl/grammar languages/hcl/generated/source.ss
       - name: Reject intentionally failed native Suite
         run: just test-harness-refusal
       - name: Verify Scheme DSL and POO declaration closure

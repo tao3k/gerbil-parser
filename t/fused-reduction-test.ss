@@ -33,7 +33,7 @@
         (only-in :gerbil-parser/languages/hcl/parser  hcl-language-grammar)
         (only-in :gerbil-parser/languages/arithmetic/parser  arithmetic-language-grammar)
         (only-in :gerbil-parser/language-support/development LanguageDevelopmentLoaderContract)
-        (prefix-in :gerbil-parser/src/compiler/hcl-reductions hcl-)
+        (prefix-in :gerbil-parser/languages/hcl/generated/reductions hcl-)
         (prefix-in "fixtures/arithmetic-reductions.ss" arithmetic-))
 
 
@@ -115,7 +115,7 @@
       (each (subject) ((list arithmetic-language-grammar hcl-language-grammar)) (verify check-linear-stack-reads subject)))
     (property "two descriptors generate independently and deterministically"
       (bindings (hcl (make-fused-reduction-strategy hcl-language-grammar)) (arithmetic (make-fused-reduction-strategy arithmetic-language-grammar)) (first (emitted hcl)))
-      (equal first  (call-with-input-file "src/compiler/hcl-reductions.ss" read-all-as-string))
+      (equal first  (call-with-input-file "languages/hcl/generated/reductions.ss" read-all-as-string))
       (equal (emitted arithmetic)  (call-with-input-file "t/fixtures/arithmetic-reductions.ss" read-all-as-string))
       (equal (equal? first (emitted arithmetic))  #f)
       (equal (emitted hcl)  first))

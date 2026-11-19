@@ -573,7 +573,7 @@ coverage across the languages.
 
 | Pack | Authoring and engine ownership | Capability boundary |
 |---+---+---|
-| Arithmetic | Three interfaces; generated drive in =src/compiler/arithmetic-drive.ss= | Reviewed specialization; shared reduction and Rust build providers |
+| Arithmetic | Three interfaces; generated drive in =languages/arithmetic/generated/drive.ss= | Reviewed specialization; shared reduction and Rust build providers |
 | HCL | Three interfaces; source generator and generated products in =src/compiler/= | Recursive source provider admits the reviewed lexical/grammar corridor |
 | HL7 | Three interfaces; closed header rules and generic record projection | Independent record recipe validates projection reuse; Rust header consumer remains qualified separately |
 | FHIRPath | Three interfaces; shared quote/text profile execution | Portable products retain their independent admission gates |
@@ -632,7 +632,7 @@ HCL corridor remains explicit; moving its generator does not claim universal
 recursive lowering. The generic generation entry is:
 
 #+begin_src sh
-gerbil env gxi scripts/generate-source-parser.ss check :gerbil-parser/languages/hcl/grammar src/compiler/hcl-source.ss
+gerbil env gxi scripts/generate-source-parser.ss check :gerbil-parser/languages/hcl/grammar languages/hcl/generated/source.ss
 #+end_src
 
 A module exporting several descriptors must select an export for build input:
@@ -640,8 +640,10 @@ A module exporting several descriptors must select an export for build input:
 The same selector is used by the build C ABI and generator CLIs. Ambiguous,
 missing or non-descriptor exports reject before code emission.
 
-=t/language-topology-test.ss= checks all builtin packs for exactly three Scheme
-interfaces and mandatory Loader/test declarations. The Loader schema remains
+=t/language-topology-test.ss= checks each pack's public Scheme interfaces and
+mandatory Loader/test declarations. Engine-emitted specializations live under
+=generated/= in the language that imports them. CI verifies those products
+against the generator's output. The Loader schema remains
 =gerbil-parser.language-entry.v2=. There are no versioned namespace aliases or
 compatibility adapters. Shared Scheme recipes, portable Scanner/Parser IR and
 actual C/Rust products retain separate qualification boundaries.

@@ -1,9 +1,6 @@
 #!/usr/bin/env gxi
-(import (only-in :clan/poo/object .get)
+(import (only-in :clan/poo/object .call)
         (only-in :std/build-script defbuild-script)
-        (only-in :tao3k/yuanxu/module-system/building/products current-build-module-roots)
         (only-in "./languages-init.ss" gerbil-parser.languages-init.exports))
 
-(defbuild-script
-  (parameterize ((current-build-module-roots '(hcl)))
-    (.get gerbil-parser.languages-init.exports std-make-spec)))
+(defbuild-script (.call gerbil-parser.languages-init.exports .make-spec-for '(Languages/hcl)))

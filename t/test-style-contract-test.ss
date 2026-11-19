@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :gerbil-parser/src/testing/contracts parser-test-form-admitted?))
 ;;; -*- Gerbil -*-
 ;;; Source-level AST contract: tests assert values, never print snapshots.

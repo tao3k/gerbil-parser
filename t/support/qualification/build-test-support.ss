@@ -50,7 +50,7 @@
     (.call tests .for-files
       files
       (list (this-source-file)
-            (path-expand "compiler-build-support.ss"
+            (path-expand "build-support/compiler.ss"
                          (path-directory package-source-file))
             (path-expand "t/fixtures/ffi/build.ss" (path-directory package-source-file))
             (path-expand "src/ffi/build.ss" (path-directory package-source-file)))

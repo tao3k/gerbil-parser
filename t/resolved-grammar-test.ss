@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Resolved grammar semantics must be checked before target state construction.
 (import :std/test
         (only-in :std/misc/ports read-all-as-string)

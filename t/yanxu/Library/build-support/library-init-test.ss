@@ -1,7 +1,7 @@
 ;;; Native Core projection retains the complete library and foreign options.
 ;; Consume installed descriptors by package identity. Re-evaluating their source
 ;; beside installed constructors would create a second nominal family.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :clan/poo/object .o .cc .get .ref .slot?)
         (only-in :std/source this-source-file)
         (only-in :clan/poo/type element? validate TypeError? define-type Type. String Symbol TypeValuePair Record OrFalse)
@@ -10,7 +10,7 @@
         (only-in :tao3k/yuanxu/ops/progress call-with-execution-progress execution-progress!)
         (only-in :clan/poo/number Integer UInt)
         (only-in :gerbil-parser/src/compiler/types GrammarIR)
-        (only-in :gerbil-parser/event-fold-program-support event-fold-program?)
+        (only-in :gerbil-parser/language-support/event-fold/program event-fold-program?)
         (only-in :gerbil-parser/language-support/rust/syntax rust-module rust-static rust-number rust-render)
         (only-in :gerbil-parser/src/utilities/types UtilitiesScopeContract UtilitiesScope)
         (only-in :gerbil-parser/src/grammar/types GrammarScopeContract)

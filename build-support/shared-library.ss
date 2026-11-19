@@ -1,6 +1,6 @@
 #!/usr/bin/env gxi
 ;;; Gerbil compiler owns static closure and job execution; no generated C rewriting.
-(import (only-in "./src/build-support/compiler-profile.ss" initialize-compiler-build! call-with-compiler-import-progress)
+(import (only-in "../src/build-support/compiler-profile.ss" initialize-compiler-build! call-with-compiler-import-progress)
         (only-in :gerbil/compiler compile-module compile-exe execute-pending-compile-jobs!)
         (only-in :std/make pkg-config-libs)
         (only-in :std/os/fcntl __fcntl1 __fcntl2 F_GETFL F_SETFL O_NONBLOCK)

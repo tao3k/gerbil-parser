@@ -1,5 +1,5 @@
 ;;; Official module promises, source invalidation and failed initializer recovery.
-(import :gerbil-parser/language-test-support :gerbil/expander
+(import :gerbil-parser/language-support/testing :gerbil/expander
         (only-in "../../../fixtures/module-loading/runtime-files.ss"
                  with-module-file with-runtime-file write-program write-datum)
         (only-in :gerbil-parser/src/language/module-input language-module-descriptor)

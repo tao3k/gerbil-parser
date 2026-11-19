@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Performance gate lives in the Scheme/ASP test owner, outside the C product.
 (import :std/test
         :asp-gerbil-scheme/src/benchmark/framework

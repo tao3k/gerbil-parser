@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Core CLOS preparation and contextual conflict contracts.
 ;;; These executable design controls do not install a parser backend.
 (import :std/test

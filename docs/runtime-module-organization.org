@@ -164,14 +164,14 @@ The Parser prelude owns the Parser language entry and exposes =deflanguage=,
 Declaring a grammar keeps the caller's source and lexical context; ordinary
 prelude import initializes neither Parser engines nor the Module System.
 
-Runtime products are imported through =artifact-support=, =text-support=,
-=source-line-support=, =graph-projection-support= and =graph-query-support=.
-The immutable Fold program protocol uses =event-fold-program-support=;
-generation and compilation use =language-build-support= and
-=language-support/rust/syntax=. Tests use =language-test-support=. =only-in= still
+Runtime products are imported through =execution/artifact=, =text/strings=,
+=text/source-lines=, =graph-support/projection= and =graph-support/query=.
+The immutable Fold program protocol uses =language-support/event-fold/program=;
+generation and compilation use =language-support/build= and
+=language-support/rust/syntax=. Tests use =language-support/testing=. =only-in= still
 selects the required names. Downstream code does not depend on =src/= paths.
 
-Pure text functions now have one implementation in =text-support.ss=.
+Pure text functions now have one implementation in =text/strings.ss=.
 Rust lowering imports those same functions rather than owning runtime text
 behavior. This keeps a runtime text import from initializing compiler modules.
 Existing published roots discover these interfaces through the native import
@@ -221,8 +221,8 @@ target, retaining its complete source-discovery comparison and all ABI options.
 
 The Parser prelude remains the optional entry for Parser grammar declarations.
 Yuanxu owns Module loading and the domain interfaces own their capabilities.
-Runtime directly publishes its existing =artifact-support= and
-=source-line-support= entries, whose previous publication edge was the
+Runtime directly publishes its existing =execution/artifact= and
+=text/source-lines= entries, whose previous publication edge was the
 removed umbrella. Scanner implementation
 and foreign compilation stay with Runtime; no wrapper replaces =src/api= and
 no complete runtime is imported into the prelude. Installed stale outputs must

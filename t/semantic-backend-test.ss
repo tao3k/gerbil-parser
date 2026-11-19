@@ -1,5 +1,5 @@
 ;;; Native prototypes extend the engine's actual preparation, not a wrapper API.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :clan/poo/object .o)
         (only-in :clan/poo/mop .defmethod)
         (only-in :gerbil-parser/src/runtime/reduction-plan RecognitionSemantics. EventSemantics.

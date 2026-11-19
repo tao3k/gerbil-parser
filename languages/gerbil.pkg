@@ -1,0 +1,2 @@
+(package: gerbil-parser/languages
+ prelude: :tao3k/parser/prelude)

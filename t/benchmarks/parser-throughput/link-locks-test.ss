@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 (import (only-in :std/io/tempfile make-temporary-file-name)
         (rename-in (only-in "./link-locks.ss" static-link-locks main) (main check-locks)))
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env gxi
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; -*- Gerbil -*-
 
 (import (only-in :clan/poo/object .o)
@@ -7,7 +7,7 @@
         (only-in :gerbil-parser/languages/gql/parser parse-gql)
         (only-in :gerbil-parser/languages/cypher/parser parse-opencypher)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-success? parse-artifact-roundtrip)
-        :gerbil-parser/graph-syntax-support)
+        :gerbil-parser/graph-support/syntax)
 
 
 (def Program

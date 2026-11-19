@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Non-Org declaration controls for scoped native list structure and spans.
 (import :std/test
         (only-in :gerbil-parser/src/declarations

@@ -22,6 +22,10 @@ the init-owned =std-make-spec= to the official =defbuild-script=. Gerbil
 | testing | Test-form admission, witness/assertion APIs and evaluator-safe compiler-wrapper replay |
 | utilities | Existing pure list and string functions |
 
+The public Scheme libraries are grouped under =language-support/=,
+=graph-support/=, =execution/=, =text/=, and =build-support/=. Native
+dependencies still use the owning =src/= modules within the package.
+
 * One build projection
 
 Module =Build= declarations contribute native targets and special compiler
@@ -29,9 +33,9 @@ options. The package's =:build-roots= declaration supplies the public
 library entrypoints to the same projector. Gerbil imports determine their
 dependencies. Top-level =build.ss= consumes only =init.exports.std-make-spec=.
 
-=languages-init.ss= owns the on-demand language catalog and exports
-=LanguagesSource= for other Yuanxu init declarations. =build-hcl.ss= selects
-the HCL leaf with =.make-spec-for=, and =languages-build.ss= builds the
+=languages/init.ss= owns the on-demand language catalog and exports
+=LanguagesSource= for other Yuanxu init declarations. =languages/build-hcl.ss= selects
+the HCL leaf with =.make-spec-for=, and =languages/build.ss= builds the
 entire catalog from =std-make-spec=. Both use Gerbil's =defbuild-script=.
 The development ASP suite maps the production =build.ss= spec to source paths.
 

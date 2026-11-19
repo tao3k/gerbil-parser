@@ -1,6 +1,6 @@
 ;;; Suites consume the shared corpus/loader Fixture declarations.
-(import :gerbil-parser/language-test-support
-        (only-in :gerbil-parser/language-support parse-artifact-success? parse-artifact-roundtrip)
+(import :gerbil-parser/language-support/testing
+        (only-in :gerbil-parser/language-support/interface parse-artifact-success? parse-artifact-roundtrip)
         ./parser)
 (import (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/language-support/fixture defsyntax-corpus)

@@ -1,5 +1,5 @@
 ;;; Physical LR0 publication and reverse suffix producer controls.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :gerbil-parser/t/fixtures/lr-state-semantics
                  native-closure-items native-suffix-slots))
 

@@ -1,5 +1,5 @@
 ;;; Suites consume the shared corpus/loader Fixture declarations.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :gerbil-parser/src/language/descriptor
                  language-grammar-grammar language-grammar-ir language-grammar-machine)
         (only-in :gerbil-parser/language-support/entry language-parser-entry-ref)

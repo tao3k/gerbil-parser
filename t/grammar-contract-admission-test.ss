@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Boolean admission must match Core's complete evidence protocol.
 (import :std/test
         (only-in :clan/poo/object .o .cc .get .ref .all-slots .set!)

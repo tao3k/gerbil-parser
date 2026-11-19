@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Publication observations describe real work and preserve canonical products.
 (import :std/test
         (only-in ./fixtures/artifact-window publication-diagnostic)

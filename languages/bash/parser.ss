@@ -2,7 +2,7 @@
 ;;; Public versioned Bash parser entry and here-document span receipt.
 
 (import (only-in :gerbil-parser/language-support/entry deflanguage-parser-loader language-parser-entry-ref language-metadata-ref)
-        (only-in :gerbil-parser/language-source-support deflanguage-parser-receipt)
+        (only-in :gerbil-parser/language-support/source deflanguage-parser-receipt)
         (only-in :gerbil-parser/src/runtime/shell-parser
                  shell-here-document-link? shell-here-document-link-marker-start shell-here-document-link-body-start)
         ./grammar)

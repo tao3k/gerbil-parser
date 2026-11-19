@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 (import :std/test ../src/compiler/event-fold-ordinary-run
         (only-in ../src/compiler/event-fold-scheme-runs fold-scheme-run-loop)
         (only-in ../src/compiler/event-fold-scheme-statements fold-scheme-statements)

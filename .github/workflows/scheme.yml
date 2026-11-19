@@ -397,7 +397,7 @@ jobs:
       - name: Verify Rust AOT generation is current
         run: |
           arithmetic_generated="$(mktemp)"
-          gerbil env gxi generate-rust-runtime.ss "$arithmetic_generated"
+          gerbil env gxi scripts/generate-rust-runtime.ss "$arithmetic_generated"
           rustfmt --edition 2024 "$arithmetic_generated"
           cmp "$arithmetic_generated" build-support/gerbil-parser-build-support/tests/fixtures/generated/arithmetic.rs
       - name: Verify Scheme event strategy AOT fixture

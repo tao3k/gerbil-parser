@@ -21,7 +21,7 @@ Generated products, scanners, projection execution and benchmark infrastructure
 belong to the engine or test owners. No compatibility modules remain.
 
 #+begin_src scheme
-(import (only-in :gerbil-parser/language-support
+(import (only-in :gerbil-parser/language-support/interface
                  deflanguage-parser-loader)
         ./grammar)
 (export example-language parse-example)
@@ -295,7 +295,7 @@ lexer and emits the same closed data into Rust AOT. Language packs supply
 syntax; neither target requires a language callback.
 
 #+begin_src scheme
-(import (only-in :gerbil-parser/language-support deflanguage deftext-profile))
+(import (only-in :gerbil-parser/language-support/interface deflanguage deftext-profile))
 (deftext-profile fractional-part
   (optional (seq (literal ".") (run (numeric) 1 #f))))
 ;; Within a lex row:
@@ -514,7 +514,7 @@ language name in the engine nor a custom C dispatcher is required.
    language, version and syntax-contract identities explicit.
 2. Declare the public loader in =parser.ss=. Export its parse procedure, loader
    object and configured descriptor when native consumers need it. Import only
-   the required names from =:gerbil-parser/language-support=.
+   the required names from =:gerbil-parser/language-support/interface=.
 3. Validate accepted and rejected source, lossless roundtrip, UTF-8/CRLF spans,
    field catalogs and any language policy using Scheme tests. POO extension
    tests must include inherited values, invalid values and sealed-slot rejection.
@@ -592,7 +592,7 @@ checked source descriptor.
 
 =SourceStrategy.=, its profiles and =declare-source-language= are implementation
 interfaces, not an alternative author entry. The old =deflanguage-source= entry
-has been removed. =language-source-support= supplies source inspection and
+has been removed. =language-support/source= supplies source inspection and
 =deflanguage-parser-receipt= for parser.ss. See the complete
 [[file:../docs/research/scheme-bash-source-frontend.org][Bash frontend implementation and admission study]].
 
@@ -623,7 +623,7 @@ fields are ordinary values. The engine checks accepted artifact ownership and
 publishes source/grammar digests. HL7 and an independent Unicode header record
 use this protocol; columns cannot substitute arbitrary projection callbacks.
 
-=graph-syntax-support= exposes shared =GraphSyntax*= POO prototypes for a
+=graph-support/syntax= exposes shared =GraphSyntax*= POO prototypes for a
 constrained graph pattern. GQL and openCypher both parse the generated source.
 This contract does not describe all graph language syntax or domain semantics.
 

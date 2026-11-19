@@ -1,9 +1,9 @@
 #!/usr/bin/env gxi
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; -*- Gerbil -*-
 
 (import :std/test
-        :gerbil-parser/language-support
+        :gerbil-parser/language-support/interface
         :gerbil-parser/languages/tla-plus/parser)
 
 (def metadata (language-parser-entry-ref tla-plus-layout-language 'metadata))

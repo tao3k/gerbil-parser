@@ -1,5 +1,5 @@
 #!/usr/bin/env gxi
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; -*- Gerbil -*-
 ;;; Run from outside the checkout against an installed GERBIL_PATH. This owner
 ;;; proves that generated language modules can resolve their packaged IR files.

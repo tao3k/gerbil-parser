@@ -83,7 +83,7 @@
                      ".data/qualification/shared-runtime.log" timeout: 90 idle-timeout: 30)
      (setenv "GERBIL_GSC" (path-expand "bin/gsc" (gerbil-home)))
      (setenv "GERBIL_GCC" compiler)
-     (run-qualified! ["gxi" "build-shared-library.ss" source bundle
+     (run-qualified! ["gxi" "build-support/shared-library.ss" source bundle
                       (string-append "-save-temps=obj -fPIC -fwrapv -fno-strict-aliasing -foptimize-sibling-calls -I"
                                      (path-expand "include" root))
                       (string-append ld-options " " shim)]

@@ -1,6 +1,6 @@
 ;;; Authoring resolves compiler services at expansion, independently of runtime residency.
 (import (for-syntax (only-in :gerbil-parser/src/language/expansion-service resolve-language-expansion))
-        :gerbil-parser/language-test-support
+        :gerbil-parser/language-support/testing
         (only-in :gerbil-parser/language-support/grammar deflanguage defgrammar-syntax)
         (only-in :gerbil-parser/src/runtime/parser parse-source)
         (only-in :gerbil-parser/src/language/expansion-service language-expansion-tags?)

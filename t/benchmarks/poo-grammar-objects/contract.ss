@@ -1,7 +1,7 @@
 #!/usr/bin/env gxi
 ;;; Run explicitly through gerbil test so unrelated Suite modules do not own
 ;;; the initial heap of this independent construction benchmark.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :asp-gerbil-scheme/src/benchmark/framework
                  benchmark-contract-receipt-pass?)
         (only-in "./construction.ss" run-grammar-construction-benchmark))

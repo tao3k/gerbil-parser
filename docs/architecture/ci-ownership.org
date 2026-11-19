@@ -156,7 +156,7 @@ Package source/.git remains excluded. No replacement tags tool, ignore-errors
 path, forged success or changed heap is used. This source-level observation does
 not establish a repaired Linux retag operation.
 
-The remaining build-shared-library.ss is an ABI product adapter: it calls public
+The remaining build-support/shared-library.ss is an ABI product adapter: it calls public
 Gerbil compile-module/compile-exe for the C-hosted shared library with its runtime
 shim and platform linker options; std/make's executable target does not describe
 that ABI output. It has no timestamp cache, approval record or worker queue.

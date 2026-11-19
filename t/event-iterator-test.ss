@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Position-view iterator controls against an independent recipe interpreter.
 (import :std/test
         (only-in :gerbil-parser/t/fixtures/event-iterator-extraction event-graph-certificate check-event-certificate generate-event-witness witness-callbacks extract-event-graph replay-event-graph packet-event-callbacks hybrid-event-callbacks hybrid-event-run event-program-callbacks decode-event-frame)

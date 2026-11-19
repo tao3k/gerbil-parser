@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; POO language loaders bind effective inherited slots before engine dispatch.
 (import :std/test
         (only-in :gerbil-parser/language-support/entry deflanguage-parser-loader language-parser-source-receipt)

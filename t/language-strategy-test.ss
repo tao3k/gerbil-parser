@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Seed streams are executable controls copied from the prior HCL suite.
 ;;; Independent port-writing references retain the entire original sequence.
 (import (only-in :gerbil-parser/languages/arithmetic/parser-test arithmetic-test-language)

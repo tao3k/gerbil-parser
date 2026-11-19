@@ -1,5 +1,5 @@
 #!/usr/bin/env gxi
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Direct event lowering must match the independent original-production replay.
 (import :std/test
         (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-parser parse-arithmetic)

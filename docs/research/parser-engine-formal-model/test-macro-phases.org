@@ -39,7 +39,7 @@ misreported as a bound on the entire parser startup.
 
 * Source boundary
 
-The public entry remains =language-test-support.ss=.
+The public entry remains =language-support/testing.ss=.
 
 | Implementation | Responsibility |
 |----------------+----------------|

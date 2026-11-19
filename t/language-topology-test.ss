@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Repository authoring contract; no implementation or generated products in packs.
 (import :std/test
         (only-in :tao3k/yuanxu/module-system/source/role-forms
@@ -23,8 +23,8 @@
        ((symbol? form)
         (and (memq form (quote (:gerbil-parser/language-support/development
                                :gerbil-parser/language-support/fixture
-                               :gerbil-parser/language-test-support
-                               :gerbil-parser/language-build-support ./fixtures))) #t))
+                               :gerbil-parser/language-support/testing
+                               :gerbil-parser/language-support/build ./fixtures))) #t))
        (else #f)))
 ;;; Parser declarations use one public slot vocabulary, with no metadata sugar.
 (def (canonical-parser-declaration? form)

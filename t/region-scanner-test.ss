@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Closed declared regions: shared matching, source isolation and admission.
 (import :std/test
         (only-in :gerbil-parser/src/runtime/region-scanner

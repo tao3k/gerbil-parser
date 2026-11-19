@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Independent profiles exercise POO inheritance and closed scanner admission.
 (import :std/test
  (only-in :clan/poo/object .cc)

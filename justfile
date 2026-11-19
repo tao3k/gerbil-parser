@@ -426,7 +426,7 @@ test-build-product-contract output load_path:
 # Compiled Fixture/Suite helpers share the same native dependency graph. Rebuild
 # them before discovery so renamed source imports cannot replay old products.
 build-languages:
-    {{ gerbil_test_launcher }} languages-build.ss compile
+    {{ gerbil_test_launcher }} languages/build.ss compile
 
 test-all: build-languages build-qualification build-test-support test-native test-grammar-construction
 

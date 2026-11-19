@@ -1,9 +1,9 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Two real output targets share one engine admission and Loader dispatch.
 (import :std/test
         (only-in :clan/poo/object .o .cc .ref .slot?)
         (only-in :clan/poo/type validate)
-        (only-in :gerbil-parser/language-build-support
+        (only-in :gerbil-parser/language-support/build
                  BuildStrategy. BuildStrategyContract RustRuntimeStrategy. FusedReductionStrategy.
                  make-bound-build-strategy make-fused-reduction-strategy make-rust-runtime-strategy
                  make-recursive-source-strategy

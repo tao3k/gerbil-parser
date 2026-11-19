@@ -1,5 +1,5 @@
 ;;; Prepare before author-controls: compiled vocabulary consumers remain dormant.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :gerbil-parser/languages/gql/parser parse-gql +gql-representative-query+)
         (only-in :gerbil-parser/languages/cypher/parser parse-opencypher +opencypher-representative-query+)
         (only-in :gerbil-parser/languages/bash/parser parse-bash)

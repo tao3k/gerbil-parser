@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Descriptor-bound policy parity across loader, contextual C ABI and AOT admission.
 (import (only-in :gerbil-parser/t/abi-datum-support abi-datum-read)
         :std/test

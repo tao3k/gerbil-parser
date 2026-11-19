@@ -1,5 +1,5 @@
 ;;; Shared owned runtime files; cleanup restores the official load path.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :std/io/tempfile make-temporary-file-name))
 (export with-module-file with-runtime-file write-program write-datum)
 

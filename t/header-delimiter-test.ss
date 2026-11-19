@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 (import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; Closed header-derived scanning is shared by independent POO language Loaders.
 (import :std/test
@@ -6,7 +6,7 @@
         :gerbil-parser/language-support/projection
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-ref)
         (only-in :clan/poo/type validate)
-        (only-in :gerbil-parser/language-support deflanguage deflanguage-parser-loader LanguageLoader. LanguageLoaderContract)
+        (only-in :gerbil-parser/language-support/interface deflanguage deflanguage-parser-loader LanguageLoader. LanguageLoaderContract)
         (only-in :gerbil-parser/src/grammar/lexical-algebra lexical-expression?)
         (only-in :gerbil-parser/src/runtime/lexical-source scan-header-delimiter scan-header-data)
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-success? parse-artifact-valid? parse-artifact-roundtrip)

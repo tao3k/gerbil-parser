@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Generic POO generation and both semantic backends use two independent packs.
 (import (only-in :gerbil-parser/languages/arithmetic/parser-test arithmetic-test-language)
         (only-in :gerbil-parser/languages/hcl/parser-test hcl-test-language)
@@ -10,7 +10,7 @@
         (only-in :std/misc/ports read-all-as-string)
         (only-in :clan/poo/object .o .cc .ref)
         (only-in :clan/poo/type validate)
-        (only-in :gerbil-parser/language-build-support
+        (only-in :gerbil-parser/language-support/build
                  FusedReductionStrategy. FusedReductionStrategyContract
                  make-fused-reduction-strategy emit-build-strategy
                  emit-language-build-strategy)

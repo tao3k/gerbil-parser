@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :clan/poo/object .ref)
         (only-in :clan/poo/type Bool Symbol)
         (only-in :gerbil-parser/src/utilities/lists append-unique make-list-operations)

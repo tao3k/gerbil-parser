@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :gerbil-parser/t/fixtures/event-walk-source source-procedure read-source-definition))
 
 (deflanguage-parser-tests static-object-policy-test "owned static compiler host policy"

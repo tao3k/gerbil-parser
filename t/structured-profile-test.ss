@@ -1,10 +1,10 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 (import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; Independent language recipes exercise the same closed structured engine.
 (import :std/test
         (only-in :clan/poo/object .o .cc)
         :gerbil-parser/language-support/structured
-        (only-in :gerbil-parser/language-support deflanguage deftext-profile)
+        (only-in :gerbil-parser/language-support/interface deflanguage deftext-profile)
         (only-in :gerbil-parser/src/runtime/scan make-text-profile-scanner)
         (only-in :gerbil-parser/src/runtime/lexical-source scan-module-text call-with-lexical-source prepare-lexical-source-plan)
         (only-in :gerbil-parser/src/language/entry parse-language-source)

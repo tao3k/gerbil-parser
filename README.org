@@ -30,7 +30,7 @@ checks, and generated-product verification.
 consumer needs it:
 
 #+begin_src sh
-gxi build-hcl.ss compile
+gxi languages/build-hcl.ss compile
 #+end_src
 
 #+begin_src scheme
@@ -39,8 +39,8 @@ gxi build-hcl.ss compile
 #+end_src
 
 A Yuanxu consumer can select =hcl= from
-=(from: :gerbil-parser/languages-init LanguagesSource)=.
-=gxi languages-build.ss compile= builds the full language catalog for
+=(from: :gerbil-parser/languages/init LanguagesSource)=.
+=gxi languages/build.ss compile= builds the full language catalog for
 consumers such as the full qualification suite.
 
 See the [[file:languages/README.org][language pack guide]] for grammar declarations, loader composition,

@@ -1,5 +1,5 @@
 ;;; Physical linker inputs must follow the SDK's current object generation.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :std/io/tempfile make-temporary-file-name)
         (only-in :gerbil/runtime/loader __find-library-module)
         (only-in :gerbil-parser/src/build-support/native-links native-module-object)

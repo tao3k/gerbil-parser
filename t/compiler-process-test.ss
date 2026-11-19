@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :std/io/tempfile make-temporary-file-name)
         (only-in :std/misc/process process-error?)
         (only-in :std/sync/wg make-wg wg-add! wg-wait!)

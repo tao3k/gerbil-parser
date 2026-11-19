@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Qualification must finish large logs and preserve streaming error framing.
 (import :std/test :std/io/tempfile
         (only-in :std/text/pregexp pregexp pregexp-match)

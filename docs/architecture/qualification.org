@@ -61,7 +61,7 @@ log; the C fixture checks blocking compiler descriptors.
 
 Scheme owns qualification and product declarations. Gerbil and Gambit own
 module closure and native compilation.
-The production =build-shared-library.ss= entry uses =:std/os/fcntl= directly
+The production =build-support/shared-library.ss= entry uses =:std/os/fcntl= directly
 to clear inherited nonblocking descriptor flags; it imports no test support.
 Cargo owns Rust compiler invocation and its jobserver.
 A Scheme replacement for a rustc proxy would risk closing

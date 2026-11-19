@@ -1,5 +1,5 @@
 #!/usr/bin/env gxi
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; -*- Gerbil -*-
 ;;; Acceptance owner for parser Core memory evidence.
 ;;; Runtime observation remains an opt-in POO policy carried by LanguageGrammar.

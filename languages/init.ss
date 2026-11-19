@@ -3,4 +3,4 @@ prelude: :gerbil/core
 (import (only-in :tao3k/yuanxu/module-system/selection/init-syntax yuanxu!))
 
 (yuanxu!
-  :load-modules "./languages" mode: auto mount: Languages export: LanguagesSource)
+  :load-modules "." mode: auto mount: Languages export: LanguagesSource)

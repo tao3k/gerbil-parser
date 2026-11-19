@@ -1,21 +1,21 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; -*- Gerbil -*-
 ;;; POO graph rules are validated and resolve against one grammar identity.
 
 (import (only-in :std/test check test-case test-suite)
         (only-in :gerbil-parser/languages/arithmetic/parser
                  arithmetic-language-grammar)
-        (only-in :gerbil-parser/graph-projection-support
+        (only-in :gerbil-parser/graph-support/projection
                  make-graph-projection make-graph-node make-graph-field
                  graph-projection? graph-projection-digest fold-graph-catalog))
 (import (rename-in
-         (only-in :gerbil-parser/graph-projection-support/values
+         (only-in :gerbil-parser/graph-support/values
                   make-graph-projection graph-projection?)
          (make-graph-projection make-projection-value)
          (graph-projection? projection-value?)))
 (import (only-in :gerbil-parser/src/compiler/graph-projection-runtime
                  graph-projection-runtime-source graph-projection-ordinal-rules)
-        (only-in :gerbil-parser/event-fold-program-support
+        (only-in :gerbil-parser/language-support/event-fold/program
                  make-fold-graph fold-graph-start! fold-graph-token!
                  fold-graph-finish! fold-graph-publish!))
 

@@ -1,7 +1,7 @@
 ;;; Build entry for any module exporting one admitted language descriptor.
 (import :gerbil/expander
         (only-in :std/misc/ports read-all-as-string)
-        (only-in :gerbil-parser/language-build-support make-recursive-source-strategy emit-build-strategy)
+        (only-in :gerbil-parser/language-support/build make-recursive-source-strategy emit-build-strategy)
         (only-in :gerbil-parser/src/language/module-input language-module-descriptor))
 (def (main . args)
   (unless (and (= (length args) 3) (member (car args) '("module" "check")))

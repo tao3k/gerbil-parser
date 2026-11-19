@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Stable loader identity and ordinary POO value slots use the unreleased v2 contract.
 (import :std/test
         (only-in :clan/poo/object .o .ref .cc)

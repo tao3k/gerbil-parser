@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; -*- Gerbil -*-
 ;;; Profiling must preserve lossless Unicode artifacts and LR token admission.
 (import :std/test

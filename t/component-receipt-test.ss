@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Forged or incomplete observations must not qualify an optimization.
 (import :std/test :std/io/tempfile
         (only-in :gerbil-parser/t/benchmarks/parser-stage-cost/receipt read-parser-component-receipt))

@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; -*- Gerbil -*-
 ;;; The explicit native catalog admits the compiler without per-case processes.
 (import (only-in ./event-strategy-fixture event-lines-language-grammar)

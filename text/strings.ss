@@ -1,6 +1,6 @@
 ;;; Public pure text operations; no compiler or native scanner initialization.
 (import (only-in :std/string/misc string-trim)
-        (only-in ./src/utilities/strings string-index-from))
+        (only-in ../src/utilities/strings string-index-from))
 (export string-before ascii-ci=? string-after string-first-word string-rest-after-first-word string-last-word string-before-last-word string-trim-start string-replace string-lowercase string-prefix? string-suffix? string-words string-in? string-single-ascii-uppercase? string-unsigned-at-most?)
 
 (def (string-single-ascii-uppercase? value)

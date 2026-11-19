@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Scanner substitution retains the canonical public parser request graph.
 (import :std/test
         (only-in :gerbil-parser/src/runtime/machine

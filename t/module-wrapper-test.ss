@@ -1,5 +1,5 @@
 ;;; Wrapper extraction must not turn Scheme data or deferred code into effects.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in ./fixtures/module-loading/runtime-files with-runtime-file write-program write-datum))
 (import (only-in :gerbil/runtime/init __scheme-source))
 

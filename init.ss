@@ -26,7 +26,8 @@ prelude: :gerbil/core
     "language-support/projection"
     "language-support/shell"
     "language-support/structured"
-    "language-abi-support")
+    "language-abi-support"
+    "languages/types")
   :load-modules "./src" mode: explicit mount: Library
   (build-support)
   (compiler)
@@ -40,5 +41,4 @@ prelude: :gerbil/core
   (lr-parser)
   (incremental)
   :load-modules "./language-support" mode: explicit mount: LanguageSupport
-  (rust) (event-fold) (source-fragments)
-  :load-modules "./languages" mode: explicit mount: Languages export: LanguagesSource)
+  (rust) (event-fold) (source-fragments))

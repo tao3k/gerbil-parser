@@ -38,9 +38,10 @@ gxi build-hcl.ss compile
 (parse-hcl "locals { value = 42 }")
 #+end_src
 
-A Yuanxu consumer can select =hcl= from the exported =LanguagesSource=
-window. =gxi languages-build.ss compile= explicitly builds the whole window
-for consumers such as the full qualification suite.
+A Yuanxu consumer can select =hcl= from
+=(from: :gerbil-parser/languages-init LanguagesSource)=.
+=gxi languages-build.ss compile= builds the full language catalog for
+consumers such as the full qualification suite.
 
 See the [[file:languages/README.org][language pack guide]] for grammar declarations, loader composition,
 and fixtures. The [[file:docs/architecture/0003-parse-artifact.org][parse artifact contract]] defines the result boundary.

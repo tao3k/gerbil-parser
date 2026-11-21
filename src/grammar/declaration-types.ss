@@ -6,10 +6,10 @@
                  +parser-ir-schema+ +parse-artifact-schema+ +diagnostic-schema+)
         (only-in :clan/poo/object .ref .cc .o .all-slots
                  object? object-revision object-slots object-declarations .slot?
-                 object-protocol object-override-specifications compute-precedence-list!
-                 $constant-slot-spec? $constant-slot-spec-value)
+                 object-protocol object-override-specifications object-find-in-precedence
+                 object-precedence-ready? object-direct-slot-specification $constant-slot-spec? $constant-slot-spec-value)
         (only-in :clan/poo/slot-observation %slot-read-active?)
-        (only-in :clan/poo/mop Class. Slot)
+        (only-in :clan/poo/mop Class. Slot prototype-instance?)
         (only-in :std/list/list delete-duplicates/hash)
         (only-in :clan/poo/type define-type element? Type. Record Symbol Exactly)
         (only-in :tao3k/yuanxu/types/contracts
@@ -71,16 +71,18 @@
          (object? candidate)
          (stock-descriptors?)
          (null? (object-override-specifications candidate))
-         (let (chain (compute-precedence-list! candidate))
-           (and (memq proto chain)
-                (not (object-protocol candidate))
-                (andmap (lambda (owner) (null? (object-declarations owner))) chain)))
-         (let (specs (object-slots candidate))
-           (and (andmap (lambda (entry) ($constant-slot-spec? (cdr entry))) specs)
-                (let (required (map (cut assq <> specs) names))
-                  (and (andmap pair? required) required))))))
+         (prototype-instance? proto candidate)
+         (object-precedence-ready? candidate)
+         (not (object-protocol candidate))
+         (not (object-find-in-precedence candidate
+                (lambda (owner) (pair? (object-declarations owner)))))
+         ;; Effects in any direct specification keep native Record dispatch.
+         ;; Resolve the required fields through POO's own ordered slot index.
+         (andmap (lambda (entry) ($constant-slot-spec? (cdr entry))) (object-slots candidate))
+         (let (required (map (cut object-direct-slot-specification candidate <>) names))
+           (and (andmap $constant-slot-spec? required) required))))
   (def (fields-match? specs)
-    (andmap (lambda (entry check) (check ($constant-slot-spec-value (cdr entry))))
+    (andmap (lambda (spec check) (check ($constant-slot-spec-value spec)))
             specs checks))
   (def proto (.ref descriptor 'proto))
   (def slots (.ref descriptor 'effective-slots))

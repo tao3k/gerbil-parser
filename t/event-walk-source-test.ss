@@ -1,5 +1,5 @@
 ;;; Source correspondence controls use the shared constrained parser-test DSL.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :gerbil-parser/src/testing/source-witness parser-source-data write-parser-source-data)
         (only-in :gerbil-parser/t/fixtures/event-walk-source
                  read-event-walk-source read-event-walk-source-port

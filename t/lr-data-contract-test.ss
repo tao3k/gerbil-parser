@@ -1,5 +1,5 @@
-(import :gerbil-parser/language-test-support
-        (only-in :clan/poo/mop element?)
+(import :gerbil-parser/language-support/testing
+        (only-in :clan/poo/type element?)
         (only-in :gerbil-parser/src/runtime/lr-data lr-terminal? lr-precedence?)
         (only-in :gerbil-parser/src/runtime/function-types LRActionEntry LRActionRows))
 

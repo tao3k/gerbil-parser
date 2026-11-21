@@ -1,7 +1,7 @@
 ;;; Source assertions need the parser entry, not development/build services.
 (import (only-in :std/test check test-case)
         (only-in :clan/poo/object .ref)
-        (only-in :clan/poo/mop validate)
+        (only-in :clan/poo/type validate)
         (only-in ../../language-support/entry LanguageLoaderContract
                  language-parser-entry-ref +language-parser-entry-schema+)
         (only-in ../runtime/artifact parse-artifact-valid? parse-artifact-success?

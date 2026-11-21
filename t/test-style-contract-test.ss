@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :gerbil-parser/src/testing/contracts parser-test-form-admitted?))
 ;;; -*- Gerbil -*-
 ;;; Source-level AST contract: tests assert values, never print snapshots.
@@ -167,7 +167,7 @@
                 (not (test-source-allowed?
                       path '(display displayln write-string string-append format))))
               '("src/compiler/event-strategy-aot.ss"
-                "src/compiler/event-fold-aot.ss"
+                "language-support/event-fold/aot.ss"
                 "t/generate-event-strategy-fixture.ss"
                 "t/generate-event-strategy-grammar.ss"
                 "t/generate-owned-word-fixture.ss"))

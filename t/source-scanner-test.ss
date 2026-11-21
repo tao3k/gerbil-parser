@@ -1,5 +1,5 @@
 (import (only-in :clan/poo/type OrFalse Symbol))
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Engine checkpoints are owned by the creating worker, including shared text.
 (import :std/test
         (only-in :gerbil-parser/src/runtime/source-scanner

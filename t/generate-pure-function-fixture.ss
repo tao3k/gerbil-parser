@@ -2,7 +2,7 @@
 ;;; -*- Gerbil -*-
 ;;; Emit the executable Rust fixture from the same Scheme function tested here.
 
-(import (only-in :gerbil-parser/src/compiler/rust-syntax rust-render)
+(import (only-in :gerbil-parser/language-support/rust/syntax rust-render)
         (only-in "pure-function-fixture.ss" classify_first_word_rust))
 
 (def arguments (command-line))

@@ -2,8 +2,7 @@
 ;;; Immutable source-scanner state for languages whose lexical context changes
 ;;; across token boundaries. A state is a reusable checkpoint for one source.
 
-(import (only-in :clan/poo/mop validate define-type Type.)
-        (only-in :clan/poo/type String)
+(import (only-in :clan/poo/type validate define-type Type. String)
         (only-in ./function-types SourceScannerStepOf)
         (only-in :std/string/utf8 string-utf8-length)
         (only-in ./token make-token token-kind token-lexeme token-start token-end)

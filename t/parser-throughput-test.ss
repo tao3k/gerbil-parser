@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Protocol controls, not performance samples.
 (import (only-in :std/test check check-exception test-case test-suite)
         (only-in ./benchmarks/parser-throughput/protocol

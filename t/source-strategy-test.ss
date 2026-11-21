@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; A second source family shares admission, identity, workers and publication.
 (import :std/test
         (only-in :clan/poo/object .o .cc)

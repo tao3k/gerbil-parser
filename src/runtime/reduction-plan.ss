@@ -3,7 +3,7 @@
 ;; Semantic dispatch needs generic declarations only. Keep class lifecycle,
 ;; reflection and aggregate CLOS syntax outside the parser's native closure.
 (import (only-in :clan/poo/object .o .ref)
-        (only-in :tao3k/yuanxu/poo-clos/generic-syntax .defgeneric .defmethod)
+        (only-in :clan/poo/mop .defgeneric .defmethod)
         (only-in :std/vector/vector vector-map/index)
         (only-in ../compiler/lr production-rhs operand-actions)
         (only-in ./recognition make-recognition-fragment)
@@ -16,7 +16,7 @@
         reduce-lr-source-plan reduce-lr-event-plan source-operand-offsets
         LRSemanticBackend. RecognitionSemantics. EventSemantics.
         resolve-lr-semantic-backend select-lr-action-factory prepare-lr-operand-semantics
-        select-lr-action-factory$poo-clos-generic)
+        select-lr-action-factory$clos-generic)
 
 ;;; An empty marked operand is anchored at the next semantic input boundary,
 ;;; or the production's lookahead boundary when no later value has a start.

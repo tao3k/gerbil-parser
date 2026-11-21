@@ -1,8 +1,8 @@
-(import  (only-in :gerbil-parser/src/compiler/arithmetic-drive direct-drive direct-grammar-digest))
 ;;; -*- Gerbil -*-
 ;;; Canonical public parser entry for the arithmetic v1 reference language.
 
 (import (only-in :gerbil-parser/language-support/entry deflanguage-parser-loader language-parser-entry-ref language-metadata-ref)
+        (only-in ./generated/drive direct-drive direct-grammar-digest)
         ./grammar)
 (export +arithmetic-language-version+ +arithmetic-syntax-contract+ (import: ./grammar) arithmetic-language-grammar arithmetic-language parse-arithmetic)
 

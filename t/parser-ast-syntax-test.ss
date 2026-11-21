@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; -*- Gerbil -*-
 ;;; Canonical parser tests assert exact AST, fields, spans and source bytes.
 

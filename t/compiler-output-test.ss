@@ -1,5 +1,5 @@
 ;;; Progress observes actual compiler products; it never admits a result.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :std/io/tempfile make-temporary-file-name)
         (only-in ./support/qualification/compiler-output compiler-output-observer))
 

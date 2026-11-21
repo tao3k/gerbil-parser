@@ -29,7 +29,14 @@
        `(+ start ,(uint (cons 'line-marker-level (cdr expression)))))
       ((line-index) (slot indices (cadr expression)))
       ((state-offset) (slot bindings (cadr expression)))
-      ((line-step) `(min end (+ 1 ,(offset (cadr expression)))))
+      ((line-step)
+       ;; Consecutive saturated successors have one closed form. Lower the
+       ;; underlying offset once; keep exact arithmetic and the original cap.
+       ;; No source observation, state read or error crosses this expression.
+       (let steps ((operand (cadr expression)) (distance 1))
+         (if (and (pair? operand) (eq? (car operand) 'line-step))
+           (steps (cadr operand) (+ distance 1))
+           `(min end (+ ,distance ,(offset operand))))))
       ((line-skip-horizontal line-scan-word line-scan-key
         line-scan-nonspace-until line-scan-until line-physical-end)
        (let (fact (and (equal? expression '(line-skip-horizontal start))

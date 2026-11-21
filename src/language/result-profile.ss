@@ -4,8 +4,8 @@
                  result-plan-node-index result-plan-token-index result-plan-projection-index
                  result-plan-recipe result-plan-catalog copy-result-datum)
         (only-in :clan/poo/object .o .ref object?)
-        (only-in :clan/poo/mop define-type validate)
-        (only-in :tao3k/yuanxu/object-types/contracts yuanxu-predicate-contract)
+        (only-in :clan/poo/type define-type validate)
+        (only-in :tao3k/yuanxu/types/contracts yuanxu-predicate-contract)
         (only-in ./scanner-profile compile-scanner-profile)
         (only-in ../runtime/token token? token-kind token-start token-end)
         (only-in ../runtime/recognition

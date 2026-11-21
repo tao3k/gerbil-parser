@@ -18,7 +18,7 @@ expansion evaluation and alias execution are outside its parser contract.
 
 | Seam | Implemented at the audited head | Missing product behavior |
 |------+---------------------------------+--------------------------|
-| Authoring | Public =rust-runtime-grammar-support.ss= exports =deflanguage= | One downstream repository initializer/product declaration |
+| Authoring | Public =language-support/grammar.ss= exports =deflanguage= | One downstream repository initializer/product declaration |
 | Generation | =rust-runtime-source= takes a grammar module path with exactly one exported LanguageGrammar | Capability preflight and complete generated package products |
 | Rust runtime | =parse(&LANGUAGE, source)=, generated LR tables, operand fields, lossless Rust syntax events | Contextual/deferred scanner IR parity and generated typed node access |
 | Scanner | Scheme contextual dispatch, balanced-word and deferred FIFO scanner tests | A Bash grammar with structured word interiors and matching Rust execution |
@@ -246,7 +246,7 @@ GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
 
 * Shared scanner / contextual AOT / language C ABI implementation
 
-The public =rust-runtime-support= facade now exports
+The public =language-support/rust/emit= facade now exports
 =generate-rust-scanner-module= and
 =generate-contextual-language-rust-runtime-module=. The latter takes the existing
 LanguageGrammar descriptor and its Scheme-compiled contextual product. It
@@ -281,7 +281,7 @@ fixtures belong to the Cargo package, and native CI regenerates/compares all
 three products. No downstream Rust scanner or core builtin dispatch change is
 required. These bounded fixtures do not establish complete Bash AOT support.
 
-The =language-abi-support= facade exports =generate-language-pack=,
+The =language-support/abi= facade exports =generate-language-pack=,
 =register-language!= and =release-language!=. The generator takes
 module/export identities and creates a normal Scheme native module plus a C
 header with =PREFIX_language_create(void)=. Each successful create returns a
@@ -339,7 +339,7 @@ syntax/field port. There is no comparative Tree-sitter performance claim.
 
 * Parser-test declarations
 
-Import =:gerbil-parser/language-test-support= in =parser-test.ss=. Define one
+Import =:gerbil-parser/language-support/testing= in =parser-test.ss=. Define one
 exported suite with =deflanguage-parser-tests= and the language's POO loader:
 
 #+begin_src scheme
@@ -532,7 +532,7 @@ execution belongs to admitted structured POO engine recipes.
 
 ** Generic POO fused reduction build strategies
 
-=language-build-support.ss= exposes =FusedReductionStrategy.= and its contract,
+=language-support/build.ss= exposes =FusedReductionStrategy.= and its contract,
 =make-fused-reduction-strategy=, =declare-language-build-strategy= and
 =emit-language-build-strategy=. HCL and Arithmetic both declare the same
 engine-owned capability on their actual public Loader:
@@ -578,15 +578,15 @@ language-name dispatch. It validates every production ID and the closed
 =pass=/=concat= plus =field=/=alias= action algebra before producing any output.
 The same structured generator emits recognition and event program reductions.
 LR transition lookup, precedence, lexical modes and rejection remain owned by
-the existing runtime. The HCL generated product now lives at
-=src/compiler/hcl-reductions.ss=; the former language product and benchmark
-producer were removed. The generic =scripts/generate-reductions.ss= CLI accepts
+the existing runtime. The HCL generated product lives at
+=languages/hcl/generated/reductions.ss= and is built with the HCL module. The generic =scripts/generate-reductions.ss= CLI accepts
 any module exporting one language descriptor and verifies deterministic output.
 
 This capability produces Scheme fused LR reductions. It does not confer Rust
 or C portability, or generalize HCL's recursive lexical/source corridor.
-=src/compiler/recursive-source.ss= and =src/compiler/hcl-source.ss= belong to
-the engine; =RecursiveSourceStrategy.= admits the reviewed HCL corridor.
+The engine implements this capability in =src/compiler/recursive-source.ss=.
+=RecursiveSourceStrategy.= admits the reviewed HCL corridor and emits
+=languages/hcl/generated/source.ss= for the HCL module.
 
 ** Common POO build capability protocol
 
@@ -597,7 +597,7 @@ prototype and apply their own additional constraints. =LanguageLoaderContract=
 validates the common protocol, and =emit-language-build-strategy= invokes
 =emit-build-strategy=. Neither common dispatcher branches on language or strategy
 kind. The Loader imports no concrete generation backend; convenience constructors
-are provided by =language-build-support.ss=.
+are provided by =language-support/build.ss=.
 
 HCL and Arithmetic both declare the two real engine providers:
 
@@ -829,7 +829,7 @@ for result publication. It does not define a second grammar or parser engine.
 | Rust AOT C interface | =src/ffi/rust-aot-abi.ss= |
 | Scheme test orchestration | =t/fixtures/tla-sany-differential/test-suite.ss= |
 | Content preparation cache | =scripts/preparation-cache.ss= |
-| Shared library build | =build-shared-library.ss= |
+| Shared library build | =build-support/shared-library.ss= |
 
 Use =abi= for foreign-call and ownership boundaries, =rust-aot= for Rust code
 generation, and =test= for Scheme test ownership. Use =compiled= when distinguishing

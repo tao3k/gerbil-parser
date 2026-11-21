@@ -1,5 +1,5 @@
 ;;; Each source module must declare its macro requirements independently.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :gerbil/expander import-module current-expander-context eval-syntax))
 
 (def (build-owner-main? path)
@@ -23,7 +23,7 @@
     (setup)
     ((owner '("build-gparse.ss" "t/support/qualification/build.ss" "build-rust-runtime-aot.ss"
               "t/support/qualification/build-test-driver.ss" "t/support/qualification/build-test-support.ss" "t/fixtures/ffi/build.ss"
-              "t/research/build.ss" "build-shared-library.ss")))
+              "t/research/build.ss" "build-support/shared-library.ss")))
     (bindings)
     (equal (build-owner-main? owner) #t))
   (property "phased FFI construction retains one official metadata response"

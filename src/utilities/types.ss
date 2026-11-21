@@ -1,7 +1,6 @@
 ;;; Fixed services are concrete; polymorphic services require explicit Types.
 (import (only-in :clan/poo/object .cc)
-        (only-in :clan/poo/mop define-type Fun Function Bool Type Type.)
-        (only-in :clan/poo/type Record String List OrFalse TypeValuePair)
+        (only-in :clan/poo/type define-type Fun Function Bool Type Type. Record String List OrFalse TypeValuePair)
         (only-in :clan/poo/number Integer))
 (export ListOperationsScopeOf UtilitiesScope UtilitiesScopeContract Character)
 

@@ -89,6 +89,10 @@
          '() '())
    (list 'native-offsets initial
          (append '((set-uint saved (offset start))
+                   (for-line-bytes last-byte start (line-content-end)
+                     ((if (line-bytes-any-in? (line-index last-byte)
+                              (line-step (line-index last-byte)) (9 32 97))
+                          ((set-uint saved (offset (line-step (line-index last-byte))))) ())))
                    (if (line-bytes-any-in? start (line-content-end) (97 98))
                        ((set-bool ready (bool #t))) ())
                    (if (line-bytes-any-in? start (line-content-end) (98 99))

@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; -*- Gerbil -*-
 ;;; A single stateful Scheme algorithm is executable and AOT-lowerable.
 
@@ -7,8 +7,8 @@
         (only-in "event-strategy-fixture.ss" event-lines-language-grammar)
         (only-in "event-fold-fixture.ss" parse-fold-lines parse_fold_lines
                  parse-outline-lines parse_outline_lines)
-        (only-in :gerbil-parser/rust-runtime-event-support
-                 event-fold-ir-json run-event-fold)
+        (only-in :gerbil-parser/language-support/event-fold/run run-event-fold)
+        (only-in :gerbil-parser/language-support/event-fold/aot event-fold-ir-json)
         (only-in :gerbil-parser/src/compiler/event-fold-runtime
                  prepare-event-fold-program run-event-fold-program)
         (only-in :gerbil-parser/src/compiler/event-fold-program

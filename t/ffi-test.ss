@@ -1,5 +1,5 @@
 #!/usr/bin/env gxi
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; -*- Gerbil -*-
 
 ;; Admit the negative-case parser fixture through the normal native loader

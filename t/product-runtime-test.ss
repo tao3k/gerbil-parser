@@ -1,5 +1,5 @@
 ;;; Runtime capabilities must work without the GXI syntax expansion.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :gerbil/runtime/init __scheme-source)
         (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-language parse-arithmetic)
         (only-in :gerbil-parser/src/testing/language-product check-language-abi-entry)

@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; -*- Gerbil -*-
 ;;; Variable-width delimiters have one canonical Scheme lexical boundary.
 

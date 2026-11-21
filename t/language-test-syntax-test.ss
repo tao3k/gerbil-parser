@@ -7,7 +7,7 @@
         (only-in :gerbil-parser/languages/arithmetic/parser-test arithmetic-basic-fixture)
         :std/test
         (for-syntax (only-in :gerbil/expander core-expand))
-        :gerbil-parser/language-test-support
+        :gerbil-parser/language-support/testing
         (only-in :clan/poo/object .cc .ref)
 )
 

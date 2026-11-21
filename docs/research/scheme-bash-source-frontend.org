@@ -20,7 +20,7 @@ no independently runnable legacy grammar or compatibility alias is retained.
 command rule structure before emitting the common compiler call.
 [[file:../../language-support/shell-grammar.ss][The common source library]] assembles internal POO profiles and the admitted
 source strategy. Profiles and execution recipes are compiler products.
-=language-source-support= exposes checked source inspection and the parser
+=language-support/source= exposes checked source inspection and the parser
 receipt declaration, not profile constructors.
 
 * Metadata value and native POO alternatives

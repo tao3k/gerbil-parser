@@ -1,5 +1,5 @@
 ;;; Demand-driven imports must preserve caller bindings and evaluate the loader once.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-language))
 (def +development-loaded+
   (map (lambda (name) (and (assoc name (list-modules)) #t))

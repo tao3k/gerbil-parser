@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Private common identity utilities shared by public and development entries.
 (import (only-in :clan/poo/object .o .ref .cc .slot? object?)
-        (only-in :clan/poo/mop define-type validate)
+        (only-in :clan/poo/type define-type validate)
         (only-in ../src/runtime/machine parser-machine-grammar-digest)
         (only-in ../src/language/descriptor
                  language-grammar? language-grammar-contract language-grammar-language

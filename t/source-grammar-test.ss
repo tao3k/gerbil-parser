@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Public author-entry and rule admission contracts.
 (import :std/test
         (only-in :clan/poo/object .o .ref object?)

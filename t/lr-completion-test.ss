@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Completion policy invariants independent of parser exploration order.
 (import :std/test
         (only-in :gerbil-parser/src/runtime/lr-completion

@@ -1,5 +1,5 @@
 ;;; Canonical Rust outputs from two independent Scheme language declarations.
-(import (only-in :gerbil-parser/language-build-support
+(import (only-in :gerbil-parser/language-support/build
                  make-rust-runtime-strategy emit-build-strategy)
         (only-in :clan/poo/object .ref)
         (only-in :gerbil-parser/languages/hl7/parser hl7-language)

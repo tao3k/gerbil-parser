@@ -488,7 +488,7 @@ This template uses the existing public macro mechanism. Its name and parameter
 list are study vocabulary, not a newly published standard library function:
 
 #+begin_src scheme
-(import (only-in :gerbil-parser/language-support defgrammar-syntax))
+(import (only-in :gerbil-parser/language-support/interface defgrammar-syntax))
 
 (defgrammar-syntax (infix-node associativity level kind lhs operators rhs)
   (prec associativity level

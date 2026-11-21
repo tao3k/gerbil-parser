@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Native execution of non-Org declarations through the public engine surface.
 (import :std/test
         (only-in :gerbil-parser/src/declarations

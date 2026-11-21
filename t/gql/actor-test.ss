@@ -1,7 +1,7 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; -*- Gerbil -*-
 (import :std/test
-        (only-in :gerbil-parser/parser-actor-support
+        (only-in :gerbil-parser/execution/actor
                  spawn-parser-actor parser-actor-parse parser-actor-stop!)
         :gerbil-parser/languages/gql/parser
         (only-in :gerbil-parser/src/runtime/artifact parse-artifact-success?))

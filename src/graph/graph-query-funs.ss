@@ -2,8 +2,7 @@
 ;;; Pure, language-neutral selection over POO projected graph views.
 
 (import (only-in :clan/poo/object .ref)
-        (only-in :clan/poo/mop validate)
-        (only-in :clan/poo/type List)
+        (only-in :clan/poo/type validate List)
         (only-in ./graph-query-types GraphQueryPredicateOf)
         (only-in ./graph-query-objects
                  graph-query-context-view graph-query-context-index

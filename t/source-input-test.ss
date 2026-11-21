@@ -1,6 +1,6 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Consume the installed public owner; tests do not compile their own copy.
-(import (only-in :gerbil-parser/source-line-support
+(import (only-in :gerbil-parser/text/source-lines
                  fold-source-input-bytes source-line-end fold-source-byte-spans))
 
 ;; Independent byte-level oracle includes arbitrary offsets, including the

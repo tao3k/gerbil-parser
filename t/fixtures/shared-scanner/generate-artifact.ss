@@ -1,7 +1,7 @@
 #!/usr/bin/env gxi
 (import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; Canonical Scheme producer supplies Rust ABI conformance bytes, not reports.
-(import (only-in :gerbil-parser/language-support deflanguage)
+(import (only-in :gerbil-parser/language-support/interface deflanguage)
         (only-in :gerbil-parser/t/abi-datum-support abi-datum-read)
         "records"
 

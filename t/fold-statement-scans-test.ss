@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 (import :std/test ../src/compiler/event-fold-analysis)
 
 (def scan '(line-skip-horizontal start))

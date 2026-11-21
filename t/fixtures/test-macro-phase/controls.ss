@@ -1,5 +1,5 @@
 ;;; Prepare this owner before language owners; capture the admission boundary.
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 
 (def +language-execution-loaded+
   (map (lambda (name) (and (assoc name (list-modules)) #t))

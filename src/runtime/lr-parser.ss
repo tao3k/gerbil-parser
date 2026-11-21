@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Stable lr-parser facade; owner modules retain the original execution forms.
 (import (only-in ./reduction-plan RecognitionSemantics. EventSemantics.
-                 select-lr-action-factory select-lr-action-factory$poo-clos-generic)
+                 select-lr-action-factory select-lr-action-factory$clos-generic)
         (only-in "./lr-parser/state.ss"
                  lr-recognition-view? lr-recognition-view-base lr-recognition-view-delta lr-recognition-fragment-offset current-lr-recognition-observer current-lr-transfer-yield-observer lr-recognition-fragment? lr-recognition-fragment-production-id lr-recognition-fragment-runtime lr-recognition-fragment-executor lr-recognition-fragment-entry-state lr-recognition-fragment-exit-state lr-recognition-fragment-children lr-recognition-fragment-lookahead lr-recognition-fragment-value lr-recognition-fragment-start lr-recognition-fragment-end lr-recognition-fragment-token-count current-lr-branch-budget lr-checkpoint? lr-lexical-mode? lr-lexical-mode-id lr-lexical-mode-terminals lr-runtime-lexical-mode-catalog lr-runtime-layout? lr-runtime-direct-step lr-runtime-event-step current-lr-event-program-enabled? lr-checkpoint-deterministic-actions lr-checkpoint-deterministic-shifts lr-failure-frontier? lr-failure-frontier-state lr-failure-frontier-expected-terminals)
         (only-in "./lr-parser/prepare.ss"
@@ -19,7 +19,7 @@
         (only-in "./lr-parser/entry.ss"
                  lr-parse lr-parse/prepared))
 (export RecognitionSemantics. EventSemantics. select-lr-action-factory
-        select-lr-action-factory$poo-clos-generic
+        select-lr-action-factory$clos-generic
         lr-runtime-with-action-selector
         lr-checkpoint-state lr-recognition-view? lr-recognition-view-base lr-recognition-view-delta
         lr-recognition-relocate lr-checkpoint-before-shift

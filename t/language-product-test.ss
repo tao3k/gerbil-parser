@@ -1,6 +1,6 @@
 ;;; Product harness controls exercise data quoting and temporary ownership.
 (import :std/test
-        :gerbil-parser/language-test-support
+        :gerbil-parser/language-support/testing
         (only-in :gerbil-parser/languages/tla-plus/parser tla-plus-core-language
                  qualify-tla-plus-core-model tla-plus-model-receipt?)
         (only-in :gerbil-parser/src/testing/language-product language-model-test-receipt)

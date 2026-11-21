@@ -1,5 +1,5 @@
 #!/usr/bin/env gxi
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 (import :std/test
         :gerbil-parser/src/runtime/funcs
         :gerbil-parser/src/runtime/recognition

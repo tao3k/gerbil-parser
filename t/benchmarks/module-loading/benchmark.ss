@@ -16,7 +16,7 @@
 (def grammar-path "t/fixtures/runtime-record-assignments/languages/records/grammar.ss")
 (def expected (rust-runtime-source grammar-path))
 (def (reference-generate)
-  (import-module ':gerbil-parser/rust-runtime-grammar-support #t #t)
+  (import-module ':gerbil-parser/language-support/grammar #t #t)
   (language-rust-runtime-module-source (language-module-descriptor grammar-path reload?: #t)))
 (def (production-generate) (rust-runtime-source grammar-path))
 (def (cpu)

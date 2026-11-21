@@ -1,5 +1,5 @@
 #!/usr/bin/env gxi
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Direct event lowering must match the independent original-production replay.
 (import :std/test
         (only-in :gerbil-parser/languages/arithmetic/parser arithmetic-parser parse-arithmetic)
@@ -18,7 +18,7 @@
                  lr-recognition-view? lr-recognition-view-base lr-recognition-fragment?
                  lr-recognition-fragment-children lr-recognition-fragment-end
                  lr-recognition-fragment-token-count lr-recognition-fragment-executor)
-        (only-in :gerbil-parser/src/compiler/hcl-reductions direct-event-step)
+        (only-in :gerbil-parser/languages/hcl/generated/reductions direct-event-step)
         (only-in :gerbil-parser/src/runtime/incremental
                  make-incremental-session incremental-session-artifact
                  incremental-session-recognition-root incremental-session-project-artifact

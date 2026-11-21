@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Shared deterministic stack reduction versus independent materialized GLR.
 (import :std/test
         (only-in :std/test/base TestCase test-case-add!)

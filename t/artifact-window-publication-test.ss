@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 (import :std/test
         (only-in ./fixtures/artifact-window window-tokens window-artifact publication-diagnostic)
         (only-in :gerbil-parser/src/runtime/artifact

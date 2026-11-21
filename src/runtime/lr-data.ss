@@ -1,6 +1,6 @@
 ;;; Shared LR leaf vocabulary. Phase-specific action structure and index bounds
 ;;; remain with the compiler producer and runtime selector respectively.
-(import (only-in :clan/poo/mop element?)
+(import (only-in :clan/poo/type element?)
         (only-in :clan/poo/number Integer))
 (export lr-terminal? lr-precedence?)
 

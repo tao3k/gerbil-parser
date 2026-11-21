@@ -173,12 +173,12 @@ known local wall-time failure into admission success.
 
 * Optional actor library
 
-The package remains a library. Importing =parser-actor-support= starts no worker,
+The package remains a library. Importing =execution/actor= starts no worker,
 listener or daemon. The application explicitly creates and closes local actors:
 
 #+begin_src scheme
 (import :gerbil-parser/languages/gql/parser
-        :gerbil-parser/parser-actor-support)
+        :gerbil-parser/execution/actor)
 (let (worker (spawn-parser-actor gql-parser))
   (try
    (parser-actor-parse worker "RETURN 1" 5)

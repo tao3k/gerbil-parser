@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Distinct rule instances share a native request without private-state aliases.
 (import :std/test
         (only-in :gerbil-parser/src/declarations

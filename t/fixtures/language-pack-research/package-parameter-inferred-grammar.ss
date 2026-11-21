@@ -1,7 +1,7 @@
 (import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; -*- Gerbil -*-
 ;;; Matched complete package variant; authoring still uses the three DSL interfaces.
-(import (only-in :gerbil-parser/language-support deflanguage defgrammar-syntax))
+(import (only-in :gerbil-parser/language-support/interface deflanguage defgrammar-syntax))
 (export list-parameter-inferred-language-grammar)
 (defgrammar-syntax (required-items label item separator)
   (seq (field label item) (repeat (seq separator (field label item)))))

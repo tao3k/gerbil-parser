@@ -3,7 +3,7 @@
         (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/language-support/fixture defsyntax-fixture)
         (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader.)
-        (only-in :gerbil-parser/language-build-support declare-language-build-strategy make-fused-reduction-strategy make-rust-runtime-strategy))
+        (only-in :gerbil-parser/language-support/build declare-language-build-strategy make-fused-reduction-strategy make-rust-runtime-strategy))
 (export #t)
 
 (defsyntax-fixture arithmetic-basic-fixture

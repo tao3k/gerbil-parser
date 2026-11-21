@@ -209,7 +209,7 @@ natural GC and CPU populations use the existing shared sampler. Reproduction:
 
 #+begin_src sh
 gerbil compile -O
-gerbil env gerbil test -v 5 t/artifact-window-publication-test.ss t/artifact-publication-cost-test.ss t/recovery-incremental-test.ss
+gerbil env gerbil test -v 5 t/artifact-window-publication-test.ss t/artifact-publication-cost-test.ss t/yanxu/Execution/incremental/recovery-incremental-test.ss
 gerbil compile -O t/benchmarks/artifact-window/benchmark.ss
 gerbil env gxi -e '(import :gerbil-parser/t/benchmarks/artifact-window/benchmark) (benchmark-artifact-window)'
 #+end_src

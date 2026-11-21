@@ -1,6 +1,6 @@
 ;;; -*- Gerbil -*-
 ;;; User-facing test declarations for the same expression-vocabulary package.
-(import :gerbil-parser/language-test-support "package-expression-parser")
+(import :gerbil-parser/language-support/testing "package-expression-parser")
 
 (deflanguage-parser-tests package-expression-parser-test "expression vocabulary package DSL"
   (loader list-study-language)

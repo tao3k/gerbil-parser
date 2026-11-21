@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 (import :std/test ../src/compiler/event-fold-analysis)
 
 (deflanguage-parser-tests event-fold-analysis-test "Fold dependence and effect plan"

@@ -4,10 +4,15 @@
 
 (import (only-in ../schema +grammar-schema+ +grammar-ir-schema+
                  +parser-ir-schema+ +parse-artifact-schema+ +diagnostic-schema+)
-        (only-in :clan/poo/object .ref .cc)
-        (only-in :clan/poo/mop define-type element? Type.)
-        (only-in :clan/poo/type Record Symbol Exactly)
-        (only-in :tao3k/yuanxu/object-types/contracts
+        (only-in :clan/poo/object .ref .cc .o .all-slots
+                 object? object-revision object-slots object-declarations .slot?
+                 object-protocol object-override-specifications object-find-in-precedence
+                 object-precedence-ready? object-direct-slot-specification $constant-slot-spec? $constant-slot-spec-value)
+        (only-in :clan/poo/slot-observation %slot-read-active?)
+        (only-in :clan/poo/mop Class. Slot prototype-instance?)
+        (only-in :std/list/list delete-duplicates/hash)
+        (only-in :clan/poo/type define-type element? Type. Record Symbol Exactly)
+        (only-in :tao3k/yuanxu/types/contracts
                  YuanxuObjectContract. yuanxu-predicate-contract))
 
 (export +grammar-role-kind+
@@ -44,24 +49,85 @@
 ;; languages are checked by the normalizer, rather than pretending to know a
 ;; universal element Type (or introducing an Any parameter).
 (def DeclarationList (.cc Type. sexp: 'DeclarationList '.element? list?))
-(def GrammarRoleValue
-  (Record kind: [(Exactly +grammar-role-kind+)] name: [Symbol]
-          syntax-kinds: [DeclarationList] terminals: [DeclarationList]
-          lexical-rules: [DeclarationList] rules: [DeclarationList]
-          extras: [DeclarationList] keywords: [DeclarationList]
-          parser-entrypoints: [DeclarationList] recoveries: [DeclarationList]
-          flow: [DeclarationList]))
-(def GrammarValue
-  (Record kind: [(Exactly +grammar-kind+)] schema: [(Exactly +grammar-schema+)]
-          name: [Symbol] parents: [DeclarationList] roles: [DeclarationList]
-          composition: [DeclarationList]))
+;; These Records have identity validators and ordinary typed fields. Prepare
+;; their POO Type predicates once. Plain receivers already carry the complete
+;; field set, so both membership and validation can check current values directly.
+(def (declaration-record record)
+  (def descriptor
+    (.o (:: self record)
+      (.element? (inherited)
+        (lambda (candidate)
+          (cond ((and (eq? self descriptor) (plain-declaration-specs candidate))
+                 => fields-match?)
+                (else ((inherited) candidate)))))
+      (.validate (inherited)
+        (lambda (candidate)
+          (let (specs (and (eq? self descriptor) (plain-declaration-specs candidate)))
+            (if (and specs (fields-match? specs))
+              candidate
+              ((inherited) candidate)))))))
+  (def (plain-declaration-specs candidate)
+    (and (not (%slot-read-active?))
+         (object? candidate)
+         (stock-descriptors?)
+         (null? (object-override-specifications candidate))
+         (prototype-instance? proto candidate)
+         (object-precedence-ready? candidate)
+         (not (object-protocol candidate))
+         (not (object-find-in-precedence candidate
+                (lambda (owner) (pair? (object-declarations owner)))))
+         ;; Effects in any direct specification keep native Record dispatch.
+         ;; Resolve the required fields through POO's own ordered slot index.
+         (andmap (lambda (entry) ($constant-slot-spec? (cdr entry))) (object-slots candidate))
+         (let (required (map (cut object-direct-slot-specification candidate <>) names))
+           (and (andmap $constant-slot-spec? required) required))))
+  (def (fields-match? specs)
+    (andmap (lambda (spec check) (check ($constant-slot-spec-value spec)))
+            specs checks))
+  (def proto (.ref descriptor 'proto))
+  (def slots (.ref descriptor 'effective-slots))
+  (def names (.all-slots slots))
+  (def fields (map (cut .ref slots <>) names))
+  (def types (map (cut .ref <> 'type) fields))
+  (def checks (map (cut .ref <> '.element?) types))
+  (def typed-fields?
+    (and (not (.ref descriptor 'sealed))
+         (andmap (lambda (field) (not (.slot? field 'constant))) fields)))
+  (def owners
+    (delete-duplicates/hash
+     (append (list Type. Class. Slot record descriptor slots) fields types)
+     table: (make-hash-table-eq)))
+  ;; Use inherited POO dispatch after any edit to a checker or descriptor.
+  (def (stock-descriptors?)
+    (and typed-fields?
+         (andmap (lambda (owner) (zero? (object-revision owner))) owners)))
+  (values descriptor
+    (lambda (value-type candidate)
+      (and (eq? value-type descriptor)
+           (let (specs (plain-declaration-specs candidate))
+             (and specs (fields-match? specs)))))))
+
+(defvalues (GrammarRoleValue grammar-role-identity-member?)
+  (declaration-record
+   (Record kind: [(Exactly +grammar-role-kind+)] name: [Symbol]
+           syntax-kinds: [DeclarationList] terminals: [DeclarationList]
+           lexical-rules: [DeclarationList] rules: [DeclarationList]
+           extras: [DeclarationList] keywords: [DeclarationList]
+           parser-entrypoints: [DeclarationList] recoveries: [DeclarationList]
+           flow: [DeclarationList])))
+(defvalues (GrammarValue _)
+  (declaration-record
+   (Record kind: [(Exactly +grammar-kind+)] schema: [(Exactly +grammar-schema+)]
+           name: [Symbol] parents: [DeclarationList] roles: [DeclarationList]
+           composition: [DeclarationList])))
 
 ;; The value Type owns slots and normalization. Core owns ancestry, contextual
 ;; responsibilities and the actual normalized candidate returned by validate.
 (define-type (GrammarRoleContract @ YuanxuObjectContract.)
   identity: 'gerbil-parser/grammar-role
   proto: (.ref GrammarRoleValue 'proto)
-  value-contract: GrammarRoleValue)
+  value-contract: GrammarRoleValue
+  .identity-member?: grammar-role-identity-member?)
 
 ;; : (-> Object Object [Object])
 (def (grammar-object-obligations candidate _context)

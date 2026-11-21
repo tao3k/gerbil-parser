@@ -86,6 +86,23 @@ theorem validated_loop_byte (start cursor limit size : Nat)
     (_lower : start ≤ cursor) (upper : cursor < limit) (extent : limit ≤ size) :
     cursor < size := Nat.lt_of_lt_of_le upper extent
 
+/-- The admitted offset algebra is exact natural arithmetic. A positive
+chain of line-step expressions can be lowered before code interning; the
+underlying offset is still evaluated once. This is not a wall-time claim. -/
+def saturatedSteps (limit start : Nat) : Nat → Nat
+  | 0 => start
+  | count + 1 => min limit (1 + saturatedSteps limit start count)
+
+theorem saturated_steps_closed_form (limit start count : Nat) :
+    saturatedSteps limit start (count + 1) = min limit (start + (count + 1)) := by
+  induction count with
+  | zero => simp [saturatedSteps, Nat.add_comm]
+  | succ count ih =>
+    simp only [saturatedSteps]
+    change min limit (1 + saturatedSteps limit start (count + 1)) = _
+    rw [ih]
+    omega
+
 /-- Dependence/effect summaries are compiler obligations, not facts inferred
 from successful model tests. The implementation must compute these flags. -/
 def probeEligible (sameBounds boundWrite opaqueEffect helper frameChange : Bool) : Bool :=

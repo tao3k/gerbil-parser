@@ -59,6 +59,32 @@
                          '((outer () ((call-source-helper inner start end)))
                            (inner () ((call-source-helper outer start end)))))
          true)))
+    (scenario "last-match reductions preserve UTF-8 frames and title prefixes"
+      (scope
+       ((forms '((set-uint tail (offset start))
+                 (for-line-bytes position start end
+                   ((if (line-bytes-any-in? (line-index position)
+                            (line-step (line-index position)) (9 32))
+                        ((set-uint tail (offset (line-step (line-index position))))) ())))
+                 (token Line (state-offset tail) end))))
+        (each (prefix) ('("" "one " "中\t" "one: two "))
+          (each (word) ('("plain" ":agent:plan:" ":中:" ":bad::"))
+            (sequential ((source (string-append prefix word))
+                         (from (u8vector-length (string->utf8 prefix)))
+                         (until (u8vector-length (string->utf8 source))))
+              (equal (run-event-fold source 'Document '((tail 0)) forms '())
+                     (list '(start Document) (list 'token 'Line from until) '(finish))))))
+        (each (size) ('(16 1024 8192))
+          (sequential ((source (string-append (make-string size #\x) " :a:b:")))
+            (equal (run-event-fold source 'Document '((tail 0)) forms '())
+                   (list '(start Document) (list 'token 'Line (+ size 1) (+ size 6)) '(finish)))))
+        (equal
+         (run-event-fold "x" 'Document '((tail 0))
+           `((with-source-bounds end end ,forms)) '())
+         '((start Document) (finish)))
+        (raises
+         (run-event-fold "x" 'Document '((tail 0))
+           `((with-source-bounds end start ,forms)) '()) true)))
     (property "future marker search stops at heading or parent boundary"
       (bindings (condition '(and (line-starts-with-ascii-ci "#+BEGIN_QUOTE")
                               (future-line-marker-before-boundary?

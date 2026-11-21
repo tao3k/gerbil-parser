@@ -1,10 +1,9 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Boolean admission must match Core's complete evidence protocol.
 (import :std/test
-        (only-in :clan/poo/object .o .cc .ref .all-slots .set!)
-        (only-in :clan/poo/mop element? validate Type. TypeError? Fun)
-        (only-in :clan/poo/type Record Symbol)
-        (only-in :tao3k/yuanxu/object-types/contracts yuanxu-contract-admit
+        (only-in :clan/poo/object .o .cc .get .ref .all-slots .set!)
+        (only-in :clan/poo/type element? validate Type. TypeError? Fun Record Symbol)
+        (only-in :tao3k/yuanxu/types/contracts yuanxu-contract-admit
                  yuanxu-validation-evidence-accepted?
                  yuanxu-classification-evidence)
         :gerbil-parser/src/declarations)
@@ -63,12 +62,26 @@
       (equal (rejects? (lambda () (validate refined role)))  #t)
       (equal calls  1))
     (scenario "mutable declaration lists are rechecked on every call"
-      (sequential ((rules (list 'rule)) (role (empty-role rules)))
-        (equal (element? GrammarRoleContract role)  #t)
+      (sequential ((rules (list 'rule))
+                   (role (empty-role rules))
+                   (grammar (make-grammar 'grammar '() (list role))))
+        (equal (element? GrammarRoleContract role) #t)
         (act (set-cdr! rules 'improper-tail))
-        (equal (element? GrammarRoleContract role)  #f)
-        (equal (element? GrammarRoleContract role)  (evidence-member? GrammarRoleContract role))
-        (equal (rejects? (lambda () (validate GrammarRoleContract role)))  #t)))
+        (equal (element? GrammarRoleContract role) #f)
+        (equal (element? GrammarRoleContract role) (evidence-member? GrammarRoleContract role))
+        (equal (rejects? (lambda () (validate GrammarRoleContract role))) #t)
+        (equal (element? GrammarContract grammar) #f)
+        (equal (rejects? (lambda () (make-grammar 'grammar '() (list role)))) #t)))
+    (scenario "instance assignments take precedence over direct Role slots"
+      (sequential ((role (empty-role))
+                   (grammar (make-grammar 'grammar '() (list role))))
+        (act (.set! role rules 0))
+        (equal (element? GrammarRoleContract role) #f)
+        (equal (evidence-member? GrammarRoleContract role) #f)
+        (equal (element? GrammarContract grammar) #f)
+        (act (.set! role rules (list 'updated-rule)))
+        (equal (eq? (validate GrammarRoleContract role) role) #t)
+        (equal (element? GrammarContract grammar) #t)))
     (scenario "composition obligations reject foreign roles and parents"
       (sequential ((role (empty-role)) (grammar (make-grammar 'grammar '() (list role))))
         (each (invalid) ((list (.cc grammar 'parents (list (.o)))
@@ -78,6 +91,31 @@
            (equal (evidence-member? GrammarContract invalid)  #f)
            (equal (element? GrammarContract invalid)  #f)
            (equal (rejects? (lambda () (validate GrammarContract invalid)))  #t)))))
+
+(def (role-field-normalization-preserved?)
+  (let* ((rules (list 'old-rule))
+         (role (empty-role rules))
+         (value-type (.ref GrammarRoleContract 'value-contract))
+         (rule-slot (.get value-type effective-slots rules))
+         (rule-type (.ref rule-slot 'type))
+         (original (.ref rule-type '.validate))
+         (normalized (list 'new-rule))
+         (calls 0))
+    (dynamic-wind
+      (lambda ()
+        (.set! rule-type .validate
+          (lambda (value)
+            (if (eq? value rules)
+              (begin (set! calls (+ calls 1)) normalized)
+              (original value)))))
+      (lambda ()
+        (and (element? GrammarRoleContract role)
+             (= calls 1)
+             (let (checked (validate GrammarRoleContract role))
+               (and (= calls 2)
+                    (eq? (.ref checked 'rules) normalized)
+                    (eq? (.ref role 'rules) rules)))))
+      (lambda () (.set! rule-type .validate original)))))
 
 (deflanguage-parser-tests grammar-contract-normalization-test "Core-owned grammar normalization and mutation"
   (engine)
@@ -101,6 +139,8 @@
         (equal ((.ref checked 'callback) 'word) 'word)
         (equal (with-catch TypeError? (lambda () ((.ref checked 'callback) 42) #f)) #t)
         (equal ((.ref role 'callback) 42) 42)))
+    (scenario "changed field validators still normalize directly constructed Roles"
+      (equal (role-field-normalization-preserved?) #t))
     (scenario "builtin descriptor mutation cannot bypass Core rejection"
       (sequential ((role (empty-role)) (saved (.ref GrammarRoleContract '.obligations)))
         (equal (element? GrammarRoleContract role) #t)

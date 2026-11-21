@@ -1,5 +1,5 @@
 ;;; -*- Gerbil -*-
-(import :gerbil-parser/language-test-support "package-parameter-inferred-parser")
+(import :gerbil-parser/language-support/testing "package-parameter-inferred-parser")
 (deflanguage-parser-tests package-parameter-inferred-test "parameter fields inferred package DSL"
   (loader list-parameter-inferred-language)
   (syntax-kind "exact effective Call field catalog" Call node (callee parameter))

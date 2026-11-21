@@ -1,10 +1,10 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; -*- Gerbil -*-
 ;;; The Rust AOT macro constructs syntax values before rendering source.
 
 (import (only-in :std/test check check-exception test-case test-suite)
         (only-in :std/encoding/json JSONReadOptions string->json)
-        (only-in :gerbil-parser/src/compiler/rust-syntax
+        (only-in :gerbil-parser/language-support/rust/syntax
                  rust-struct rust-static rust-array rust-some rust-none
                  rust-number rust-string rust-module
                  rust-identifier rust-method rust-fold rust-binary

@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 
 (deflanguage-parser-tests exception-assertion-failure-test "Expected exception assertion failure"
   (engine)

@@ -1,5 +1,5 @@
 #!/usr/bin/env gxi
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 (import :std/test :std/iter
         (only-in :gerbil-parser/src/runtime/token make-token token-kind token-lexeme token-start token-end)
         (only-in :gerbil-parser/src/runtime/source-index

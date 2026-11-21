@@ -1,5 +1,5 @@
 ;;; -*- Gerbil -*-
-(import :gerbil-parser/language-test-support "package-parameter-retained-parser")
+(import :gerbil-parser/language-support/testing "package-parameter-retained-parser")
 (deflanguage-parser-tests package-parameter-retained-test "parameter fields retained package DSL"
   (loader list-parameter-retained-language)
   (syntax-kind "exact effective Call field catalog" Call node (argument callee parameter))

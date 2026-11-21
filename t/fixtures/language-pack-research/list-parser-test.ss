@@ -1,6 +1,6 @@
 ;;; -*- Gerbil -*-
 ;;; Independent conformance declarations for the canonical composed package.
-(import :gerbil-parser/language-test-support "list-parser")
+(import :gerbil-parser/language-support/testing "list-parser")
 
 (deflanguage-parser-tests list-parser-test "canonical POO composition package DSL"
   (loader list-composed-language)

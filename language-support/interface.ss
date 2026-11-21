@@ -1,0 +1,190 @@
+;;; -*- Gerbil -*-
+;;; Stable public facade for language implementations.
+;;; Source adapters are common library modules; development services are opt-in.
+
+(import (only-in ./entry
+                 deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
+                 +language-parser-entry-schema+ language-parser-entry-ref language-metadata-ref)
+        (only-in ../src/grammar/lexical-algebra deftext-profile)
+        (only-in ../src/runtime/region-scanner defregion-plan)
+        (only-in ./antlr4-source
+                 +antlr4-source-schema+
+                 antlr4-rule?
+                 antlr4-rule-name
+                 antlr4-rule-kind
+                 antlr4-rule-fragment?
+                 antlr4-rule-expression
+                 antlr4-rule-references
+                 antlr4-source?
+                 antlr4-source-language
+                 antlr4-source-version
+                 antlr4-source-commit
+                 antlr4-source-digest
+                 antlr4-source-name
+                 antlr4-source-options
+                 antlr4-source-rules
+                 antlr4-source-parser-rules
+                 antlr4-source-lexer-rules
+                 antlr4-source-rule
+                 antlr4-source-parser-grammar-rules
+                 antlr4-source-parser-syntax-kinds
+                 antlr4-source-parser-literals
+                 antlr4-source-declaration-sources
+                 antlr4-source->datum
+                 antlr4-source-from-datum
+                 parse-antlr4-source
+                 parse-antlr4-source/expected)
+        (only-in ./javacc-source
+                 +javacc-source-schema+
+                 javacc-production? javacc-production-name
+                 javacc-production-result javacc-production-line
+                 javacc-source? javacc-source-language javacc-source-version
+                 javacc-source-commit javacc-source-digest
+                 javacc-source-productions javacc-source-production
+                 javacc-source->datum javacc-source-from-datum
+                 parse-javacc-source parse-javacc-source/expected)
+        (only-in ./fixture
+                 defsyntax-fixture
+                 defsyntax-corpus
+                 syntax-fixture?
+                 syntax-fixture-id
+                 syntax-fixture-language
+                 syntax-fixture-version
+                 syntax-fixture-contract
+                 syntax-fixture-source-digest
+                 syntax-fixture-source
+                 syntax-fixture-expected-status
+                 syntax-fixture-root-kind
+                 syntax-fixture-required-kinds)
+        (only-in ./grammar-source
+                 defsyntax-iso-bnf-source
+                 defsyntax-antlr4-source
+                 defsyntax-javacc-source)
+        (only-in ./iso-bnf-language iso-bnf)
+        (only-in ./antlr4-language
+                 antlr4)
+        (only-in ./iso-bnf
+                 +iso-bnf-source-schema+
+                 +iso-bnf-rule-overlay-schema+
+                 iso-bnf-production?
+                 iso-bnf-production-name
+                 iso-bnf-production-expression
+                 iso-bnf-production-ast
+                 iso-bnf-production-line
+                 iso-bnf-production-references
+                 iso-bnf-source?
+                 iso-bnf-source-language
+                 iso-bnf-source-version
+                 iso-bnf-source-commit
+                 iso-bnf-source-digest
+                 iso-bnf-source-productions
+                 iso-bnf-source-production
+                 iso-bnf-source-grammar-rules
+                 iso-bnf-source-grammar-rules/overrides
+                 iso-bnf-source-syntax-kinds
+                 iso-bnf-source-literals
+                 iso-bnf-source-declaration-sources
+                 iso-bnf-source-declaration-sources/overrides
+                 parse-iso-bnf-source
+                 parse-iso-bnf-source/expected)
+        (only-in ../src/language/grammar
+                 deflanguage
+                 defgrammar-syntax)
+        (only-in ../src/language/descriptor
+                 language-grammar-with-parser-policy)
+        (only-in ../src/language/source
+                 +source-language-schema+
+                 declare-source-language
+                 source-language?)
+        (only-in ../src/runtime/artifact
+                 parse-artifact-ref
+                 parse-artifact-roundtrip
+                 parse-artifact-success?
+                 parse-artifact-valid?))
+(export deflanguage-parser-loader LanguageLoader. LanguageLoaderContract
+        defregion-plan deftext-profile
+        +antlr4-source-schema+
+        +javacc-source-schema+
+        +iso-bnf-source-schema+
+        +iso-bnf-rule-overlay-schema+
+        antlr4-rule?
+        antlr4-rule-name
+        antlr4-rule-kind
+        antlr4-rule-fragment?
+        antlr4-rule-expression
+        antlr4-rule-references
+        antlr4-source?
+        antlr4-source-language
+        antlr4-source-version
+        antlr4-source-commit
+        antlr4-source-digest
+        antlr4-source-name
+        antlr4-source-options
+        antlr4-source-rules
+        antlr4-source-parser-rules
+        antlr4-source-lexer-rules
+        antlr4-source-rule
+        antlr4-source-parser-grammar-rules
+        antlr4-source-parser-syntax-kinds
+        antlr4-source-parser-literals
+        antlr4-source-declaration-sources
+        antlr4-source->datum
+        antlr4-source-from-datum
+        parse-antlr4-source
+        parse-antlr4-source/expected
+        javacc-production? javacc-production-name javacc-production-result
+        javacc-production-line
+        javacc-source? javacc-source-language javacc-source-version
+        javacc-source-commit javacc-source-digest javacc-source-productions
+        javacc-source-production javacc-source->datum javacc-source-from-datum
+        parse-javacc-source parse-javacc-source/expected
+        iso-bnf-production?
+        iso-bnf-production-name
+        iso-bnf-production-expression
+        iso-bnf-production-ast
+        iso-bnf-production-line
+        iso-bnf-production-references
+        iso-bnf-source?
+        iso-bnf-source-language
+        iso-bnf-source-version
+        iso-bnf-source-commit
+        iso-bnf-source-digest
+        iso-bnf-source-productions
+        iso-bnf-source-production
+        iso-bnf-source-grammar-rules
+        iso-bnf-source-grammar-rules/overrides
+        iso-bnf-source-syntax-kinds
+        iso-bnf-source-literals
+        iso-bnf-source-declaration-sources
+        iso-bnf-source-declaration-sources/overrides
+        parse-iso-bnf-source
+        parse-iso-bnf-source/expected
+        defsyntax-iso-bnf-source
+        defsyntax-antlr4-source
+        defsyntax-javacc-source
+        antlr4
+        iso-bnf
+        deflanguage
+        defgrammar-syntax
+        +language-parser-entry-schema+
+        +source-language-schema+
+        declare-source-language
+        language-grammar-with-parser-policy
+        source-language?
+        language-parser-entry-ref language-metadata-ref
+        defsyntax-fixture
+        defsyntax-corpus
+        syntax-fixture?
+        syntax-fixture-id
+        syntax-fixture-language
+        syntax-fixture-version
+        syntax-fixture-contract
+        syntax-fixture-source-digest
+        syntax-fixture-source
+        syntax-fixture-expected-status
+        syntax-fixture-root-kind
+        syntax-fixture-required-kinds
+        parse-artifact-ref
+        parse-artifact-roundtrip
+        parse-artifact-success?
+        parse-artifact-valid?)

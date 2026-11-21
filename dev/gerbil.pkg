@@ -1,2 +1,2 @@
 (package: gerbil-parser-dev
- depend: ("github.com/tao3k/asp-gerbil-scheme@3054db619c7790c230bdd84a21f36529ea6691a7"))
+ depend: ("github.com/tao3k/asp-gerbil-scheme@99c5f3127f7dfa3e3e099e5b6f506fa33e78c4e5"))

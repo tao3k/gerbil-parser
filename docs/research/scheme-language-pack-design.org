@@ -213,7 +213,7 @@ no substitute optimizer, GC tuning or parallel runtime implementation.
 This example uses the current documented surface, not a proposed new API:
 
 #+begin_src scheme
-(import (only-in :gerbil-parser/language-support deflanguage))
+(import (only-in :gerbil-parser/language-support/interface deflanguage))
 
 (deflanguage example
   (identity "example" "v1" "example.syntax.v1")

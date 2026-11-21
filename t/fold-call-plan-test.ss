@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 (import :std/test ../src/compiler/event-fold-call-plan
         ../src/compiler/event-fold-scheme-context)
 

@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Concrete lowering controls; actual Org AOT remains a separate gate.
 (import :std/test ../src/compiler/event-fold-scheme-statements
         ../src/compiler/event-fold-scheme-context)

@@ -1,6 +1,6 @@
 ;;; -*- Gerbil -*-
 ;;; Independent downstream conformance uses only installed public facades.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :gerbil-parser/language-support/development deflanguage-development-loader)
         (only-in :gerbil-parser/language-support/entry language-parser-entry-ref)
         ./parser ./fixtures)

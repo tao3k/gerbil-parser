@@ -78,7 +78,7 @@ do not change a grammar's identity, parsing semantics, or receipt schema.
 
 * Declarative source scanner profiles
 
-=language-source-support= exports =ScannerProfile.=, =ScannerProfileContract=
+=language-support/source= exports =ScannerProfile.=, =ScannerProfileContract=
 and =defscanner-profile=. A profile is a POO object with ordinary =modes=,
 =initial-mode=, =tokens= and =rules= values. A rule is
 =(name mode form matcher rank action)=. The compiler validates effective
@@ -245,7 +245,7 @@ remains an open producer obligation.
 
 The profile constructors below describe internal source compiler and executor
 contracts. They are not language author declarations and are no longer exported
-by =language-source-support=. Authors use =deflanguage= syntax/rules through the
+by =language-support/source=. Authors use =deflanguage= syntax/rules through the
 common library; see [[file:../research/scheme-bash-source-frontend.org][the complete Bash frontend migration]].
 
 ** Executable part recognition slots
@@ -636,14 +636,14 @@ scanner trivia at the same recognition boundaries as Scheme, validates source
 order and publishes complete syntax events. Languages supply data; the internal
 cursor/VM bridge is private and requires no downstream callbacks.
 
-The public =rust-runtime-support= facade exports
+The public =language-support/rust/emit= facade exports
 =generate-command-source-rust-module=. Its input is one admitted POO
 =ShellSourceStrategy.= value, including inherited slots; its output is one
 immutable =CommandSourceSpec= combining scanner, regions, parts, commands and
 results. The Rust host prepares the product once and reuses it:
 
 #+begin_src scheme
-(import :gerbil-parser/rust-runtime-support)
+(import :gerbil-parser/language-support/rust/emit)
 (generate-command-source-rust-module my-source-strategy "src/generated.rs")
 #+end_src
 

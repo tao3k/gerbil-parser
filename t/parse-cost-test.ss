@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Diagnostics must preserve engine results, failure and dynamic scope.
 (import :std/test
         (only-in :gerbil-parser/src/runtime/parse-cost current-parser-cost-observer with-parser-cost-stage admit-parser-allocation))

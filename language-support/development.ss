@@ -8,8 +8,8 @@
                  syntax-fixture-language syntax-fixture-version syntax-fixture-contract
                  syntax-fixture-expected-status syntax-fixture-root-kind syntax-fixture-required-kinds)
         (only-in :clan/poo/object .o .ref .cc .slot? object?)
-        (only-in :clan/poo/mop define-type validate)
-        (only-in :tao3k/yuanxu/object-types/contracts yuanxu-predicate-contract)
+        (only-in :clan/poo/type define-type validate)
+        (only-in :tao3k/yuanxu/types/contracts yuanxu-predicate-contract)
         (only-in ../src/runtime/identity sha256-text)
         (only-in ../src/runtime/source-scanner source-scanner-for-source?)
         (only-in ../src/runtime/machine parser-machine-grammar-digest parser-machine-direct-source)

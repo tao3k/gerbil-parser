@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 (import :std/test (only-in :std/vector/u8vector little u8vector-uint-set!)
         ../src/runtime/source-lines ../src/runtime/fold-tape)
 

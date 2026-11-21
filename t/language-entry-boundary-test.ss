@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; -*- Gerbil -*-
 ;;; Production dispatch and development conformance have distinct dependencies.
 (import (only-in :gerbil-parser/src/ffi/language-artifact-codec bind-language-abi abi-descriptor-payload abi-parse-binary-payload)
@@ -6,7 +6,7 @@
         (for-syntax (only-in :gerbil/expander core-expand))
         :std/test
         (only-in :clan/poo/object .ref .slot?)
-        (only-in :clan/poo/mop validate)
+        (only-in :clan/poo/type validate)
         (only-in :gerbil-parser/language-support/entry LanguageLoaderContract deflanguage-parser-loader)
         (only-in :gerbil-parser/language-support/development
                  LanguageDevelopmentLoaderContract language-loader-fixtures language-loader-fixture-count run-language-test)

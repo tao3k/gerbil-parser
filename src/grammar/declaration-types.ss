@@ -8,7 +8,7 @@
                  object? object-revision object-slots object-declarations .slot?
                  object-protocol object-override-specifications object-find-in-precedence
                  object-precedence-ready? object-direct-slot-specification $constant-slot-spec? $constant-slot-spec-value)
-        (only-in :clan/poo/slot-observation %slot-read-active?)
+        (only-in :clan/poo/object/slot-observation %slot-read-active?)
         (only-in :clan/poo/mop Class. Slot prototype-instance?)
         (only-in :std/list/list delete-duplicates/hash)
         (only-in :clan/poo/type define-type element? Type. Record Symbol Exactly)

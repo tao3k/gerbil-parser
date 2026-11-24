@@ -8,7 +8,7 @@
         (only-in :std/list/list-builder with-list-builder)
         (only-in ../utilities/lists append-unique)
         (only-in :std/list/list length>n?)
-        (only-in :clan/poo/prototype-map
+        (only-in :clan/poo/object/prototype-map
                  prototype-map prototype-map-for-each prototype-map-merge-first
                  prototype-map-ref prototype-map-put prototype-map-remove))
 (export compile-grammar

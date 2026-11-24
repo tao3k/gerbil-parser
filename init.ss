@@ -17,6 +17,7 @@ prelude: :gerbil/core
     "execution/actor"
     "language-support/testing"
     "graph-support/query"
+    "graph-support/edit"
     "graph-support/syntax"
     "src/declarations"
     "language-support/interface"

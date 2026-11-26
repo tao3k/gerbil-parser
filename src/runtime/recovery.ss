@@ -22,10 +22,15 @@
         (only-in ./token
                  make-token token-end token-kind token-lexeme token-start))
 (export +recovery-receipt-schema+
-        parse-source/recover)
+        +cpct-plus-recovery-receipt-schema+
+        parse-source/recover
+        parse-source/recover-cpct+)
 
 (def +recovery-receipt-schema+
   "gerbil-parser.recovery-receipt.v1")
+
+(def +cpct-plus-recovery-receipt-schema+
+  "gerbil-parser.cpct-plus-recovery-receipt.v1")
 
 ;;; The ordinary rejected artifact already owns the complete fallback lexical
 ;;; stream. Reuse it for private recovery instead of scanning the source again.
@@ -231,3 +236,195 @@
                    (if operation 'candidate 'unrecovered)
                    operation attempts budget exhausted? frontier
                    (length tokens)))))))))
+
+;;; ============================================================================
+;;; Bounded CPCT+ Minimum-Cost LR Recovery (Diekmann & Tratt, ECOOP 2020)
+;;; ============================================================================
+;;; Explores multi-edit repair sequences up to `max-cost` (default 3) directly
+;;; over `LRFailureFrontier` via cost-ordered BFS and enforces STRICT UNIQUENESS:
+;;;   - `'unique-candidate`: exactly 1 minimum-cost repair passes the LR machine
+;;;   - `'ambiguous-tie`:    >= 2 distinct minimum-cost repairs tie -> fail-closed
+;;;   - `'unrecovered`:      0 repairs within `(max-cost, budget)` -> fail-closed
+
+(def (take-prefix lst count)
+  (let loop ((rest lst) (n count) (acc '()))
+    (if (or (<= n 0) (null? rest))
+      (reverse acc)
+      (loop (cdr rest) (- n 1) (cons (car rest) acc)))))
+
+(def (operation-signature op)
+  (list (cdr (assq 'kind op))
+        (let ((e (assq 'literal op))) (and e (cdr e)))
+        (let ((e (assq 'replacement op))) (and e (cdr e)))
+        (cdr (assq 'startByte op))
+        (cdr (assq 'endByte op))))
+
+(def (ops-signature ops)
+  (map operation-signature ops))
+
+(def (find-cpct-plus-recoveries machine tokens max-cost budget)
+  (with-catch
+   (lambda (condition)
+     (if (lr-rejection-condition? condition)
+       (values 'unrecovered '() #f 0 0 #f #f)
+       (raise condition)))
+   (lambda ()
+     (let* ((runtime (parser-machine-runtime machine))
+            (initial-frontier #f)
+            (attempts 0)
+            (exhausted? #f)
+            (best-cost (+ max-cost 1))
+            (best-solutions '())
+            (seen-solutions (make-hash-table))
+            (queue (list (list 0 '() tokens))))
+       (let loop ()
+         (when (pair? queue)
+           (let* ((item (car queue))
+                  (cost (car item))
+                  (ops-rev (cadr item))
+                  (cur-tokens (caddr item)))
+             (set! queue (cdr queue))
+             (cond
+               ((> cost best-cost) (loop))
+               ((>= attempts budget)
+                (set! exhausted? #t))
+               (else
+                (set! attempts (+ attempts 1))
+                (let-values (((status payload)
+                              (lr-checkpoint-frontier
+                               (lr-initial-checkpoint runtime cur-tokens))))
+                  (cond
+                    ((eq? status 'accepted)
+                     (let* ((ops (reverse ops-rev))
+                            (sig (ops-signature ops)))
+                       (cond
+                         ((< cost best-cost)
+                          (set! best-cost cost)
+                          (set! seen-solutions (make-hash-table))
+                          (hash-put! seen-solutions sig #t)
+                          (set! best-solutions (list ops)))
+                         ((and (= cost best-cost) (not (hash-get seen-solutions sig)))
+                          (hash-put! seen-solutions sig #t)
+                          (set! best-solutions (cons ops best-solutions)))))
+                     (loop))
+                    ((and (eq? status 'failure)
+                          (lr-failure-frontier? payload)
+                          (< cost max-cost)
+                          (< cost best-cost))
+                     (unless initial-frontier
+                       (set! initial-frontier payload))
+                     (let* ((frontier payload)
+                            (rest (lr-failure-frontier-remaining-tokens frontier))
+                            (prefix-len (- (length cur-tokens) (length rest)))
+                            (prefix (take-prefix cur-tokens prefix-len))
+                            (literals (frontier-literals frontier))
+                            (offset (if (pair? rest)
+                                      (token-start (car rest))
+                                      (tokens-end-offset cur-tokens)))
+                            (next-items '()))
+                       ;; Cost +1: MISSING(literal)
+                       (when (<= (+ cost 1) best-cost)
+                         (for-each
+                           (lambda (lit)
+                             (let ((tok (make-token 'missing lit offset offset)))
+                               (set! next-items
+                                 (cons (list (+ cost 1)
+                                             (cons (missing-operation lit offset) ops-rev)
+                                             (append prefix (cons tok rest)))
+                                       next-items))))
+                           literals)
+                         ;; Cost +1: SKIPPED(car rest)
+                         (when (pair? rest)
+                           (set! next-items
+                             (cons (list (+ cost 1)
+                                         (cons (skipped-operation (car rest)) ops-rev)
+                                         (append prefix (cdr rest)))
+                                   next-items))))
+                       ;; Cost +2: ERROR(car rest -> literal)
+                       (when (and (pair? rest) (<= (+ cost 2) max-cost) (<= (+ cost 2) best-cost))
+                         (let ((src-tok (car rest)))
+                           (for-each
+                             (lambda (lit)
+                               (let ((rep (make-token 'recovery lit
+                                                      (token-start src-tok)
+                                                      (token-end src-tok))))
+                                 (set! next-items
+                                   (cons (list (+ cost 2)
+                                               (cons (error-operation src-tok lit) ops-rev)
+                                               (append prefix (cons rep (cdr rest))))
+                                         next-items))))
+                             literals)))
+                       (set! queue (append queue (reverse next-items))))
+                     (loop))
+                    (else (loop)))))))))
+       (let ((count (length best-solutions)))
+         (cond
+           ((= count 1)
+            (values 'unique-candidate (car best-solutions) #t best-cost count attempts exhausted? initial-frontier))
+           ((> count 1)
+            (values 'ambiguous-tie '() #f best-cost count attempts exhausted? initial-frontier))
+           (else
+            (values 'unrecovered '() #f 0 0 attempts exhausted? initial-frontier))))))))
+
+(def (cpct-plus-receipt machine artifact row outcome operations unique? total-cost
+                        ambiguous-count attempts max-cost budget exhausted? frontier token-count)
+  (list
+   (cons 'schema +cpct-plus-recovery-receipt-schema+)
+   (cons 'grammarDigest (parser-machine-grammar-digest machine))
+   (cons 'sourceDigest (parse-artifact-ref artifact 'sourceDigest))
+   (cons 'outcome outcome)
+   (cons 'uniqueMinimal unique?)
+   (cons 'totalCost total-cost)
+   (cons 'ambiguousCandidateCount ambiguous-count)
+   (cons 'publicationStatus (parse-artifact-ref artifact 'status))
+   (cons 'owner (and row (car row)))
+   (cons 'strategy 'cpct-plus)
+   (cons 'operations operations)
+   (cons 'maxCost max-cost)
+   (cons 'frontierState (and frontier (lr-failure-frontier-state frontier)))
+   (cons 'frontierExpectedTerminals
+         (if frontier (lr-failure-frontier-expected-terminals frontier) '()))
+   (cons 'reusedPrefixTokenCount
+         (if frontier
+           (- token-count (length (lr-failure-frontier-remaining-tokens frontier)))
+           0))
+   (cons 'attempts attempts)
+   (cons 'budget budget)
+   (cons 'budgetExhausted exhausted?)))
+
+;;; Bounded CPCT+ LR recovery with strict uniqueness proof (`max-cost <= 3`).
+;;; Never guesses on equal-cost ties: returns `'ambiguous-tie` fail-closed.
+(def (parse-source/recover-cpct+ machine source (max-cost 3) (budget 512))
+  (unless (and (integer? max-cost) (positive? max-cost))
+    (error "CPCT+ max-cost must be positive" max-cost))
+  (unless (and (integer? budget) (positive? budget))
+    (error "CPCT+ budget must be positive" budget))
+  (let* ((artifact (parse-source machine source))
+         (recoveries (parser-ir-ref (parser-machine-ir machine) 'recoveries))
+         (row (and (pair? recoveries) (car recoveries))))
+    (cond
+     ((parse-artifact-success? artifact)
+      (values artifact
+              (cpct-plus-receipt machine artifact row 'not-needed '() #t 0 1 0
+                                 max-cost budget #f #f 0)))
+     ((lr-runtime-layout? (parser-machine-runtime machine))
+      (values artifact
+              (cpct-plus-receipt machine artifact row 'disabled '() #f 0 0 0
+                                 max-cost budget #f #f 0)))
+     ((not row)
+      (values artifact
+              (cpct-plus-receipt machine artifact #f 'disabled '() #f 0 0 0
+                                 max-cost budget #f #f 0)))
+     (else
+      (let (tokens
+            (with-catch (lambda (_) '())
+              (lambda ()
+                (parser-significant-tokens machine
+                 (or (rejected-artifact-tokens artifact)
+                     (lex-source machine source))))))
+        (let-values (((outcome ops unique? total-cost ambig-count attempts exhausted? frontier)
+                      (find-cpct-plus-recoveries machine tokens max-cost budget)))
+          (values artifact
+                  (cpct-plus-receipt machine artifact row outcome ops unique? total-cost
+                                     ambig-count attempts max-cost budget exhausted?
+                                     frontier (length tokens)))))))))

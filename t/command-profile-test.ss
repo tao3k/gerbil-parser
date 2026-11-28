@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Admitted command roles are inherited values, never runtime callbacks.
 (import :std/test (only-in :clan/poo/object .o .ref)
         :gerbil-parser/src/language/command-profile

@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Source coordinates retain byte semantics across private storage choices.
 (import :std/test
         (only-in ./fixtures/layout-columns reference-layout-columns reference-packed-layout-columns layout-column-sources)

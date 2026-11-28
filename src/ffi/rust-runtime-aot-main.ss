@@ -3,8 +3,8 @@
 
 (import (only-in :gerbil/runtime gerbil-load-expander!)
         (only-in :gerbil/runtime/loader set-load-path!)
-        (only-in :gerbil-parser/rust-runtime-grammar-support deflanguage)
-        (for-syntax :gerbil-parser/rust-runtime-grammar-support)
+        (only-in :gerbil-parser/language-support/grammar deflanguage)
+        (for-syntax :gerbil-parser/language-support/grammar)
         (only-in ./rust-runtime-aot rust-runtime-source))
 (export main)
 

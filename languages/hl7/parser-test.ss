@@ -1,9 +1,9 @@
 ;;; SPDX-FileCopyrightText: 2026 tao3k team and Contributors
 ;;; SPDX-License-Identifier: Apache-2.0 AND LGPL-2.1-or-later
 ;;; Suites consume the shared corpus/loader Fixture declarations.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :std/misc/ports read-all-as-string)
-        (only-in :gerbil-parser/language-support parse-artifact-ref)
+        (only-in :gerbil-parser/language-support/interface parse-artifact-ref)
         ./parser)
 (import (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/language-support/fixture defsyntax-corpus)

@@ -17,7 +17,7 @@
 ;;; ANTLR4 source tokens are a named internal protocol, not anonymous pairs;
 ;;; the compatibility selectors below keep parser call sites stable.
 ;; : (forall (k v) (-> k v (Antlr4Token k v)))
-(defstruct antlr4-token (kind value) transparent: #t)
+(defstruct antlr4-token (kind value) transparent: #t final: #t)
 
 ;; : (forall (k v) (-> k v (Antlr4Token k v)))
 (def (token kind value)

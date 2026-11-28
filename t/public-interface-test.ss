@@ -1,5 +1,5 @@
 ;;; Downstream language and runtime boundaries use reviewed package interfaces.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :std/source this-source-file)
         (only-in :std/misc/process run-process)
         (only-in :std/misc/ports read-all-as-string)
@@ -25,11 +25,27 @@
       (equal
         (and (string-contains (output-of `(import ,(fixture "grammar.ss")))
                              "PARSER-PRELUDE-GRAMMAR-OK") #t) #t))
+    (scenario "ordinary :gerbil-parser/lang lowers grammar declarations on plain :gerbil/core"
+      (scope ((output
+        (output-of '(begin
+                      (import :gerbil-parser/lang)
+                      (deftext-profile plain-number-text (run decimal-digit))
+                      (defgrammar-syntax (plain-one expression) expression)
+                      (deflanguage plain-lang-smoke
+                        (syntax (lexical
+                          (root document)
+                          (lex (number Number (decimal-digit+)))
+                          (extras) (keywords) (recoveries) (conflicts reject)))
+                        (rules (document (node Document (plain-one (field value number))))))
+                      (unless plain-lang-smoke-parser
+                        (error "plain :gerbil-parser/lang failed to lower deflanguage"))
+                      (displayln "PLAIN-PARSER-LANG-OK")))))
+        (equal (and (string-contains output "PLAIN-PARSER-LANG-OK") #t) #t)))
     (scenario "Runtime publishes native capabilities without the API umbrella"
       (scope ((output
         (output-of '(begin
-                      (import (only-in :gerbil-parser/source-line-support fold-source-byte-spans)
-                              (only-in :gerbil-parser/artifact-support parse-artifact-valid?))
+                      (import (only-in :gerbil-parser/text/source-lines fold-source-byte-spans)
+                              (only-in :gerbil-parser/execution/artifact parse-artifact-valid?))
                       (unless (and (not (parse-artifact-valid? #f))
                                    (equal? (reverse
                                              (fold-source-byte-spans
@@ -45,9 +61,9 @@
     (scenario "native compiler capabilities do not construct the strategy catalogue"
       (scope ((output
         (output-of '(begin
-                      (import (only-in :gerbil-parser/compiler-build-support
+                      (import (only-in :gerbil-parser/build-support/compiler
                                        initialize-compiler-build! run-build-tool)
-                              (only-in :gerbil-parser/event-fold-build-support
+                              (only-in :gerbil-parser/language-support/event-fold/emit
                                        event-fold-scheme-module-sources compile-event-fold-scheme-units))
                       (unless (and (procedure? initialize-compiler-build!)
                                    (procedure? run-build-tool)
@@ -62,7 +78,7 @@
                       (displayln "PUBLIC-NATIVE-COMPILER-OK")))))
         (equal (and (string-contains output "PUBLIC-NATIVE-COMPILER-OK") #t) #t)))
     (scenario "installed Fold program admission owns data and retains DAG sharing"
-      (scope ((entry (path-expand "lib/gerbil-parser/event-fold-program-support.ssi" (gerbil-path))))
+      (scope ((entry (path-expand "lib/gerbil-parser/language-support/event-fold/program.ssi" (gerbil-path))))
         (equal (file-exists? entry) #t)
         (scope ((output
           (output-of `(begin
@@ -83,7 +99,7 @@
     (scenario "public text values do not initialize a compiler"
       (scope ((output
         (output-of '(begin
-                      (import (only-in :gerbil-parser/text-support string-before ascii-ci=?))
+                      (import (only-in :gerbil-parser/text/strings string-before ascii-ci=?))
                       (unless (and (string=? (string-before "name=value" "=") "name")
                                    (ascii-ci=? "Name" "NAME"))
                         (error "public text behavior changed"))

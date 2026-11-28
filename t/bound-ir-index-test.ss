@@ -1,5 +1,5 @@
 #!/usr/bin/env gxi
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; -*- Gerbil -*-
 ;;; Section-local declaration and reference indexes preserve Bound IR v1.
 

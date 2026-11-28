@@ -1,11 +1,11 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; POO language loaders bind effective inherited slots before engine dispatch.
 (import :std/test
         (only-in :gerbil-parser/language-support/entry deflanguage-parser-loader language-parser-source-receipt)
         (for-syntax (only-in :gerbil/expander core-expand))
         (only-in :clan/poo/object .o .ref .cc object?)
-        (only-in :clan/poo/mop define-type element? validate)
-        (only-in :tao3k/yuanxu/object-types/contracts YuanxuContract. yuanxu-classification-evidence)
+        (only-in :clan/poo/type define-type element? validate)
+        (only-in :tao3k/yuanxu/types/contracts YuanxuContract. yuanxu-classification-evidence)
         (only-in :gerbil-parser/language-support/development
                  deflanguage-development-loader LanguageDevelopmentLoader. LanguageDevelopmentLoaderContract
                  language-parser-entry-ref check-language-loader-fixtures!

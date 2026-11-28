@@ -4,8 +4,8 @@
                  result-plan-node-index result-plan-token-index result-plan-projection-index
                  result-plan-recipe result-plan-catalog copy-result-datum)
         (only-in :clan/poo/object .o .ref object?)
-        (only-in :clan/poo/mop define-type validate)
-        (only-in :tao3k/yuanxu/object-types/contracts yuanxu-predicate-contract)
+        (only-in :clan/poo/type define-type validate)
+        (only-in :tao3k/yuanxu/types/contracts yuanxu-predicate-contract)
         (only-in ./scanner-profile compile-scanner-profile)
         (only-in ../runtime/token token? token-kind token-start token-end)
         (only-in ../runtime/recognition
@@ -17,7 +17,7 @@
         result-plan? result-plan-recipe result-plan-catalog result-plan-node result-plan-token
         result-plan-projection result-projection-build result-projection-parts-field result-projection-build-parts result-plan-bind-projections)
 (def ResultProfile. (.o nodes: '() tokens: '() scanner: #f projections: '()))
-(defstruct result-projection (owner kind captures operations arity executor direct-parts?))
+(defstruct result-projection (owner kind captures operations arity executor direct-parts?) final: #t)
 (def (unique-symbols? values)
   (and (list? values) (andmap symbol? values)
        (let (seen (make-hash-table-eq))

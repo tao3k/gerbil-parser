@@ -10,7 +10,7 @@
 
 (defstruct language-abi-context
   (id descriptor parser syntax-kind-index terminal-index field-symbols field-index plan source-admission event-row-writer)
-  transparent: #t)
+  transparent: #t final: #t)
 
 (def (descriptor-section descriptor name)
   (if (and (source-language? descriptor) (eq? name 'rules)) '()

@@ -1,5 +1,5 @@
 #!/usr/bin/env gxi
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; -*- Gerbil -*-
 
 (import (only-in :gerbil-parser/languages/hcl/parser-test hcl-test-language)
@@ -11,7 +11,7 @@
         :std/test
         :asp-gerbil-scheme/src/benchmark/framework
         :gerbil-parser/languages/hcl/parser
-        :gerbil-parser/language-support
+        :gerbil-parser/language-support/interface
         :gerbil-parser/languages/gql/parser
         :gerbil-parser/languages/cypher/parser
         :gerbil-parser/languages/tla-plus/parser

@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; In-process actor scheduling costs; uses the same prepared language machine.
 (import :gerbil-parser/languages/gql/parser
-        (only-in :gerbil-parser/parser-actor-support
+        (only-in :gerbil-parser/execution/actor
                  spawn-parser-actor parser-actor-parse parser-actor-stop!)
         (only-in ../../parser-stage-cost/benchmark measure-parser-component))
 (export main profile-gql-actors)

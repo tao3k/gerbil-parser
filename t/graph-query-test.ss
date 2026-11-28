@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; -*- Gerbil -*-
 ;;; Generic POO graph query semantics are independent of Org labels.
 
@@ -6,7 +6,7 @@
         (only-in :clan/poo/object .o .ref)
         (only-in :clan/poo/type Record String OrFalse)
         (only-in :clan/poo/number UInt)
-        (only-in :gerbil-parser/graph-query-support
+        (only-in :gerbil-parser/graph-support/query
                  graph-query-context? make-graph-query-context
                  graph-query-map graph-query-lineage? graph-query-select))
 

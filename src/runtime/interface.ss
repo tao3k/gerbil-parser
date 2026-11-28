@@ -1,5 +1,7 @@
-(import (only-in :tao3k/yuanxu/module-system/source/declaration .def))
+(import (only-in :clan/poo/object .def .o)
+        (only-in "./types.ss" RuntimeScopeContract)
+        (only-in "./objects.ss" Runtime.))
 (.def Runtime
   identity: 'runtime
-  core: (.o requires: (.o) scope-contract: RuntimeScopeContract exports: Runtime. projections: (list Build))
+  core: (.o scope-contract: RuntimeScopeContract exports: Runtime.)
   features: (.o))

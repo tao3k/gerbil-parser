@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Generic POO generation and both semantic backends use two independent packs.
 (import (only-in :gerbil-parser/languages/arithmetic/parser-test arithmetic-test-language)
         (only-in :gerbil-parser/languages/hcl/parser-test hcl-test-language)
@@ -9,8 +9,8 @@
         (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release)
         (only-in :std/misc/ports read-all-as-string)
         (only-in :clan/poo/object .o .cc .ref)
-        (only-in :clan/poo/mop validate)
-        (only-in :gerbil-parser/language-build-support
+        (only-in :clan/poo/type validate)
+        (only-in :gerbil-parser/language-support/build
                  FusedReductionStrategy. FusedReductionStrategyContract
                  make-fused-reduction-strategy emit-build-strategy
                  emit-language-build-strategy)
@@ -33,7 +33,7 @@
         (only-in :gerbil-parser/languages/hcl/parser  hcl-language-grammar)
         (only-in :gerbil-parser/languages/arithmetic/parser  arithmetic-language-grammar)
         (only-in :gerbil-parser/language-support/development LanguageDevelopmentLoaderContract)
-        (prefix-in :gerbil-parser/src/compiler/hcl-reductions hcl-)
+        (prefix-in :gerbil-parser/languages/hcl/generated/reductions hcl-)
         (prefix-in "fixtures/arithmetic-reductions.ss" arithmetic-))
 
 
@@ -115,7 +115,7 @@
       (each (subject) ((list arithmetic-language-grammar hcl-language-grammar)) (verify check-linear-stack-reads subject)))
     (property "two descriptors generate independently and deterministically"
       (bindings (hcl (make-fused-reduction-strategy hcl-language-grammar)) (arithmetic (make-fused-reduction-strategy arithmetic-language-grammar)) (first (emitted hcl)))
-      (equal first  (call-with-input-file "src/compiler/hcl-reductions.ss" read-all-as-string))
+      (equal first  (call-with-input-file "languages/hcl/generated/reductions.ss" read-all-as-string))
       (equal (emitted arithmetic)  (call-with-input-file "t/fixtures/arithmetic-reductions.ss" read-all-as-string))
       (equal (equal? first (emitted arithmetic))  #f)
       (equal (emitted hcl)  first))

@@ -12,7 +12,7 @@ boundary.  It is a feature contract, not an execution plan.
 language-neutral grammar algebra, AOT compiler, generated-machine support,
 language-import adapters, and lossless runtime.  The top-level
 =language-support.ss= facade beside =build.ss= exports the stable
-=:gerbil-parser/language-support= API without exposing the physical =src/=
+=:gerbil-parser/language-support/interface= API without exposing the physical =src/=
 layout.  Versioned grammars, fixtures, and tests live under
 =languages/<language>/<version>/=.  POO Flow roles may compose a grammar before
 the canonical boundary, but POO, grammar normalization, and parser-table

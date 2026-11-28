@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)
         (only-in :gerbil-parser/src/compiler/rust-runtime rust-runtime-module-source)
         (only-in :gerbil-parser/src/runtime/lr-parser lr-prepare)

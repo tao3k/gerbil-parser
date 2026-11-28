@@ -1,5 +1,7 @@
-(import (only-in :tao3k/yuanxu/module-system/source/declaration .def))
+(import (only-in :clan/poo/object .def .o)
+        (only-in "./types.ss" BuildSupportScopeContract)
+        (only-in "./objects.ss" BuildSupport.))
 (.def BuildSupport
   identity: 'build-support
-  core: (.o requires: (.o) scope-contract: BuildSupportScopeContract exports: BuildSupport.)
+  core: (.o scope-contract: BuildSupportScopeContract exports: BuildSupport.)
   features: (.o))

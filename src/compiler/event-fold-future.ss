@@ -1,6 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Source-backed future-line queries for Scheme event folds.
-(import (only-in ../runtime/source-lines source-line-end)
+(import :std/ffi
+        (only-in ../runtime/source-lines source-line-end)
         (only-in ./funcs.ss ascii-lower-byte
                  compiler-position-index-add!
                  compiler-position-index-freeze!
@@ -44,19 +45,59 @@
                          (if ascii-ci? (ascii-lower-byte b) b)))
                     (loop (+ left 1) (+ right 1))))))))
 
+;; One answer is enough for a query used at only one source position. Delay
+;; allocating the existing suffix table until a second distinct start occurs.
+;; The uncached first scan is the only extra traversal; promotion retains its
+;; initial answer, then the original per-position publication bounds apply.
+(defstruct future-memo (from answer positions) final: #t)
+
 (def (fold-future-cache-for query)
-  (fold-future-index-for query make-hash-table))
+  (fold-future-index-for query (lambda () (make-future-memo #f #f #f))))
+
+(def (fold-future-memo-hit memo position)
+  (if (future-memo? memo)
+    (let (positions (future-memo-positions memo))
+      (if positions (hash-get positions position)
+        (and (eqv? position (future-memo-from memo)) (future-memo-answer memo))))
+    (hash-get memo position)))
+
+;; A single future query does not need a hash table. Promote the request's
+;; index only when another query is inserted.
+(defstruct future-query-index (entries) final: #t)
+
+(def (future-query-ref cache query)
+  (if (future-query-index? cache)
+    (let (entries (future-query-index-entries cache))
+      (cond
+       ((not entries) #f)
+       ((pair? entries) (and (equal? query (car entries)) (cdr entries)))
+       (else (hash-get entries query))))
+    (hash-get cache query)))
+
+(def (future-query-put! cache query value)
+  (if (future-query-index? cache)
+    (let (entries (future-query-index-entries cache))
+      (cond
+       ((not entries) (future-query-index-entries-set! cache (cons query value)))
+       ((pair? entries)
+        (if (equal? query (car entries))
+          (set-cdr! entries value)
+          (let (table (make-hash-table))
+            (hash-put! table (car entries) (cdr entries))
+            (hash-put! table query value)
+            (future-query-index-entries-set! cache table))))
+       (else (hash-put! entries query value))))
+    (hash-put! cache query value)))
 
 (def (fold-future-index-for query build)
-  (let* ((request-cache
-          (or (current-future-scan-cache)
-              (let (created (make-hash-table))
-                (current-future-scan-cache created)
-                created)))
-         (cached (hash-get request-cache query)))
-    (or cached
+  (let (request-index
+         (or (current-future-scan-cache)
+             (let (created (make-future-query-index #f))
+               (current-future-scan-cache created)
+               created)))
+    (or (future-query-ref request-index query)
         (let (index (build))
-          (hash-put! request-cache query index)
+          (future-query-put! request-index query index)
           index))))
 
 (def (fold-normalize-marker bytes from until indent? ascii-ci?)
@@ -185,25 +226,45 @@
 
 ;; Each searched line receives the suffix result, so later queries start from
 ;; a known answer instead of scanning the same suffix again.
-(def (fold-future-line-search bytes from cache classify)
-  (def (finish result visited)
-    (for-each (lambda (position)
-                (hash-put! cache position (if result 1 2)))
-              visited)
-    result)
-  (let search ((cursor from) (visited '()))
+(def (fold-future-line-search bytes from memo classify)
+  (let* ((size (u8vector-length bytes))
+         (single? (future-memo? memo))
+         (hit (and (< from size) (fold-future-memo-hit memo from))))
     (cond
-     ((>= cursor (u8vector-length bytes)) (finish #f visited))
-     ((hash-get cache cursor) =>
-      (lambda (answer) (finish (= answer 1) visited)))
+     ((>= from size) #f)
+     (hit (= hit 1))
      (else
-      (let* ((end (source-line-end bytes cursor))
-             (decision (classify cursor end))
-             (visited (cons cursor visited)))
-        (case decision
-          ((match) (finish #t visited))
-          ((stop) (finish #f visited))
-          (else (search end visited))))))))
+      (let (positions
+            (if single?
+              (or (future-memo-positions memo)
+                  (and (future-memo-answer memo)
+                       (let (positions (make-hash-table))
+                         (hash-put! positions (future-memo-from memo) (future-memo-answer memo))
+                         (future-memo-positions-set! memo positions)
+                         positions)))
+              memo))
+        (def (finish result visited)
+          (let (answer (if result 1 2))
+            (if positions
+              (for-each (lambda (position) (hash-put! positions position answer)) visited)
+              (begin
+                (future-memo-from-set! memo from)
+                (future-memo-answer-set! memo answer))))
+          result)
+        ;; The start was already checked above. Only successor positions need
+        ;; a suffix lookup, and the first scan needs no path cells at all.
+        (let search ((cursor from) (visited '()))
+          (let* ((end (source-line-end bytes cursor))
+                 (decision (classify cursor end))
+                 (visited (if positions (cons cursor visited) visited)))
+            (case decision
+              ((match) (finish #t visited))
+              ((stop) (finish #f visited))
+              (else
+               (if (>= end size) (finish #f visited)
+                 (let (cached (and positions (hash-get positions end)))
+                   (if cached (finish (= cached 1) visited)
+                     (search end visited)))))))))))))
 
 (def (fold-future-heading? bytes start end marker separator)
   (let run ((cursor start))
@@ -265,23 +326,38 @@
                      (memv character '(#\newline #\return)))
                    (string->list (list-ref expression 4))))))
 
-(def (fold-future-key-value-line? bytes start end marker)
-  (let skip ((cursor start))
-    (if (and (< cursor end) (memv (u8vector-ref bytes cursor) '(9 32)))
-      (skip (+ cursor 1))
-      (and (< cursor end) (= (u8vector-ref bytes cursor) marker)
-           (let key ((cursor (+ cursor 1)) (key-start (+ cursor 1)))
-             (and (< cursor end)
-                  (let (byte (u8vector-ref bytes cursor))
-                    (cond
-                     ((= byte marker)
-                      (if (or (= (+ cursor 1) end)
-                              (memv (u8vector-ref bytes (+ cursor 1))
-                                    '(9 10 13 32)))
-                        (> cursor key-start)
-                        (key (+ cursor 1) key-start)))
-                     ((memv byte '(9 10 13 32)) #f)
-                     (else (key (+ cursor 1) key-start))))))))))
+;; source-line-end bounds the borrowed buffer. The grammar supplies the
+;; delimiter admitted by fold-marker-byte.
+(C-ffi-macrology)
+(C-include "<stdint.h>" "<stdbool.h>")
+(C-declare #<<end-c
+static inline bool fold_key_space(uint8_t byte) {
+  return byte == 9 || byte == 10 || byte == 13 || byte == 32;
+}
+end-c
+)
+(def-C-lambda fold-future-key-value-line?
+  (scheme-object unsigned-int64 unsigned-int64 unsigned-int8) bool
+  "const uint8_t *bytes = U8_DATA(___arg1);
+   uint64_t cursor = ___arg2, end = ___arg3;
+   uint8_t marker = ___arg4;
+   while (cursor < end && (bytes[cursor] == 9 || bytes[cursor] == 32)) ++cursor;
+   bool found = false;
+   if (cursor < end && bytes[cursor++] == marker) {
+     uint64_t key_start = cursor;
+     for (; cursor < end; ++cursor) {
+       uint8_t byte = bytes[cursor];
+       if (byte == marker) {
+         if (cursor + 1 == end || fold_key_space(bytes[cursor + 1])) {
+           found = cursor > key_start;
+           break;
+         }
+       } else if (fold_key_space(byte)) {
+         break;
+       }
+     }
+   }
+   ___return(found);")
 
 (def (fold-future-marker-before-boundary? bytes from target stop
                                            heading-marker heading-separator
@@ -291,7 +367,7 @@
   ;; answers and terminal positions allocate no marker buffers at all.
   (cond
    ((>= from (u8vector-length bytes)) #f)
-   ((hash-get cache from) => (lambda (answer) (= answer 1)))
+   ((fold-future-memo-hit cache from) => (lambda (answer) (= answer 1)))
    (else
     ;; Generated products pass private constant byte literals; dynamic callers
     ;; retain the checked text route. No request buffer or cache is shared.

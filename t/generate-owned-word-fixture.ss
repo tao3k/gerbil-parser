@@ -2,7 +2,7 @@
 ;;; -*- Gerbil -*-
 ;;; Compile one Scheme-owned pure function to a Rust test artifact.
 
-(import (only-in :gerbil-parser/src/compiler/rust-syntax
+(import (only-in :gerbil-parser/language-support/rust/syntax
                  write-rust-syntax)
         (only-in "pure-function-fixture.ss" owned_first_word_rust))
 

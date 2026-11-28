@@ -2,7 +2,7 @@
 ;;; -*- Gerbil -*-
 ;;; Emit a typed-call fixture from the same executable Scheme definition.
 
-(import (only-in :gerbil-parser/src/compiler/rust-syntax rust-render)
+(import (only-in :gerbil-parser/language-support/rust/syntax rust-render)
         (only-in "pure-function-fixture.ss" classify_or_unknown_rust))
 
 (def arguments (command-line))

@@ -1,5 +1,7 @@
-(import (only-in :tao3k/yuanxu/module-system/source/declaration .def))
+(import (only-in :clan/poo/object .def .o)
+        (only-in "./types.ss" LanguageScopeContract)
+        (only-in "./objects.ss" Language.))
 (.def Language
   identity: 'language
-  core: (.o requires: (.o) scope-contract: LanguageScopeContract exports: Language.)
+  core: (.o scope-contract: LanguageScopeContract exports: Language.)
   features: (.o))

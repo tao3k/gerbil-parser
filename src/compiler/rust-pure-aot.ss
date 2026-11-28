@@ -1,12 +1,12 @@
 ;;; -*- Gerbil -*-
 ;;; A deliberately bounded pure Scheme subset lowered to Rust function syntax.
 
-(import (only-in :gerbil-parser/text-support string-before ascii-ci=? string-after
+(import (only-in :gerbil-parser/text/strings string-before ascii-ci=? string-after
                  string-first-word string-rest-after-first-word string-last-word
                  string-before-last-word string-trim-start string-replace string-lowercase
                  string-prefix? string-suffix? string-words string-in?
                  string-single-ascii-uppercase? string-unsigned-at-most?)
-        (only-in ./rust-syntax
+        (only-in ../../language-support/rust/syntax
                  rust-function-value rust-block rust-let rust-method
                  rust-call
                  rust-string rust-identifier rust-before rust-first-word

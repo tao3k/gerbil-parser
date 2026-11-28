@@ -42,7 +42,7 @@
 ;;; Source sessions reuse only certified lexical suffixes. Recognition and
 ;;; canonical publication run through the existing engine on the new source.
 (defstruct source-language-history (descriptor snapshot))
-(defstruct (source-language-session source-language-history) (artifact))
+(defstruct (source-language-session source-language-history) (artifact) final: #t)
 ;;; Retain only lexical history between foreign calls, not the published tree.
 (def (source-language-session-history session)
   (make-source-language-history (source-language-history-descriptor session)

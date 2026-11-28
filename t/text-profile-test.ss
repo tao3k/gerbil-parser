@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Closed profile execution consumes the real FHIRPath declaration data.
 (import (only-in "text-profile-cases.ss" fhirpath-profile-cases)
         :std/test

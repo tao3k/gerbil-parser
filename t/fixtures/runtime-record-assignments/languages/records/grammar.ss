@@ -2,7 +2,7 @@
 ;;; -*- Gerbil -*-
 ;;; Record assignments DSL used to qualify the public language-pack API.
 
-(import (only-in :gerbil-parser/rust-runtime-grammar-support deflanguage))
+(import (only-in :gerbil-parser/language-support/grammar deflanguage))
 (export +records-language-version+
         +records-syntax-contract+
         records-language-grammar

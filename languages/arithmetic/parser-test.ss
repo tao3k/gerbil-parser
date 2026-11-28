@@ -1,11 +1,11 @@
 ;;; Suites consume the shared corpus/loader Fixture declarations.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :gerbil-parser/src/runtime/machine parser-machine-direct-drive)
         ./parser)
 (import (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/language-support/fixture defsyntax-fixture)
         (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader.)
-        (only-in :gerbil-parser/language-build-support declare-language-build-strategy make-fused-reduction-strategy make-rust-runtime-strategy))
+        (only-in :gerbil-parser/language-support/build declare-language-build-strategy make-fused-reduction-strategy make-rust-runtime-strategy))
 (export arithmetic-basic-fixture arithmetic-incomplete-fixture arithmetic-test-language)
 (import ./fixtures)
 

@@ -18,11 +18,11 @@
         syntax-field-end
         syntax-field-children)
 
-(defstruct syntax-node (kind start end children) transparent: #t)
-(defstruct syntax-field (name start end children) transparent: #t)
+(defstruct syntax-node (kind start end children) transparent: #t final: #t)
+(defstruct syntax-field (name start end children) transparent: #t final: #t)
 ;;; Mutable only while replaying the canonical event stream; frames never
 ;;; escape parse-artifact->cst, and completed children are immutable values.
-(defstruct cst-frame (type identity kind start children) transparent: #t)
+(defstruct cst-frame (type identity kind start children) transparent: #t final: #t)
 
 ;;; Replays accepted artifact events with a private stack and publishes exactly
 ;;; one immutable root only after balanced node and field frames are observed.

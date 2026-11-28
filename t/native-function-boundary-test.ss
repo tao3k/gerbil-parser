@@ -1,12 +1,11 @@
 ;;; -*- Gerbil -*-
 ;;; Real callbacks cross native Function boundaries, including nested results.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (rename-in (only-in :gerbil/tools/gxtest main) (main native-gxtest-main))
         (only-in :clan/poo/object .o .cc .ref .get .call)
         (only-in "../init.ss" gerbil-parser.init.exports)
-        (only-in :clan/poo/mop validate TypeError? define-type Type. element?)
-        (only-in :clan/poo/type Record Symbol String OrFalse)
-        (only-in :gerbil-parser/graph-query-support
+        (only-in :clan/poo/type validate TypeError? define-type Type. element? Record Symbol String OrFalse)
+        (only-in :gerbil-parser/graph-support/query
                  GraphQueryViewContract make-graph-query-context graph-query-map graph-query-select)
         (only-in :gerbil-parser/src/graph/graph-query-objects graph-query-context-view)
         (only-in :gerbil-parser/src/runtime/source-scanner

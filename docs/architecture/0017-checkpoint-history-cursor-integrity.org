@@ -27,7 +27,7 @@ reusable recognition state. The event backend remains opt-in.
 =t/recognition-snapshot-test.ss= owns the short-tail forward/inverse regression
 for both backends, retained prefix sharing, independent grammar projection,
 Unicode shifts and rejection of foreign runtime identities.
-=t/recovery-incremental-test.ss= owns sequential edit history, checkpoint byte
+=t/yanxu/Execution/incremental/recovery-incremental-test.ss= owns sequential edit history, checkpoint byte
 cursors, token insertion, lexical boundary changes, rejection and repair.
 =t/event-program-test.ss= owns immutable sequence joins, moved roots and
 complete publication equivalence.
@@ -60,7 +60,7 @@ GERBIL_PATH="$PWD/.gerbil" GERBIL_LOADPATH="$PWD/.gerbil/lib:$PWD" \
   gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --idle-timeout 5 --log .gerbil/parser-checkpoint-history.log \
   --require 'TEST-SUITE-OK modules=3' --require '^OK$' \
   -- gxi t/fixtures/tla-sany-differential/test-suite.ss \
-  t/recognition-snapshot-test.ss t/recovery-incremental-test.ss t/event-program-test.ss
+  t/recognition-snapshot-test.ss t/yanxu/Execution/incremental/recovery-incremental-test.ss t/event-program-test.ss
 
 just test-local gql
 #+end_src

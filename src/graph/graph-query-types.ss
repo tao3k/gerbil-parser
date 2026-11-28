@@ -1,9 +1,8 @@
 ;;; Language-owned row, identity and kind Types are explicit constructor inputs.
 (import (only-in :clan/poo/object .o .cc)
-        (only-in :clan/poo/mop Fun Any Type element? Type.)
-        (only-in :clan/poo/type Record List Exactly OrFalse TypeValuePair)
+        (only-in :clan/poo/type Fun Any Type element? Type. Record List Exactly OrFalse TypeValuePair)
         (only-in :clan/poo/number UInt)
-        (only-in :tao3k/yuanxu/object-types/contracts YuanxuContract.))
+        (only-in :tao3k/yuanxu/types/contracts YuanxuContract.))
 (export +graph-query-context-kind+ GraphQueryAccessorOf GraphQueryPredicateOf
         GraphQueryViewContract GraphQueryContextContract
         graph-query-view? graph-query-context?)

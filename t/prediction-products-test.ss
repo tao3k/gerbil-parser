@@ -1,5 +1,5 @@
 ;;; Native materialization and shared scratch controls use the parser test DSL.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         :gerbil-parser/t/fixtures/lr-construction-semantics)
 
 (deflanguage-parser-tests prediction-products-test "Prediction products"

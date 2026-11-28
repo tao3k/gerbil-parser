@@ -4,8 +4,9 @@
 ;;; dispatches through a prototype method rather than a representation helper.
 
 (import (only-in :clan/poo/object .o .ref)
-        (only-in :clan/poo/mop .defgeneric element? validate)
-        (only-in :tao3k/yuanxu/object-family/interface
+        (only-in :clan/poo/mop .defgeneric)
+        (only-in :clan/poo/type element? validate)
+        (only-in :tao3k/yuanxu/object/interface
                  defpoo-object-family)
         (only-in ./declaration-types
                  +grammar-role-kind+
@@ -48,37 +49,20 @@
 (def Grammar. (.ref GrammarContract 'proto))
 
 ;; : (-> Symbol List List List List List List List List List List GrammarRole)
-(def (make-grammar-role name-value syntax-kinds-value terminals-value
-                        lexical-rules-value rules-value extras-value
-                        keywords-value parser-entrypoints-value
-                        recoveries-value flow-value)
-  (validate
-   GrammarRoleContract
-   (.o (:: @ GrammarRole.)
-       kind: +grammar-role-kind+
-       name: name-value
-       syntax-kinds: syntax-kinds-value
-       terminals: terminals-value
-       lexical-rules: lexical-rules-value
-       rules: rules-value
-       extras: extras-value
-       keywords: keywords-value
-       parser-entrypoints: parser-entrypoints-value
-       recoveries: recoveries-value
-       flow: flow-value)))
+(def (make-grammar-role name syntax-kinds terminals lexical-rules rules extras
+                        keywords parser-entrypoints recoveries flow)
+  (def kind +grammar-role-kind+)
+  (validate GrammarRoleContract
+    (.o (:: @ GrammarRole.)
+      kind name syntax-kinds terminals lexical-rules rules extras keywords
+      parser-entrypoints recoveries flow)))
 
 ;; : (-> Symbol (List Grammar) (List GrammarRole) Grammar)
-(def (make-grammar name-value parent-values role-values
-                   (composition-values '()))
-  (validate
-   GrammarContract
-   (.o (:: @ Grammar.)
-       kind: +grammar-kind+
-       schema: +grammar-schema+
-       name: name-value
-       parents: parent-values
-       roles: role-values
-       composition: composition-values)))
+(def (make-grammar name parents roles (composition '()))
+  (def kind +grammar-kind+)
+  (def schema +grammar-schema+)
+  (validate GrammarContract
+    (.o (:: @ Grammar.) kind schema name parents roles composition)))
 
 (defpoo-object-family
   (accessors

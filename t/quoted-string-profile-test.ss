@@ -1,8 +1,8 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 (import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; Strict quoted text is shared lexical data, independent of language callbacks.
 (import :std/test
-        (only-in :gerbil-parser/language-support deflanguage)
+        (only-in :gerbil-parser/language-support/interface deflanguage)
         (only-in :gerbil-parser/src/grammar/lexical-algebra lexical-expression?)
         (only-in :gerbil-parser/src/runtime/scan scan-quoted-string/profile)
         (only-in :gerbil-parser/src/runtime/parser parse-source)

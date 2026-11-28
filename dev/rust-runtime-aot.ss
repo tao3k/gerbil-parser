@@ -27,7 +27,7 @@
     "src/runtime/identity"
     "src/runtime/language-artifact"
     "src/language/grammar"
-    "rust-runtime-grammar-support"
+    "language-support/grammar"
     "src/compiler/rust-runtime"
     "src/language/module-input"
     "src/ffi/rust-runtime-aot"))

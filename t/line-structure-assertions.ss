@@ -1,8 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Parser-specific AST assertions over the bounded Rust AOT product.
 
-(import (only-in :gerbil-parser/language-test-support parser-check parser-check-result)
-        (only-in :gerbil-parser/src/compiler/rust-syntax
+(import (only-in :gerbil-parser/language-support/testing parser-check parser-check-result)
+        (only-in :gerbil-parser/language-support/rust/syntax
                  rust-module-form-item rust-static-form-value
                  rust-struct-form? rust-struct-form-name rust-struct-form-fields
                  rust-field-name rust-field-value

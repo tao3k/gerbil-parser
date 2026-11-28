@@ -101,7 +101,7 @@
 ;;; linear in characters; every node/token endpoint is then a constant-time
 ;;; lookup, including nonmonotonic recursive publication. Own the text so a
 ;;; caller cannot invalidate admitted boundaries by mutating the original token.
-(defstruct recognition-source (owned-text origin offsets))
+(defstruct recognition-source (owned-text origin offsets) final: #t)
 
 (def (prepare-recognition-source token)
   (unless (and (token? token) (exact-integer? (token-start token))

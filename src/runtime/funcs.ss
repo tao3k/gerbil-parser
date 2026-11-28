@@ -30,7 +30,7 @@
 ;;; Request-local hash-consing over immutable structural keys. Gerbil's
 ;;; standard equal?-table owns lookup; callers provide the canonical value
 ;;; constructor, which is invoked only on a miss.
-(defstruct value-interner-state (table counters missing) transparent: #t)
+(defstruct value-interner-state (table counters missing) transparent: #t final: #t)
 
 (def (make-value-interner)
   (make-value-interner-state

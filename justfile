@@ -32,18 +32,14 @@ qualify-library:
     fi
     exit "$status"
 
-# Read both owners' actual specs without compiling or changing installed products.
-check-build-catalog:
-    {{ gerbil_test_launcher }} {{ gerbil_test_runtime_options }} dev/build.ss check-catalog
-
 # Source contracts consume the installed library, without compiling unrelated
 # benchmark helpers. Keep the same pre-import heap and native harness checks.
 test-source-contracts:
-    timeout --signal=TERM --kill-after=5s 120s gerbil {{ gerbil_test_runtime_options }} test -v 3 t/build-product-contract-test.ss t/test-style-contract-test.ss t/library-init-test.ss
+    timeout --signal=TERM --kill-after=5s 120s gerbil {{ gerbil_test_runtime_options }} test -v 3 t/yanxu/Library/ffi/build-product-contract-test.ss t/test-style-contract-test.ss t/yanxu/Library/build-support/library-init-test.ss
 
 # Gerbil owns Suite discovery and execution; there is no linked test runner.
 test-runtime-organization:
-    gerbil test -v 3 t/runtime-module-organization-test.ss t/test-style-contract-test.ss t/benchmarks/parser-throughput/link-locks-test.ss t/lr-semantic-preparation-test.ss t/lr-stack-reduction-test.ss t/lr-action-preparation-test.ss t/lr-fragment-transfer-test.ss t/recovery-incremental-test.ss
+    gerbil test -v 3 t/runtime-module-organization-test.ss t/test-style-contract-test.ss t/benchmarks/parser-throughput/link-locks-test.ss t/yanxu/Execution/lr-parser/lr-semantic-preparation-test.ss t/lr-stack-reduction-test.ss t/lr-action-preparation-test.ss t/lr-fragment-transfer-test.ss t/yanxu/Execution/incremental/recovery-incremental-test.ss
 
 # Research fixture Suites use the same native test entry.
 test-research-suites:
@@ -140,7 +136,7 @@ inspect-fold-runs program load_path:
 test-fold-runs output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/fold-run-test.ss
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/fold-run-test.ss > "{{output}}/fold-run-test.log" 2>&1
-    test "$(rg --count '^CASE-OK ' '{{output}}/fold-run-test.log')" = 13
+    test "$(rg --count '^CASE-OK ' '{{output}}/fold-run-test.log')" = 15
 
 test-fold-statement-scans output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/fold-statement-scans-test.ss
@@ -347,7 +343,7 @@ test-fold-source-controls output load_path:
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O t/event-strategy-fixture.ss t/event-fold-scheme-test.ss
     GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 5 t/event-fold-scheme-test.ss > "{{output}}/fold-source-controls.log" 2>&1
     rg '^CASE-OK |^OK$' "{{output}}/fold-source-controls.log"
-    test "$(rg --count '^CASE-OK ' '{{output}}/fold-source-controls.log')" = 6
+    test "$(rg --count '^CASE-OK ' '{{output}}/fold-source-controls.log')" = 7
 
 build-engine-controls output load_path:
     mkdir -p "{{output}}"
@@ -409,7 +405,7 @@ test-event-fold-controls output load_path:
 
 build-event-fold-compiled output load_path:
     mkdir -p "{{output}}"
-    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/byte-spans.ss src/runtime/source-lines.ss src/runtime/event-fold-lines.ss src/compiler/event-strategy-aot.ss src/compiler/event-fold-state-frame.ss src/compiler/event-fold-program.ss src/compiler/event-fold-runtime.ss src/compiler/event-fold-aot.ss rust-runtime-event-support.ss
+    GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/runtime/byte-spans.ss src/runtime/source-lines.ss src/runtime/event-fold-lines.ss src/compiler/event-strategy-aot.ss src/compiler/event-fold-state-frame.ss src/compiler/event-fold-program.ss src/compiler/event-fold-runtime.ss language-support/event-fold/aot.ss language-support/event-fold/run.ss
     GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil compile -O src/compiler/event-fold-ir.ss src/compiler/event-fold-analysis.ss src/compiler/event-fold-byte-dispatch.ss src/compiler/event-fold-zero-state.ss src/compiler/event-fold-consumer-state.ss src/compiler/event-fold-ordinary-run.ss src/compiler/event-fold-shared-probes.ss src/compiler/event-fold-scheme-context.ss src/compiler/event-fold-call-plan.ss src/compiler/event-fold-prefix-family.ss src/compiler/event-fold-scheme-expressions.ss src/compiler/event-fold-scheme-runs.ss src/compiler/event-fold-scheme-statements.ss src/compiler/event-fold-scheme.ss src/compiler/event-fold-scheme-modules.ss t/event-strategy-fixture.ss t/event-fold-fixture.ss t/event-fold-test.ss t/event-fold-scheme-test.ss
 
 test-event-fold-compiled output load_path: build-qualification
@@ -425,11 +421,14 @@ test-lexical-mode:
 
 # Full qualification after the focused algorithm loop.
 test-build-product-contract output load_path:
-    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 3 t/build-product-contract-test.ss
+    GAMBOPT="${GAMBOPT:+${GAMBOPT},}max-heap=1G,debug=q" GERBIL_PATH="{{output}}" GERBIL_LOADPATH="{{output}}/lib:{{load_path}}" gerbil test -v 3 t/yanxu/Library/ffi/build-product-contract-test.ss
 
 # Compiled Fixture/Suite helpers share the same native dependency graph. Rebuild
 # them before discovery so renamed source imports cannot replay old products.
-test-all: build-qualification build-test-support test-native test-grammar-construction
+build-languages:
+    {{ gerbil_test_launcher }} languages/build.ss compile
+
+test-all: build-languages build-qualification build-test-support test-native test-grammar-construction
 
 # The native Gerbil Harness owns recursive Suite discovery and process status.
 # Prerequisite builds belong to test-all; Suite files never launch another run.
@@ -441,7 +440,7 @@ test-native:
 build-grammar-construction:
     gerbil env gxi t/benchmarks/poo-grammar-objects/build.ss compile
 
-test-grammar-construction: build-grammar-construction test-prepared-grammar-construction
+test-grammar-construction: build-qualification build-grammar-construction test-prepared-grammar-construction
 
 test-prepared-grammar-construction:
     gerbil env gxi t/support/qualification/qualify.ss run --timeout 120 --log .data/grammar-construction.log --require '^OK$' --require '^MODULE-OK t/benchmarks/poo-grammar-objects/contract.ss$' --require '^\(CONSTRUCTION-DIAGNOSTIC \(attempt \. 20\)' -- gerbil -:max-heap=3G,debug=q test -v 3 t/benchmarks/poo-grammar-objects/contract.ss
@@ -679,7 +678,7 @@ formal-protocol:
 
 # Gerbil-owned module caching, source changes and initializer failure recovery.
 test-module-loading: build-qualification
-    gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --log .data/module-loading-controls.log --require '^OK$' -- gerbil test -v 3 t/module-loading-test.ss
+    gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --log .data/module-loading-controls.log --require '^OK$' -- gerbil test -v 3 t/yanxu/Library/language/module-loading-test.ss
 
 benchmark-module-loading mode="generation": build-qualification
     gerbil env gxi t/support/qualification/qualify.ss run --timeout 90 --idle-timeout 5 --log .data/module-loading-{{mode}}.log --require '^MODULE-LOADING-CPU-PROOF-OK {{mode}}$' -- gxi t/benchmarks/module-loading/benchmark.ss {{mode}}
@@ -716,4 +715,4 @@ prepare-dev:
     cd dev && GERBIL_PATH="${GERBIL_PATH:-$PWD/../.gerbil}" gerbil deps --install
 
 check-policy:
-    timeout 240 gerbil env gxi dev/build.ss compile
+    timeout 240 gerbil test -v 3 dev/asp-policy-test.ss

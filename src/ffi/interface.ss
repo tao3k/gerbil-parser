@@ -1,5 +1,7 @@
-(import (only-in :tao3k/yuanxu/module-system/source/declaration .def))
+(import (only-in :clan/poo/object .def .o)
+        (only-in "./types.ss" ForeignInterfaceScopeContract)
+        (only-in "./objects.ss" ForeignInterface.))
 (.def ForeignInterface
   identity: 'ffi
-  core: (.o requires: (.o) scope-contract: ForeignInterfaceScopeContract exports: ForeignInterface. projections: (list Build))
+  core: (.o scope-contract: ForeignInterfaceScopeContract exports: ForeignInterface.)
   features: (.o))

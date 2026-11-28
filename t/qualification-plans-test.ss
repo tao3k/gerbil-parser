@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 (import :std/test :std/text/pregexp :gerbil-parser/t/support/qualification/plans
         (only-in :gerbil-parser/t/support/qualification/process process-child-arguments process-error-prefix))
 

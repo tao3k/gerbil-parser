@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :gerbil-parser/t/fixtures/event-walk-source read-source-definition read-source-subdefinition)
         (only-in :gerbil-parser/t/fixtures/lr1-construction native-fact-rules)
         (only-in :gerbil-parser/src/testing/source-witness parser-source-symbol-text)

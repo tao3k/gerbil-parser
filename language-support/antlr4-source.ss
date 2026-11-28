@@ -44,11 +44,11 @@
 
 ;; : (-> String Symbol Boolean GrammarExpr (List String) Antlr4Rule)
 (defstruct antlr4-rule (name kind fragment? expression references)
-  transparent: #t)
+  transparent: #t final: #t)
 ;; : (-> String String String String String (List Antlr4Rule) Antlr4Source)
 (defstruct antlr4-source
   (schema language version commit digest name options rules)
-  transparent: #t)
+  transparent: #t final: #t)
 
 ;; : (-> String Boolean)
 (def (uppercase-rule-name? name)

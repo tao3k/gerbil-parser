@@ -25,7 +25,7 @@ SHARED_INPUTS = (
     "formal/ParserEngine/NativeFacts.lean",
     "src/schema.ss",
     "src/declarations.ss",
-    "language-test-support.ss",
+    "language-support/testing.ss",
     "t/research/test-processes.ss",
     "t/research/build.ss",
     ".github/workflows/ci.yml",

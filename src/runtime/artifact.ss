@@ -361,7 +361,7 @@
 
 ;;; Named raw descriptors remain available for inspection. The generated HCL
 ;;; hot path stores their operation, name, and byte offset in a flat tape.
-(defstruct raw-parse-event (operation name byte-offset) transparent: #t)
+(defstruct raw-parse-event (operation name byte-offset) transparent: #t final: #t)
 
 ;;; Resolve trivia and allocate canonical IDs once, after the speculative
 ;;; parser commits a populated prefix of the request-local tape.

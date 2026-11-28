@@ -1,7 +1,6 @@
 ;;; The native Record owns field types, inheritance, defaults and normalization.
 (import (only-in :clan/poo/object .cc)
-        (only-in :clan/poo/mop define-type Function Any Bool)
-        (only-in :clan/poo/type Record List Symbol))
+        (only-in :clan/poo/type define-type Function Any Bool Record List Symbol))
 (export TestingScope TestingScopeContract)
 
 ;; Any is inspected syntax/reader data, never executed by this admission walk.

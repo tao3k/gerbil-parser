@@ -7,7 +7,7 @@
 ;;; gains are not stable. Keep stronger lexical reuse an explicit experiment.
 (def current-lr-lexical-plan-reuse-enabled? (make-parameter #f))
 
-(defstruct source-probe-cache-instance (machine source slot scanner))
+(defstruct source-probe-cache-instance (machine source slot scanner) final: #t)
 (def (make-source-probe-cache machine source (scanner #f))
   (make-source-probe-cache-instance machine source #f scanner))
 

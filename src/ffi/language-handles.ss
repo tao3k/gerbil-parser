@@ -15,7 +15,7 @@
 (def +owner-thread+ #f)
 (def +next-handle+ 0)
 (def +languages+ (make-hash-table-eqv))
-(defstruct language-handle-entry (language history generation))
+(defstruct language-handle-entry (language history generation) final: #t)
 (def (language-handle-owner!)
   (unless +owner-thread+ (set! +owner-thread+ (current-thread)))
   (unless (eq? +owner-thread+ (current-thread))

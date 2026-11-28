@@ -8,8 +8,8 @@
                  syntax-fixture-language syntax-fixture-version syntax-fixture-contract
                  syntax-fixture-expected-status syntax-fixture-root-kind syntax-fixture-required-kinds)
         (only-in :clan/poo/object .o .ref .cc .slot? object?)
-        (only-in :clan/poo/mop define-type validate)
-        (only-in :tao3k/yuanxu/object-types/contracts yuanxu-predicate-contract)
+        (only-in :clan/poo/type define-type validate)
+        (only-in :tao3k/yuanxu/types/contracts yuanxu-predicate-contract)
         (only-in ../src/runtime/identity sha256-text)
         (only-in ../src/runtime/source-scanner source-scanner-for-source?)
         (only-in ../src/runtime/machine parser-machine-grammar-digest parser-machine-direct-source)
@@ -43,7 +43,7 @@
 
 ;;; Fixture indexes are an engine-derived cached POO slot. Authors provide only
 ;;; the fixture value list. A new .cc/.o object recomputes its effective index.
-(defstruct fixture-catalog (descriptor origin all accepted rejected by-id counts))
+(defstruct fixture-catalog (descriptor origin all accepted rejected by-id counts) final: #t)
 (def (prepare-loader-fixtures descriptor fixtures)
   (unless (list? fixtures) (error "language loader fixtures must be a list"))
   (let ((seen (make-hash-table)) (all '()) (accepted '()) (rejected '()))
@@ -94,7 +94,7 @@
 
 ;;; Test declarations carry an engine opcode and exact descriptor identity.
 ;;; Their constructor is private; a language cannot substitute a success callback.
-(defstruct language-fixture-test (descriptor))
+(defstruct language-fixture-test (descriptor) final: #t)
 
 (def (declare-language-fixture-test descriptor)
   (unless (or (language-grammar? descriptor) (source-language? descriptor))
@@ -123,7 +123,7 @@
     (check-language-loader-fixtures! loader)))
 
 ;;; Source workers are derived from the admitted engine binding; no user factory.
-(defstruct language-source-scan-worker (descriptor factory))
+(defstruct language-source-scan-worker (descriptor factory) final: #t)
 
 (def (declare-language-source-scan-worker descriptor)
   (unless (source-language? descriptor)

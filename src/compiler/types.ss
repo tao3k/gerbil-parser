@@ -1,8 +1,7 @@
 ;;; The native Record owns field types, inheritance, defaults and normalization.
 (import (only-in :std/list/list delete-duplicates/hash)
         (only-in :clan/poo/object .cc .get .ref)
-        (only-in :clan/poo/mop define-type Fun Object Bool Type. element?)
-        (only-in :clan/poo/type Record List Pair Symbol String Exactly Or))
+        (only-in :clan/poo/type define-type Fun Object Bool Type. element? Record List Pair Symbol String Exactly Or))
 (import (only-in ../grammar/declaration-types GrammarContract +grammar-ir-schema+ ParserList)
         (only-in ../grammar/algebra grammar-expression?)
         (only-in ../grammar/lexical-algebra lexical-expression?))

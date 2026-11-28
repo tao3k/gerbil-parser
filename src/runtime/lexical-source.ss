@@ -1,7 +1,7 @@
 ;;; Immutable source preparation for closed lexical capture opcodes.
 (import (only-in ./module-source prepare-module-source scan-prepared-module-source))
 (export scan-module-text prepare-lexical-source-plan call-with-lexical-source scan-header-delimiter scan-header-data)
-(defstruct lexical-source-context (owner source headers))
+(defstruct lexical-source-context (owner source headers) final: #t)
 (def current-lexical-source-context (make-parameter #f))
 (def (prepare-lexical-source-plan rules)
  (let visit ((expressions (map cadr rules)) (headers '()))

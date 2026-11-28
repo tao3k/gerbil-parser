@@ -1,5 +1,7 @@
-(import (only-in :tao3k/yuanxu/module-system/source/declaration .def))
+(import (only-in :clan/poo/object .def .o)
+        (only-in "./types.ss" TestingScopeContract)
+        (only-in "./objects.ss" Testing.))
 (.def Testing
   identity: 'testing
-  core: (.o requires: (.o) scope-contract: TestingScopeContract exports: Testing. projections: (list Build))
+  core: (.o scope-contract: TestingScopeContract exports: Testing.)
   features: (.o))

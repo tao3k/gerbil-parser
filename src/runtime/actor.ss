@@ -6,7 +6,7 @@
 (export spawn-parser-actor parser-actor-parse parser-actor-stop!)
 
 (def +parser-protocol+ "/gerbil-parser/parse/v1")
-(defstruct !ParseSource (source))
+(defstruct !ParseSource (source) final: #t)
 
 ;; The application owns the returned LocalActor and the machine's lifetime.
 ;; Install generated drivers before spawning; never mutate an active machine.

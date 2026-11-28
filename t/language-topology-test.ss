@@ -1,6 +1,8 @@
-(import :gerbil-parser/language-test-support)
-;;; Repository authoring contract; no implementation or generated products in packs.
-(import :std/test)
+(import :gerbil-parser/language-support/testing)
+;;; Repository authoring contract for public interfaces and generated products.
+(import :std/test
+        (only-in :tao3k/yuanxu/module-system/source/role-forms
+                 yuanxu-module-allowed-entrypoint-roles module-role-file))
 
 (def (scheme-files root)
  (apply append
@@ -14,6 +16,13 @@
    (let loop ((result '()))
      (let (form (read port))
        (if (eof-object? form) (reverse result) (loop (cons form result))))))))
+(def (generated-source? path)
+ (call-with-input-file path
+   (lambda (port)
+     (let loop ()
+       (let (line (read-line port))
+         (and (string? line) (string-prefix? ";;;" line)
+              (or (string-prefix? ";;; Generated " line) (loop))))))))
 (def (declaration? path head)
  (find (lambda (form) (and (pair? form) (eq? (car form) head))) (forms path)))
 (def (development-import? form)
@@ -21,8 +30,8 @@
        ((symbol? form)
         (and (memq form (quote (:gerbil-parser/language-support/development
                                :gerbil-parser/language-support/fixture
-                               :gerbil-parser/language-test-support
-                               :gerbil-parser/language-build-support ./fixtures))) #t))
+                               :gerbil-parser/language-support/testing
+                               :gerbil-parser/language-support/build ./fixtures))) #t))
        (else #f)))
 ;;; Parser declarations use one public slot vocabulary, with no metadata sugar.
 (def (canonical-parser-declaration? form)
@@ -111,9 +120,16 @@
              (files (scheme-files root))
              (interfaces (map (lambda (name) (path-expand name root))
                           '("grammar.ss" "parser.ss" "fixtures.ss" "parser-test.ss")))
-             (private (filter (lambda (file) (not (member file interfaces))) files)))
-       (equal (andmap (lambda (file) (string-prefix? (path-expand "syntax/" root) file)) private)  #t)
-       (each (file) (private)
+             (module-role-files
+              (map (lambda (role) (path-expand (module-role-file role) root))
+                   yuanxu-module-allowed-entrypoint-roles))
+             (root-files (append interfaces module-role-files))
+             (private (filter (lambda (file) (not (member file root-files))) files))
+             (generated (filter (lambda (file) (string-prefix? (path-expand "generated/" root) file)) private))
+             (syntax-files (filter (lambda (file) (not (member file generated))) private)))
+       (equal (andmap generated-source? generated)  #t)
+       (equal (andmap (lambda (file) (string-prefix? (path-expand "syntax/" root) file)) syntax-files)  #t)
+       (each (file) (syntax-files)
          (equal (andmap (lambda (form)
            (and (memq (car form) '(import export deflanguage defgrammar-syntax deftext-profile))
                 (authoring-form? form 'grammar) #t)) (forms file))  #t))

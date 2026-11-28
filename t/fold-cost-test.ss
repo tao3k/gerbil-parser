@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 (import :std/test ../src/runtime/fold-cost)
 
 (deflanguage-parser-tests fold-cost-test "Request-scoped Fold diagnostics"

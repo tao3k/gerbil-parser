@@ -40,26 +40,26 @@
   "gerbil-parser.contextual-scanner-opcodes.v1")
 
 (defstruct contextual-scanner (source source-identity digest initial-mode modes positions rules cells plan-owner)
-  transparent: #t)
+  transparent: #t final: #t)
 ;;; Static indexes are owned by the opaque plan and read only after admission.
 (defstruct contextual-scanner-plan
-  (digest initial-mode modes positions short-rules long-rules cells))
+  (digest initial-mode modes positions short-rules long-rules cells) final: #t)
 
 (defstruct contextual-scan-state
   (scanner character-offset byte-offset mode pending active expecting)
-  transparent: #t)
+  transparent: #t final: #t)
 (defstruct runtime-scan-rule (name mode form matcher executor rank action result action-step byte-width)
-  transparent: #t)
-(defstruct contextual-matcher-plan (expression executor))
-(defstruct scan-match (rule end) transparent: #t)
+  transparent: #t final: #t)
+(defstruct contextual-matcher-plan (expression executor) final: #t)
+(defstruct scan-match (rule end) transparent: #t final: #t)
 (defstruct delimiter-obligation (marker strip-tabs? quoted?)
-  transparent: #t)
+  transparent: #t final: #t)
 
 ;;; Immutable FIFO: front is ordered, rear is reversed. Enqueue never copies
 ;;; the pending batch. A linear scan reverses each rear at most once; replaying
 ;;; an old checkpoint can repeat that work, so no branching amortized bound is
 ;;; claimed. Canonical checkpoints retain their ordered list representation.
-(defstruct delimiter-queue (front rear) transparent: #t)
+(defstruct delimiter-queue (front rear) transparent: #t final: #t)
 (def +empty-delimiter-queue+ (make-delimiter-queue '() '()))
 
 (def (delimiter-queue-empty? queue)
@@ -180,7 +180,7 @@
 ;;; Prefix pruning admits every rule that could match. Stateful and unknown
 ;;; opcode families remain universal candidates, retaining their executor and
 ;;; source-order tie/ambiguity semantics. No candidate list is built per token.
-(defstruct first-character-rules (ascii wide alpha other))
+(defstruct first-character-rules (ascii wide alpha other) final: #t)
 (def (literal-first-characters values)
   (if (any (lambda (value) (zero? (string-length value))) values)
     'any
@@ -269,7 +269,7 @@
      cells)
     index))
 
-(defstruct grouped-dispatch (modes))
+(defstruct grouped-dispatch (modes) final: #t)
 
 (def (multiple-dispatch-rows? cells)
   (and (pair? cells)
@@ -415,7 +415,7 @@
 
 ;;; Opaque proof binds two independently reached boundaries. The source worker
 ;;; supplies the same fixed parser position for the old and new continuations.
-(defstruct contextual-scan-suffix (before after))
+(defstruct contextual-scan-suffix (before after) final: #t)
 (def (prepare-contextual-scan-suffix before after)
   (and (contextual-scan-state-converged? before after)
        (make-contextual-scan-suffix before after)))

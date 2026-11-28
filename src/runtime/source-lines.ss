@@ -1,6 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Request source traversal has no grammar/compiler initialization dependency.
-(import (only-in :std/string/utf8 string-utf8-length utf8->string) :std/ffi)
+(import (only-in :std/string/utf8 string-utf8-length utf8->string)
+        :std/ffi)
 (export source-line-end fold-source-lines fold-source-byte-lines fold-source-byte-spans
         fold-source-frame-boundaries! fold-source-input-bytes source-line-events line-starts-with?)
 
@@ -9,6 +10,7 @@
 ;; callback and no retained foreign pointer or new line-index allocation.
 (C-ffi-macrology)
 (C-include "<stdint.h>")
+(C-include "<string.h>")
 (def-C-lambda source-next-line-end (scheme-object unsigned-int64 unsigned-int64) unsigned-int64
   "const uint8_t *bytes = U8_DATA(___arg1);
    uint64_t cursor = ___arg2, size = ___arg3;
@@ -21,6 +23,19 @@
      }
    }
    ___return(cursor);")
+
+;; Read complete machine words with the same synchronous byte-buffer rules
+;; as the line scanner. A non-ASCII byte still uses Gerbil's UTF-8 decoder.
+(def-C-lambda source-ascii? (scheme-object unsigned-int64) bool
+  "const uint8_t *bytes = U8_DATA(___arg1);
+   const uint64_t high = UINT64_C(0x8080808080808080);
+   uint64_t cursor = 0, size = ___arg2, word = 0;
+   while (size - cursor >= sizeof(word) && !(word & high)) {
+     memcpy(&word, bytes + cursor, sizeof(word));
+     cursor += sizeof(word);
+   }
+   while (cursor < size && !(word & high)) word = bytes[cursor++];
+   ___return((word & high) == 0);")
 
 ;; Public callers may start inside a line, but must not pass an unchecked
 ;; foreign offset. The byte buffer is borrowed only for this synchronous call.
@@ -39,13 +54,13 @@
   (cond
    ((string? source) (string->utf8 source))
    ((u8vector? source)
-    ;; Make decoder admission observable in optimized products: discarding
-    ;; its result permits the pure conversion to disappear. UTF-8 has at
-    ;; least one byte per decoded scalar; the check retains the official
-    ;; strict decoder without re-encoding or replacing the owned buffer.
-    (let (text (utf8->string source))
-      (unless (fx<= (string-length text) (u8vector-length source))
-        (error "decoded source exceeds UTF-8 byte storage")))
+    ;; ASCII is already a sequence of valid scalars. Non-ASCII input still
+    ;; goes through the official strict decoder, including malformed tails.
+    (unless (source-ascii? source (u8vector-length source))
+      ;; Observe the decoded length so optimizer purity cannot erase admission.
+      (let (text (utf8->string source))
+        (unless (fx<= (string-length text) (u8vector-length source))
+          (error "decoded source exceeds UTF-8 byte storage"))))
     source)
    (else (error "event Fold requires text or UTF-8 byte storage"))))
 

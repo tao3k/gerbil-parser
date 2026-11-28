@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :gerbil-parser/t/fixtures/event-walk-source source-procedure)
         (only-in :gerbil-parser/src/compiler/lr
           lower-rules production-table compute-nullable

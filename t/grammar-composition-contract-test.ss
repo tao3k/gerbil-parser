@@ -1,5 +1,5 @@
 #!/usr/bin/env gxi
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 (import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 ;;; -*- Gerbil -*-
 
@@ -34,6 +34,32 @@
         :gerbil-parser/src/runtime/machine
         :gerbil-parser/languages/arithmetic/parser)
 (import :gerbil-parser/t/fixtures/grammar-composition-models)
+
+(def (numbered-rule-rows count)
+  (map (lambda (i)
+         (list (string->symbol (string-append "rule-" (number->string i))) '(literal "x")))
+       (iota count)))
+
+(def (rule-role name rows)
+  (make-grammar-role name '() '() '() rows '() '() '() '() '()))
+
+(def (batch-override-with-mutated-key)
+  (def rows (numbered-rule-rows 80))
+  (def original (rule-role 'original rows))
+  (def replacement (list (caar rows) '(literal "y")))
+  (def replacements (cons replacement (cddr rows)))
+  (def override (rule-role 'overrides replacements))
+  (def open-override
+    (.o (:: @ override)
+        (.section
+         (lambda (section)
+           (when (eq? section 'rules)
+             (set-car! (cadr rows) (caar rows)))
+           (grammar-role-ref override section)))))
+  (def grammar
+    (make-grammar 'open-override '() (list original) (list (cons 'override open-override))))
+  (equal? (grammar-ir-ref (compile-grammar grammar) 'rules)
+          (cons* replacement replacement (cddr rows))))
 
 (deflanguage-parser-tests grammar-composition-contract-test "grammar composition contracts"
   (engine)
@@ -137,6 +163,30 @@
         (equal (map (lambda (step) (row-ref step 'operation))
                     (row-ref receipt 'steps))
                 '(merge append))))
+    (scenario "large compositions preserve rule order and receipts"
+      (sequential ((rows (numbered-rule-rows 160))
+                   (retained (take rows 80))
+                   (removed (drop rows 80))
+                   (overrides (map (lambda (row) (list (car row) '(literal "y"))) retained))
+                   (base (rule-role 'base rows))
+                   (grammar (make-grammar 'large-composition '() (list base base)
+                              (list (cons 'override (rule-role 'overrides overrides))
+                                    (cons 'remove (rule-role 'removals removed))
+                                    (cons 'append (rule-role 'reinsertions (reverse removed))))))
+                   (context (compile-grammar/context grammar)))
+        (scope-values (((ir receipt) (compile-grammar/receipt grammar)))
+          (equal (grammar-ir-ref ir 'rules) (append overrides (reverse removed)))
+          (equal ir (normalized-grammar-ir context))
+          (equal receipt (normalized-grammar-receipt context)))
+        (equal
+         (condition-message
+          (lambda ()
+            (compile-grammar
+             (make-grammar 'conflicting-batch '()
+               (list base (rule-role 'conflicts (append retained (list (car overrides)))))))))
+         "conflicting grammar role row")))
+    (scenario "an open Role can change the identity of an earlier row"
+      (equal (batch-override-with-mutated-key) #t))
     (property "explicit append fails closed on an existing identity"
       (bindings (conflicting
             (make-grammar

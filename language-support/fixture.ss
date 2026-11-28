@@ -28,7 +28,7 @@
 (defstruct syntax-fixture
   (id language version contract source-digest source
       expected-status root-kind required-kinds)
-  transparent: #t)
+  transparent: #t final: #t)
 
 (def (syntax-fixture-copy fixture)
   (unless (syntax-fixture? fixture) (error "expected syntax fixture" fixture))

@@ -474,7 +474,7 @@ kernel performs traversal. This assigns each abstraction a concrete job.
 
 *** Question: what makes the claim testable?
 
-=t/lr-semantic-preparation-test.ss= checks preference-independent preparation,
+=t/yanxu/Execution/lr-parser/lr-semantic-preparation-test.ss= checks preference-independent preparation,
 runtime identity and cache reuse, generated-step replacement without changing
 retained executors, and recognition fallback for dynamic, branching and layout
 grammars. Existing artifact, GLR, empty-reduction and fragment tests supply

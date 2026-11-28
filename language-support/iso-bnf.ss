@@ -42,11 +42,11 @@
 
 ;; : (-> String String BnfAst Nat (List String) IsoBnfProduction)
 (defstruct iso-bnf-production (name expression ast line references)
-  transparent: #t)
+  transparent: #t final: #t)
 ;; : (-> String String String String String (List IsoBnfProduction) IsoBnfSource)
 (defstruct iso-bnf-source
   (schema language version commit digest productions)
-  transparent: #t)
+  transparent: #t final: #t)
 
 ;; : (-> Char Boolean)
 ;; : (-> String (Maybe (Pair String String)))

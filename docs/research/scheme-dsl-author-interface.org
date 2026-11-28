@@ -320,7 +320,7 @@ interface is required. The runner is test infrastructure, not authoring syntax.
 #+begin_src scheme
 ;;; -*- Gerbil -*-
 ;;; User-facing test declarations for the same expression-vocabulary package.
-(import :gerbil-parser/language-test-support ./parser)
+(import :gerbil-parser/language-support/testing ./parser)
 
 (deflanguage-parser-tests package-expression-parser-test "expression vocabulary package DSL"
   (loader list-study-language)

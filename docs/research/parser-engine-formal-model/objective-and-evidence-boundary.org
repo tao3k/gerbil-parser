@@ -155,7 +155,7 @@ certified raw-token engine, composes selection with the zero-state constructor,
 and obtains the accepted derivation and ordered raw-token relation for any
 admitted trace. No cache validity, native decoder or host axiom is introduced.
 
-The [[file:../../../t/lr-semantic-preparation-test.ss][Scheme semantic-preparation controls]] check shared identities for productions,
+The [[file:../../../t/yanxu/Execution/lr-parser/lr-semantic-preparation-test.ss][Scheme semantic-preparation controls]] check shared identities for productions,
 production tables, reduction widths, action rows and indices, goto rows and
 indices/columns, case policy, lexical modes/catalog and the action selector.
 They cover first event construction, cached selection, selection of an already

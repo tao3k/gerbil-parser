@@ -1,5 +1,7 @@
-(import (only-in :tao3k/yuanxu/module-system/source/declaration .def))
+(import (only-in :clan/poo/object .def .o)
+        (only-in "./types.ss" UtilitiesScopeContract)
+        (only-in "./objects.ss" Utilities.))
 (.def Utilities
   identity: 'utilities
-  core: (.o requires: (.o) scope-contract: UtilitiesScopeContract exports: Utilities.)
+  core: (.o scope-contract: UtilitiesScopeContract exports: Utilities.)
   features: (.o))

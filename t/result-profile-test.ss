@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Result declarations constrain construction and are ordinary inheritable POO slots.
 (import :std/test
         (only-in :gerbil-parser/src/compiler/result-projection result-profile-scheme-source)

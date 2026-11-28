@@ -1,5 +1,5 @@
 #!/usr/bin/env gxi
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 (import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release))
 (import (only-in :gerbil-parser/languages/tla-plus/syntax/core tla-plus-core-syntax)
         (only-in :gerbil-parser/src/language/descriptor language-grammar-machine)

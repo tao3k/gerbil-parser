@@ -2,8 +2,8 @@
 ;;; POO admission for language-owned CST-to-graph projections.
 
 (import (only-in :clan/poo/object .o .ref)
-        (only-in :clan/poo/mop define-type)
-        (only-in :tao3k/yuanxu/object-types/contracts
+        (only-in :clan/poo/type define-type)
+        (only-in :tao3k/yuanxu/types/contracts
                  YuanxuContract. YuanxuObjectContract.
                  yuanxu-contract-admit
                  yuanxu-validation-evidence-accepted?

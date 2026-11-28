@@ -12,9 +12,9 @@
         source-index-cursor-mode source-index-cursor-rank source-index-cursor-next!
         source-index-cursor-seek!)
 (def +chunk-size+ 64)
-(defstruct source-leaf (tokens modes begin count bytes chars start end))
-(defstruct source-branch (left right count bytes chars start end height))
-(defstruct source-view (base delta))
+(defstruct source-leaf (tokens modes begin count bytes chars start end) final: #t)
+(defstruct source-branch (left right count bytes chars start end height) final: #t)
+(defstruct source-view (base delta) final: #t)
 (def (source-index-count tree)
   (cond ((not tree) 0) ((source-view? tree) (source-index-count (source-view-base tree)))
         ((source-leaf? tree) (source-leaf-count tree)) (else (source-branch-count tree))))
@@ -104,7 +104,7 @@
 
 ;;; A cursor descends once, then iterates inside immutable chunks. Its copied
 ;;; state is a certificate trial; rejecting that trial never consumes the owner.
-(defstruct source-cursor (root pending leaf offset limit delta rank cache))
+(defstruct source-cursor (root pending leaf offset limit delta rank cache) final: #t)
 (def (cursor-install! cursor tree rank delta pending)
   (cond ((not tree) (set! (source-cursor-leaf cursor) #f) (set! (source-cursor-pending cursor) pending))
         ((source-view? tree)
@@ -207,7 +207,7 @@
 ;;; A request builder coalesces adjacent origins before slicing old trees.
 ;;; It never owns a previous snapshot after finish: only reachable tree pieces
 ;;; survive. Caller observers report scanner results or certified source spans.
-(defstruct source-builder (root tokens modes buffered origin fresh shared chunks mode-chunks))
+(defstruct source-builder (root tokens modes buffered origin fresh shared chunks mode-chunks) final: #t)
 (def (make-source-index-builder (prefix #f))
   (make-source-builder prefix '() '() 0 #f 0 (source-index-count prefix) 0 0))
 (def source-index-builder-fresh source-builder-fresh)

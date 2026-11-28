@@ -2,10 +2,10 @@
 ;;; POO admission for source-bounded event fragments.
 
 (import (only-in :clan/poo/object .ref .slot? object?)
-        (only-in :clan/poo/mop define-type Type. element?))
+        (only-in :clan/poo/type define-type Type. element?))
 (export SourceDelimitedFragment source-delimited-fragment?
         SourceFirstSplit source-first-split?
-        SourceReferenceScan source-reference-scan?
+        SourceReferenceScan source-reference-scan? SourceReferenceMarkers
         +source-delimited-fragment-kind+ +source-first-split-kind+
         +source-reference-scan-kind+)
 
@@ -64,6 +64,18 @@
 (def (source-first-split? value)
   (element? SourceFirstSplit value))
 
+(def (source-reference-markers? markers)
+  (and (pair? markers)
+       (list? markers)
+       (every (lambda (entry)
+                (and (pair? entry)
+                     (char? (car entry))
+                     (< (char->integer (car entry)) 128)
+                     (symbol? (cdr entry))))
+              markers)))
+
+(define-type (SourceReferenceMarkers @ Type.) .element?: source-reference-markers?)
+
 (def (source-reference-scan-shape? value)
   (and (object? value)
        (.slot? value 'kind)
@@ -74,14 +86,7 @@
        (.slot? value 'reference-node)
        (.slot? value 'text-token)
        (eq? (.ref value 'kind) +source-reference-scan-kind+)
-       (let (markers (.ref value 'markers))
-         (and (pair? markers)
-              (every (lambda (entry)
-                       (and (pair? entry)
-                            (char? (car entry))
-                            (< (char->integer (car entry)) 128)
-                            (symbol? (cdr entry))))
-                     markers)))
+       (source-reference-markers? (.ref value 'markers))
        (source-ascii? (.ref value 'continuation))
        (source-ascii? (.ref value 'call-prefix))
        (char=? (string-ref (.ref value 'call-prefix)

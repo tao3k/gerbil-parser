@@ -1,9 +1,9 @@
 #!/usr/bin/env gxi
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; -*- Gerbil -*-
 
 (import :std/test
-        :gerbil-parser/language-support
+        :gerbil-parser/language-support/interface
         (only-in :gerbil-parser/languages/gql/grammar
                  gql-parser-ir)
         :gerbil-parser/languages/gql/parser

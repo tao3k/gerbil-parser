@@ -2,8 +2,8 @@
 ;;; Descriptor-bound fused reductions; no builtin language imports or dispatch.
 (import (only-in ./lr-table validate-lr-tables)
         (only-in :clan/poo/object .o .cc .ref .slot? object?)
-        (only-in :clan/poo/mop define-type validate)
-        (only-in :tao3k/yuanxu/object-types/contracts yuanxu-predicate-contract)
+        (only-in :clan/poo/type define-type validate)
+        (only-in :tao3k/yuanxu/types/contracts yuanxu-predicate-contract)
         (only-in ../language/descriptor language-grammar? language-grammar-ir language-grammar-machine)
         (only-in ../runtime/machine parser-machine-grammar-digest parser-machine-ir)
         (only-in ./build-strategy BuildStrategy. build-strategy-common-shape?

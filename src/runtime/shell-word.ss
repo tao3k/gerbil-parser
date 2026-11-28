@@ -14,7 +14,7 @@
                  prepare-region-source prepare-scoped-region-source region-source-quote-end region-source-pair-end))
 (export make-shell-word-parser)
 
-(defstruct shell-word-source (spans text regions subscripts))
+(defstruct shell-word-source (spans text regions subscripts) final: #t)
 
 (def (make-shell-word-parser regions results parts-plan)
 (def literal-kind (part-plan-literal parts-plan))

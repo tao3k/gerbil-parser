@@ -1,12 +1,14 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; -*- Gerbil -*-
 ;;; The explicit native catalog admits the compiler without per-case processes.
-(import (only-in :std/test check check-exception test-case test-suite)
-        (only-in ./event-strategy-fixture event-lines-language-grammar)
+(import (only-in ./event-strategy-fixture event-lines-language-grammar)
         (only-in ../src/compiler/event-fold-scheme event-fold-scheme-source)
-        (only-in ../src/compiler/event-fold-scheme-context current-fold-scheme-diagnostics)
+        (only-in ../src/compiler/event-fold-scheme-context current-fold-scheme-diagnostics
+                 current-fold-scheme-effect-only current-fold-scheme-expressions)
+        (only-in ../src/compiler/event-fold-scheme-statements fold-scheme-statements)
+        (only-in ../src/compiler/event-fold-scheme-expressions fold-scheme-offset)
         (only-in ../src/compiler/event-fold-future fold-future-marker-before-boundary?
-                 fold-future-named-index)
+                 fold-future-named-index fold-future-cache-for current-future-scan-cache)
         (only-in ../src/compiler/event-fold-prefix-family fold-scheme-prefix-family)
         (only-in ../src/compiler/event-fold-scheme-modules event-fold-scheme-module-sources)
         (only-in ../src/runtime/event-fold-lines fold-line-name-set-contains?)
@@ -19,12 +21,120 @@
   (event-fold-scheme-source 'native-product event-lines-language-grammar 'Document
                             initial line finish helpers))
 
+(def (saturated-step-reference end position count)
+  (if (zero? count) position
+    (saturated-step-reference end (min end (+ position 1)) (- count 1))))
+
+;; Check the closed form, including inputs beyond the cap and fixnum range.
+(defparser-check (check-saturated-steps)
+  (each (count) ('(1 2 3 4 8 16 64))
+    (sequential
+        ((expression
+          (let loop ((remaining count) (value '(state-offset position)))
+            (if (zero? remaining) value
+              (loop (- remaining 1) (list 'line-step value)))))
+         (code (parameterize ((current-fold-scheme-expressions #f))
+                 (fold-scheme-offset expression '((position . position)) '()))))
+      ;; A lost rewrite can preserve results while restoring repeated work.
+      (equal code (list 'min 'end (list '+ count 'position)))
+      (scope ((run (eval (list 'lambda '(end position) code))))
+        (each (end) ('(0 1 2 8 17 1000000000000000000000000000000000000))
+          (each (position)
+              ('(0 1 2 3 8 17 18 1000000000000000000000000000000000000))
+            (equal (run end position)
+                   (saturated-step-reference end position count))))))))
+
+;; The fixture declares each row's class independently of the Fold scanner.
+(def (future-suffix-reference rows)
+  (and (pair? rows)
+       (case (cdar rows)
+         ((next) (future-suffix-reference (cdr rows)))
+         ((accept) #t)
+         (else #f))))
+
+(defparser-check (check-future-suffix-rows rows demand?)
+  (sequential
+      ((bytes (string->utf8 (apply string-append (map car rows))))
+       (cache (if demand? (fold-future-cache-for (gensym))
+                (make-hash-table-eqv)))
+       (queries
+        (let loop ((rest rows) (offset 0) (out '()))
+          (if (null? rest) (reverse (cons (cons offset rest) out))
+            (loop (cdr rest) (+ offset (u8vector-length (string->utf8 (caar rest))))
+                  (cons (cons offset rest) out))))))
+    ;; Cold forward, backward and repeated starts exercise publication and hits.
+    (each (query) ((append queries (reverse queries) queries))
+      (equal (fold-future-marker-before-boundary?
+              bytes (car query) "END" "STOP" 42 32 #t #f 58 cache)
+             (future-suffix-reference (cdr query)))
+      (unless demand?
+        ;; Inspect answers published for traversed positions as well as starts.
+        (each (position) (queries)
+          (scope ((cached (hash-get cache (car position))))
+            (when cached
+              (equal cached (if (future-suffix-reference (cdr position)) 1 2)))))
+        (equal (hash-get cache (u8vector-length bytes)) #f)))
+    (unless demand?
+      (equal (<= (hash-length cache) (length rows)) #t))))
+
+(defparser-check (check-future-suffix-traces demand?)
+  (iterate enumerate ((rows '()) (remaining 3))
+    (verify check-future-suffix-rows rows demand?)
+    (unless (zero? remaining)
+      (each (row) ('((":K: value\n" . next) ("\t:中: 值\r\n" . next)
+                     ("END\n" . accept) ("STOP\r\n" . stop) ("ordinary\n" . stop)))
+        (continue enumerate (cons row rows) (- remaining 1))))))
+
+;; Distinct in-line starts populate distinct cursor keys in one physical line.
+(defparser-check (check-future-inline-starts)
+  (scope ((bytes (string->utf8 "ordinary body\n")) (cache (make-hash-table-eqv)))
+    (each (offset) ((iota (u8vector-length bytes)))
+      (equal (fold-future-marker-before-boundary?
+              bytes offset "END" #f 42 32 #f #f #f cache) #f))
+    (equal (hash-length cache) (u8vector-length bytes))))
+
+;; The first memo retains its exact start through the EOF probe and promotion.
+(defparser-check (check-future-demand-promotion)
+  (parameters ((current-future-scan-cache #f))
+    (verify check-future-suffix-traces #t)
+    (sequential
+        ((bytes (string->utf8 "xEND\r\n"))
+         (memo (fold-future-cache-for 'stable))
+         (query (lambda (offset target)
+                  (fold-future-marker-before-boundary?
+                   bytes offset target #f 42 32 #f #f #f memo))))
+      (equal (query 0 "END") #f)
+      (equal (query (u8vector-length bytes) #f) #f)
+      ;; An unusable marker detects an unexpected classification after a hit.
+      (equal (query 0 #f) #f)
+      (equal (query 1 "END") #t)
+      (equal (query 0 #f) #f)
+      (equal (query 1 #f) #t)))
+  (parameters ((current-future-scan-cache #f))
+    (equal (fold-future-marker-before-boundary?
+            (string->utf8 "END") 0 "END" #f 42 32 #f #f #f
+            (fold-future-cache-for 'stable)) #t)))
+
 (deflanguage-parser-tests event-fold-scheme-test "Native EventFold source admission"
   (engine)
     (scenario "native byte frames preserve Unicode CR LF CRLF and terminal bounds"
+      (verify check-saturated-steps)
       (raises (fold-source-input-bytes 42) true)
       (each (invalid) ((list (u8vector 255) (u8vector 192 128) (u8vector 237 160 128)
-             (u8vector 244 144 128 128) (u8vector 226 130) (u8vector 128))) (raises (fold-source-input-bytes invalid) true))
+             (u8vector 244 144 128 128) (u8vector 226 130) (u8vector 128)))
+        (raises (fold-source-input-bytes invalid) true)
+        (raises (fold-source-input-bytes (u8vector-append #u8(65) invalid #u8(90))) true))
+      (scope ((ascii (list->u8vector (iota 128))))
+        (equal (eq? (fold-source-input-bytes ascii) ascii) #t)
+        (equal (utf8->string (fold-source-input-bytes ascii)) (utf8->string ascii)))
+      (each (size) ('(7 8 9 15 16 17))
+        (sequential ((ascii (make-u8vector size 65))
+                     (text (u8vector-append ascii (string->utf8 "é中🦀")))
+                     (truncated (u8vector-append ascii #u8(226 130))))
+          (equal (eq? (fold-source-input-bytes ascii) ascii) #t)
+          (equal (eq? (fold-source-input-bytes text) text) #t)
+          (raises (fold-source-input-bytes truncated) true)
+          (raises (fold-source-input-bytes (u8vector-append ascii #u8(128 90))) true)))
       (raises (fold-source-byte-lines "not bytes" '() void) true)
       (scope ((bytes (u8vector 99 32 9 97 98)))
         (equal (byte-span-skip bytes 1 5 (lambda (byte) (memv byte '(9 32))))  3)
@@ -57,12 +167,15 @@
                      (fold-source-frame-boundaries! bytes (car bounds) (cadr bounds)) true))
         (each (bounds) ('((0 9) (0 2) (2 5) (5 9) (1 1) (9 9)))
                     (act (fold-source-frame-boundaries! bytes (car bounds) (cadr bounds))))))
-    (scenario "runtime marker encoding preserves boundaries and cache fast paths"
+    (scenario "runtime marker queries preserve suffix answers and boundary-specific cache bounds"
 (locals ((query (lambda ( text target stop indent? heading?)
         (fold-future-marker-before-boundary?
          (string->utf8 text) 0 target stop 42 32 indent? heading? #f
          (make-hash-table-eqv)))))
 
+      (verify check-future-suffix-traces #f)
+      (verify check-future-demand-promotion)
+      (verify check-future-inline-starts)
       (equal (query "x\n  EnD \r\n" "END" #f #t #f)  #t)
       (equal (query "x\n  EnD \r\n" "END" #f #f #f)  #f)
       (equal (query "stop\nEND\n" "END" "STOP" #f #f)  #f)
@@ -86,6 +199,14 @@
       (equal (fold-future-marker-before-boundary?
               (string->utf8 "ordinary body\nEND\n") 0 "END" #f
               42 32 #f #f 58 (make-hash-table-eqv))  #f)
+      (each (control) ('((":KEY: value\n" . #t) ("\t:KEY:\r\n" . #t)
+                         (":a:b: value\n" . #t) (" :键: value\n" . #t)
+                         (":: value\n" . #f) (":a b: value\n" . #f)
+                         (":key:attached\n" . #f) (":key\n" . #f)))
+        (equal (fold-future-marker-before-boundary?
+                (string->utf8 (string-append (car control) "END\n"))
+                0 "END" #f 42 32 #t #f 58 (make-hash-table-eqv))
+               (cdr control)))
       (scope ((bytes (string->utf8 "END\n")) (cache (make-hash-table-eqv)))
         (act (hash-put! cache 0 1))
         ;; Invalid marker values deliberately prove that these paths never
@@ -176,6 +297,23 @@
       (equal (not (string-contains generated "subu8vector"))  #t)
       (equal (not (string-contains generated "utf8->string"))  #t)
       (equal (not (not (string-contains generated "fold-source-frame-boundaries!")))  #t))
+    (scenario "in-place helpers preserve the owner while list helpers thread results"
+      (each (effect-only?) ('(#f #t))
+        (scope ((statements
+                 (parameterize ((current-fold-scheme-effect-only effect-only?)
+                                (current-fold-scheme-expressions #f))
+                   (fold-scheme-statements '((call-source-helper child start end))
+                                          '() '() '((child . visit-child))))))
+          (equal
+           (eval `(let ((source-bytes #u8()) (start 0) (end 0) (events (vector 0)))
+                    (let (original events)
+                      (let ((visit-child (lambda (_source _start _end owner)
+                                           (vector-set! owner 0 1)
+                                           'replacement)))
+                        ,@statements
+                        (list (vector-ref original 0)
+                              ,(if effect-only? '(eq? events original) 'events))))))
+           (if effect-only? '(1 #t) '(1 replacement))))))
     (scenario "untyped slots unknown instructions and callbacks fail before generation"
       (raises (source '((flag #f)) '((set-uint flag (uint 1))) '()) true)
       (raises (source '() '((foreign-operation)) '()) true)

@@ -1,8 +1,7 @@
 ;;; Callable extension boundaries use caller-owned Context/Mode Types.
 (import (only-in ./lr-data lr-terminal? lr-precedence?)
         (only-in :clan/poo/object .cc)
-        (only-in :clan/poo/mop Type. Function Fun Bool define-type element?)
-        (only-in :clan/poo/type String Symbol OrFalse)
+        (only-in :clan/poo/type Type. Function Fun Bool define-type element? String Symbol OrFalse)
         (only-in :clan/poo/number UInt Integer)
         (only-in ./token token?)
         (only-in ./lr-action-index lr-action-row?))

@@ -274,3 +274,200 @@ across GC are not admitted allocated bytes. These are engine Fold measurements,
 not FFI/Tokio, Python or public Org::parse acceptance. The remaining ordinary
 byte-loop work is not eliminated by this frame-prefix prototype. No production
 baseline is promoted and no twenty-batch workload matrix runs.
+
+* Paper correspondence and the Ledger execution path (2026-11-16)
+
+Current audit baseline: Parser =cfc76f5559ff441cb0a770a8a15b73ffd691fcb7=;
+Orgize =1ab5d237e2b4a55acb109266e63ccc926ee5d483=. This is a source/model
+correspondence audit, not admission of a new runtime optimization.
+
+There is a concrete semantic coverage boundary: Org's =grammar.ss= declares
+=org-file=, =org-element=, =source-block=, =headline= and =text-line= as its CFG
+productions. Its much larger syntax-kind catalogue is output vocabulary, not
+CFG productions for every Org construct. Rich contextual behavior comes from
+=parser.ss='s =org-line-structure= and the composed =event-strategy= helpers.
+Therefore agreement with the small CFG or its LR tables cannot by itself prove
+the full contextual Org recognition, field extraction or fallback behavior.
+The missing chain is contextual declarations -> EventFold -> complete Graph.
+
+The general LR construction and Org's compiled EventFold are distinct execution
+paths. =ConstructionProtocol=, =SuffixSemantics= and =ConstructionConsumer=
+connect the LR construction to paper-level prediction/goto semantics. They do
+not establish the correctness or cost of the Org EventFold recognizer. Ledger
+uses =parse-org-compiled-product= through =org-request->tape=; a proof or benchmark
+of LR construction cannot close this request path.
+
+| Algorithm/source | Existing owner | Established boundary | Remaining obligation |
+|------------------+----------------+----------------------+----------------------|
+| [[https://www.deinprogramm.de/sperber/papers/lr-essence-pepm.pdf][The Essence of LR Parsing]], prediction/closure and specialization | =lr0= / lookahead construction; =ConstructionProtocol= | Existing paper-correspondence proofs with explicit host/source premises | Do not transfer LR properties to the separate Fold recognizer |
+| [[https://www.cl.cam.ac.uk/~jdy22/papers/a-typed-algebraic-approach-to-parsing.pdf][Typed algebraic parsing]], Null/First/FLast and deterministic decomposition | Typed Fold IR admission and necessary-byte analyses | State/helper/kind admission; local conservative guards | Org-wide disjointness, nullable/progress and ordered contextual choice are not established by IR type admission |
+| [[https://arxiv.org/html/2304.05276][flap]], normalization and fused staged recognition | Fold Scheme generator and GraphProjection consumer | Native lowering and direct consumer calls exist | Event output is required application data; removing an intermediate lexer stream is not permission to discard it |
+| [[https://arxiv.org/abs/1106.0447][Selective Memoization]], dependency-sensitive reuse | =event-fold-future.ss= request/query-scoped suffix cache | Stable query and immutable-source validity are explicit conditions | Count query families and actual byte/classifier work; cache hits are not free |
+| Gerbil compiler, contracts and optimizer metadata | =event-fold-call-plan.ss= and generated module boundaries | Custom unique-edge substitution currently exists | Compare with native compiler staging before retaining a second alpha-renaming/inlining responsibility |
+
+The authors' reference implementations are [[https://github.com/yallop/ocaml-asp/tree/3e1c39250da3c051840b495fddfdabbe17768ff3/lib][ocaml-asp at 3e1c3925]] and
+[[https://github.com/yallop/ocaml-flap/tree/6dc93c9a138f7ebfa3456fd838285bce5dd7dad0/lib][ocaml-flap at 6dc93c9a]]. These identify reproducible reading inputs;
+no OCaml artifact reproduction or direct Org grammar equivalence is claimed.
+The deterministic grammar assumptions must be checked before adopting their
+normalization or performance conclusions.
+
+** What the reference implementations actually specialize
+
+In =ocaml-asp/lib/asp_staged.ml=, =Tp.seq= checks sequential separation and
+=Tp.alt= checks disjoint alternatives before staging; =type_check= precedes
+compilation. Those grammar properties are stronger than admitting well-typed
+unsigned slots and nonrecursive helper calls in EventFold.
+
+In =ocaml-flap/lib/normalize.ml= and =fused.ml=, grammar normalization and lexer
+fusion produce the recognition representation consumed by =compiler.ml=.
+That compiler specializes nonterminal/regular-expression continuation contexts
+and creates exclusive character cases. This is different from interning a
+lowered syntax expression under a normalized-code key in =share-code=.
+An interned function may still be called and rescan source many times.
+
+This identifies an architectural hypothesis: compiled Fold expression structure
+may still retain repeated recognition/selection work that a residual recognizer
+would share. It does not establish that all Org rules can use flap's normal form.
+Ordered contextual state, future queries, exceptions and required semantic
+output must remain explicit. Existing necessary-prefix rejection is conservative
+and retains original positive conditions; it is not a proof that a complete
+recognizer automaton has been derived. The next transformation must identify an
+admitted region and prove its residual decisions equivalent before replacing it.
+
+** First executable gap closure: suffix-search semantics and amortized cost
+
+[[file:../../formal/ParserEngine/FutureSearch.lean][FutureSearch]] models the existing forward query, early stop, cache hit and
+publication of every newly visited suffix position. It is imported by the
+existing =Components= catalogue, so the normal =just formal= owner includes it.
+It does not introduce a Scheme cache, query API or alternate parser.
+
+=requests_correct= preserves every answer for arbitrary repeated and out-of-order
+queries, given immutable classifications and a sound request/query-specific
+cache. =fresh_request= establishes that cache premise for a new request; it does
+not assume that an arbitrary retained cache is correct. =search_source= and =query_source= preserve those classifications.
+An executable stale-cache counterexample shows why cost bounds alone cannot
+justify cross-source or cross-query reuse.
+
+Let U be the number of uncached line positions and V the number of new
+classifications. =requests_accounting= proves V + U_after = U_before; therefore
+=request_visit_bound= proves V <= L for one stable query family over L admitted
+line-boundary positions,
+regardless of the number or order of queries. This is an amortized bound on
+classifications, not a bound on byte visits or physical time. With M distinct
+query families the separate caches do not establish a shared L bound. Input
+validation, key hashing, classification, state transitions, Graph publication,
+encoding and scheduling retain their own costs.
+
+The existing native marker-query scenario now checks 156 independent sequences
+against a first-terminal reference, including UTF-8, CRLF, invalid property body,
+EOF and repeated/out-of-order queries. A separate native counterexample queries
+every byte offset inside one physical line and retains more than one cache
+position: the general interface does not satisfy a one-position-per-line bound.
+Every retained cache answer is checked against the independent suffix meaning,
+including positions populated by a preceding cold forward traversal. EOF must
+not be published. Retained cache size is checked separately; these checks are
+not a dynamic classification-count measurement.
+
+The original Lean recurrence publishes on recursive return; Scheme accumulates
+new positions in reverse traversal order and publishes at its terminal branch.
+=accumulated_refinement= now proves that this delayed-publication recurrence has
+the same answer, final cache cells and classification count, including cache-hit
+and EOF termination. It preserves the untouched suffix. This is a correspondence
+of the concrete algorithm structure at logical positions, not extraction of
+Scheme code into Lean. Hash writes require distinct advancing positions for
+this ordered-cell representation to describe the same final map.
+
+=request_iteration_amortized_bound= includes cache hits: Q requests over L fixed
+positions enter the search loop at most Q + L times for one stable query family.
+It does not charge prefix selection as a physical list traversal: the Scheme
+entry receives a byte offset. It also does not bound hash implementation work,
+classifier byte scans, other query families or Graph output.
+
+The source adapter must still establish the same fixed ordered line boundaries
+(including alignment of query starts), pure stable classifier and cache identity.
+That concrete byte/Scheme/compiler refinement remains open. Passing Lean does
+not discharge it by source hashing, differential interpreter agreement or a
+successful example alone.
+
+** Whole recognizer model and implementation decisions
+
+The remaining core contract is an admitted configuration/source relation to
+either a specified rejection or a complete lossless Graph. Generated execution
+must preserve the reference result, ordered effects, UTF-8/source bounds and
+progress. General LR semantics, typed predictive grammar semantics and ordered
+stateful Fold semantics must not be conflated in this relation.
+
+The existing =Fold= and =Execution= models supply local refinement lemmas;
+=FutureSearch= adds an actual search recurrence and a whole-query-list potential
+argument. Neither proves whole-grammar recognition or a total source-visit
+bound. Counting distinct cache positions does not bound bytes scanned. Arbitrary
+in-line starts can rescan overlapping line suffixes; the current theorem does
+not prove a linear byte bound for that more general interface. Establishing
+query-start alignment from the compiled program is therefore an obligation,
+not a property inferred from query naming.
+
+A whole-program bound must account for helper activation, candidate
+selection, source scans and each query family, with unknown effects retained.
+The bound must come from admitted program structure, rather than an assumed
+constant cost per line.
+
+For Ledger the optimization target is a repeatable 2--3x improvement of the
+original complete 2000-document query. It is a research target, not a theorem
+or a relaxed gate. Preserve the 100 ms Ledger and 25 ms Contract assertions,
+original work and complete semantics. Establish the mathematical preconditions,
+then bind counted work to the actual generated AOT path and run paired local
+controls before pushing. Small component wins, paper timing ratios and a passing
+model do not establish this target. Private compiler experiments remain
+unadmitted; no runtime modification is justified solely by this audit.
+
+** Native compiler correspondence and failed treatment controls
+
+An earlier private =definline= comparison did not exercise the intended native
+inlining capability. Giving otherwise untyped parameters only a =:t= return
+annotation leaves =def/c='s signature admission false; its plain-definition
+branch does not attach the generated dispatch macro. The emitted static Scheme
+still contains all 208 calls to the selected expression across the product.
+Its unchanged timing cannot establish that native inlining is ineffective.
+
+A bounded witness changes one real generated function to explicit universal
+parameter signatures =(parameter : :t)=, preserving its input contract. Under
+the stock =defbuild-script= and optimized build, its 18 same-module call sites
+and a downstream-module call disappear. The 660 end/offset combinations match
+the reference expression. This establishes a concrete native capability,
+not a whole-product speedup or admission to remove the custom call planner.
+A broad 634-definition substitution exceeds the retained 2 GiB compilation
+heap limit. It remains rejected; source-size estimates are not a bound on
+macro-expansion memory. Do not widen a gate or reclassify that failure as a pass.
+
+For the current scope, =FutureSearch= supplies the executable suffix algorithm
+and amortized argument; the bounded native witness audits compiler reuse.
+The next recognizer transformation still needs a source-derived region whose
+ordered decisions and effects refine the existing semantics. A claim that
+interned code, typed slots or a faster graph index already supplies that
+recognizer proof would leave the central architectural gap unchanged.
+
+** Allocate suffix entries only when a query needs them
+
+For each immutable source and query key, keep the result at the first queried
+offset. A repeat at that offset can read the answer directly. A different
+offset promotes the existing memo to the same suffix hash table, seeded with
+the first answer. No per-line list or table is needed during the first scan.
+The first scan may be encountered again after promotion; the bound is at most
+two classifications per admitted position, instead of one in the eager table.
+This tradeoff is useful when many query families execute at only one offset.
+
+=FutureSearch.demand_promotion= proves the seed preserves the source and
+the answers, with a two-pass classification bound for a fixed sequence of
+line positions. The byte-level oracle also exercises distinct offsets within
+one physical line, forward and backward queries, EOF, and a new request
+using the same query key. Neither the theorem nor the oracle assumes that
+an arbitrary in-line byte offset is a cached physical line start.
+
+The matched local diagnostic kept all 2,000 Ledger documents, the same
+generated Fold and complete Graph equality. Across two placements, Fold CPU
+fell from 3.184–3.242 s to 2.674–2.706 s for 100 repetitions, with about 20%
+less allocation. A separate operation census of the same documents observes
+2,000 query memos, 14,000 first-scan classifications, and zero promotions.
+This accounts for the avoided suffix tables and path cells on this workload.
+The census is instrumented and does not measure time. These component results
+exclude Rust transport and do not establish the full Ledger or Contract gates.

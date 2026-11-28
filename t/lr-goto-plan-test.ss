@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 (import :std/test
         (only-in :gerbil-parser/src/runtime/lr-parser/prepare prepare-lr-goto-columns))
 

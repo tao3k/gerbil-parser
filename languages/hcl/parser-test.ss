@@ -1,10 +1,10 @@
 ;;; Suites consume the shared corpus/loader Fixture declarations.
-(import :gerbil-parser/language-test-support ./parser)
+(import :gerbil-parser/language-support/testing ./parser)
 (import (only-in :clan/poo/object .o)
         (only-in :gerbil-parser/language-support/fixture defsyntax-corpus defsyntax-fixture)
         (only-in :gerbil-parser/language-support/development deflanguage-development-loader LanguageDevelopmentLoader.)
-        (only-in :gerbil-parser/language-build-support declare-language-build-strategy make-fused-reduction-strategy make-rust-runtime-strategy)
-        (only-in :gerbil-parser/src/compiler/hcl-source direct-parse-hcl direct-lex-hcl direct-hcl-grammar-digest))
+        (only-in :gerbil-parser/language-support/build declare-language-build-strategy make-fused-reduction-strategy make-rust-runtime-strategy)
+        (only-in :gerbil-parser/languages/hcl/generated/source direct-parse-hcl direct-lex-hcl direct-hcl-grammar-digest))
 (export hcl-representative-fixture hcl-official-fixtures hcl-test-language)
 (import ./fixtures)
 

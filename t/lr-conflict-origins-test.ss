@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Effective expression occurrences must survive rejected LR table admission.
 (import :std/test
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)

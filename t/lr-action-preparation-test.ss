@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Prepared layout projections preserve the former pure action decision.
 (import :std/test
         (only-in :gerbil-parser/t/benchmarks/lr-request-stack/lookahead profile-lr-lookahead)

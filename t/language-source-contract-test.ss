@@ -1,5 +1,5 @@
 (import (only-in :clan/poo/type OrFalse Symbol))
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Engine ownership: source-contract admission and UTF-8 scanner checkpoints.
 (import (only-in :std/test check test-case test-suite)
         (only-in ./benchmarks/parser-stage-cost/benchmark measure-parser-stages)

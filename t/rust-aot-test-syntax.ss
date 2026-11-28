@@ -1,10 +1,10 @@
 ;;; -*- Gerbil -*-
 ;;; Structural checks for generated Rust functions, without string snapshots.
 
-(import (only-in :gerbil-parser/language-test-support parser-check parser-check-result)
+(import (only-in :gerbil-parser/language-support/testing parser-check parser-check-result)
         (only-in :std/encoding/json JSONReadOptions string->json)
         (only-in :std/misc/ports read-all-as-string)
-        (only-in :gerbil-parser/src/compiler/rust-syntax
+        (only-in :gerbil-parser/language-support/rust/syntax
                  rust-render rust-function-ir-json
                  rust-function-form? rust-function-form-name
                  rust-function-form-parameters rust-function-form-result

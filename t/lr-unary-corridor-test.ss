@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Consecutive decorated unary reductions versus independent GLR and pauses.
 (import :std/test
         (only-in :gerbil-parser/src/compiler/lr-compiler compile-lr-spec)

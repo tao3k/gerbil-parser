@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Ordered-choice lowering stays pure and preserves empty matched branches.
 (import :std/test
         (only-in "../src/language/source-pattern-funs.ss"

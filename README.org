@@ -26,12 +26,22 @@ checks, and generated-product verification.
 
 * Use a language pack
 
-For example, a Gerbil module can call the arithmetic parser:
+=gerbil build= installs the parser library and ABI. Build HCL when a
+consumer needs it:
+
+#+begin_src sh
+gxi languages/build-hcl.ss compile
+#+end_src
 
 #+begin_src scheme
-(import (only-in :gerbil-parser/languages/arithmetic/parser parse-arithmetic))
-(parse-arithmetic "1 + 2")
+(import (only-in :gerbil-parser/languages/hcl/parser parse-hcl))
+(parse-hcl "locals { value = 42 }")
 #+end_src
+
+A Yuanxu consumer can select =hcl= from
+=(from: :gerbil-parser/languages/init LanguagesSource)=.
+=gxi languages/build.ss compile= builds the full language catalog for
+consumers such as the full qualification suite.
 
 See the [[file:languages/README.org][language pack guide]] for grammar declarations, loader composition,
 and fixtures. The [[file:docs/architecture/0003-parse-artifact.org][parse artifact contract]] defines the result boundary.

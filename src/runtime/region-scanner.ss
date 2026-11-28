@@ -7,7 +7,7 @@
         region-plan-specification prepare-region-source prepare-scoped-region-source region-source?
         region-source-pair-end region-source-quote-end)
 
-(defstruct region-plan (data stops quotes pairs operators pair-index))
+(defstruct region-plan (data stops quotes pairs operators pair-index) final: #t)
 
 (defrules defregion-plan (stops quotes pairs consume-initial-stop)
   ((_ name (stops stop ...) (quotes quote-row ...) (pairs pair ...) (consume-initial-stop flag))
@@ -189,7 +189,7 @@
 ;;; Decomposing an outer region subsequently visits its children by lookup,
 ;;; rather than walking each suffix again. Literal quote characters outside a
 ;;; requested region are never eagerly interpreted (e.g. here-document text).
-(defstruct region-source (plan text ends scopes))
+(defstruct region-source (plan text ends scopes) final: #t)
 (def (prepare-region-source plan text)
   (prepare-scoped-region-source plan text '()))
 (def (prepare-scoped-region-source plan text scopes)

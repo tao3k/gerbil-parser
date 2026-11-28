@@ -62,6 +62,7 @@ import ParserEngine.Sequence
 import ParserEngine.Reduction
 import ParserEngine.Examples
 import ParserEngine.Fold
+import ParserEngine.FutureSearch
 import ParserEngine.OwnedStack
 import ParserEngine.Execution
 

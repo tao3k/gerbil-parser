@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 (import (only-in :gerbil-parser/t/fixtures/module-framing/grammar module-framing-language-grammar))
 ;;; Source framing is closed lexical data with bounded immutable indexes.
 (import :std/test

@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; -*- Gerbil -*-
 ;;; Parser-event algorithms execute in Scheme before AOT and stay AST-backed.
 
@@ -8,7 +8,7 @@
                  event-lines-language-grammar parse-event-lines parse_event_lines)
         (only-in :gerbil-parser/src/compiler/event-strategy-aot
                  compile-line-event-parser generate-line-event-module)
-        (only-in :gerbil-parser/src/compiler/rust-syntax
+        (only-in :gerbil-parser/language-support/rust/syntax
                  rust-line-event-function-form-digest)
         (only-in "rust-aot-test-syntax.ss" check-rust-event-strategy))
 

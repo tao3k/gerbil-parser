@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Recognition rules are executable POO values, including independent dialects.
 (import :std/test
         (only-in :clan/poo/object .o .ref)

@@ -1,5 +1,5 @@
 ;;; Whole-producer controls complement the universal construction proofs.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         :gerbil-parser/t/fixtures/lr-construction-semantics
         (only-in "fixtures/construction-lifecycle.ss" construction-observation)
         (only-in "fixtures/construction-storage.ss" joint-construction-observation)

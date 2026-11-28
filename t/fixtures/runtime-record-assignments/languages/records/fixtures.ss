@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
 ;;; Record assignments corpus manifest embedded at macro expansion.
 
-(import (only-in :gerbil-parser/language-support defsyntax-corpus)
+(import (only-in :gerbil-parser/language-support/interface defsyntax-corpus)
         (only-in ./grammar
                  +records-language-version+
                  +records-syntax-contract+))

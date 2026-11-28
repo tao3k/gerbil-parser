@@ -1,5 +1,5 @@
 ;;; SDK binding/visitor controls for the shared source execution capability.
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :gerbil-parser/t/fixtures/event-walk-source
                  source-expression-procedure source-expression-dependencies source-procedure
                  read-source-definition-port read-source-subdefinition source-mutation-sites transform-source-declaration)

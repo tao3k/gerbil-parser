@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Prepared captures belong to a request, including nested and parallel parses.
 (import :std/test
         (only-in :gerbil-parser/src/runtime/lexical-source

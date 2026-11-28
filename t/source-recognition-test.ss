@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Source-backed recognition spans are independent of language semantics.
 (import :std/test
         :gerbil-parser/src/runtime/recognition

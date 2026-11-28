@@ -1,8 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Common POO strategy binding/admission; providers belong to engine extensions.
 (import (only-in :clan/poo/object .o .cc .ref .slot? object?)
-        (only-in :clan/poo/mop define-type validate)
-        (only-in :tao3k/yuanxu/object-types/contracts yuanxu-predicate-contract)
+        (only-in :clan/poo/type define-type validate)
+        (only-in :tao3k/yuanxu/types/contracts yuanxu-predicate-contract)
         (only-in ../language/descriptor language-grammar? language-grammar-ir language-grammar-machine)
         (only-in ../runtime/machine parser-machine-grammar-digest parser-machine-ir))
 (export BuildStrategy. BuildStrategyContract make-bound-build-strategy emit-build-strategy
@@ -10,7 +10,7 @@
 
 ;;; Opaque engine registration keeps a recipe override from substituting an
 ;;; unchecked writer. A provider owns one output format, admission and emitter.
-(defstruct build-strategy-provider (name format admit emit))
+(defstruct build-strategy-provider (name format admit emit) final: #t)
 (def (declare-build-strategy-provider name format admit emit)
   (unless (and (symbol? name) (symbol? format) (procedure? admit) (procedure? emit))
     (error "invalid engine build strategy provider" name format))

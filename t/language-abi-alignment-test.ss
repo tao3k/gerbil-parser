@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Exact language ABI fixture parity is an ordinary Scheme semantic test.
 (import :std/test :std/io/tempfile :std/misc/ports
         :std/encoding/json :std/encoding/hex

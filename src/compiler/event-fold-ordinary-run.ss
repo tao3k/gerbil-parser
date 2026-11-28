@@ -3,7 +3,7 @@
         (only-in ./event-fold-zero-state fold-zero-state-plan fold-zero-state-support)
         (only-in ./event-fold-byte-dispatch fold-byte-regions)
         (only-in ./event-fold-analysis fold-expression-analysis fold-statement-analysis fold-eliminate-inert-branches))
-(export fold-ordinary-run-plan fold-consumer-run-plan)
+(export fold-ordinary-run-plan fold-consumer-run-plan fold-last-match-plan)
 
 ;; A reset/increment transition is summarized in the scanner, not executed
 ;; against owner slots at every byte. Only an exact current-byte class and a
@@ -160,3 +160,16 @@
                           `(not (offset-less? (line-index ,cursor) (state-offset ,prefix)))
                           '(bool #t))
                         writes summaries))))))
+
+;; A sole overwrite does not expose intermediate matches. Its final value is
+;; the successor of the last matching byte, independent of the original slot.
+;; Ordered effects and state-dependent predicates keep the normal loop.
+(def (fold-last-match-plan forms cursor)
+  (match forms
+    ([['if ['line-bytes-any-in? ['line-index read]
+                                ['line-step ['line-index next]] bytes]
+            [['set-uint target ['offset ['line-step ['line-index write]]]]]
+            []]]
+     (and (eq? cursor read) (eq? cursor next) (eq? cursor write)
+          (vector target bytes)))
+    (_ #f)))

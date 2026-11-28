@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support)
+(import :gerbil-parser/language-support/testing)
 ;;; Native language admission uses independent descriptors, never builtin names.
 (import :std/test
         (only-in :gerbil-parser/src/ffi/language-abi-context language-abi-context-source-admission write-abi-row! ascii-source-bytes? copy-ascii-source-range! ascii-source-range?)

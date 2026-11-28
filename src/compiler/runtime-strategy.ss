@@ -1,8 +1,8 @@
 ;;; -*- Gerbil -*-
 ;;; Existing canonical Rust producer through the common POO build protocol.
 (import (only-in :clan/poo/object .o .ref)
-        (only-in :clan/poo/mop define-type validate)
-        (only-in :tao3k/yuanxu/object-types/contracts yuanxu-predicate-contract)
+        (only-in :clan/poo/type define-type validate)
+        (only-in :tao3k/yuanxu/types/contracts yuanxu-predicate-contract)
         (only-in ./build-strategy BuildStrategy. build-strategy-common-shape?
                  declare-build-strategy-provider make-bound-build-strategy)
         (only-in ../language/descriptor language-grammar-parser-policy)

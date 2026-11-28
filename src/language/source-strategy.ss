@@ -2,15 +2,15 @@
 (import (only-in ../compiler/contextual-program contextual-program? contextual-program-ir contextual-program-results)
         (only-in ../runtime/contextual-ir contextual-ir-ref)
         (only-in :clan/poo/object .o .ref .slot? object?)
-        (only-in :clan/poo/mop define-type validate)
+        (only-in :clan/poo/type define-type validate)
         (only-in ./result-profile result-plan? result-plan-catalog)
-        (only-in :tao3k/yuanxu/object-types/contracts yuanxu-predicate-contract))
+        (only-in :tao3k/yuanxu/types/contracts yuanxu-predicate-contract))
 (export SourceStrategy. SourceStrategyContract bind-source-strategy
         declare-source-strategy-provider make-source-engine
         source-engine? source-engine-program source-engine-scanner source-engine-factory
         source-engine-parse source-engine-receipt source-engine-results source-engine-root-kind)
-(defstruct source-strategy-provider (name admit compile))
-(defstruct source-engine (scanner factory parse receipt results root-kind program))
+(defstruct source-strategy-provider (name admit compile) final: #t)
+(defstruct source-engine (scanner factory parse receipt results root-kind program) final: #t)
 (def (declare-source-strategy-provider name admit compile)
   (unless (and (symbol? name) (procedure? admit) (procedure? compile))
     (error "invalid engine source strategy registration" name))

@@ -114,7 +114,7 @@ rejection retains the runtime. Libraries remain loaded until all owners end.
 
 * Independent AOT and publication
 
-=rust-runtime-support= exposes ordinary and contextual language generators,
+=language-support/rust/emit= exposes ordinary and contextual language generators,
 shared scanner generation and the bounded Command/Source generator. Descriptor
 products delegate to =language-rust-runtime-module-source= for identity, portable
 policy admission and execution emission. A Scheme-only CST policy is rejected

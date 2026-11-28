@@ -1,4 +1,4 @@
-(import :gerbil-parser/language-test-support
+(import :gerbil-parser/language-support/testing
         (only-in :gerbil-parser/src/compiler/decision-code shared-decision-expression))
 
 ;;; Independent unshared source oracle; tests execute both forms in the same

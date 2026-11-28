@@ -19,9 +19,9 @@
 
 ;;; Method payloads are closed IR identities. =any= is resolved only by the
 ;;; compiler, after it checks the full axis catalogs.
-(defstruct contextual-method (name mode position form result) transparent: #t)
+(defstruct contextual-method (name mode position form result) transparent: #t final: #t)
 (defstruct contextual-scan-rule (name mode form matcher rank action)
-  transparent: #t)
+  transparent: #t final: #t)
 
 (def ContextualRoleContract. (.ref ContextualRoleContract 'proto))
 

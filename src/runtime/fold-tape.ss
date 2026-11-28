@@ -23,7 +23,7 @@
    fold_wire_le64(p + 3, ___arg4); fold_wire_le64(p + 11, ___arg5);
    ___return;")
 
-(defstruct fold-tape-owner (bytes used sealed?))
+(defstruct fold-tape-owner (bytes used sealed?) final: #t)
 (def (make-fold-tape header)
   (unless (u8vector? header) (error "invalid Fold tape header"))
   (let* ((size (u8vector-length header)) (bytes (make-u8vector (max 64 size) 0)))

@@ -35,7 +35,7 @@
 (def CommandProfile. (.o ports: '() roles: '() texts: '() forms: '()
                         projections: (map (lambda (shape) (list (car shape) (car shape))) +command-shapes+)))
 (def +command-roles+ '(trivia separator redirect here-redirect strip-redirect reserved conditional-operator pipeline and-or case-end))
-(defstruct command-plan (recipe-field roles texts projections dispatch fallback))
+(defstruct command-plan (recipe-field roles texts projections dispatch fallback) final: #t)
 (def (copy-data value)
   (cond ((pair? value) (cons (copy-data (car value)) (copy-data (cdr value))))
         ((string? value) (string-copy value)) (else value)))

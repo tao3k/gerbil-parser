@@ -28,7 +28,7 @@
    syntax-accepted roundtrip tool tool-path tool-digest tlc-version workers
    exit-status completed states-generated distinct-states states-left
    graph-depth admitted output-digest output)
-  transparent: #t)
+  transparent: #t final: #t)
 
 (def (read-text path)
   (call-with-input-file path read-all-as-string))

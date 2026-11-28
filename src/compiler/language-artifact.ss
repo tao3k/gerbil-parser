@@ -397,11 +397,11 @@
 ;;; This record exists only during expansion. Sections hold syntax lists until
 ;;; canonical admission; runtime descriptors receive immutable artifacts only.
 (defstruct language-declaration
-  (syntax prefix identities sections conflict-policy case-insensitive? lineage source-map))
+  (syntax prefix identities sections conflict-policy case-insensitive? lineage source-map) final: #t)
 
 ;;; One result ties runtime emission to the grammar and all published products.
 (defstruct compiled-language-declaration
-  (grammar grammar-locator bound-locator parser-locator program-locator))
+  (grammar grammar-locator bound-locator parser-locator program-locator) final: #t)
 
 (def (read-language-declaration-syntax stx)
   ;; Admit exactly the six existing low-level clause shapes, then normalize
@@ -451,8 +451,8 @@
    assembly-binding descriptor-binding begin-binding define-binding))
 
 ;;; Admission retains contextual facts together with the exact canonical grammar.
-(defstruct admitted-language-declaration (grammar origin lineage source-map))
-(defstruct language-declaration-bindings (grammar bound parser machine language))
+(defstruct admitted-language-declaration (grammar origin lineage source-map) final: #t)
+(defstruct language-declaration-bindings (grammar bound parser machine language) final: #t)
 
 (def (derive-language-declaration-bindings declaration)
   (def prefix (language-declaration-prefix declaration))

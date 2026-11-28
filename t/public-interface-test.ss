@@ -25,6 +25,22 @@
       (equal
         (and (string-contains (output-of `(import ,(fixture "grammar.ss")))
                              "PARSER-PRELUDE-GRAMMAR-OK") #t) #t))
+    (scenario "ordinary :gerbil-parser/lang lowers grammar declarations on plain :gerbil/core"
+      (scope ((output
+        (output-of '(begin
+                      (import :gerbil-parser/lang)
+                      (deftext-profile plain-number-text (run decimal-digit))
+                      (defgrammar-syntax (plain-one expression) expression)
+                      (deflanguage plain-lang-smoke
+                        (syntax (lexical
+                          (root document)
+                          (lex (number Number (decimal-digit+)))
+                          (extras) (keywords) (recoveries) (conflicts reject)))
+                        (rules (document (node Document (plain-one (field value number))))))
+                      (unless plain-lang-smoke-parser
+                        (error "plain :gerbil-parser/lang failed to lower deflanguage"))
+                      (displayln "PLAIN-PARSER-LANG-OK")))))
+        (equal (and (string-contains output "PLAIN-PARSER-LANG-OK") #t) #t)))
     (scenario "Runtime publishes native capabilities without the API umbrella"
       (scope ((output
         (output-of '(begin

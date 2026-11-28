@@ -9,8 +9,8 @@
         declare-source-strategy-provider make-source-engine
         source-engine? source-engine-program source-engine-scanner source-engine-factory
         source-engine-parse source-engine-receipt source-engine-results source-engine-root-kind)
-(defstruct source-strategy-provider (name admit compile))
-(defstruct source-engine (scanner factory parse receipt results root-kind program))
+(defstruct source-strategy-provider (name admit compile) final: #t)
+(defstruct source-engine (scanner factory parse receipt results root-kind program) final: #t)
 (def (declare-source-strategy-provider name admit compile)
   (unless (and (symbol? name) (procedure? admit) (procedure? compile))
     (error "invalid engine source strategy registration" name))

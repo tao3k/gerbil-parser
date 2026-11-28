@@ -3,7 +3,7 @@
         result-plan-node-index result-plan-token-index result-plan-projection-index
         result-plan-recipe result-plan-catalog copy-result-datum)
 
-(defstruct result-plan (owned-recipe node-index token-index projection-index))
+(defstruct result-plan (owned-recipe node-index token-index projection-index) final: #t)
 (def (copy-result-datum value)
   (cond ((pair? value) (cons (copy-result-datum (car value)) (copy-result-datum (cdr value))))
         ((string? value) (string-copy value)) (else value)))

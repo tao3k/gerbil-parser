@@ -22,7 +22,7 @@
         shell-here-document-link-body-start
         make-shell-parser)
 
-(defstruct shell-here-document-link (marker-start body-start) transparent: #t)
+(defstruct shell-here-document-link (marker-start body-start) transparent: #t final: #t)
 
 (def (make-shell-parser regions results parts-plan commands)
   (let-values (((shell-word-components shell-assignment-components shell-here-content-components)

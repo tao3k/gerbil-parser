@@ -43,7 +43,7 @@
 
 ;;; Fixture indexes are an engine-derived cached POO slot. Authors provide only
 ;;; the fixture value list. A new .cc/.o object recomputes its effective index.
-(defstruct fixture-catalog (descriptor origin all accepted rejected by-id counts))
+(defstruct fixture-catalog (descriptor origin all accepted rejected by-id counts) final: #t)
 (def (prepare-loader-fixtures descriptor fixtures)
   (unless (list? fixtures) (error "language loader fixtures must be a list"))
   (let ((seen (make-hash-table)) (all '()) (accepted '()) (rejected '()))
@@ -94,7 +94,7 @@
 
 ;;; Test declarations carry an engine opcode and exact descriptor identity.
 ;;; Their constructor is private; a language cannot substitute a success callback.
-(defstruct language-fixture-test (descriptor))
+(defstruct language-fixture-test (descriptor) final: #t)
 
 (def (declare-language-fixture-test descriptor)
   (unless (or (language-grammar? descriptor) (source-language? descriptor))
@@ -123,7 +123,7 @@
     (check-language-loader-fixtures! loader)))
 
 ;;; Source workers are derived from the admitted engine binding; no user factory.
-(defstruct language-source-scan-worker (descriptor factory))
+(defstruct language-source-scan-worker (descriptor factory) final: #t)
 
 (def (declare-language-source-scan-worker descriptor)
   (unless (source-language? descriptor)

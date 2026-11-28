@@ -18,7 +18,7 @@
 
 (def (source-language-scanner-factory descriptor) (source-language-factory descriptor))
 
-(defstruct (source-syntax source-language) (recipe strategy) transparent: #t)
+(defstruct (source-syntax source-language) (recipe strategy) transparent: #t final: #t)
 (def (source-language-with-identity definition language version contract)
   (unless (source-syntax? definition) (error "source identity requires unbound syntax"))
   (let ((language-value (string-copy language)) (version-value (string-copy version))

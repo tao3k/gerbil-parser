@@ -10,7 +10,7 @@
 
 ;;; Opaque engine registration keeps a recipe override from substituting an
 ;;; unchecked writer. A provider owns one output format, admission and emitter.
-(defstruct build-strategy-provider (name format admit emit))
+(defstruct build-strategy-provider (name format admit emit) final: #t)
 (def (declare-build-strategy-provider name format admit emit)
   (unless (and (symbol? name) (symbol? format) (procedure? admit) (procedure? emit))
     (error "invalid engine build strategy provider" name format))

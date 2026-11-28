@@ -1,9 +1,10 @@
 prelude: :gerbil/core
 ;;; Select existing subsystem scopes and the runtime execution leaves.
-(import (only-in :tao3k/yuanxu/module-system/selection/init-syntax yuanxu!))
+(import (only-in :tao3k/yuanxu/lang yuanxu!))
 
 (yuanxu!
-  :build-roots ("language-support/build"
+  :build-roots ("lang"
+    "language-support/build"
     "build-support/compiler"
     "language-support/rust/emit"
     "language-support/event-fold/emit"

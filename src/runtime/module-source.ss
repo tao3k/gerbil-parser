@@ -1,6 +1,6 @@
 ;;; Prepared module framing. Repeated borders are indexed as intervals, not suffix scans.
 (export prepare-module-source scan-prepared-module-source)
-(defstruct module-source-index (source expression headers events))
+(defstruct module-source-index (source expression headers events) final: #t)
 (def (prefix-at? source at text)
  (and (<= (+ at (string-length text)) (string-length source))
   (let loop ((i 0))

@@ -17,10 +17,10 @@
 
 (def +javacc-source-schema+ "gerbil-parser.javacc-source.v1")
 
-(defstruct javacc-production (name result line) transparent: #t)
+(defstruct javacc-production (name result line) transparent: #t final: #t)
 (defstruct javacc-source
   (schema language version commit digest productions)
-  transparent: #t)
+  transparent: #t final: #t)
 
 (def (identifier-character? ch)
   (or (char-alphabetic? ch) (char-numeric? ch) (char=? ch #\_)))

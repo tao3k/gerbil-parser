@@ -9,7 +9,7 @@
 (export compile-command-contextual-program compile-line-contextual-program
         contextual-program? contextual-program-ir contextual-program-regions
         contextual-program-scanner contextual-program-results contextual-program-parts contextual-program-commands)
-(defstruct contextual-program (owned-ir regions owned-scanner results parts commands))
+(defstruct contextual-program (owned-ir regions owned-scanner results parts commands) final: #t)
 (def (contextual-program-scanner program)
   (contextual-ir-copy (contextual-program-owned-scanner program)))
 (def (contextual-program-ir program) (contextual-ir-copy (contextual-program-owned-ir program)))

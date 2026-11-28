@@ -525,7 +525,7 @@
 ;;; nullable index. Helpers remain private; diagnostics retain the source rule
 ;;; and operand, including references and wrappers erased by LR lowering.
 (def current-grammar-source-map (make-parameter '()))
-(defstruct nullable-origin-task (owner expression path references))
+(defstruct nullable-origin-task (owner expression path references) final: #t)
 
 (def (rule-index-by-lhs rules)
   (let (rows (make-table test: eq?))
@@ -655,7 +655,7 @@
 ;;; Two Boolean domains share one occurrence graph. Bit 1 is nullable, bit 2
 ;;; productive; nullable publication also admits productivity. Pending changes
 ;;; coalesce while queued, so a name's dependencies are visited at most twice.
-(defstruct completion-clause (owner nullable-remaining productive-remaining))
+(defstruct completion-clause (owner nullable-remaining productive-remaining) final: #t)
 
 (def (compute-completion productions)
   (let* ((names (nonterminals productions))

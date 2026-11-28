@@ -24,11 +24,11 @@
   transparent: #t)
 
 (defstruct language-parser-policy (identity branch-budget cst-validator)
-  transparent: #t)
+  transparent: #t final: #t)
 
 ;;; Preserve the ordinary descriptor layout and its eight-argument constructor.
 ;;; A policy is admitted once and cannot be supplied as an unchecked loader slot.
-(defstruct (policy-language-grammar language-grammar) (policy) transparent: #t)
+(defstruct (policy-language-grammar language-grammar) (policy) transparent: #t final: #t)
 
 (def (language-grammar-parser-policy grammar)
   (and (policy-language-grammar? grammar) (policy-language-grammar-policy grammar)))

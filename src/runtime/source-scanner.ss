@@ -22,7 +22,7 @@
         source-scan-session-scanned-token-count source-scan-session-reused-token-count)
 
 (defstruct source-scanner-driver (source initial-context scan context-type) transparent: #t)
-(defstruct (contextual-source-driver source-scanner-driver) (executor position))
+(defstruct (contextual-source-driver source-scanner-driver) (executor position) final: #t)
 (define-type (ContextualScanState @ Type.) .element?: contextual-scan-state?)
 (def source-scanner-contextual? contextual-source-driver?)
 (def (make-contextual-source-scanner plan source position)
@@ -31,7 +31,7 @@
     (make-contextual-source-driver source initial #f ContextualScanState executor position)))
 
 (defstruct source-scan-state (owner source character-offset byte-offset context)
-  transparent: #t)
+  transparent: #t final: #t)
 
 (def (make-source-scanner Context Mode source initial-context step)
   (make-source-scanner-driver (validate String source) (validate Context initial-context)
@@ -114,7 +114,7 @@
 
 ;;; Sessions own token records; callers receive copies so publication or edits
 ;;; cannot corrupt a future reuse candidate. Checkpoint vectors stay private.
-(defstruct source-scan-session-state (worker mode tokens-field states scanned-token-count reused-token-count))
+(defstruct source-scan-session-state (worker mode tokens-field states scanned-token-count reused-token-count) final: #t)
 (def source-scan-session? source-scan-session-state?)
 (def source-scan-session-scanned-token-count source-scan-session-state-scanned-token-count)
 (def source-scan-session-reused-token-count source-scan-session-state-reused-token-count)

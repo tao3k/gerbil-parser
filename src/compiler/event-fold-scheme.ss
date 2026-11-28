@@ -17,7 +17,7 @@
 
 ;; A declared consumer is resolved at generation. Fold effects still lower
 ;; to direct calls to a single request-local writer.
-(defstruct fold-consumer (module names))
+(defstruct fold-consumer (module names) final: #t)
 
 (def (make-event-fold-consumer module make start token finish publish)
   (def symbols (list make start token finish publish))

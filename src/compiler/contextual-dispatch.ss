@@ -12,7 +12,7 @@
 
 (def +contextual-dispatch-schema+ "gerbil-parser.contextual-dispatch.v1")
 (defstruct contextual-candidate (origin name mode position form result)
-  transparent: #t)
+  transparent: #t final: #t)
 
 (def (contextual-dispatch-ref ir key)
   (let (row (assq key ir))

@@ -91,8 +91,8 @@
 
 ;;; Context is captured by the same fold that admits effective grammar rows.
 ;;; Occurrence indices distinguish equal role names and repeated role objects.
-(defstruct effective-grammar-row (row step operation role source history))
-(defstruct normalized-grammar (ir receipt selections))
+(defstruct effective-grammar-row (row step operation role source history) final: #t)
+(defstruct normalized-grammar (ir receipt selections) final: #t)
 
 (def (normalize-keyed-table steps section source-at capture?)
   (def rows '())

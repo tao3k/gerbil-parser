@@ -102,7 +102,7 @@
 
 ;;; Bind immutable generated machine data once; product-owned mutable values
 ;;; become private indexes, an owned scanner plan and a copied digest.
-(defstruct contextual-parser-plan (machine scanner positions digest))
+(defstruct contextual-parser-plan (machine scanner positions digest) final: #t)
 
 ;;; Publication identity belongs to the admitted contextual product, not its base.
 (def (contextual-parser-grammar-digest plan)

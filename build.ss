@@ -3,4 +3,4 @@
         (only-in :std/build-script defbuild-script)
         (only-in "./init.ss" gerbil-parser.init.exports))
 
-(defbuild-script (.get gerbil-parser.init.exports std-make-spec))
+(defbuild-script (cons "prelude" (.get gerbil-parser.init.exports std-make-spec)))

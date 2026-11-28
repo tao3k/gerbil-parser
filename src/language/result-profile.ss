@@ -17,7 +17,7 @@
         result-plan? result-plan-recipe result-plan-catalog result-plan-node result-plan-token
         result-plan-projection result-projection-build result-projection-parts-field result-projection-build-parts result-plan-bind-projections)
 (def ResultProfile. (.o nodes: '() tokens: '() scanner: #f projections: '()))
-(defstruct result-projection (owner kind captures operations arity executor direct-parts?))
+(defstruct result-projection (owner kind captures operations arity executor direct-parts?) final: #t)
 (def (unique-symbols? values)
   (and (list? values) (andmap symbol? values)
        (let (seen (make-hash-table-eq))

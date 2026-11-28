@@ -5,12 +5,12 @@
 
 (import (only-in :clan/poo/object .o .ref .cc)
         (only-in :clan/poo/type define-type element? Type. Record String Bool
-                 Exactly OrFalse Any)
+                 Exactly Nullable)
         (only-in :clan/poo/number UInt Integer)
         (only-in :tao3k/yuanxu/types/contracts YuanxuContract.))
 (export +span-edit-kind+ +span-edit-result-kind+
         SpanEditFields SpanEdit SpanEditContract
-        SpanEditResult SpanEditResultContract
+        VerifiedParseValue SpanEditResultOf SpanEditResult SpanEditResultContract
         span-edit? span-edit-result?)
 
 (def +span-edit-kind+ 'gerbil-parser-span-edit)
@@ -21,7 +21,7 @@
           start: [UInt]
           end: [UInt]
           replacement: [String]
-          label: [(OrFalse String)]))
+          label: [(Nullable String)]))
 
 (define-type (SpanEdit @ SpanEditFields)
   .element?: (lambda (v)
@@ -34,13 +34,19 @@
        proto: (.o)
        value-contract: SpanEdit))
 
-(define-type SpanEditResult
+(define-type (VerifiedParseValue @ Type.)
+  .element?: (lambda (v) (and v #t)))
+
+(def (SpanEditResultOf Parsed)
   (Record kind: [(Exactly +span-edit-result-kind+)]
           source: [String]
           applied-count: [UInt]
           byte-delta: [Integer]
           verified?: [Bool]
-          parsed: [Any]))
+          parsed: [Parsed]))
+
+(define-type SpanEditResult
+  (SpanEditResultOf VerifiedParseValue))
 
 (def SpanEditResultContract
   (.cc YuanxuContract.

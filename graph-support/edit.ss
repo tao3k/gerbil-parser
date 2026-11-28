@@ -6,7 +6,7 @@
 (import (only-in ../src/graph/span-edit-types
                  +span-edit-kind+ +span-edit-result-kind+
                  SpanEdit SpanEditContract
-                 SpanEditResult SpanEditResultContract
+                 VerifiedParseValue SpanEditResultOf SpanEditResult SpanEditResultContract
                  span-edit? span-edit-result?)
         (only-in ../src/graph/span-edit-funs
                  make-span-edit
@@ -23,7 +23,7 @@
                  apply-span-edits/verified))
 (export +span-edit-kind+ +span-edit-result-kind+
         SpanEdit SpanEditContract
-        SpanEditResult SpanEditResultContract
+        VerifiedParseValue SpanEditResultOf SpanEditResult SpanEditResultContract
         span-edit? span-edit-result?
         make-span-edit
         span-edit-insert

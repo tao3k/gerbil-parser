@@ -1,13 +1,25 @@
 ;;; The native Record owns field types, inheritance, defaults and normalization.
 (import (only-in :clan/poo/object .cc)
-        (only-in :clan/poo/type define-type Fun Record String Symbol Bool List Or Pair Keyword)
-        (only-in :clan/poo/number Integer))
-(export BuildSupportScope BuildSupportScopeContract BuildOptionDatum BuildSpecification)
+        (only-in :clan/poo/type define-type Type. Fun Record String List Or Pair Keyword))
+(export BuildSupportScope BuildSupportScopeContract BuildOptionDatum BuildSpecification
+        build-option-datum?)
 
-;; std/make owns option/metadata semantics, including nested submodule specs.
-;; Constrain forwarded option data to structured Scheme atoms/lists without Any.
-(define-type BuildOptionDatum
-  (Or Symbol Keyword String Bool Integer (List String)))
+;; std/make owns option/metadata semantics, including nested submodule specs
+;; such as (submodules: ("child")). Constrain forwarded option data to
+;; structured Scheme atoms/lists without Any.
+(def (build-option-datum? value)
+  (or (null? value)
+      (symbol? value)
+      (keyword? value)
+      (string? value)
+      (boolean? value)
+      (exact-integer? value)
+      (and (pair? value)
+           (build-option-datum? (car value))
+           (build-option-datum? (cdr value)))))
+
+(define-type (BuildOptionDatum @ Type.)
+  .element?: build-option-datum?)
 
 (define-type BuildSpecification
   (List (Or String (Pair Keyword (Pair String (List BuildOptionDatum))))))

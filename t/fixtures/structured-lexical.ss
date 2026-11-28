@@ -1,5 +1,6 @@
 ;;; Shared declaration data for native tests and Rust generation.
-(import (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release)
+(import (only-in :gerbil-parser/lang deflanguage)
+        (only-in :gerbil-parser/t/fixtures/fixture-release bind-fixture-grammar-release)
         (only-in :gerbil-parser/languages/tla-plus/grammar
                  tla-proof-start tla-proof-reference tla-identifier))
 (export structured-lexical-language-grammar)
